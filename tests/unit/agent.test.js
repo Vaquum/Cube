@@ -147,6 +147,9 @@ test("HTTP-backed MCP refresh preserves the original sealed scene and returns ch
   const configured = A.seal(before), refreshed = await dispatch("cube_refresh", { document: configured });
   assert.equal(refreshed.document.comparison.selectedMetric, "delta"); assert.equal(refreshed.document.comparison.basis, "intensity");
   assert.equal(refreshed.document.comparison.reference, configured.comparison.reference); assert.equal(refreshed.document.focus, configured.focus);
+  const empty = structuredClone(before); empty.comparison.captures = []; empty.comparison.focus = null; empty.comparison.reference = null; empty.focus = null;
+  const emptyResult = await dispatch("cube_refresh", { document: A.seal(empty) });
+  assert.deepEqual(emptyResult.document.comparison.captures, []); assert.equal(emptyResult.document.comparison.focus, null);
 });
 test("every outward adapter scene response redacts values beyond its replay edge", async () => {
   const { dispatch } = await import("../../tools/cube-agent.mjs"), original = document();

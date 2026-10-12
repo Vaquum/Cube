@@ -24,7 +24,7 @@ nonfinite values and content-integrity failures reject the whole document.
 - Captured investigations identify their capture time and keep evidence fixed.
   **Refresh current source** explicitly reads the current cube, compares measurements
   and retains the prior capture until the page closes. **Restore previous capture**
-  returns to it; agents can read the same document through `cubeAgent.previous`. Source revisions are
+  returns to it; agents can call `cubeAgent.restorePrevious()`. `cubeAgent.previous` exposes a causally redacted copy; the full prior state remains private for restoration. Source revisions are
   observations; neither a code nor a pack token reconstructs an unavailable vintage.
 
 The standalone recorded page supports document exchange and embedded links; large
@@ -36,7 +36,7 @@ Comparison captures retain their existing 4 MiB collection limit.
 
 `window.cubeAgent` exposes `capabilities()`, `inspect()`, `export(scope)`, `query(query)`,
 `apply(document)`, `configure(patch)`, `compare(options)`, `replay(anchor,enabled)`,
-`annotate(line)`, `share(document?,focus?)` and `refresh()`. These operations use the
+`annotate(line)`, `share(document?,focus?)`, `refresh()` and `restorePrevious()`. These operations use the
 same scene, drawing and comparison validators, committed-frame capture and
 measurement kernel as the human controls. Scopes are `view`, `selection`, and
 `comparison`. State operations are asynchronous.

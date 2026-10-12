@@ -12,7 +12,7 @@
   const E = window.explorerEncoding;
   const Agent = window.explorerAgent;
   const initialAnalysisHash = new URLSearchParams(location.hash.slice(1)).has("analysis") ? location.hash : null;
-  let activeAnalysis = null, analysisOrigin = null, analysisHash = null;
+  let activeAnalysis = null, analysisOrigin = null, analysisHash = null, analysisPrevious = null, analysisRevision = 0;
   if (!E) {
     el("loading").textContent = "The explorer's measurement module did not load. Reload the page.";
     throw new Error("explorerEncoding is missing");
@@ -21758,13 +21758,14 @@
     renderLive();
     scheduleLive(next);
   }
-  async function applyLive(body, whole) {
+  async function applyLive(body, whole, beforeCommit = null) {
     const was = CUT,
       wasCanon = CANON,
       parts = {};
     // Everything is decoded before anything changes: no frame sees half a pack.
     for (const id of TIERS)
       if (body.blocks?.[id]) parts[id] = await unpack(body.blocks[id], id);
+    if (beforeCommit) beforeCommit();
     comparisonSourceRevision++;
     if (whole) {
       for (const id of Object.keys(sources))
@@ -23442,7 +23443,7 @@
         const preserved = window.explorerState.drawings.preserve(drawingCollection());
         if (!preserved.ok) throw Error("Existing drawings could not be preserved: " + preserved.reason);
       }
-      activeAnalysis = value;
+      activeAnalysis = value; analysisRevision++;
       clearTimeout(live.timer); clearTimeout(cube.timer); clearTimeout(motion.timer);
       cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
@@ -23464,7 +23465,7 @@
       if (value.mode === "live") scheduleLive(3);
       return { id: value.id, mode: value.mode };
     } catch (error) {
-      activeAnalysis = prior;
+      activeAnalysis = prior; analysisRevision++;
       if (before.snapshot) agentInstallSnapshot(before.snapshot);
       applyView(portableView(E.codec.validatePortable(before.scene, viewEnv()).value, before.scene.id));
       throw error;
@@ -23473,9 +23474,12 @@
   async function agentRefresh() {
     if (!activeAnalysis) throw Error("Open a captured investigation before refreshing it");
     if (!analysisOrigin?.live) throw Error("The recorded page has no live source to refresh");
-    const before = await agentDocument(), refreshed = [], grouped = new Map();
+    const owner = activeAnalysis, revision = analysisRevision, collectionRevision = comparisonRevision;
+    const unchanged = () => { if (activeAnalysis !== owner || analysisRevision !== revision || comparisonRevision !== collectionRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
+    const before = await agentDocument("view", null, false), refreshed = [], grouped = new Map(); unchanged();
     const packResponse = await fetch("/cube/pack?proto=2&since=", { cache: "no-store" }), packBody = await packResponse.json();
     if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
+    unchanged();
     const token = packBody.pack.state_token;
     for (const cell of before.comparison.captures) {
       const whole = ["t0", "t1", "low", "high"].every((bound) => cell.observed[bound] === cell.nominal[bound]);
@@ -23488,6 +23492,7 @@
       const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m, pack: token };
       const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query));
       const body = await response.json(); if (!response.ok) throw Error(body.detail || body.error || "Refresh failed");
+      unchanged();
       if (body.frame.token !== token) throw Error("Source changed during refresh; captured evidence retained");
       for (const cell of cells) if (!body.cells.some((z) => z.c === cell.c && z.r === cell.r)) {
         const q = body.query, cut = E.time.msToBase(body.frame.cutoffMs, T0, BASE);
@@ -23502,15 +23507,25 @@
         refreshed.push(found);
       }
     }
-    window.cubeAgent.previous = before;
-    activeAnalysis = null; analysisHash = null;
-    agentInstallSnapshot(analysisOrigin);
-    await applyLive(packBody.pack, true);
+    let committingRevision;
+    await applyLive(packBody.pack, true, () => {
+      unchanged();
+      analysisPrevious = before;
+      activeAnalysis = null; analysisHash = null; committingRevision = ++analysisRevision;
+      agentInstallSnapshot(analysisOrigin);
+    });
+    const committed = () => { if (analysisRevision !== committingRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
+    committed();
     comparisonCommit({ ...before.comparison, captures: refreshed }, true, true); update();
-    const after = await agentDocument(), difference = Agent.diff(before, after);
-    activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null });
+    const after = await agentDocument(); committed();
+    const difference = Agent.diff(Agent.forExport(before), after);
+    activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null }); analysisRevision++;
     el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes.";
     scheduleLive(3); return { document: after, ...difference };
+  }
+  function agentRestorePrevious() {
+    if (!analysisPrevious) throw Error("No previous capture is available on this page");
+    return agentImport(analysisPrevious);
   }
   function agentInit() {
     const report = (operation) => Promise.resolve().then(operation).catch((error) => { el("analysis-status").textContent = error.message; throw error; });
@@ -23519,7 +23534,7 @@
       return agentImport(Agent.seal({ ...next, mode, snapshot: mode === "live" ? null : next.snapshot }));
     };
     window.cubeAgent = {
-      capabilities: () => ({ schema: Agent.SCHEMA, methods: ["inspect", "query", "export", "apply", "configure", "compare", "replay", "annotate", "share", "refresh"] }),
+      capabilities: () => ({ schema: Agent.SCHEMA, methods: ["inspect", "query", "export", "apply", "configure", "compare", "replay", "annotate", "share", "refresh", "restorePrevious"] }),
       inspect: () => agentDocument(), export: (scope = "view") => agentDocument(scope),
       query: async (query) => { const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query)); const body = await response.json(); if (!response.ok) throw Error(body.error); return Agent.fromQuery(body); },
       apply: (document) => report(() => agentImport(document)),
@@ -23527,9 +23542,10 @@
       compare: async (options) => Agent.compare(await agentDocument("comparison"), options),
       replay: (anchor, enabled = true) => edit((document) => Agent.configure(document, { replay: enabled, anchor })),
       annotate: (line) => edit((document) => Agent.annotate(document, line)),
-      share: (document, focus) => agentShare(document, focus), refresh: () => report(agentRefresh), previous: null,
+      share: (document, focus) => agentShare(document, focus), refresh: () => report(agentRefresh), restorePrevious: () => report(agentRestorePrevious),
+      get previous() { return analysisPrevious ? Agent.forExport(analysisPrevious) : null; },
     };
-    for (const [id, action] of [["copy-selection", () => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")], ["copy-comparison", () => copyText(async () => Agent.text(await agentDocument("comparison")), "Comparison for agent")], ["share-investigation", () => copyText(() => agentShare(), "Investigation link")], ["refresh-investigation", agentRefresh], ["previous-investigation", () => { if (!window.cubeAgent.previous) throw Error("No previous capture is available on this page"); return agentImport(window.cubeAgent.previous); }]]) el(id).addEventListener("click", () => { report(action).catch(() => {}); });
+    for (const [id, action] of [["copy-selection", () => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")], ["copy-comparison", () => copyText(async () => Agent.text(await agentDocument("comparison")), "Comparison for agent")], ["share-investigation", () => copyText(() => agentShare(), "Investigation link")], ["refresh-investigation", agentRefresh], ["previous-investigation", agentRestorePrevious]]) el(id).addEventListener("click", () => { report(action).catch(() => {}); });
     canvas.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c" && S.selection) { event.preventDefault(); report(() => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")).catch(() => {}); }
     });

@@ -147,3 +147,35 @@ test("refresh preserves each clipped capture's region at a shared resolution", a
   expect(result.document.comparison.captures.map((cell) => cell.observed)).toEqual(before.map((cell) => cell.observed));
   expect(result.document.comparison.captures.map((cell) => cell.metrics["volume.amount"].value)).toEqual(before.map((cell) => cell.metrics["volume.amount"].value));
 });
+
+test("refresh in replay retains the full prior capture for restoration", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe); await add(page, 0, 200); await add(page, 1, 201);
+  await page.evaluate(async () => window.cubeAgent.apply(await window.cubeAgent.export()));
+  await page.evaluate(() => window.cubeAgent.replay(1)); await atRest(page, fake, probe);
+  fake.revise({ day: "2021-01-01", factor: 2 });
+  await page.evaluate(() => window.cubeAgent.refresh());
+  expect((await page.evaluate(() => window.cubeAgent.previous)).comparison.captures[1].metrics["volume.amount"].tag).toBe("hidden");
+  await page.evaluate(() => window.cubeAgent.restorePrevious());
+  await page.evaluate(() => window.cubeAgent.replay(1, false)); await atRest(page, fake, probe);
+  const restored = await page.evaluate(() => window.cubeAgent.export());
+  expect(restored.comparison.captures[1].metrics["volume.amount"].value).toBe(100.5);
+  expect(restored.snapshot.sources.some((source) => source.cells.some((cell) => cell.c === 1 && cell.r === 201 && cell.v === 100.5))).toBe(true);
+});
+test("an investigation imported during refresh keeps its own canvas and comparison", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe); await add(page, 0, 200);
+  await page.evaluate(async () => window.cubeAgent.apply(await window.cubeAgent.export()));
+  let release, entered;
+  const held = new Promise((resolve) => { release = resolve; }), waiting = new Promise((resolve) => { entered = resolve; });
+  await page.route("**/cube/agent/query?**", async (route) => { const response = await route.fetch(); entered(); await held; await route.fulfill({ response }); });
+  await page.evaluate(() => { window.refreshAttempt = window.cubeAgent.refresh().then(() => "success", (error) => error.message); });
+  await waiting;
+  await page.evaluate(async () => {
+    const doc = await window.cubeAgent.export(); doc.comparison.captures = []; doc.comparison.focus = null;
+    const changed = window.explorerAgent.configure(window.explorerAgent.seal(doc), { mode: "delta" });
+    await window.cubeAgent.apply(changed);
+  });
+  release();
+  expect(await page.evaluate(() => window.refreshAttempt)).toContain("Investigation changed during refresh");
+  const current = await page.evaluate(() => window.cubeAgent.export());
+  expect(current.comparison.captures).toEqual([]); expect(current.scene.view.mode).toBe("delta");
+});

@@ -78,7 +78,9 @@ export async function dispatch(name, args = {}) {
         fresh.snapshot.cutoffMs = Math.max(fresh.snapshot.cutoffMs, observed.snapshot.cutoffMs);
       }
       fresh.comparison.captures = captures;
-    }
+    } else if (document.comparison) {
+      fresh.comparison.captures = []; fresh.comparison.focus = null;
+    } else { fresh.comparison = null; fresh.focus = null; }
     fresh.scene = structuredClone(document.scene);
     // Observation provenance has a strict portable-scene allowlist.
     fresh.scene.observation = { source: fresh.snapshot.source, instrument: "BTC/USDT", cutoffMs: fresh.snapshot.cutoffMs, canonicalThroughMs: fresh.snapshot.canonicalThroughMs, token: fresh.snapshot.token, note: "Explicit refresh of captured query" };
