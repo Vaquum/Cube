@@ -19527,7 +19527,7 @@
     { id: "replay", group: "Evaluate & retain", title: "Replay & model timing",
       purpose: "Explore history with an explicit effective data cutoff.",
       read: "The replay edge limits measurements and reference periods. Scales fitted after that cutoff are invalidated, unless a deliberate comparison lock is disclosed as an external override. Replay uses currently available history; original data vintages are not guaranteed. Volume per touched row versus expected model timing has its own disclosure.",
-      use: "Open Replay and enter an edge, select a column, or step/play. The effective edge aligns to a completed grid column. Read source/model timing; exit Replay to restore its workspace and scales.",
+      use: "Open Replay and enter an edge, select a column, or step/play. The effective Cells edge aligns to a completed grid column; Candles retains the exact exclusive timestamp. Read source/model timing; exit Replay to restore its workspace and scales.",
       targets: [{"label":"Show Replay control","selector":"#ol-replay"}], colour: "states" },
     { id: "tables", group: "Evaluate & retain", title: "Rallies, Cells, Cases & Query drawer",
       purpose: "Inspect the underlying records and the exact configuration behind the chart.",
@@ -19572,7 +19572,7 @@
     { id: "replay-objects", group: "Evaluate & retain", title: "Replay & retained objects",
       purpose: "Read each object's time eligibility honestly.",
       read: "Replay filters measurements and references by support and known-at, using current history rather than guaranteed original vintages. Captured metrics also need support-end and known-through before the edge; their values stay frozen. Rallies are filtered by confirmation. Drawings remain authored annotations. A held comparison mapping can be an explicit later-fit override.",
-      use: "Enter an exact UTC edge or select a column, then check the effective grid edge. Exit Replay restores its saved workspace; collection export is independent.",
+      use: "Enter an exact UTC edge or select a column, then check the effective edge: Cells aligns to grid columns, Candles preserves exact time. Exit Replay restores its saved workspace; collection export is independent.",
       targets: [{"label":"Show Replay","selector":"#ol-replay"},{"label":"Show Query","selector":"#ol-tab-query"},{"label":"Show Compare","selector":"#ol-tab-compare"}], colour: "states" },
     { id: "comparison-math", group: "Evaluate & retain", title: "Comparison basis & references",
       purpose: "Compare collected cells using eligible observations.",
@@ -42981,11 +42981,11 @@
       el("import").hidden = false; await applyImportedView(); el("bounds-status").textContent = el("copy-status").textContent;
     });
     el("replay-jump").addEventListener("submit", event => {
-      event.preventDefault(); const ms = Date.parse(el("replay-edge").value + "Z"), base = E.time.msToBase(ms, T0, BASE), edge = Math.floor(base / stepT()) * stepT();
-      if (!Number.isFinite(base) || edge < stepT() || edge > CUT) { el("replay-jump-status").textContent = "Choose an edge within the available history"; return; }
+      event.preventDefault(); const ms = Date.parse(el("replay-edge").value + "Z"), base = E.time.msToBase(ms, T0, BASE), edge = S.mode === "candles" ? base : Math.floor(base / stepT()) * stepT();
+      if (!Number.isFinite(base) || edge <= 0 || (S.mode !== "candles" && edge < stepT()) || base > CUT) { el("replay-jump-status").textContent = "Choose an edge within the available history"; return; }
       setPlaying(false); S.anchor = edge;
       if (edge < S.tA || edge > S.tB) { const width = S.tB - S.tA; S.tA = Math.max(0,edge - width); S.tB = edge; S.window = null; }
-      recordView("Replay edge"); update(); save(); scaleArm(); el("replay-jump-status").textContent = when(edge) + " UTC · completed grid edge";
+      recordView("Replay edge"); update(); save(); scaleArm(); el("replay-jump-status").textContent = iso(edge) + (S.mode === "candles" ? " · exact exclusive candle cutoff" : " · completed grid edge");
     });
     el("inspect-open-detail").addEventListener("click", () => inspectDetail(true));
     el("inspect-reference-search").addEventListener("input", () => inspectRender(true));
