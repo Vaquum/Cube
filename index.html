@@ -43043,7 +43043,7 @@
     container.dataset.key = key; container.replaceChildren(); container.hidden = kind === "none";
     if (kind === "none") return;
     container.append(uiEl("strong", "", "Colour & marks"));
-    if (kind === "rows" && !S.rows) container.append(uiEl("p","ol-muted","Rows is off. Enable Rows to read its fitted colour scale."));
+    if (kind === "rows" && S.rows === "off") container.append(uiEl("p","ol-muted","Rows is off. Enable Rows to read its fitted colour scale."));
     const row = (label, colour, mark = "—") => {
       const line = uiEl("div", "ol-reference-colour-row"), swatch = uiEl("i", "ol-reference-colour-swatch", mark);
       swatch.style.setProperty("--ref-ink", colour); swatch.setAttribute("aria-hidden","true"); line.append(swatch,uiEl("span","",label)); container.append(line);
