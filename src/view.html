@@ -1302,7 +1302,7 @@
         <div class="ol-drawer-body" id="ol-drawer-body">
           <section class="ol-panel ol-rally-panel" id="ol-panel-rallies" aria-labelledby="ol-tab-rallies" hidden>
             <form id="ol-rally-form" class="ol-rally-form">
-              <label>Mode<select id="ol-rally-mode"><option value="first_hit">First hit</option><option value="controlled_advance">Controlled advance</option><option value="swing">Swing</option></select></label>
+              <label>Mode<select id="ol-rally-mode"><option value="first_hit">First passage</option><option value="controlled_advance">Controlled advance</option><option value="swing">Swing</option></select></label>
               <label>Scale<select id="ol-rally-scale"><option value="bps">Basis points</option><option value="atr">ATR</option></select></label>
               <label>Target<input id="ol-rally-target" type="number" min="0.001" max="10000" step="any" value="30" required></label>
               <label id="ol-rally-pullback-label" hidden>Max pullback<input id="ol-rally-pullback" type="number" min="0.001" max="10000" step="any" value="10" required></label>
@@ -1318,7 +1318,7 @@
             <p class="ol-muted">A rally is an observed upward move. Thresholds are your operational definition. Confirmation does not predict reversal, durability or future gains. Spot data cannot establish short covering or derivatives leadership.</p>
             <div class="ol-panel-head">
               <label id="ol-rally-deadline-label">Time to target · minutes, exclusive<input id="ol-rally-deadline" type="number" min="0.001" max="240" step="any" value="240" aria-describedby="ol-rally-deadline-note"></label>
-              <span id="ol-rally-deadline-note" class="ol-muted">Local filter · at most 240 minutes. Swing ends on a reversal. Grid, replay and filters reuse the discovery.</span>
+              <span id="ol-rally-deadline-note" class="ol-muted">Local filter · under 240 minutes. Swing ends on a reversal. Grid, replay and filters reuse the discovery.</span>
               <button id="ol-rally-clear" type="button" class="ol-action ol-s cursor-interaction">Clear rally</button>
               <div class="ol-pager"><button id="ol-rally-previous" type="button" class="ol-action ol-s cursor-interaction">Previous</button><span id="ol-rally-page">0 confirmed · 1/1</span><button id="ol-rally-next" type="button" class="ol-action ol-s cursor-interaction">Next</button></div>
             </div>
@@ -1420,7 +1420,7 @@
               <tbody id="ol-table-body"></tbody>
             </table>
             <table class="ol-table" id="ol-candle-table" aria-label="Candles in view: exact prices in USDT" hidden>
-              <thead><tr><th>Interval · UTC</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Direction</th><th>Status</th></tr></thead>
+              <thead><tr><th scope="col">Interval · UTC</th><th scope="col">Open · USDT</th><th scope="col">High · USDT</th><th scope="col">Low · USDT</th><th scope="col">Close · USDT</th><th scope="col">Net move · USDT</th><th scope="col">High−low · USDT</th><th scope="col">Net move / daily ATR</th><th scope="col">High−low / daily ATR</th><th scope="col">Direction</th><th scope="col">Status</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -2004,7 +2004,7 @@
         </button>
       </div>
       <p class="ol-keys-note">
-        Keys work anywhere on the page except in text fields.
+        Keys work outside text fields and lists. Focused controls and the reference pane use their own keys.
       </p>
       <div class="ol-keys-grid">
         <section aria-labelledby="ol-keys-move">
