@@ -2513,7 +2513,7 @@
       el("legend-text").title = "";
     }
     const marks = marksReadout(b);
-    el("ray-count-text").textContent = marks.rayCount + " untested levels";
+    el("ray-count-text").textContent = marks.rayCount + (marks.rayCount === 1 ? " untested level" : " untested levels");
     el("ray-count").hidden = !S.untested;
     el("va-value").textContent =
       marks.vaLow === null || meas.state === "pending" || meas.state === "failed"
@@ -3978,7 +3978,7 @@
     if (readout?.coordinate?.clip === "low" || readout?.coordinate?.clip === "high") context.textContent += ` · Numeric clipping: ${readout.coordinate.clip === "low" ? E.text.key.below : E.text.key.above}`;
     if (rv && Number.isFinite(rv.meanVolume)) context.textContent += ` · Average traded row ${usdt(rv.meanVolume)} USDT`;
     if (rv?.support.first !== null && rv?.support.first !== undefined) context.textContent += ` · Period price range ${price(rv.support.first * 2 ** q.m * PR)}–${price((rv.support.last + 1) * 2 ** q.m * PR)} USDT`;
-    context.textContent += " · Profile-share compares overlapping clipped bins; pc=s uses wholly-in-view bins.";
+    context.textContent += " · Profile-share compares overlapping clipped bins; Shared row share uses wholly-in-view bins.";
     if (tip.querySelector(".ol-tip-head")) tip.querySelector(".ol-tip-head").textContent = `${price(priceBand[0])}–${price(priceBand[1])} USDT`;
     if (readout) scaleRt.tipReadout = readout;
   }
@@ -7973,7 +7973,7 @@
       // announced" is something a reader of the page finds and not an absence
       for (const name of ["scaleChangeCause", "scaleChangeFrom", "scaleChangeTo"])
         if (!legendDetails.some((d) => d.field === name)) {
-          const dd = uiEl("dd", "ol-num", "");
+          const dd = uiEl("dd", "ol-num", "No change");
           dd.dataset.field = name;
           dd.dataset.value = "";
           details.push([uiEl("dt", "", UI_CHANGE_LABELS[name]), dd]);
@@ -8003,6 +8003,7 @@
   // TEXT(S1): the short label of that field
   const uiDetailLabel = (d) => (d.label === d.value && d.label.length > 24 ? (UI_SHORT_LABELS[d.field] ?? d.field) : d.label);
   function uiUtcText(detail) {
+    if (detail.value === "" || detail.value === null || detail.value === undefined) return detail.field === "warnings" ? "None" : ["scaleChangeCause", "scaleChangeFrom", "scaleChangeTo"].includes(detail.field) ? "No change" : "Not recorded";
     return ["fitThrough", "obsCutoff", "obsCanonical"].includes(detail.field) && typeof detail.canonical === "number"
       ? uiUtcMs(detail.canonical)
       : detail.value;
@@ -8273,7 +8274,7 @@
   // The words of an axis unit id (an id with no string of its own reads as itself)
   function uiAxisUnit(unit) {
     const u = E.text.unit;
-    return { usdt: u.usdt, trades: u.trades, "usdt-per-trade": u.usdtPerTrade, "log2-ratio": u.log2, seconds: u.seconds, share: u.share }[unit] ?? unit ?? "";
+    return { usdt: u.usdt, "usdt-per-row": "USDT per row", trades: u.trades, "usdt-per-trade": u.usdtPerTrade, "log2-ratio": "log₂ ratio", seconds: u.seconds, share: u.share, "signed-share": "signed share", "row-spans": "row spans", "row-spans-per-min": "row spans / min" }[unit] ?? unit ?? "";
   }
   // "±1.92 B USDT", "0 – 100", "−2 – 2 log2 ratio": the domain as the chart's own numbers read it
   function uiAxisDomain(rec) {
@@ -8406,7 +8407,8 @@
             list.append(uiEl("dt", "", label), dd);
           };
         box.dataset.axisId = rec.id;
-        box.append(uiEl("strong", "", `${rec.id} · ${uiAxisText(rec)}`));
+        const axisName = rec.id === "profile.current" ? "Current profile" : rec.id === "profile.reference" ? "Reference profile" : rec.id.startsWith("pane.") ? "Columns" : "Axis";
+        box.append(uiEl("strong", "", `${axisName} · ${uiAxisText(rec)}`));
         add(E.text.ui.policy, rec.policy === "frozen" ? E.text.policy.axisFrozen : rec.policy === "fixed" ? E.text.policy.fixed : E.text.policy.axisAuto, "policy", rec.policy);
         if (rec.mappingId) add("Mapping", rec.mappingId, "mappingId", rec.mappingId);
         add("Domain", uiAxisDomain(rec), "domain", rec.domain);
@@ -8476,7 +8478,7 @@
     if (S.rows !== "off") view.push(row("rowsMeasure", "Rows", `${ROWS_INFO[S.rows].name} ${periodPhrase(S.period)}`, `${S.rows}:${S.period}`));
     view.push(row("dataCutoff", "Data through", uiUtcMs(cutMs), cutMs));
     if (canonMs !== null) view.push(row("canonicalThrough", "Canonical through", uiUtcMs(canonMs), canonMs));
-    view.push(row("replay", "Replay", S.replay ? `At ${uiUtcMs(cutMs)}` : "Live", Boolean(S.replay)));
+    view.push(row("replay", "Replay", S.replay ? `At ${uiUtcMs(cutMs)}` : "Off", Boolean(S.replay)));
     view.push(row("source", "Source", String(PACK.source ?? "").slice(0, 200)));
     const status = E.model.status(cutMs);
     view.push(
@@ -8534,7 +8536,7 @@
         box.dataset.section = s.id;
         box.append(uiEl("h4", "", s.title));
         for (const r of s.rows) {
-          const dd = uiEl("dd", "ol-num", r.value);
+          const dd = uiEl("dd", "ol-num", r.value === "" || r.value === null || r.value === undefined ? r.field === "warnings" ? "None" : r.field.startsWith("scaleChange") ? "No change" : "Not recorded" : r.value);
           dd.dataset.field = r.field;
           if (r.canonical !== null && r.canonical !== undefined) dd.dataset.value = typeof r.canonical === "string" ? r.canonical : JSON.stringify(r.canonical);
           list.append(uiEl("dt", "", r.label), dd);
@@ -17480,7 +17482,7 @@
     if (e.error || !e.cases) {
       list.replaceChildren();
       el("case-definition").textContent = e.error;
-      el("case-page").textContent = "0 cases";
+      el("case-page").textContent = e.error || "Preparing cases";
       el("case-prev").disabled = el("case-next").disabled = true;
       return;
     }
@@ -22481,7 +22483,8 @@
   function drawingConfirmDelete(origin) {
     const objects = drawingCollection().objects; if (!objects.length) return;
     closePop(); drawingDeleteOrigin = origin; el("drawing-confirm").dataset.ids = objects.map((o) => o.id).join(",");
-    drawingWrite(el("drawing-confirm-title"), `Delete ${objects.length} drawings, including ${objects.filter((o) => o.locked).length} locked?`);
+    const locked = objects.filter((o) => o.locked).length;
+    drawingWrite(el("drawing-confirm-title"), `Delete ${objects.length} ${objects.length === 1 ? "drawing" : "drawings"}${locked ? `, including ${locked} locked` : ""}?`);
     if (!el("drawing-confirm").open) el("drawing-confirm").showModal(); el("drawing-confirm-cancel").focus({ preventScroll: true });
   }
   function drawingCloseConfirm() {
@@ -22769,7 +22772,7 @@
       mz=frameMotionReady ? motionQuery?.map.get(cellKey(c,r)) ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0} : cachedMotion?.z ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0},
       motionEnd=frameMotionReady?Math.min((c+1)*ts,(!lens && motionQuery===motionFrame.rect?.query)?motionFrame.rect.end:motionFrame.src?.end??motionFrame.msrc?.end):cachedMotion?.end??null,
       metrics={},detail=[], nominal={t0:comparisonMs(c*ts),t1:comparisonMs((c+1)*ts),low:r*ps*PR,high:(r+1)*ps*PR};
-    let shortExposure=false;
+    const shortExposure = E.measure.isShort({ timeFraction: (t1 - t0) / ts, priceFraction: (high - low) / ps }, { t: true, w: true });
     const measure=(key,mode,basis="amount",pathBasis="spans",movement=false) => {
       const readyValue=!movement||motionReady;
       const measuredValue=E.measure.cellMeasurement({mode,basis,pathBasis,z:movement?mz:z,geom:{BASE,PR},level:{n,m},
@@ -22779,7 +22782,6 @@
       if(key)metrics[key]={tag:result.tag,value:result.tag==="finite"?result.value:null,formula:measuredValue.formula,
         unit:measuredValue.unit,supportEnd:end,knownThrough:end,numerator:measuredValue.numerator,
         denominator:measuredValue.denominator??result.denominator??null,reason:result.reason??""};
-      shortExposure ||= Boolean(measuredValue.exposure?.short);
       return measuredValue;
     };
     for(const mode of ["volume","trades","delta"]) {measure(mode+".amount",mode);measure(mode+".intensity",mode,"intensity");}
@@ -22814,11 +22816,11 @@
         addDetail("Row volume · captured view",row.v,"usdt",contextEnd);
         if(last.query.v>0)addDetail("Row share · captured view",row.v/last.query.v,"share",contextEnd);
       }
-      if(["exact","cube","recorded"].includes(last.meas.state))addDetail("Captured view bounds",JSON.stringify(last.meas.b.slice(0,2).map(comparisonMs))+" UTC; "+last.meas.b.slice(2).map(x=>x*PR).join("–")+" USDT","",contextEnd);
+      if(["exact","cube","recorded"].includes(last.meas.state))addDetail("Captured view bounds",range(...last.meas.b.slice(0,2))+" UTC; "+last.meas.b.slice(2).map(x=>price(x*PR)).join("–")+" USDT","",contextEnd);
       const under=last.under, bandIndex=under?.bands?Math.floor(periodPrice/2**under.bands.m):null,
         band=under?.bands?.map.get(bandIndex), periodEnd=comparisonMs(under?.through);
       if(under?.res.state==="ready"&&band) {
-        addDetail("Period · captured context",under.period+" · "+JSON.stringify(under.res.span?.map(comparisonMs))+" UTC","",periodEnd);
+        addDetail("Period · captured context",periodPhrase(under.period)+" · "+(under.res.span ? range(...under.res.span)+" UTC" : "Bounds not recorded"),"",periodEnd);
         addDetail("Period row band",[bandIndex*2**under.bands.m*PR,(bandIndex+1)*2**under.bands.m*PR].join("–"),"usdt",periodEnd);
         if(under.kind==="volume")addDetail("Period row volume",band.v,"usdt",periodEnd);
         if(under.kind==="delta")addDetail("Period net taker volume",2*band.bv-band.v,"usdt",periodEnd);
