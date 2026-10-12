@@ -21,7 +21,8 @@ test("single-cell copy contains instant text and complete typed JSON", async ({ 
   const packet = await page.evaluate(() => window.explorerAgent.parse(window.copiedAgent));
   expect(packet.schema).toBe("cube-analysis@1");
   expect(packet.comparison.captures[0].metrics.size.value).toBe(150);
-  expect(packet.comparison.captures[0].context.histories.length).toBeGreaterThan(0);
+  expect(Array.isArray(packet.comparison.captures[0].context.histories)).toBe(true);
+  expect(await page.evaluate(() => window.copiedAgent)).toContain("Frozen histories not captured");
   expect(packet.snapshot.sources[0].cells[0].v).toBe(300);
   expect(packet.selection.metrics.volume).toBe(300);
   expect(packet.selection.metrics.trades).toBe(2);
@@ -36,8 +37,12 @@ test("agent configuration keeps live reads available", async ({ page, fakeFor, p
 test("comparison and labeled drawings reopen from complete links in a fresh context", async ({ page, fakeFor, probe, freshContext }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);
   await add(page, 0, 200); await add(page, 1, 201);
+  fake.revise({ day: "2021-01-01", factor: 2 });
+  await expect.poll(() => fake.log().filter((request) => request.path === "/cube/pack" && request.answer === "pack").length, { timeout: 20000 }).toBeGreaterThan(0);
+  await atRest(page, fake, probe);
   await page.evaluate(() => window.cubeAgent.annotate({ a: { timeMs: 1609459200000, priceCents: 2500000 }, b: { timeMs: 1609459312500, priceCents: 2512500 }, color: "#aa5533", label: "Agent evidence" }));
   const before = await page.evaluate(() => window.cubeAgent.export()), href = await page.evaluate(() => window.cubeAgent.share());
+  expect(before.snapshot.generation).toBeGreaterThan(0);
   fake.revise({ day: "2021-01-01", factor: 2 });
   const context = await freshContext(), other = await context.newPage();
   await other.goto(href);
@@ -47,6 +52,7 @@ test("comparison and labeled drawings reopen from complete links in a fresh cont
   expect(after.scene.drawings.objects[0].label).toBe("Agent evidence");
   expect(after.scene.view.viewport).toEqual(before.scene.view.viewport);
   expect(after.snapshot.token).toBe(before.snapshot.token);
+  expect(after.snapshot.generation).toBe(before.snapshot.generation);
 });
 test("Markdown evidence links select the exact supporting cell", async ({ page, fakeFor, probe, freshContext }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);
@@ -83,4 +89,8 @@ test("explicit refresh reports changed values and retains previous evidence", as
   const result = await page.evaluate(async () => { const update = await window.cubeAgent.refresh(); return { update, previous: window.cubeAgent.previous.comparison.captures[0].metrics["volume.amount"].value }; });
   expect(result.previous).toBe(300);
   expect(result.update.changes.some((change) => change.metric === "volume.amount" && change.after.value === 600)).toBe(true);
+  await page.locator("#ol-tab-query").click();
+  await page.getByRole("button", { name: "Restore previous capture" }).click();
+  await expect(page.locator("#ol-analysis-status")).toContainText("Captured evidence");
+  expect((await page.evaluate(() => window.cubeAgent.export())).comparison.captures[0].metrics["volume.amount"].value).toBe(300);
 });

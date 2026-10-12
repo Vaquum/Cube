@@ -23053,10 +23053,15 @@
   }
 
   function agentSerialize(value) {
-    return JSON.parse(JSON.stringify(value, (_key, member) => member instanceof Map ? { cubeMap: [...member] } : typeof member === "number" && !Number.isFinite(member) ? null : member));
+    return JSON.parse(JSON.stringify(value, (_key, member) => member instanceof Map ? { cubeMap: [...member] } : ArrayBuffer.isView(member) && !(member instanceof DataView) ? { cubeTyped: member.constructor.name, values: Array.from(member) } : typeof member === "number" && !Number.isFinite(member) ? null : member));
   }
   function agentRevive(value) {
     if (!value || typeof value !== "object") return value;
+    if (!Array.isArray(value) && Object.keys(value).length === 2 && typeof value.cubeTyped === "string" && Array.isArray(value.values)) {
+      const types = { Float64Array, Float32Array, Uint32Array, Int32Array, Uint16Array, Int16Array, Uint8Array, Int8Array, Uint8ClampedArray };
+      if (!Object.hasOwn(types, value.cubeTyped)) throw Error("Unsupported captured numerical array");
+      return new types[value.cubeTyped](value.values.map((member) => member === null ? NaN : member));
+    }
     if (!Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.cubeMap)) return new Map(value.cubeMap.map(([key, member]) => [key, agentRevive(member)]));
     return Array.isArray(value) ? value.map(agentRevive) : Object.fromEntries(Object.entries(value).map(([key, member]) => [key, agentRevive(member)]));
   }
@@ -23074,10 +23079,11 @@
       captured = captured.filter((s) => s.n !== last.n || s.m !== last.m);
       captured.push({ id: "captured-frame", n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
     }
-    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(Math.min(CANON, edge))), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
+    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(Math.min(CANON, edge))), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
   }
   function agentInstallSnapshot(frame) {
     if (frame.baseSeconds !== BASE || frame.basePrice !== PR || frame.origin !== T0) throw Error("Captured canvas uses a different cube lattice");
+    if (frame.generation !== undefined) live.generation = frame.generation;
     sources = Object.fromEntries(frame.sources.map((s) => [s.id, structuredClone(s)]));
     motion.sources = Object.fromEntries((frame.motion || []).map((s) => [s.id.replace(/^motion:/, ""), structuredClone(s)]));
     for (const source of Object.values(motion.sources)) for (const z of source.cells) { if (z.hi === null) z.hi = NaN; if (z.lo === null) z.lo = NaN; }
@@ -23231,7 +23237,7 @@
     comparisonCommit({ ...before.comparison, captures: refreshed }, true, true); update();
     const after = await agentDocument(), difference = Agent.diff(before, after);
     activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null });
-    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained by cubeAgent.previous.";
+    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes.";
     scheduleLive(3); return { document: after, ...difference };
   }
   function agentInit() {
@@ -23251,7 +23257,7 @@
       annotate: (line) => edit((document) => Agent.annotate(document, line)),
       share: (document, focus) => agentShare(document, focus), refresh: () => report(agentRefresh), previous: null,
     };
-    for (const [id, action] of [["copy-selection", () => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")], ["copy-comparison", () => copyText(async () => Agent.text(await agentDocument("comparison")), "Comparison for agent")], ["share-investigation", () => copyText(() => agentShare(), "Investigation link")], ["refresh-investigation", agentRefresh]]) el(id).addEventListener("click", () => { report(action).catch(() => {}); });
+    for (const [id, action] of [["copy-selection", () => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")], ["copy-comparison", () => copyText(async () => Agent.text(await agentDocument("comparison")), "Comparison for agent")], ["share-investigation", () => copyText(() => agentShare(), "Investigation link")], ["refresh-investigation", agentRefresh], ["previous-investigation", () => { if (!window.cubeAgent.previous) throw Error("No previous capture is available on this page"); return agentImport(window.cubeAgent.previous); }]]) el(id).addEventListener("click", () => { report(action).catch(() => {}); });
     canvas.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c" && S.selection) { event.preventDefault(); report(() => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")).catch(() => {}); }
     });

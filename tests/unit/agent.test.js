@@ -71,6 +71,12 @@ test("lossless code round trips do not manufacture metric changes from member or
   const d = document(), decoded = await A.decode(await A.encode(d, codecs), codecs);
   assert.deepEqual(A.diff(d, decoded).changes, []);
 });
+test("an explicit null comparison reference selects the cohort baseline", () => {
+  const d = document(); d.comparison.reference = d.comparison.captures[0].id;
+  const sealed = A.seal(d), id = d.comparison.captures[0].id;
+  assert.equal(A.compare(sealed).metrics.volume[id].reference, 300);
+  assert.equal(A.compare(sealed, { reference: null }).metrics.volume[id].reference, 200);
+});
 test("readable export resolves unequal-exposure Auto basis exactly as comparison does", () => {
   const d = document(), partial = d.comparison.captures[1];
   partial.observed.t1 -= 28125; partial.observed.seconds = 28.125;

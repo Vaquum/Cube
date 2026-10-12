@@ -23,7 +23,8 @@ nonfinite values and content-integrity failures reject the whole document.
   before replacement; invalid required content is not applied.
 - Captured investigations identify their capture time and keep evidence fixed.
   **Refresh current source** explicitly reads the current cube, compares measurements
-  and retains the prior capture through `cubeAgent.previous`. Source revisions are
+  and retains the prior capture until the page closes. **Restore previous capture**
+  returns to it; agents can read the same document through `cubeAgent.previous`. Source revisions are
   observations; neither a code nor a pack token reconstructs an unavailable vintage.
 
 The standalone recorded page supports document exchange and embedded links; large

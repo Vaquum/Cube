@@ -41,7 +41,8 @@
     return structuredClone(raw);
   }
   function validateSnapshot(frame) {
-    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "canonicalThroughMs", "source", "token", "live", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "canonicalThroughMs", "source", "token", "live", "generation", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (frame.generation !== undefined && (!Number.isSafeInteger(frame.generation) || frame.generation < 0)) fail("Invalid captured cache generation");
     if (frame.canonicalThroughMs !== null && !Number.isFinite(frame.canonicalThroughMs)) fail("Invalid canonical cutoff");
     const ids = new Set(); let count = 0;
     for (const source of [...frame.sources, ...(frame.motion || [])]) {
@@ -87,6 +88,7 @@
     const d = forExport(document), cells = d.comparison?.captures || [];
     const edge = replayEdge(d), basis = C.analyze(cells, { edge, basis: d.comparison?.basis }).basis;
     const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
+    if (cells.some((cell) => !cell.context?.histories?.length)) sections.push("Frozen histories not captured for some cells; missing context is unavailable, not zero.");
     if (d.selection) sections.push("Selection: " + JSON.stringify(d.selection));
     if (href) sections.push("Open canvas: " + href);
     sections.push("```json\n" + JSON.stringify(d) + "\n```");
@@ -95,7 +97,7 @@
   function compare(document, options = {}) {
     const d = validate(document);
     const sceneEdge = replayEdge(d), edge = sceneEdge === null ? options.edge ?? null : Math.min(sceneEdge, options.edge ?? sceneEdge);
-    return C.analyze((d.comparison?.captures || []).map((cell) => redact(cell, edge)), { ...options, edge, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
+    return C.analyze((d.comparison?.captures || []).map((cell) => redact(cell, edge)), { ...options, edge, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference === undefined ? d.comparison?.reference : options.reference, poc: options.poc === undefined ? d.comparison?.poc : options.poc });
   }
   function replayEdge(d) {
     if (!d.scene.view.replay) return null;
