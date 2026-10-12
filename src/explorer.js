@@ -23065,7 +23065,7 @@
       swatch.style.setProperty("--ref-ink", colour); swatch.setAttribute("aria-hidden","true"); line.append(swatch,uiEl("span","",label)); container.append(line);
     };
     const model = kind === "rows" ? scaleUi.models.rows : kind === "columns" ? scaleUi.models.pane : scaleUi.models.cells;
-    if (["cells","rows","columns"].includes(kind) && model?.bar?.ramps && !["geometry","candles"].includes(S.mode)) {
+    if (["cells","rows","columns"].includes(kind) && model?.bar?.ramps && !(kind === "cells" && ["geometry","candles"].includes(S.mode))) {
       const ramp = uiEl("canvas", ""); ramp.width = 320; ramp.height = 12; ramp.setAttribute("aria-hidden","true"); container.append(ramp); legendBar(ramp,model,320,12);
       const summary = model.summary;
       container.append(uiEl("p","",[summary.measure,summary.basis,summary.unit,summary.transform,summary.policy,summary.top].filter(Boolean).join(" · ")));
@@ -23073,7 +23073,7 @@
       action.onclick=()=>{referenceGuide.open(kind==="columns"?"columns":"scales",action);el(kind==="rows"?"rows-legend":kind==="columns"?"axis-chip":"legend").click();};container.append(action);
     }
     if (kind === "candles" || (kind === "cells" && S.mode === "candles")) {
-      row("Up · hollow body", "var(--ol-ink)", "□"); row("Down · filled body", "var(--ol-ink)", "■"); row("Unchanged · hairline", "var(--ol-ink)");
+      row("Up · hollow body", "var(--ol-positive)", "□"); row("Down · filled body", "var(--ol-negative)", "■"); row("Unchanged · hairline", "var(--ol-midpoint)");
     } else if (kind === "cells" && S.mode === "geometry") row("Occupancy · trades measured in this cell", "var(--ol-occupancy)", "□");
     if (["references","profiles"].includes(kind)) {
       row("Profile POC / value area", "var(--ol-line-poc)", "×"); row("Session / structural price level", "var(--ol-line-level)"); row("Moving average / Bollinger", "var(--ol-line-average)"); row("VWAP", "var(--ol-line-vwap)"); row("Clock · scheduled time", "var(--ol-line-clock)", "│");

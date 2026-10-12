@@ -120,7 +120,7 @@
       targets: [{"label":"Show Lines menu","selector":"#ol-lines"},{"label":"Show price chart","region":"cells"}], colour: "vwap" },
     { id: "clock-rules", group: "Read the market", title: "Clock & calendar assumptions",
       purpose: "Separate scheduled landmarks from measured events.",
-      read: "UTC boundaries are calendar marks. Funding is an assumed schedule, not measured rates; weekday US opens have no holiday model. The Binance spot weekend proxy uses Friday 16:00 and Sunday 17:00 Chicago spots, with signed change relative to Friday. That historical convention is not a current CME closure model after 29 May 2026; stale spots are unavailable.",
+      read: "UTC boundaries are calendar marks. Funding assumes 00:00/08:00/16:00 UTC, not measured rates. US opens are weekdays 09:30 New York without a holiday model; expiry markers are Fridays 08:00 UTC, naming the last monthly and quarterly Friday. The Binance spot weekend proxy uses Friday 16:00 and Sunday 17:00 Chicago spots, with signed change relative to Friday. That historical convention is not a current CME closure model after 29 May 2026; stale spots are unavailable.",
       use: "Choose Clock in Lines. Inspect the nearest event, ties earlier, and its elapsed/until time, actual source and confirmation.",
       targets: [{"label":"Show Lines menu","selector":"#ol-lines"},{"label":"Show price chart","region":"cells"}], colour: "clock" },
     { id: "untested-rules", group: "Read the market", title: "Untested levels & event lanes",
@@ -260,7 +260,7 @@
       targets: [{"label":"Show Inspect","selector":"#ol-inspect-tool"},{"label":"Show Compare","selector":"#ol-tab-compare"}], colour: "compare" },
     { id: "retention", group: "Evaluate & retain", title: "What survives & what travels",
       purpose: "Choose the right retention route for each object.",
-      read: "The address keeps this tab's view; browser preferences keep panel layout and the last view. History is tab navigation; named views are browser-local settings. Links carry settings and, within the size limit, calibration; a settings-only fallback loses exact scales. Portable codes retain active scales/axes; complete codes also retain drawings. Comparison records stay in this tab and use their own JSON export. Rallies are session discoveries.",
+      read: "The address keeps this tab's view; browser preferences keep panel layout and the last view. History is tab navigation; named views are browser-local settings. Links carry settings and, within the size limit, calibration; a settings-only fallback loses exact scales. Current portable codes retain active scales, axes and drawings; links omit drawings. Named views retain settings and drawings; older codes can omit them. Comparison records stay in this tab and use their own JSON export. Rallies are session discoveries.",
       use: "Use Views for names/links and Query for codes. Export drawings or comparison collections before clearing. Undo restores the last collection change; a scale descriptor never freezes market data.",
       targets: [{"label":"Show Views","selector":"#ol-hist"},{"label":"Show Query","selector":"#ol-tab-query"},{"label":"Show Compare","selector":"#ol-tab-compare"}], colour: "none" },
   ];
