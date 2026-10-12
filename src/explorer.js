@@ -220,11 +220,14 @@
     last = null,
     raf = 0,
     ready = false;
+  // The rallies make their own reads (a discovery, then membership views), outside the cube's and motion's slots: this counts their changes,
+  // so that what is kept from their events (Inspect's references) is made again.
+  let rallyRevision = 0;
   const rallyController = window.explorerRallies.create({root,
     context: () => ({ready, live:!!PACK.live, pack:PACK.state_token, n:renderN(), m:renderM(),
       edgeUs:Math.round((T0 + Math.min(CUT, S.replay && S.anchor !== null ? S.anchor : CUT) * BASE) * 1000000),
       viewStartUs:Math.round((T0 + S.tA * BASE) * 1000000), viewEndUs:Math.round((T0 + S.tB * BASE) * 1000000)}),
-    changed: () => { if (ready) { requestDraw(); scheduleCube(); scheduleMotion(); } },
+    changed: () => { rallyRevision++; if (ready) { requestDraw(); scheduleCube(); scheduleMotion(); } },
     inspect: () => { S.sideOpen = true; applyPanels(); requestDraw(); }
   });
   const groups = new Map(),
@@ -4564,9 +4567,9 @@
       value = l.u.price; knownAt = l.u.to; time = [l.u.from, Math.min(l.list.end, activeCutoff())]; status = `Untested as of edge; ${l.u.age} ${l.u.kind === "day" ? "sessions" : "weeks"}`;
       construction = `Last ${l.u.kind === "day" ? "30 completed days" : "26 completed weeks"}; no later 8-hour high/low interval intersects inclusive ±125 USDT; visible only within 5 daily ATR. Absence of revisit is not attraction. Age and location use the declared source.`;
     } else if (l.kind === "fib") {
-      const move = l.m, loc = referenceClose(t), width = move.to.price - move.from.price, depth = loc.close === null ? loc.result : E.measure.fibonacciDepth({ earlier: move.from.price, later: move.to.price, close: loc.close }), impulse = E.measure.normalized(Math.abs(width), contextATR(t));
-      knownAt = move.swing ? swingRecord(move.swing, true)?.knownAt ?? null : move.knownAt; candidate = Boolean(move.swing && !swingRecord(move.swing, true)?.final); status = move.swing ? candidate ? "Candidate swing anchor" : "Confirmed swing anchor" : "Developing rolling extremes; construction known at " + when(knownAt) + " UTC";
-      return referenceCard(tip, { primary: { label: "Continuous retracement depth", unit: "ratio", result: candidate || t < knownAt ? referenceMissing("Retrospective comparison before anchor construction is known") : depth, formula: "reference.fibonacci.depth@1" }, companions: [referenceMetric("Named retracement level", l.at * PR), { label: "Impulse / prior daily ATR", unit: "daily-atr", result: impulse.result }, { label: "Anchor status", text: status, result: referenceMissing("Textual anchor status") }], knownAt, candidate, status, family: "fibonacci", time: [Math.min(move.from.t, move.to.t), Math.min(Math.max(move.from.t, move.to.t) + 512, activeCutoff())], location: referenceLocation(l.at * PR, t, knownAt, candidate), timeline: referenceTimeline([{ label: "Earlier anchor", time: move.from.t }, { label: "Later anchor", time: move.to.t }, { label: "Confirmation", time: move.swing ? swingRecord(move.swing, true)?.knownAt ?? null : null }]), construction: `A ${price(move.from.price)} USDT; B ${price(move.to.price)} USDT; unclamped depth. Conventional 0.382/0.5/0.618 levels remain references.` });
+      const move = l.m, loc = referenceClose(t), width = move.to.price - move.from.price, depth = loc.close === null ? loc.result : E.measure.fibonacciDepth({ earlier: move.from.price, later: move.to.price, close: loc.close }), impulse = E.measure.normalized(Math.abs(width), contextATR(t)), anchor = move.swing ? swingRecord(move.swing, move.daily !== false) : null, named = `${(100 * l.f).toFixed(1)}%`;
+      knownAt = anchor ? anchor.knownAt ?? null : move.knownAt; candidate = Boolean(anchor && !anchor.final); status = move.swing ? candidate ? "Candidate swing anchor" : "Confirmed swing anchor" : `${move.since ? "Developing extremes since " + day(fibDayStart(move.since)) : "Developing rolling extremes"}; construction known at ${when(knownAt)} UTC`;
+      return referenceCard(tip, { primary: { label: "Continuous retracement depth", unit: "ratio", result: candidate || t < knownAt ? referenceMissing("Retrospective comparison before anchor construction is known") : depth, formula: "reference.fibonacci.depth@1" }, companions: [referenceMetric(`Named retracement level · ${named}`, l.at * PR), { label: "Impulse / prior daily ATR", unit: "daily-atr", result: impulse.result }, { label: "Anchor status", text: status, result: referenceMissing("Textual anchor status") }], knownAt, candidate, status, family: "fibonacci", time: [Math.min(move.from.t, move.to.t), Math.min(move.swing ? move.swing.xe : Math.max(move.from.t, move.to.t) + 512, activeCutoff())], location: referenceLocation(l.at * PR, t, knownAt, candidate), timeline: referenceTimeline([{ label: "Earlier anchor", time: move.from.t }, { label: "Later anchor", time: move.to.t }, { label: "Confirmation", time: anchor?.knownAt ?? null }]), construction: `A ${price(move.from.price)} USDT; B ${price(move.to.price)} USDT; unclamped depth; this line is its ${named} level. Named levels remain references.` });
     } else if (l.kind === "range-vwap" || h.curve) {
       return vwapReferencePresentation(tip, h);
     }
@@ -4610,8 +4613,10 @@
     return { complete, time, atr, adjacent, status: complete ? "Completed native bar" : "So far; native bar still forming" };
   }
   function averageReferencePresentation(tip, l) {
-    const frame = l.kind === "cross" ? l.c.frame : l.frame, i = l.kind === "cross" ? l.c.x.i : barNear(frame, hover?.t ?? frame.end);
-    if (i < 0) return;
+    // the bar averageTip's heading reads: the cursor's, or, while the cursor is before the average's first value, that value's
+    const frame = l.kind === "cross" ? l.c.frame : l.frame, i = l.kind === "cross" ? l.c.x.i : Math.max(barNear(frame, hover?.t ?? frame.end), l.r.points[0]?.[2] ?? -1);
+    // an average with no value yet keeps averageTip's warm-up readout: none of the measures here would have one
+    if (i < 0 || (l.kind === "average" && !l.r.points.length)) return;
     const c = frameContext(frame, i), normal = (x) => E.measure.normalized(x, c.atr).result;
     const slope = (values) => E.measure.referenceSlope({ value: values[i], previous: values[i - 1], adjacent: c.adjacent, complete: c.complete, atr: c.atr }).result;
     const metric = (label, value, unit, history = null, result = null) => ({ ...referenceMetric(label, value, unit), ...(history ? { history } : {}), ...(result ? { result } : {}) });
@@ -6083,7 +6088,7 @@
   //   References    Up and Down: the previous and next enabled reference in the stable list; it keeps its identity through a redraw
   //   Home, End     the first and last visible item along the surface's primary axis (time; for Rows the highest and lowest row; for References the list)
   //   Enter, Space  open the record's detail, and nothing else: no anchor, no Pin, no Play
-  //   Escape        close the detail; then leave Inspect for the tool it came from; only a later Escape does what it did before
+  //   Escape        close an open menu; then the detail; then leave Inspect for the tool it came from; only a later Escape does what it did before
   // At the edge of the visible items the cursor stays and the edge is announced; the view is never panned and a replay edge never moved.
   const INSPECT_SURFACES = [
     { id: "cells", name: "Cells" },
@@ -6104,8 +6109,10 @@
   // The enabled references in a stable order (the menu's families, then each family's own order), whether the budget drew them or not: the
   // lines, the curves, the clock's kinds and the user's Level. Each entry has what the tooltip's builders take as a hit.
   function inspectReferences() {
-    // once for a draw and a state of the lines: it walks the same items the plot is drawn from
-    const key = [last?.sc?.stamp ?? "", S.lines.join(","), S.level, drawingStore.revision, S.tA, S.tB, S.pA, S.pB, S.n, S.m, activeCutoff()].join("|");
+    // once for a draw and a state of the lines and their data: it walks the same items the plot is drawn from. A line built on bars or on a cube
+    // read has none until they arrive, so the pack, the data's edge, the bars and the reads applied or failed are in the key, or a list read before
+    // them would stay empty after; so are the rallies' own reads, and the plot's width, which spaces the days and thins the swings.
+    const key = [last?.sc?.stamp ?? "", S.lines.join(","), S.level, drawingStore.revision, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.w, activeCutoff(), live.generation, CUT, barsVersion, comparisonSourceRevision, cube.failed.size, motion.failed.size, rallyRevision].join("|");
     if (inspect.listKey === key) return inspect.list;
     inspect.listKey = key;
     inspect.list = inspectReferencesNow();
@@ -6147,7 +6154,8 @@
     for (const lane of eventLanes(cut)) for (const event of lane.events) {
       if (event.gap) continue; // Existing gap identity already appears above.
       const id = `strip|${lane.id}|${event.t0}`;
-      out.push({ id, key: lane.id === "squeeze4h" ? "bb4h" : "bb1d", name: `${EVENT_NAMES[lane.id].name} · ${when(event.t0)}`, at: null, kind: "strip", hit: { key: lane.id, id, strip: { lane: lane.id, span: { events: [event], t0: event.t0, t1: event.t1 } } } });
+      // a squeeze is its Bollinger line's; a rally has no line of its own and goes by its lane
+      out.push({ id, key: { squeeze4h: "bb4h", squeeze1d: "bb1d" }[lane.id] ?? lane.id, name: `${EVENT_NAMES[lane.id].name} · ${when(event.t0)}`, at: null, kind: "strip", hit: { key: lane.id, id, strip: { lane: lane.id, span: { events: [event], t0: event.t0, t1: event.t1 } } } });
     }
     for (const kind of S.lines.filter((k) => CLOCK[k])) out.push({ id: "clock|" + kind, key: kind, name: CLOCK[kind].name, hit: null, at: null, kind: "clock" });
     if (drawingCollection().visible) for (const object of [...drawingCollection().objects].sort((a, b) => a.ordinal - b.ordinal)) {
@@ -6394,6 +6402,9 @@
   }
   function inspectEnter() {
     if (inspect.on) return;
+    // an open menu closes, as a press on the tool button closes it (a click outside it), whether E, the keyboard or the pointer chose the tool:
+    // the navigator takes the focus and keeps Escape for itself, so a menu left open would cover its surface tabs and outlive Inspect
+    closePop();
     inspect.prev = tool();
     drawingCancelOperation(); activeDrawingId = null; trendTool = false;
     const lensWas = S.lens || nav.alt || nav.hold;
@@ -6548,7 +6559,8 @@
     if (open) {
       if (inspect.surface === "references" && inspect.ref && inspect.ref !== "level") {
         const e = inspectEntry();
-        if (e) focusBegin(e.kind === "drawing" ? { drawing: e.hit.drawing } : { key: e.key });
+        // a reference with no line of its own to bring forward (a rally) leaves the focus as it was
+        if (e && (e.kind === "drawing" || focusOn(e.key))) focusBegin(e.kind === "drawing" ? { drawing: e.hit.drawing } : { key: e.key });
       }
       renderInspectDetail();
       el("inspect-detail-close").focus();
@@ -6613,7 +6625,7 @@
   // A draw that changed what the cursor stands on (the view, the level, the data) reads it again, so a pan or a refresh never leaves a stale readout.
   function inspectSync() {
     if (!inspect.on) return;
-    const sig = [inspect.surface, inspect.t, inspect.p, inspect.ref, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
+    const sig = [inspect.surface, inspect.t, inspect.p, inspect.ref, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
     if (sig === inspect.sig) return;
     inspect.sig = sig;
     inspectRender(false, false);
@@ -6766,7 +6778,7 @@
   function bindInspect() {
     const nav2 = el("inspect");
     nav2.addEventListener("keydown", (e) => {
-      // a native control inside the navigator (a tab, a button, the chooser) keeps its own keys, but Escape still leaves
+      // a native control inside the navigator (a tab, a button, the chooser) keeps its own keys, but Escape is still the navigator's
       if (e.target !== nav2 && e.target.closest("button, select, input, [role=tab]") && e.key !== "Escape") {
         if (e.target.matches("[role=tab]") && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
         // a native control of the navigator keeps its own keys; an arrow that is no key of the control's (Up and Down on a button or on a horizontal tab) is not the
@@ -6780,6 +6792,9 @@
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
+        // an open menu first, as the page's Escape closes it: H opens History without taking the focus, and a menu the focus leaves stays open. The
+        // focus stays here, where Inspect's keys are read; on the menu's button an arrow would pan the view
+        if (closePop()) return;
         if (inspect.detail) inspectDetail(false);
         else inspectExit();
         return;
@@ -7287,13 +7302,18 @@
   // Popovers: one open at a time; outside clicks and Escape close them.
   const pop = { open: null };
   const menuFlows = { mode: { step: "dataset" }, pane: { step: "dataset", rsi: "rsi1d" }, rows: { step: "dataset" } };
+  // restoreFocus gives the focus back to the popover's button when the focus was in it (hidden, it would drop it) or nowhere (a pointer
+  // press that focuses no button, as Safari's). A focus it never had stays where it is, so the keys there keep their meaning: H opens
+  // History without taking the focus from the chart or the navigator, and a menu the focus leaves by keyboard stays open
   function closePop(restoreFocus = false) {
     if (!pop.open) return false;
-    const { button, panel } = pop.open;
+    const { button, panel } = pop.open,
+      at = document.activeElement,
+      elsewhere = Boolean(at) && at !== document.body && !panel.contains(at);
     panel.hidden = true;
     button.setAttribute("aria-expanded", "false");
     pop.open = null;
-    if (restoreFocus) button.focus();
+    if (restoreFocus && !elsewhere) button.focus();
     return true;
   }
   function bindPop(buttonId, panelId, onOpen) {
@@ -11093,31 +11113,57 @@
       pdhlc: { family: "session", name: "Previous day's high, low and close", desc: "PDH, PDL and PDC, across the following day", live: true },
       wopen: { family: "session", name: "Weekly open", desc: "Monday 00:00 UTC, across its week", live: true },
       mopen: { family: "session", name: "Monthly open", desc: "The 1st, 00:00 UTC, across its month", live: true },
-      ath: { family: "structure", name: "All-time high", desc: "The highest trade in the cube's history, from its time on", live: true },
+      ath: { family: "structure", group: "highs", name: "All-time high", desc: "The highest trade in the cube's history, from its time on", live: true },
       pch: {
         family: "structure",
+        group: "highs",
         name: "Prior cycle high",
         desc: "The highest price before the last fall of more than half that came before the all-time high",
         live: true,
       },
       swing4h: {
         family: "structure",
+        group: "highs",
         name: "4h swings",
         desc: "Highs and lows a 3 ATR reversal confirms on the 4-hour bars, until price trades through them; equal ones flagged",
         live: true,
       },
-      swing1d: { family: "structure", name: "1D swings", desc: "The same on the daily bars", live: true },
+      swing1d: { family: "structure", group: "highs", name: "1D swings", desc: "The same on the daily bars", live: true },
       fib30: {
         family: "structure",
+        group: "fib",
         name: "Retracements · 30 days",
         desc: "0.382, 0.5 and 0.618 of the move between the last 30 sessions' high and low, back from the later",
         live: true,
       },
-      fib90: { family: "structure", name: "Retracements · 90 days", desc: "The same over 90 sessions", live: true },
+      fib90: { family: "structure", group: "fib", name: "Retracements · 90 days", desc: "The same over 90 sessions", live: true },
       fibswing: {
         family: "structure",
+        group: "fib",
         name: "Retracements · last daily swing",
         desc: "The same for the move between the last two daily swings",
+        live: true,
+      },
+      fibswing4h: {
+        family: "structure",
+        group: "fib",
+        name: "Retracements · last 4h swing",
+        desc: "The same for the move between the last two 4-hour swings",
+        live: true,
+      },
+      // Levels that every retracement on adds, as Value area high and low adds to every POC period.
+      fibclassic: {
+        family: "structure",
+        group: "fiblevels",
+        name: "Classic levels",
+        desc: "Adds 0, 23.6, 78.6 and 100% to each retracement on: its later and earlier extremes and the two outer levels",
+        live: true,
+      },
+      fibext: {
+        family: "structure",
+        group: "fiblevels",
+        name: "Extensions",
+        desc: "Adds 127.2 and 161.8% to each retracement on, past the move's earlier extreme",
         live: true,
       },
       ema21: { family: "average", group: "1d", name: "21 EMA", desc: "The exponential average of the last 21 daily closes", live: true },
@@ -11190,9 +11236,10 @@
     TOGGLE_KEYS = Object.keys(TOGGLES),
     isPeriod = (k) => LINE_KEYS.includes(k) || isDay(k),
     periodLines = () => S.lines.filter(isPeriod),
-    familyOf = (k) => (isPeriod(k) ? "profile" : isVwapDay(k) ? "vwap" : TOGGLES[k]?.family),
+    familyOf = (k) => (isPeriod(k) ? "profile" : isVwapDay(k) ? "vwap" : isFibDay(k) ? "structure" : TOGGLES[k]?.family),
     // The recorded snapshot has no exact opens, highs, lows or closes.
-    lineAvailable = (k) => isPeriod(k) || (isVwapDay(k) ? Boolean(PACK.live) : Boolean(TOGGLES[k] && (PACK.live || !TOGGLES[k].live)));
+    lineAvailable = (k) =>
+      isPeriod(k) || (isVwapDay(k) || isFibDay(k) ? Boolean(PACK.live) : Boolean(TOGGLES[k] && (PACK.live || !TOGGLES[k].live)));
   // A family's stroke: its one colour at the ordinary reference width. The timeframe is in the line's tag and name, never in its colour
   // or weight (PRD-0002 S3 section 1); a focused line adds one pixel at the draw site, inside the occlusion budget's maximum.
   function lineStyle(family) {
@@ -11205,6 +11252,7 @@
     if (key === "visible") return "Visible range";
     if (key === "all") return "All history";
     if (isVwapDay(key)) return `VWAP from ${day(vwapDayStart(key))}`;
+    if (isFibDay(key)) return `Retracements since ${day(fibDayStart(key))}`;
     return isDay(key) ? `Since ${day(dayStart(key))}` : TOGGLES[key]?.name || lineInfo(key).name;
   }
   function lineTag(key) {
@@ -11215,12 +11263,12 @@
     return lineInfo(key).tag;
   }
   // The lines kept in order: the periods as listed, the families' toggles,
-  // then the POC lines' days and the VWAPs' days, each by date; those this
-  // page can't draw are dropped.
+  // then the POC lines' days, the VWAPs' days and the retracements' days, each
+  // by date; those this page can't draw are dropped.
   function normalizeLines(list) {
     const keys = new Set(
       (Array.isArray(list) ? list : []).filter(
-        (k) => (LINE_KEYS.includes(k) || isDay(k) || isVwapDay(k) || TOGGLE_KEYS.includes(k)) && lineAvailable(k),
+        (k) => (LINE_KEYS.includes(k) || isDay(k) || isVwapDay(k) || isFibDay(k) || TOGGLE_KEYS.includes(k)) && lineAvailable(k),
       ),
     );
     return [
@@ -11228,6 +11276,7 @@
       ...TOGGLE_KEYS.filter((k) => keys.has(k)),
       ...[...keys].filter(isDay).sort().slice(-DAYS_KEPT),
       ...[...keys].filter(isVwapDay).sort().slice(-DAYS_KEPT),
+      ...[...keys].filter(isFibDay).sort().slice(-DAYS_KEPT),
     ];
   }
   // A line's period in base columns, ending at the edge that closes the data;
@@ -11660,6 +11709,7 @@
     if (
       on([...EIGHT_HOUR_LINES, ...STRUCTURE_LINES, ...FOUR_HOUR_LINES, ...averageTf("1d"), ...averageTf("1w")]) ||
       S.lines.some(isVwapDay) ||
+      S.lines.some(isFibDay) ||
       S.pane === "rsi1d" ||
       S.pane === "macd1d" || inspect.on || Boolean(el("context").querySelector(".ol-core-details[open]")) || S.mode === "candles"
     )
@@ -12275,12 +12325,26 @@
   // timeframe within 125 USDT of each other are equal. A retracement
   // measures 0.382, 0.5 and 0.618 of a move back from its later extreme: the
   // move between the highest high and the lowest low of the last 30 or 90
-  // sessions, or between the last two daily swings. Computed once per data
-  // change; in replay nothing after the edge is read.
+  // sessions, or since a chosen UTC day, or between the last two daily or
+  // 4-hour swings. Classic levels add 0, 0.236, 0.786 and 1, Extensions 1.272
+  // and 1.618, past the earlier extreme; every level is later − f × (later −
+  // earlier). Computed once per data change; in replay nothing after the edge
+  // is read.
   const SWING_REACH = 3,
     RETRACEMENTS = [0.382, 0.5, 0.618],
+    // The levels the two level rows add to every retracement on.
+    RETRACEMENT_MORE = { fibclassic: [0, 0.236, 0.786, 1], fibext: [1.272, 1.618] },
+    // The retracements' rows and their tags; a chosen day's are `fib:YYYY-MM-DD`.
+    RETRACEMENT_ROWS = [
+      ["fib30", "30D"],
+      ["fib90", "90D"],
+      ["fibswing", "Swing"],
+      ["fibswing4h", "4h Swing"],
+    ],
+    isFibDay = (key) => typeof key === "string" && key.startsWith("fib:") && isDay(key.slice(4)),
+    fibDayStart = (key) => dayStart(key.slice(4)),
     // The lines built on 4-hour bars.
-    FOUR_HOUR_LINES = ["swing4h"],
+    FOUR_HOUR_LINES = ["swing4h", "fibswing4h"],
     // The lines built on the days of the 8-hour bars, beside the session levels.
     STRUCTURE_LINES = ["ath", "pch", "swing1d", "fib30", "fib90", "fibswing", "svwap", "avwaph", "avwapl"];
   // An ATR by bar: Wilder's smoothing of the true range over 14 bars, from
@@ -12454,10 +12518,12 @@
     // Daily swings on the days, with the daily ATR, and 4-hour swings on the 4-hour bars.
     out.daily = swingsOf(days, atrSeries(days), (d) => d.z, partAt, end, { start: (d) => d.t, len: series9.step });
     if (series8?.state === "ready") out.fourHour = fourHourSwings(series8);
-    // Retracements: the moves over the last 30 and 90 sessions, and the last daily swing.
+    // Retracements: the moves over the last 30 and 90 sessions, and between the last two daily and 4-hour swings; a chosen day's when asked
+    // for (fibMove).
     const dNow = Math.floor(Math.max(0, end - 1e-6) / DAYS),
-      lookback = (count) => {
-        const span = days.filter((d) => d.k > dNow - count && d.k <= dNow);
+      // The move between the highest high and the lowest low of the days from day k0 to the latest.
+      range = (k0, about) => {
+        const span = days.filter((d) => d.k >= k0 && d.k <= dNow);
         if (!span.length) return null;
         let hi = span[0],
           lo = span[0];
@@ -12470,28 +12536,51 @@
         // Both in one 8-hour bar: the bar's own direction orders them.
         const bar = tH === tL ? hi.parts.find((x) => x.c * series9.step === tH) : null,
           upward = bar ? bar.close >= bar.open : tL < tH;
-        return upward
-          ? { from: { price: lo.low, t: tL }, to: { price: hi.high, t: tH }, days: count, knownAt: end }
-          : { from: { price: hi.high, t: tH }, to: { price: lo.low, t: tL }, days: count, knownAt: end };
+        return retracement(
+          upward
+            ? { from: { price: lo.low, t: tL }, to: { price: hi.high, t: tH }, knownAt: end, ...about }
+            : { from: { price: hi.high, t: tH }, to: { price: lo.low, t: tL }, knownAt: end, ...about },
+        );
+      },
+      // The move between a timeframe's last two swings, the later one its anchor.
+      swingMove = (list, daily) => {
+        if (!list || list.length < 2) return null;
+        const [a, b] = list.slice(-2);
+        return retracement({ from: { price: a.price, t: a.t }, to: { price: b.price, t: b.t }, swing: b, daily });
       };
-    out.fib30 = lookback(30);
-    out.fib90 = lookback(90);
-    const confirmed = out.daily;
-    if (confirmed.length >= 2) {
-      const [a, b] = confirmed.slice(-2);
-      out.fibswing = { from: { price: a.price, t: a.t }, to: { price: b.price, t: b.t }, swing: b };
-    }
-    for (const key of ["fib30", "fib90", "fibswing"]) {
-      const m = out[key];
-      if (m) m.levels = RETRACEMENTS.map((f) => ({ f, price: m.to.price - f * (m.to.price - m.from.price) }));
-    }
+    out.fib30 = range(dNow - 29, { days: 30 });
+    out.fib90 = range(dNow - 89, { days: 90 });
+    out.fibswing = swingMove(out.daily, true);
+    out.fibswing4h = swingMove(out.fourHour, false);
+    out.range = range;
+    out.since = new Map();
     structureMemo.set(series9, { series8, out });
     return out;
+  }
+  // A level of a move: f of it back from its later extreme, unclamped.
+  const retracementLevel = (m, f) => m.to.price - f * (m.to.price - m.from.price);
+  // A move with its three key levels.
+  function retracement(m) {
+    m.levels = RETRACEMENTS.map((f) => ({ f, price: retracementLevel(m, f) }));
+    return m;
+  }
+  // A chosen day's retracement: the move from that UTC day's start to the
+  // latest data, kept with the structure it is measured on.
+  function fibMove(st, key) {
+    if (!st.since.has(key)) st.since.set(key, st.range(Math.round(fibDayStart(key) / DAYS), { since: key }));
+    return st.since.get(key);
+  }
+  // A retracement's move in words, for its tooltip: its two ends and its timeframe.
+  function retracementAbout(key, m) {
+    if (key === "fibswing") return { what: "the last two daily swings", frame: "daily swings" };
+    if (key === "fibswing4h") return { what: "the last two 4-hour swings", frame: "4-hour swings" };
+    if (isFibDay(key)) return { what: `the high and low since ${day(fibDayStart(key))}`, frame: `since ${day(fibDayStart(key))}` };
+    return { what: `the last ${m.days} sessions' high and low`, frame: `${m.days} days` };
   }
   // The structure the lines on draw from, with the 4-hour swings while they
   // are on: every caller asks the same way, so it is computed once.
   function structureNow(series9) {
-    return structure(series9, S.lines.includes("swing4h") ? barSeries(8) : null);
+    return structure(series9, FOUR_HOUR_LINES.some((k) => S.lines.includes(k)) ? barSeries(8) : null);
   }
   // VWAPs (live): Σ USDT ÷ Σ BTC, from the cube's volume and base volume. The
   // session VWAP starts at each 00:00 UTC; an anchored one at the start of
@@ -13006,7 +13095,14 @@
     const f = l.frame,
       i = barNear(f, hover?.t ?? f.end),
       first = l.r.points[0]?.[2];
-    if (i < 0 || first === undefined) return false;
+    // No value in its bars (fewer than its first full window, or none): warming up, as the Lines menu says. It never falls through to
+    // structureTip, whose curve branch reads a VWAP's points.
+    if (i < 0 || first === undefined) {
+      tipRows(tip, l.name, "Warming up: no value yet", [
+        [{ "1d": "Days", "1w": "Weeks" }[f.tf] ?? "Bars", `${f.closes.length} of the ${l.what === "bb" ? 20 : l.n} its first value needs`],
+      ]);
+      return true;
+    }
     const at = Math.max(i, first),
       when0 = `At the close of ${frameBar(f, at)}`,
       tf = TF_NAMES[f.tf];
@@ -14062,7 +14158,7 @@
           from: r.span[0], to: r.end, on: true, r, tag: tag("Visible VWAP", r.price / PR) });
     }
     // The rest changes only with the data and the days in view.
-    if (!S.lines.some((k) => DATED_LINES.has(k) || isVwapDay(k))) return items;
+    if (!S.lines.some((k) => DATED_LINES.has(k) || isVwapDay(k) || isFibDay(k))) return items;
     const data = [live.generation, CUT, cut, barsVersion, dayReads.size, sourcesKey()].join("|"),
       d0 = Math.max(0, Math.floor(S.tA / DAYS)),
       d1 = Math.min(dNow, Math.floor(S.tB / DAYS)),
@@ -14074,7 +14170,7 @@
     const session = ["dopen", "pdhlc", "wopen", "mopen"].filter((k) => on.has(k));
     if (session.length)
       items.push(...cachedItems("session", [view, session].join("|"), () => sessionItems(cut, dNow, session, wide, tag)));
-    if (STRUCTURE_ROWS.some((k) => on.has(k))) {
+    if (STRUCTURE_ROWS.some((k) => on.has(k)) || S.lines.some(isFibDay)) {
       const st = structureItems(cut, on, tag);
       items.push(...st);
       items.marks = st.marks;
@@ -14089,7 +14185,7 @@
     return items;
   }
   // The lines drawn from the days of the bars, and structure's rows.
-  const STRUCTURE_ROWS = ["ath", "pch", "swing1d", "swing4h", "fib30", "fib90", "fibswing"],
+  const STRUCTURE_ROWS = ["ath", "pch", "swing1d", "swing4h", "fib30", "fib90", "fibswing", "fibswing4h"],
     DATED_LINES = new Set(["dpoc", "udpoc", "uwpoc", ...EIGHT_HOUR_LINES, ...STRUCTURE_LINES, ...FOUR_HOUR_LINES, ...AVERAGE_LINES]);
   // A period's 70% value area, kept with its rows.
   const areaMemo = new WeakMap();
@@ -14328,13 +14424,18 @@
         marks.push({ s, key, frame, size: SWING_GLYPH });
       }
     }
-    for (const [key, name] of [
-      ["fib30", "30D"],
-      ["fib90", "90D"],
-      ["fibswing", "Swing"],
-    ]) {
-      const m = on.has(key) ? st[key] : null;
-      if (!m) continue;
+    // The retracements on, each with its three key levels; then the levels the
+    // level rows add to every one of them, under the row's key as a value area
+    // is under va's: tagged only while their price is in view, planned last by
+    // the budget and drawn only with their key levels (minor).
+    const moves = [],
+      percent = (f) => `${(f * 100).toFixed(1)}%`;
+    for (const [key, name] of RETRACEMENT_ROWS) if (on.has(key) && st[key]) moves.push({ key, name, m: st[key] });
+    for (const key of S.lines.filter(isFibDay)) {
+      const m = fibMove(st, key);
+      if (m) moves.push({ key, name: `Since ${dayOf(date(fibDayStart(key)))}`, m });
+    }
+    for (const { key, name, m } of moves)
       for (const level of m.levels)
         items.push({
           key,
@@ -14342,14 +14443,37 @@
           kind: "fib",
           m,
           f: level.f,
-          name,
+          move: key,
+          name: `${name} ${percent(level.f)}`,
           family: "level",
           at: level.price / PR,
           from: m.to.t,
           to: end,
           on: true,
-          tag: tag(`${name} ${(level.f * 100).toFixed(1)}%`, level.price / PR),
+          tag: tag(`${name} ${percent(level.f)}`, level.price / PR),
         });
+    for (const row of Object.keys(RETRACEMENT_MORE)) {
+      if (!on.has(row)) continue;
+      for (const { key, name, m } of moves)
+        for (const f of RETRACEMENT_MORE[row]) {
+          const at = retracementLevel(m, f) / PR;
+          items.push({
+            key: row,
+            id: `${row}|${key}|${f}`,
+            kind: "fib",
+            m,
+            f,
+            move: key,
+            minor: true,
+            name: `${name} ${percent(f)}`,
+            family: "level",
+            at,
+            from: m.to.t,
+            to: end,
+            on: true,
+            tag: at >= S.pA && at <= S.pB ? tag(`${name} ${percent(f)}`, at) : null,
+          });
+        }
     }
     items.marks = marks;
     return items;
@@ -14779,7 +14903,8 @@
         if (l.tag) fixed.push({ id: l.id, y: raw, w: tagPlateWidth(l.tag.name + arrow, l.tag.value) });
         continue;
       }
-      candidates.push({ id: l.id, hot, rank: OCC_PRIORITY[familyOf(l.key)] ?? 6, rects: [[xl, y - width / 2, xe, y + width / 2]], tag: l.tag ? { y: raw, w: tagPlateWidth(l.tag.name + arrow, l.tag.value) } : null });
+      // A retracement's added levels are planned after every other mark of its family (and below, drawn only with its key levels).
+      candidates.push({ id: l.id, hot, rank: (OCC_PRIORITY[familyOf(l.key)] ?? 6) + (l.minor ? 0.5 : 0), move: l.kind === "fib" ? l.move : undefined, minor: Boolean(l.minor), rects: [[xl, y - width / 2, xe, y + width / 2]], tag: l.tag ? { y: raw, w: tagPlateWidth(l.tag.name + arrow, l.tag.value) } : null });
     }
     for (const c of items.curves || []) {
       const { xs, ys, vals } = curveVertices(c.r.points, right);
@@ -14918,6 +15043,14 @@
       for (const r of reserved) next.off.delete(r.id);
       next.eligible -= reserved.length;
       next.shown -= reserved.length;
+      // The planner fills what is left with whatever still fits, so a cheap added level could stand where its retracement's key levels
+      // were held back: a retracement's added levels are drawn only while every one of its key levels on the plot is, unless focused.
+      const held = new Set(candidates.filter((c) => c.move !== undefined && !c.minor && next.off.has(c.id)).map((c) => c.move));
+      for (const c of candidates)
+        if (c.minor && !c.hot && held.has(c.move) && !next.off.has(c.id)) {
+          next.off.add(c.id);
+          next.shown--;
+        }
       const stable = plan !== null && same(next.off, off);
       plan = next;
       notice = plan.eligible > plan.shown || plan.focusOver;
@@ -15601,17 +15734,17 @@
     }
     if (l.kind === "fib") {
       const m = l.m,
-        what = l.key === "fibswing" ? "the last two daily swings" : `the last ${m.days} sessions' high and low`;
+        about = retracementAbout(l.move ?? l.key, m);
       tipRows(
         tip,
         `${(100 * l.f).toFixed(1)}% retracement · ${price(l.at * PR)} USDT`,
-        `Of the move between ${what}`,
+        `Of the move between ${about.what}`,
         [
-          ["Timeframe", l.key === "fibswing" ? "daily swings" : `${m.days} days`],
+          ["Timeframe", about.frame],
           ["From", `${price(m.from.price)} USDT, ${at(m.from.t)}`],
           ["To", `${price(m.to.price)} USDT, ${at(m.to.t)}`],
         ],
-        "Measured back from the later extreme",
+        l.f > 1 ? "Measured back from the later extreme, past the earlier one" : "Measured back from the later extreme",
       );
       return true;
     }
@@ -15696,6 +15829,7 @@
         ? { text: "unavailable", title: `The cube didn't answer: ${s.error}` }
         : { text: "…" };
     if (key === "va") return { text: periodLines().length ? "" : "with a period" };
+    if (RETRACEMENT_MORE[key]) return { text: retracementsOn() ? "" : "with a retracement" };
     if (key === "udpoc" || key === "uwpoc") {
       const list = untestedList(key === "udpoc" ? "day" : "week");
       if (list.state !== "ready") return list.items ? { text: `${list.items.length} so far…` } : why(list);
@@ -15722,7 +15856,7 @@
   // Structure's and the VWAPs' values while on: a level's price, a row's
   // latest swing, a retracement's midpoint, a VWAP's latest.
   function structureValue(key, series) {
-    const four = key === "swing4h" ? barSeries(8) : null;
+    const four = FOUR_HOUR_LINES.includes(key) ? barSeries(8) : null;
     if (four && four.state !== "ready")
       return four.state === "failed" ? { text: "unavailable", title: `The cube didn't answer: ${four.error}` } : { text: "…" };
     const st = structureNow(series);
@@ -15741,11 +15875,20 @@
       };
     }
     if (key.startsWith("fib")) {
-      const m = st[key];
+      const m = isFibDay(key) ? fibMove(st, key) : st[key];
       return { text: m ? `50% ${price(Math.round(m.levels[1].price))}` : "none" };
     }
     return vwapValue(key);
   }
+  // A retracement since a chosen day's value while on: its midpoint, once the days are read.
+  function fibDayValue(key) {
+    const series = barSeries(9);
+    if (series.state !== "ready")
+      return series.state === "failed" ? { text: "unavailable", title: `The cube didn't answer: ${series.error}` } : { text: "…" };
+    return structureValue(key, series);
+  }
+  // Whether any retracement is on, for the rows that add levels to them.
+  const retracementsOn = () => S.lines.some((k) => isFibDay(k) || RETRACEMENT_ROWS.some(([row]) => row === k));
   function vwapValue(key) {
     const edge = cutEdge();
     let anchor;
@@ -15791,7 +15934,11 @@
       remove.dataset.lineRemove = key;
       remove.setAttribute(
         "aria-label",
-        isVwapDay(key) ? `Remove the VWAP from ${day(vwapDayStart(key))}` : `Remove the line since ${day(dayStart(key))}`,
+        isVwapDay(key)
+          ? `Remove the VWAP from ${day(vwapDayStart(key))}`
+          : isFibDay(key)
+            ? `Remove the retracements since ${day(fibDayStart(key))}`
+            : `Remove the line since ${day(dayStart(key))}`,
       );
       remove.innerHTML =
         '<svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"/></svg>';
@@ -15825,10 +15972,15 @@
             (k) => TOGGLES[k].family === list.dataset.toggles && (!list.dataset.group || TOGGLES[k].group === list.dataset.group),
           ).map((key) => lineRow(key, false)),
         );
-    const vdays = S.lines.filter(isVwapDay);
+    const vdays = S.lines.filter(isVwapDay),
+      fdays = S.lines.filter(isFibDay);
     if (el("lines-vdays").dataset.keys !== vdays.join(",")) {
       el("lines-vdays").dataset.keys = vdays.join(",");
       el("lines-vdays").replaceChildren(...vdays.map((key) => lineRow(key, true)));
+    }
+    if (el("lines-fdays").dataset.keys !== fdays.join(",")) {
+      el("lines-fdays").dataset.keys = fdays.join(",");
+      el("lines-fdays").replaceChildren(...fdays.map((key) => lineRow(key, true)));
     }
     if (el("lines-days").dataset.keys !== days.join(",")) {
       el("lines-days").dataset.keys = days.join(",");
@@ -15866,6 +16018,8 @@
           ? toggleValue(key)
           : isVwapDay(key)
             ? vwapValue(key)
+          : isFibDay(key)
+            ? fibDayValue(key)
           : on.has(key)
             ? (() => {
                 const r = lineShown(key);
@@ -15957,12 +16111,14 @@
       last = date(Math.max(0, activeCutoff() - 1e-6)).toISOString().slice(0, 10);
     if (el("lines-clear").disabled !== cleared) el("lines-clear").disabled = cleared;
     if (el("lines-days-head").textContent !== daysHead) el("lines-days-head").textContent = daysHead;
-    // The VWAPs from a day need the live cube, as every VWAP does.
-    for (const node of [el("lines-vdate"), el("lines-vadd").querySelector("button")])
+    // The VWAPs and retracements from a day need the live cube, as every VWAP and structure line does.
+    for (const node of [el("lines-vdate"), el("lines-vadd").querySelector("button"), el("lines-fdate"), el("lines-fadd").querySelector("button")])
       if (node.disabled !== !PACK.live) node.disabled = !PACK.live;
-    const vHead = vdays.length ? "From a UTC day" : "From a UTC day · none yet";
+    const vHead = vdays.length ? "From a UTC day" : "From a UTC day · none yet",
+      fHead = fdays.length ? "Since a UTC day" : "Since a UTC day · none yet";
     if (el("lines-vdays-head").textContent !== vHead) el("lines-vdays-head").textContent = vHead;
-    for (const id of ["lines-date", "lines-vdate"]) {
+    if (el("lines-fdays-head").textContent !== fHead) el("lines-fdays-head").textContent = fHead;
+    for (const id of ["lines-date", "lines-vdate", "lines-fdate"]) {
       if (el(id).min !== "2021-01-01") el(id).min = "2021-01-01";
       if (el(id).max !== last) el(id).max = last;
     }
@@ -16092,7 +16248,11 @@
     if (isPeriod(key)) return bad(lineShown(key).state) ? "missing" : "none";
     if (key === "vvwap") return bad(visibleVwapResult().state) ? "missing" : "none";
     if (key === "cme") return bad(barSeries(6).state) ? "missing" : "none";
-    if (FOUR_HOUR_LINES.includes(key)) return bad(barSeries(8).state) ? "missing" : "none";
+    if (FOUR_HOUR_LINES.includes(key)) return bad(barSeries(8).state) || (key === "fibswing4h" && bad(barSeries(9).state)) ? "missing" : "none";
+    if (isFibDay(key)) return bad(barSeries(9).state) ? "missing" : "none";
+    // The level rows add to the retracements on, so they wait on what those read: the days, and the 4-hour bars for the 4-hour move.
+    if (RETRACEMENT_MORE[key])
+      return retracementsOn() && (bad(barSeries(9).state) || (S.lines.includes("fibswing4h") && bad(barSeries(8).state))) ? "missing" : "none";
     if (key === "svwap" || key === "avwaph" || key === "avwapl" || isVwapDay(key)) {
       const need = vwapBarNeed(),
         r = need ? barsBetween(...need) : null;
@@ -16207,7 +16367,7 @@
             ? `The CME gap ends at ${when(barsShort(s))} UTC, where the cube's measures do.`
             : "";
     }
-    if (id === "structure" && keys.includes("swing4h")) {
+    if (id === "structure" && keys.some((k) => FOUR_HOUR_LINES.includes(k))) {
       const four = barSeries(8);
       if (four.state === "failed") return `The 4-hour bars couldn't be read: ${four.error}`;
       if (four.state === "pending") return "Reading 4-hour bars for the 4-hour swings…";
@@ -16225,7 +16385,7 @@
       if (r?.state === "failed") return `The view's bars couldn't be read: ${r.error}`;
       if (r?.state === "pending") return "Reading the view's bars for the VWAPs…";
     }
-    if (!keys.some((k) => EIGHT_HOUR_LINES.includes(k) || STRUCTURE_LINES.includes(k) || FOUR_HOUR_LINES.includes(k) || isVwapDay(k)))
+    if (!keys.some((k) => EIGHT_HOUR_LINES.includes(k) || STRUCTURE_LINES.includes(k) || FOUR_HOUR_LINES.includes(k) || isVwapDay(k) || isFibDay(k)))
       return "";
     const s = barSeries(9);
     return s.state === "failed"
@@ -16332,12 +16492,37 @@
       el("lines-vdate").value = "";
       linesStatus(`${lineName(key)} added`);
     });
-    el("lines-vdate").addEventListener("input", () => linesStatus(""));
-    el("lines-vdate").addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      closePop(true);
+    el("lines-fdays").addEventListener("click", (e) => {
+      const key = e.target.closest("[data-line-remove]")?.dataset.lineRemove;
+      if (!key) return;
+      const buttons = [...qsa("#ol-lines-fdays [data-line-remove]")],
+        at = buttons.findIndex((b) => b.dataset.lineRemove === key);
+      setLines(S.lines.filter((k) => k !== key));
+      linesStatus(`${lineName(key)} removed`);
+      const rest = [...qsa("#ol-lines-fdays [data-line-remove]")];
+      (rest[Math.min(at, rest.length - 1)] || el("lines-fdate")).focus();
     });
+    el("lines-fadd").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const key = "fib:" + el("lines-fdate").value;
+      if (!isFibDay(key)) return linesStatus("Choose a day to add.");
+      const start = fibDayStart(key);
+      if (start < 0 || start >= activeCutoff())
+        return linesStatus(`Choose a day from 1 Jan 2021 to ${day(Math.max(0, activeCutoff() - 1e-6))}.`);
+      if (S.lines.includes(key)) return linesStatus(`${lineName(key)} are already drawn.`);
+      if (S.lines.filter(isFibDay).length >= DAYS_KEPT) return linesStatus(`Up to ${DAYS_KEPT} days; remove one first.`);
+      setLines([...S.lines, key]);
+      el("lines-fdate").value = "";
+      linesStatus(`${lineName(key)} added`);
+    });
+    for (const id of ["lines-vdate", "lines-fdate"]) {
+      el(id).addEventListener("input", () => linesStatus(""));
+      el(id).addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        e.preventDefault();
+        closePop(true);
+      });
+    }
     el("lines-date").addEventListener("input", () => linesStatus(""));
     // Text fields keep their keys, so the date field closes its popover itself.
     el("lines-date").addEventListener("keydown", (e) => {
