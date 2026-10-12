@@ -58,16 +58,20 @@
       name.textContent = label; text.textContent = value; node.append(name, text); return node;
     }
     function renderInspector() {
-      const host = el("inspector"); host.replaceChildren(); host.hidden = !selectedId;
+      const host = el("inspector"), focusedDetails = host.contains(document.activeElement) && document.activeElement?.dataset.rallyAction === "details";
+      host.replaceChildren(); host.hidden = !selectedId;
       if (!selectedId) return;
       const title = document.createElement("div"), actions = document.createElement("div"), box = document.createElement("div");
       title.className = "ol-section-heading"; title.textContent = "Selected rally · native members";
-      actions.className = "ol-legend-actions"; box.hidden = !inspectorExpanded;
-      for (const [label, action] of [[inspectorExpanded ? "Collapse" : "Details", () => { inspectorExpanded = !inspectorExpanded; renderInspector(); }], ["Clear rally", clearSelection]]) {
-        const button = document.createElement("button"); button.type = "button"; button.className = "ol-action ol-s cursor-interaction"; button.textContent = label; button.onclick = action; actions.append(button);
+      actions.className = "ol-legend-actions"; box.id = "ol-rally-details"; box.hidden = !inspectorExpanded;
+      for (const [label, action, name] of [[inspectorExpanded ? "Collapse" : "Details", () => { inspectorExpanded = !inspectorExpanded; renderInspector(); }, "details"], ["Clear rally", clearSelection, "clear"]]) {
+        const button = document.createElement("button"); button.type = "button"; button.className = "ol-action ol-s cursor-interaction"; button.textContent = label; button.dataset.rallyAction = name; button.onclick = action;
+        if (name === "details") { button.setAttribute("aria-expanded", String(inspectorExpanded)); button.setAttribute("aria-controls", box.id); }
+        actions.append(button);
       }
       const contextNote = document.createElement("p"); contextNote.className = "ol-muted"; contextNote.textContent = "Rally members only. Continuations uses its own column anchor.";
       host.append(title, actions, contextNote, box);
+      if (focusedDetails) actions.querySelector('[data-rally-action="details"]').focus({preventScroll:true});
       const event = current()?.selected;
       if (!event) {
         box.append(row("State", stale ? "Source changed · refresh discovery" : errorMessage || (inFlight ? "Reading membership…" : "Hidden by replay or time-to-target filter")));
