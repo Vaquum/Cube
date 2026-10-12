@@ -6141,7 +6141,7 @@
           : c.name && c.tag && c.tag !== c.name && !String(c.name).includes(c.tag)
             ? `${c.name} · ${c.tag}`
             : c.name || c.tag,
-      push = (l, curve) => out.push({ id: l.id, key: l.key, name: curve ? curveName(l) : lineItemName(l) + (Number.isFinite(l.s?.t) ? " · " + when(l.s.t) + " UTC" : Number.isFinite(l.from) && Number.isFinite(l.to) ? " · " + range(l.from,l.to) + " UTC" : ""), hit: { key: l.key, id: l.id, item: l, colour: lineStyle(l.family || "vwap").colour, ...(curve ? { curve: { points: l.r.points } } : {}) }, at: curve ? null : l.at, kind: curve ? "curve" : l.kind });
+      push = (l, curve) => out.push({ id: l.id, key: l.key, name: curve ? curveName(l) : lineItemName(l), hit: { key: l.key, id: l.id, item: l, colour: lineStyle(l.family || "vwap").colour, ...(curve ? { curve: { points: l.r.points } } : {}) }, at: curve ? null : l.at, kind: curve ? "curve" : l.kind });
     for (const l of items) if (!l.eq) push(l, false);
     for (const c of items.curves ?? []) push(c, true);
     // the equal highs and lows and the golden and death crosses are plotted records with their own hover details: each is a reference the cursor can be on
@@ -6179,7 +6179,16 @@
         .map((e, i) => ({ e, i, f: e.key === "level" ? 0 : order[familyOf(e.key)] ?? 7 }))
         .sort((a, b) => a.f - b.f || a.i - b.i)
         .map((x) => x.e);
-    // two references of one name (the swings of one timeframe, the days of the session VWAP) are told apart: by their price where they have one, then by their order
+    // Repeated names carry their own recorded time; unique names retain their short established form.
+    const names = new Map();
+    for (const e of sorted) names.set(e.name, (names.get(e.name) ?? 0) + 1);
+    for (const e of sorted) {
+      if (names.get(e.name) < 2) continue;
+      const l = e.hit?.item;
+      if (Number.isFinite(l?.s?.t)) e.name += " · " + when(l.s.t) + " UTC";
+      else if (Number.isFinite(l?.from) && Number.isFinite(l?.to)) e.name += " · " + range(l.from, l.to) + " UTC";
+    }
+    // Remaining collisions use their price, then their order.
     const total = new Map(),
       nth = new Map();
     for (const e of sorted) total.set(e.name, (total.get(e.name) ?? 0) + 1);

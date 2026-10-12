@@ -118,8 +118,9 @@ test.describe("B47 Inspect and touch", () => {
   async function openGap(page, fake, probe, pane) {
     await open(page, fake, probe, "#w=30d&vis=2&lines=cme");
     const { box } = await plot(page),
-      gap = (await pane.last()).strokeRects.find((r) => r.alpha === 0.7 && r.width === 1 && r.w > 52 && r.h > 100);
-    expect(gap, "a tall gap is drawn on the standard cube's month").toBeTruthy();
+      // A centre more than 26 px from every edge remains beyond the 22 px touch reach.
+      gap = (await pane.last()).strokeRects.find((r) => r.alpha === 0.7 && r.width === 1 && r.w > 52 && r.h > 52);
+    expect(gap, "a gap with an interior beyond touch reach is drawn on the standard cube's month").toBeTruthy();
     await page.keyboard.press("e");
     return { box, gap };
   }
