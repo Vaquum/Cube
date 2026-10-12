@@ -2,7 +2,7 @@
 // B45 reference-regression.spec.js (PRD-0002 S3, #48 section 1): the reference language changes how a line is drawn and named, and nothing it measures.
 //
 // The original build (8c82ca1) and this one open the same address on the same fake cube with every line choice the original has on, and
-//   1. retain the original lines and families, with the two explicitly added visible-range choices;
+//   1. retain the original lines and families, with the explicitly added visible-range, retracement and regional VWAP choices;
 //   2. give each line the same value in its row: every price, period and count the original shows, the new build shows (the only difference allowed is the
 //      finality words S2 added to a swing's row, which are removed before the comparison and named when they appear);
 //   3. keep the same bar timeframes and anchors (the rows name them), the same POC rows, value areas, opens, highs, lows and closes, averages, bands, VWAPs and
@@ -52,11 +52,12 @@ test.describe("B45 the lines are the same lines with the same values", () => {
     const read = Object.values(before).filter((r) => /\d/.test(r.value)).length;
     console.log(`B45: ${Object.keys(before).length} rows, ${read} with a number in the original`);
     expect(read, "most rows carry a number, so the comparison is of numbers and not of blanks").toBeGreaterThan(25);
-    // Rows added since: the visible-range POC and VWAP, the last 4-hour swing's retracements and the two rows of retracement levels (#108).
-    const added = ["visible", "vvwap", "fibswing4h", "fibclassic", "fibext"];
+    // Rows added since: visible-range POC/VWAP, regional VWAPs and retracement rows (#108).
+    const added = ["visible", "vvwap", "asvwap", "euvwap", "usvwap", "fibswing4h", "fibclassic", "fibext"];
     expect(Object.keys(after).sort(), "original keys plus the rows added since").toEqual([...Object.keys(before), ...added].sort());
     expect(after.visible).toEqual({ family: "profile", value: "" });
     expect(after.vvwap).toEqual({ family: "vwap", value: "" });
+    for (const key of ["asvwap", "euvwap", "usvwap"]) expect(after[key]).toEqual({ family: "vwap", value: "" });
     for (const key of ["fibswing4h", "fibclassic", "fibext"]) expect(after[key]).toEqual({ family: "structure", value: "" });
     const different = [];
     for (const key of Object.keys(before)) {
