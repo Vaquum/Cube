@@ -4104,7 +4104,7 @@
       length: cells.length,
       row: index => {
         const c = cells[index], mz = mv ? moves(c) : null, reached = Boolean(mq) && c.c * ts < end, read = exportMotion ? reached ? mz ?? c : null : c, value = same && read ? cellReadout(read,null) : null;
-        return [iso(Math.max(c.c*ts,b[0])),iso(Math.min((c.c+1)*ts,b[1],exportCut)),Math.max(c.r*ps,b[2])*PR,Math.min((c.r+1)*ps,b[3])*PR,c.v,c.ct,c.bv??0,c.bt??0,...(mv?[reached?mz?.p??0:"Unavailable",reached?mz?.w??0:"Unavailable"]:[]),value?.typed?.tag==="finite"?value.typed.value:"Unavailable",value?.measure?.unit??"Unavailable",value?.typed?.tag??"pending",cellState(c,b,ts,ps),listed.n,listed.m];
+        return [iso(Math.max(c.c*ts,b[0])),iso(Math.min((c.c+1)*ts,b[1],exportCut)),Math.max(c.r*ps,b[2])*PR,Math.min((c.r+1)*ps,b[3])*PR,c.v,c.ct,c.bv??"Unavailable",c.bt??"Unavailable",...(mv?[reached?mz?.p??0:"Unavailable",reached?mz?.w??0:"Unavailable"]:[]),value?.typed?.tag==="finite"?value.typed.value:"Unavailable",value?.measure?.unit??"Unavailable",value?.typed?.tag??"pending",cellState(c,b,ts,ps),listed.n,listed.m];
       },
     });
     tablePage = clamp(tablePage, 0, pages - 1);
@@ -23049,7 +23049,7 @@
     let table = guiTableExports.get(panel);
     if (panel === "rallies") table = rallyController.table;
     if (!table || (table.stamp && table.stamp !== guiExportStamp())) { postNotice({code:"export-table",text:"The table is preparing or changed; export after it settles."});return; }
-    const quote = value => { let text = value == null ? "Unavailable" : String(value);if(typeof value==="string"&&/^[=+@\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'; };
+    const quote = value => { let text = value == null || (typeof value === "number" && !Number.isFinite(value)) ? "Unavailable" : String(value);if(typeof value==="string"&&/^[=+@\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'; };
     const metadata = table.metadata ?? [PACK.source??"Source not recorded",iso(CUT),S.replay?iso(activeCutoff()):"Off"], lines = [["Source","Source cutoff · UTC","Replay edge · UTC","Export scope",...table.headers].map(quote).join(",")];
     for (let index=0;index<table.length;index++) {
       lines.push([...metadata,table.scope,...table.row(index)].map(quote).join(","));

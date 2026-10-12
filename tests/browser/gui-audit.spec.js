@@ -61,6 +61,10 @@ test("CSV exports all listed cells rather than the visible page",async({page,fak
   const download=await waiting, raw=await fs.readFile(await download.path(),"utf8"), lines=raw.trimEnd().split("\r\n");
   expect(lines[0]).toContain('"Source cutoff · UTC"');expect(lines[0]).toContain('"Volume · USDT"');
   expect(lines.length-1).toBe(count);
+  const fields=line=>[...line.matchAll(/"((?:[^"]|"")*)"/g)].map(match=>match[1].replaceAll('""','"'));
+  const header=fields(lines[0]),volume=header.indexOf("Volume · USDT"),chosen=header.indexOf("Cells value"),state=header.indexOf("Value state");
+  const finite=lines.slice(1).map(fields).filter(row=>row[state]==="finite");expect(finite.length).toBeGreaterThan(0);
+  for(const row of finite)expect(Number(row[chosen])).toBe(Number(row[volume]));
 });
 test("reference search retains Purpose / Read / Use and actual candle colours",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe);await page.locator("#ol-reference-toggle").click();
