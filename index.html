@@ -19281,6 +19281,7 @@
     if (seal(raw).id !== raw.id) fail("Analysis integrity check failed");
     const scene = E.codec.validatePortable(raw.scene, {});
     if (!scene.ok || scene.dropped.length) fail(scene.reasons.join("; ") || "Scene contains unsupported settings");
+    if (!raw.scene.observation || !Number.isFinite(raw.scene.observation.cutoffMs) || typeof raw.scene.observation.source !== "string") fail("Analysis scene requires its observation source and cutoff");
     if (raw.comparison !== null) {
       const checked = storage.comparison.validate(raw.comparison);
       if (!checked.ok) fail(checked.reason);
@@ -19308,12 +19309,12 @@
     if (count > 250000) fail("Captured canvas exceeds 250,000 cells");
   }
   function parse(text) {
-    if (typeof text !== "string" || E.hash.utf8(text).length > MAX_BYTES * 2) fail("Analysis input is too large");
-    const fence = text.match(/```json\s*\n([\s\S]*?)\n```/);
+    if (typeof text !== "string" || E.hash.utf8(text).length > MAX_BYTES * 3) fail("Analysis input is too large");
+    const fence = [...text.matchAll(/^```json\s*\n([\s\S]*?)\n```\s*$/gm)].at(-1);
     return validate(JSON.parse(fence ? fence[1] : text));
   }
   async function encode(document, { deflate } = {}) {
-    const bytes = E.hash.utf8(E.hash.canonical(validate(document)));
+    const bytes = E.hash.utf8(E.hash.canonical(forExport(document)));
     return deflate ? "cube-analysis:1." + E.hash.b64urlEncode(await deflate(bytes)) : "cube-analysis:1j." + E.hash.b64urlEncode(bytes);
   }
   async function decode(code, { inflate } = {}) {
@@ -19321,7 +19322,9 @@
     const match = /^cube-analysis:1(j?)\.([A-Za-z0-9_-]+)$/.exec(code);
     if (!match) fail("Unsupported analysis code");
     let bytes = E.hash.b64urlDecode(match[2]);
+    if (!(bytes instanceof Uint8Array)) fail("Invalid analysis base64 encoding");
     if (!match[1]) { if (!inflate) fail("Compressed analysis needs an inflater"); bytes = await inflate(bytes, MAX_BYTES); }
+    if (!(bytes instanceof Uint8Array)) fail("Analysis inflater did not return bytes");
     if (bytes.length > MAX_BYTES) fail("Analysis exceeds 16 MiB");
     return parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   }
@@ -19334,16 +19337,50 @@
     return url.href;
   }
   function text(document, { link: href = null } = {}) {
-    const d = validate(document), cells = d.comparison?.captures || [];
-    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge: d.scene.view.replay ? d.scene.observation.cutoffMs : null, selectedMetric: d.comparison.selectedMetric, basis: C.analyze(cells, { basis: d.comparison.basis }).basis, poc: d.comparison.poc }))];
+    const d = forExport(document), cells = d.comparison?.captures || [];
+    const edge = replayEdge(d), basis = C.analyze(cells, { edge, basis: d.comparison?.basis }).basis;
+    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
     if (d.selection) sections.push("Selection: " + JSON.stringify(d.selection));
     if (href) sections.push("Open canvas: " + href);
-    sections.push("```json\n" + JSON.stringify(d, null, 2) + "\n```");
+    sections.push("```json\n" + JSON.stringify(d) + "\n```");
     return sections.join("\n\n");
   }
   function compare(document, options = {}) {
     const d = validate(document);
-    return C.analyze(d.comparison?.captures || [], { ...options, edge: d.scene.view.replay ? d.scene.observation.cutoffMs : null, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
+    const sceneEdge = replayEdge(d), edge = sceneEdge === null ? options.edge ?? null : Math.min(sceneEdge, options.edge ?? sceneEdge);
+    return C.analyze((d.comparison?.captures || []).map((cell) => redact(cell, edge)), { ...options, edge, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
+  }
+  function replayEdge(d) {
+    if (!d.scene.view.replay) return null;
+    const step = 2 ** d.scene.query.tR, anchor = d.scene.view.anchor;
+    const position = d.scene.view.mode === "candles" ? anchor : Math.floor(anchor / step) * step;
+    const geometry = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 };
+    return Math.min(d.scene.observation.cutoffMs, (geometry.origin + position * geometry.baseSeconds) * 1000);
+  }
+  function forExport(document) {
+    const d = validate(document), edge = replayEdge(d);
+    if (edge === null) return d;
+    if (d.comparison) {
+      d.comparison.captures = d.comparison.captures.map((cell) => redact(cell, edge));
+      if (d.comparison.poc && Math.max(d.comparison.poc.supportEnd ?? Infinity, d.comparison.poc.knownThrough ?? Infinity) > edge) d.comparison.poc = null;
+    }
+    if (d.selection && (!Number.isFinite(d.selection.measuredThrough) || d.selection.measuredThrough > edge)) {
+      d.selection.metrics = { tag: "hidden", value: null, reason: "Unavailable in replay" }; d.selection.state = "hidden";
+    }
+    d.scene.scales = (d.scene.scales || []).filter((scale) => Number.isFinite(scale.cutMs) && scale.cutMs <= edge && Number.isFinite(scale.obsEndMs) && scale.obsEndMs <= edge);
+    d.scene.axes = (d.scene.axes || []).filter((axis) => axis.through === null || axis.through <= edge);
+    if (d.snapshot) {
+      const frame = d.snapshot, cut = (edge / 1000 - frame.origin) / frame.baseSeconds;
+      const clip = (source) => ({ ...source, b1: Math.min(source.b1, cut), col1: Math.ceil(Math.min(source.b1, cut) / 2 ** source.n), cells: source.cells.filter((cell) => Math.min((cell.c + 1) * 2 ** source.n, source.b1) <= cut) });
+      frame.sources = frame.sources.filter((source) => source.b0 < cut).map(clip);
+      frame.motion = (frame.motion || []).filter((source) => source.b0 < cut).map(clip);
+      frame.cutoffMs = edge; frame.canonicalThroughMs = frame.canonicalThroughMs === null ? null : Math.min(frame.canonicalThroughMs, edge);
+      frame.cache = {};
+      if (!frame.sources.length) d.snapshot = null;
+    }
+    d.scene.observation.cutoffMs = edge;
+    d.scene = seal(d.scene);
+    return validate(seal(d));
   }
   function diff(before, after) {
     const a = validate(before), b = validate(after), changes = [];
@@ -19351,7 +19388,7 @@
     for (const cell of b.comparison?.captures || []) {
       const prior = old.get(cell.id);
       if (!prior) { changes.push({ cell: cell.id, change: "added" }); continue; }
-      for (const [metric, value] of Object.entries(cell.metrics)) if (JSON.stringify(prior.metrics[metric]) !== JSON.stringify(value)) changes.push({ cell: cell.id, metric, before: prior.metrics[metric] ?? null, after: value });
+      for (const [metric, value] of Object.entries(cell.metrics)) if (E.hash.canonical(prior.metrics[metric] ?? null) !== E.hash.canonical(value)) changes.push({ cell: cell.id, metric, before: prior.metrics[metric] ?? null, after: value });
       old.delete(cell.id);
     }
     for (const cell of old.keys()) changes.push({ cell, change: "removed" });
@@ -19409,7 +19446,7 @@
     const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
     return validate(seal({ schema: SCHEMA, instrument: "BTC/USDT", createdAt: Date.now(), mode: "captured", scene, snapshot, comparison: { comparisonVersion: 2, instrument: "BTC/USDT", selectedMetric: "volume", captures, focus: captures[0]?.id ?? null, reference: null, basis: "auto", sort: { key: "time", direction: "asc" }, view: "grid", page: 0, poc: null, expanded: false, restoreLayout: null }, selection: { query: scene.query, metrics: summary, source: f.source, measuredThrough: f.cutoffMs, state: "exact" }, focus: null }));
   }
-  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, redact, configure, annotate, fromQuery });
+  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, redact, configure, annotate, fromQuery, forExport });
 });
 </script>
     <script>(() => {
@@ -42950,6 +42987,11 @@
   }
   async function agentDocument(scope = "view", supplied = null) {
     if (!ready || !last) throw Error("Wait for a committed canvas before copying evidence");
+    if (!comparisonModel.expanded) {
+      const current = () => last && last.sourceRevision === comparisonSourceRevision && last.token === (PACK.state_token ?? null) && last.camera.every((value, i) => value === [S.tA, S.tB, S.pA, S.pB, S.n, S.m, S.replay, S.anchor][i]);
+      for (let frame = 0; frame < 12 && !current(); frame++) { requestDraw(); await new Promise(requestAnimationFrame); }
+      if (!current()) throw Error("The canvas changed while evidence was captured; copy again after it settles");
+    }
     const scene = (await E.codec.decodePortable(await viewCode(), { inflate: inflateBounded })).payload;
     const edge = comparisonEdge();
     let captures = supplied || (scope === "comparison" || scope === "view" ? comparisonModel.captures : last.shown.cells.map((z) => comparisonCapture({ surface: "cells", n: last.n, m: last.m, c: z.c, r: z.r })).filter(Boolean));
@@ -42957,11 +42999,25 @@
     const ids = new Set(captures.map((cell) => cell.id));
     const model = { ...structuredClone(comparisonModel), captures, focus: ids.has(comparisonModel.focus) ? comparisonModel.focus : captures[0]?.id ?? null, reference: ids.has(comparisonModel.reference) ? comparisonModel.reference : null, page: 0, expanded: false, restoreLayout: null };
     if (edge !== null && model.poc && Math.max(model.poc.supportEnd ?? Infinity, model.poc.knownThrough ?? Infinity) > edge) model.poc = null;
-    const snapshot = scope === "cell" ? null : agentSnapshot();
+    let snapshot = scope === "cell" ? null : agentSnapshot();
+    if (scope === "cell" && captures.length === 1) {
+      const cell = captures[0], n = cell.level.n, m = cell.level.m, ts = 2 ** n, ps = 2 ** m;
+      const z = last.shown.map.get(cell.c + "," + cell.r);
+      if (z && cell.metrics["volume.amount"]?.tag === "finite") {
+        const start = E.time.msToBase(cell.observed.t0, T0, BASE), stop = E.time.msToBase(cell.observed.t1, T0, BASE);
+        snapshot = { baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: cell.observed.t1, canonicalThroughMs: CANON === null ? null : Math.min(cell.observed.t1, comparisonMs(CANON)), source: cell.source, token: last.token, live: Boolean(PACK.live), sources: [{ id: "captured-cell", n, m, b0: start, b1: stop, col0: cell.c, col1: cell.c + 1, cells: [structuredClone(z)] }], motion: [], cache: {} };
+        const viewport = [cell.c * ts, (cell.c + 1) * ts, cell.r * ps, (cell.r + 1) * ps];
+        scene.view.viewport = viewport; scene.view.window = ""; scene.view.auto = false;
+        scene.view.selection = [start, stop, cell.observed.low / PR, cell.observed.high / PR];
+        Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: viewport[2], p2: viewport[3], tR: n, pR: m });
+        scene.observation.cutoffMs = cell.observed.t1;
+        Object.assign(scene, Agent.seal(scene));
+      }
+    }
     return Agent.validate(Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection: { query: scene.query, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut))), state: last.meas.state }, focus: null }));
   }
   async function agentShare(document = null, focus = null) {
-    const value = document ? Agent.validate(document) : await agentDocument(), code = await Agent.encode(value, { deflate: deflateGzip });
+    const value = Agent.forExport(document ? Agent.validate(document) : await agentDocument()), code = await Agent.encode(value, { deflate: deflateGzip });
     let reference = code;
     if (Agent.link(location.href, code, focus).length > Agent.INLINE_MAX) {
       if (!PACK.live && !analysisOrigin?.live) throw Error("This investigation needs durable storage on the live host. Copy the complete analysis document instead.");
