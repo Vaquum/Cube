@@ -23105,11 +23105,18 @@
     }
     if (["states","resolution"].includes(kind)) {
       row("Coverage / non-value marks · inspect their reason", "var(--ol-state)", "◇");
-      const original = root.querySelector(".ol-status > .ol-status-keys");
+      const original = topic.id === "state-glossary" ? null : root.querySelector(".ol-status > .ol-status-keys");
+      if (topic.id === "state-glossary") {
+        const inks={state:colors.state,occupancy:colors.occupancy,surface:colors.surface};
+        for (const key of E.role.keyEntries(["zero","undefined","waiting-for-complete-parent","no-reference","empty-both","negative-infinite","outside-support","pending","failed","unsupported","invalid-input","clip-low","clip-high","no-calibration"])) {
+          const entry=uiEl("div","ol-reference-colour-row"); if(key.glyph)entry.append(uiKeySwatch(key.glyph,inks));entry.append(uiEl("span","",key.label));container.append(entry);
+        }
+        const column=uiEl("div","ol-reference-colour-row");column.append(uiKeySwatch("diamond",inks),uiEl("span","","Columns · undefined value"));container.append(column);
+      }
       if (original) { const copy = original.cloneNode(true); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
         copy.querySelectorAll("canvas").forEach((canvas,index)=>canvas.getContext("2d").drawImage(originals[index],0,0));
         copy.style.flexWrap="wrap";copy.style.overflow="visible";container.append(copy); }
-      container.append(uiEl("p","ol-muted","The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
+      container.append(uiEl("p","ol-muted",topic.id === "state-glossary" ? "Cells/Rows non-value key, with the Columns diamond. Inspect names the exact reason; these are definitions, not counts of the current view." : "The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
     }
   }
   async function comparisonImport(file) {
