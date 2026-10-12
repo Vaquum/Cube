@@ -71,3 +71,14 @@ test("reference search retains Purpose / Read / Use and actual candle colours",a
   expect(await page.locator(".ol-reference-colour-swatch").first().evaluate(el=>getComputedStyle(el).color)).toBe("rgb(45, 118, 156)");
 });
 
+
+test("phone Show reveals the control above the reference and Back restores the article",async({page,fakeFor,probe})=>{
+  await page.setViewportSize({width:390,height:844}); await open(page,fakeFor,probe);
+  await page.locator("#ol-reference-toggle").click(); await page.locator("#ol-reference-topic").selectOption("columns");
+  await page.getByRole("button",{name:"Show Columns menu",exact:true}).click();
+  await expect(page.locator("#ol-pane")).toBeVisible();
+  expect(await page.locator("#ol-pane").evaluate(el=>{const r=el.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest("#ol-pane")===el;})).toBe(true);
+  await page.locator("#ol-reference-back").click(); await expect(page.locator("#ol-reference")).toBeVisible();
+  await expect(page.locator("#ol-reference-topic")).toHaveValue("columns");
+  await expect(page.locator("#origo-lens")).not.toHaveAttribute("data-sheet","open");
+});

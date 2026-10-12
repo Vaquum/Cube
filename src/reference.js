@@ -304,10 +304,11 @@
       el("prev").disabled = at <= 0;
       el("next").disabled = at < 0 || at >= list.length - 1;
       colourKey?.(el("colours"), current);
-      back.hidden = innerWidth > 760 || (!active && main.scrollLeft < 40);
+      back.hidden = innerWidth > 760 || (!active && !main.dataset.referenceReveal && main.scrollLeft < 40);
       if (active) schedule();
     }
-    function clearSpotlight() {
+    function clearSpotlight(restore = true) {
+      if (restore) delete main.dataset.referenceReveal;
       active = null; lastShape = ""; overlay.style.display = "none";
       for (const button of pane.querySelectorAll("[data-reference-target]")) button.setAttribute("aria-pressed", "false");
       el("status").textContent = "";
@@ -316,7 +317,7 @@
     function paint() {
       scheduled = 0;
       if (!active || pane.hidden) return;
-      const raw = bounds(active), doc = pane.getBoundingClientRect();
+      const raw = bounds(active), doc = main.dataset.referenceReveal ? {left:-1,top:-1,right:-1,bottom:-1,width:0,height:0} : pane.getBoundingClientRect();
       if (!raw) {
         overlay.style.display = "none";
         const reasons = { rows: "Rows is off. Use Rows to enable the strip.", selection: "No selection. Choose Select and drag a rectangle.", events: "No event lanes. Enable an event family in Lines.", columns: "The column pane is unavailable in this view.", profiles: "Profile tracks are folded. Use Profiles to reveal them." };
@@ -353,7 +354,9 @@
         const button = node("button", target.label, "ol-action cursor-interaction"); button.type = "button"; button.dataset.referenceTarget = i; button.setAttribute("aria-pressed", "false");
         button.addEventListener("click", () => {
           if (active === target) { clearSpotlight(); return; }
-          clearSpotlight(); active = target; reveal?.(target); button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
+          clearSpotlight(); active = target; reveal?.(target);
+          if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; main.scrollLeft = 0; }
+          button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
         });
         actions.append(button);
       }
@@ -390,7 +393,7 @@
       const list = matches(), ids = new Set(list.map(topic => topic.id));
       for (const option of select.options) option.hidden = !ids.has(option.value);
       if (list.length) render(ids.has(current.id) ? current.id : list[0].id);
-      else { clearSpotlight(); el("status").textContent = "No matching topics. Clear the search to see all topics."; refresh(); }
+      else { clearSpotlight(); el("position").textContent = "0 / 0 matches"; el("status").textContent = "No matching topics. Clear the search to see all topics."; refresh(); }
     });
     back.addEventListener("click", () => { clearSpotlight(); beforeChange(); main.scrollLeft = 0; back.hidden = true; select.focus({ preventScroll: true }); });
     pane.addEventListener("keydown", event => {
@@ -405,7 +408,7 @@
       if (active) clearSpotlight(); else close();
     }, true);
     root.addEventListener("click", event => {
-      if (active && !pane.contains(event.target)) clearSpotlight();
+      if (active && !pane.contains(event.target)) clearSpotlight(false);
     });
     addEventListener("resize", refresh); addEventListener("scroll", refresh, true);
     new ResizeObserver(refresh).observe(root);

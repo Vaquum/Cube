@@ -23237,7 +23237,7 @@
   referenceGuide = window.explorerReference.create({
     root,
     beforeOpen: () => { closePop(); hideHint(); setSheet(false); },
-    beforeChange: closePop,
+    beforeChange: () => { closePop(); setSheet(false); },
     colourKey: guiReferenceColourKey,
     reveal: target => {
       const element = target.selector ? root.querySelector(target.selector) : canvas;

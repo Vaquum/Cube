@@ -3505,3 +3505,8 @@
 /* Selection uses the same readable cell sections; raw rectangle diagnostics remain in the DOM. */
 #origo-lens .ol-selection-card { container: inspection / inline-size; }
 #origo-lens #ol-context[data-selection-card="true"] > :is(.ol-metrics, .ol-rule, .ol-measure-profile, .ol-metric, #ol-motion-to-row, .ol-diag) { display: none; }
+
+@media (max-width: 760px) {
+  #origo-lens .ol-main[data-reference="open"][data-reference-reveal="true"] { grid-template-columns: 0 minmax(300px,1fr); }
+  #origo-lens .ol-main[data-reference-reveal="true"] > #ol-reference { visibility: hidden; }
+}
