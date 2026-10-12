@@ -256,8 +256,8 @@ test("reference works on a phone and topic keys do not navigate the chart", asyn
   await page.getByRole("button", { name: "Show time window", exact: true }).click();
   await expect(page.locator("#ol-reference-spotlight")).toBeVisible();
   await page.screenshot({ path: "reports/reference-phone.png" });
-  await expect(page.locator("#ol-reference-close")).toBeInViewport();
-  await expect(page.locator("#ol-reference-topic")).toBeInViewport();
+  await expect(page.locator("#ol-reference-back")).toBeInViewport();
+  await expect(page.locator("#ol-reference")).toBeHidden();
   await page.keyboard.press("Escape");
   await expect(page.locator("#ol-reference")).toBeVisible();
   await page.keyboard.press("Escape");
