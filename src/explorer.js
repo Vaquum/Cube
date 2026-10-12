@@ -23098,6 +23098,11 @@
   }
   async function agentDocument(scope = "view", supplied = null) {
     if (!ready || !last) throw Error("Wait for a committed canvas before copying evidence");
+    if (!comparisonModel.expanded) {
+      const current = () => last && last.sourceRevision === comparisonSourceRevision && last.token === (PACK.state_token ?? null) && last.camera.every((value, i) => value === [S.tA, S.tB, S.pA, S.pB, S.n, S.m, S.replay, S.anchor][i]);
+      for (let frame = 0; frame < 12 && !current(); frame++) { requestDraw(); await new Promise(requestAnimationFrame); }
+      if (!current()) throw Error("The canvas changed while evidence was captured; copy again after it settles");
+    }
     const scene = (await E.codec.decodePortable(await viewCode(), { inflate: inflateBounded })).payload;
     const edge = comparisonEdge();
     let captures = supplied || (scope === "comparison" || scope === "view" ? comparisonModel.captures : last.shown.cells.map((z) => comparisonCapture({ surface: "cells", n: last.n, m: last.m, c: z.c, r: z.r })).filter(Boolean));
