@@ -11485,7 +11485,10 @@
   // Candles are an alternative price surface, not a scalar cell measurement.
   let candlePrevious = "volume", candleVersion = 0;
   const candleCache = new E.candles.Cache(), candleMemo = new Map(), candleScratch = {}, candleMetrics = { decodeMs: 0, encodedBytes: 0, decodedBytes: 0 };
-  function candleEdge() { return Math.max(0, Math.min(Math.floor(CUT), S.replay ? activeCutoff() : Math.floor(CUT))); }
+  function candleEdge() {
+    const sourceCut = activeAnalysis?.mode === "captured" && activeAnalysis.snapshot?.sourceCutoffMs !== undefined ? E.time.msToBase(activeAnalysis.snapshot.sourceCutoffMs, T0, BASE) : CUT;
+    return Math.max(0, Math.min(Math.floor(sourceCut), S.replay ? activeCutoff() : Math.floor(CUT)));
+  }
   function candleWindow(n, a, b, edge) {
     const r = E.candles.span(n, a, b, edge), step = 2 ** n;
     if (r.b - r.a > TILE_COLUMNS * step) {
@@ -23296,7 +23299,7 @@
     const cache = {};
     for (const [key, map] of Object.entries(maps)) {
       // Replay exports only supports already known at its edge. Raw future caches never travel.
-      cache[key] = S.replay ? new Map() : map;
+      cache[key] = map;
     }
     let captured = Object.values(sources).filter((s) => s.b0 < edge).map(source);
     if (S.replay && last) {
@@ -23305,7 +23308,7 @@
       captured = captured.filter((s) => s.id !== id && s.id !== "captured-frame");
       captured.push({ id, n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
     }
-    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(Math.min(CANON, edge))), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
+    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), sourceCutoffMs: wholeMs(comparisonMs(CUT)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(CANON)), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
   }
   function agentInstallSnapshot(frame) {
     if (frame.baseSeconds !== BASE || frame.basePrice !== PR || frame.origin !== T0) throw Error("Captured canvas uses a different cube lattice");
@@ -23366,7 +23369,7 @@
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
       selection = { query: scene.query, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
     }
-    return Agent.validate(Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null }));
+    return Agent.forExport(Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null }));
   }
   async function agentShare(document = null, focus = null) {
     const value = Agent.forExport(document ? Agent.validate(document) : await agentDocument()), code = await Agent.encode(value, { deflate: deflateGzip });

@@ -41,7 +41,8 @@
     return structuredClone(raw);
   }
   function validateSnapshot(frame) {
-    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "canonicalThroughMs", "source", "token", "live", "generation", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "sourceCutoffMs", "canonicalThroughMs", "source", "token", "live", "generation", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (frame.sourceCutoffMs !== undefined && (!Number.isFinite(frame.sourceCutoffMs) || frame.sourceCutoffMs < frame.cutoffMs)) fail("Invalid captured source cutoff");
     if (frame.generation !== undefined && (!Number.isSafeInteger(frame.generation) || frame.generation < 0)) fail("Invalid captured cache generation");
     if (frame.canonicalThroughMs !== null && !Number.isFinite(frame.canonicalThroughMs)) fail("Invalid canonical cutoff");
     const ids = new Set(); let count = 0;
@@ -123,13 +124,26 @@
       const clip = (source) => ({ ...source, b1: Math.min(source.b1, cut), col1: Math.ceil(Math.min(source.b1, cut) / 2 ** source.n), cells: source.cells.filter((cell) => Math.min((cell.c + 1) * 2 ** source.n, source.b1) <= cut) });
       frame.sources = frame.sources.filter((source) => source.b0 < cut).map(clip);
       frame.motion = (frame.motion || []).filter((source) => source.b0 < cut).map(clip);
-      frame.cutoffMs = edge; frame.canonicalThroughMs = frame.canonicalThroughMs === null ? null : Math.min(frame.canonicalThroughMs, edge);
-      frame.cache = {};
+      frame.sourceCutoffMs ??= frame.cutoffMs;
+      frame.cutoffMs = edge;
+      frame.cache = replayCache(frame.cache || {}, cut);
       if (!frame.sources.length) d.snapshot = null;
     }
     d.scene.observation.cutoffMs = edge;
     d.scene = seal(d.scene);
     return validate(seal(d));
+  }
+  function replayCache(cache, cut) {
+    const output = {}, entries = (name) => cache[name]?.cubeMap || [], put = (name, values) => { output[name] = { cubeMap: values }; };
+    put("barChunks", entries("barChunks").filter(([, r]) => r.a < cut).map(([key, r]) => [key, { ...r, end: Math.min(r.end, cut), bars: r.bars.filter((bar) => (bar.c + 1) * 2 ** r.n <= cut) }]));
+    put("barEdges", entries("barEdges").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
+    put("candleRanges", entries("candleRanges").map(([key, r]) => {
+      const stop = r.end <= cut ? Math.min(r.b, cut) : Math.floor(cut / 2 ** r.n) * 2 ** r.n;
+      return [key, { ...r, b: stop, end: Math.min(r.end, stop), bars: r.bars.filter((bar) => bar.through <= stop) }];
+    }).filter(([, r]) => r.b > r.a));
+    for (const name of ["lineResults", "lineLatest"]) put(name, entries(name).filter(([, r]) => Array.isArray(r.span) && r.span[1] <= cut));
+    put("visibleVwaps", entries("visibleVwaps").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
+    return output;
   }
   function diff(before, after) {
     const a = validate(before), b = validate(after), changes = [];
