@@ -3510,3 +3510,7 @@
   #origo-lens .ol-main[data-reference="open"][data-reference-reveal="true"] { grid-template-columns: 0 minmax(300px,1fr); }
   #origo-lens .ol-main[data-reference-reveal="true"] > #ol-reference { visibility: hidden; }
 }
+
+#origo-lens .ol-reference-matrix { overflow-x: auto; margin-top: var(--sp-2); }
+#origo-lens .ol-reference-matrix table { width: 100%; border-collapse: collapse; font-size: var(--fs-s); }
+#origo-lens .ol-reference-matrix :is(th,td) { padding: var(--sp-1); border-bottom: 1px solid var(--ol-line); text-align: left; vertical-align: top; }

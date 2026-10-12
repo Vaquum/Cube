@@ -3060,11 +3060,14 @@
 /* Authored trend lines use the chart's controls, Lines inventory and dialog surfaces. */
 /* On the plot at its top left while Trend is the tool, as the lens's controls are, so the plot never moves. */
 #origo-lens .ol-drawing-toolbar {
+  /* Readouts do not consume drawing contacts beneath the floating card. */
+  pointer-events: none;
   justify-content: flex-start;
   gap: var(--sp-2);
   padding: var(--sp-1) var(--sp-2);
   font-size: var(--fs-s);
 }
+#origo-lens .ol-drawing-toolbar :is(button, input, select, a) { pointer-events: auto; }
 #origo-lens :is(.ol-drawing-toolbar, .ol-drawing-sheet-group)[hidden] { display: none; }
 #origo-lens .ol-drawing-toolbar-name {
   min-width: 0;
@@ -3519,6 +3522,11 @@
 /* Selection uses the same readable cell sections; raw rectangle diagnostics remain in the DOM. */
 #origo-lens .ol-selection-card { container: inspection / inline-size; }
 #origo-lens #ol-context[data-selection-card="true"] > :is(.ol-metrics, .ol-rule, .ol-measure-profile, .ol-metric, #ol-motion-to-row, .ol-diag) { display: none; }
+
+@media (max-width: 760px) {
+  #origo-lens .ol-main[data-reference="open"][data-reference-reveal="true"] { grid-template-columns: 0 minmax(300px,1fr); }
+  #origo-lens .ol-main[data-reference-reveal="true"] > #ol-reference { visibility: hidden; }
+}
 
     </style>
   </head>
@@ -19618,10 +19626,11 @@
       el("prev").disabled = at <= 0;
       el("next").disabled = at < 0 || at >= list.length - 1;
       colourKey?.(el("colours"), current);
-      back.hidden = innerWidth > 760 || (!active && main.scrollLeft < 40);
+      back.hidden = innerWidth > 760 || (!active && !main.dataset.referenceReveal && main.scrollLeft < 40);
       if (active) schedule();
     }
-    function clearSpotlight() {
+    function clearSpotlight(restore = true) {
+      if (restore) delete main.dataset.referenceReveal;
       active = null; lastShape = ""; overlay.style.display = "none";
       for (const button of pane.querySelectorAll("[data-reference-target]")) button.setAttribute("aria-pressed", "false");
       el("status").textContent = "";
@@ -19630,7 +19639,7 @@
     function paint() {
       scheduled = 0;
       if (!active || pane.hidden) return;
-      const raw = bounds(active), doc = pane.getBoundingClientRect();
+      const raw = bounds(active), doc = main.dataset.referenceReveal ? {left:-1,top:-1,right:-1,bottom:-1,width:0,height:0} : pane.getBoundingClientRect();
       if (!raw) {
         overlay.style.display = "none";
         const reasons = { rows: "Rows is off. Use Rows to enable the strip.", selection: "No selection. Choose Select and drag a rectangle.", events: "No event lanes. Enable an event family in Lines.", columns: "The column pane is unavailable in this view.", profiles: "Profile tracks are folded. Use Profiles to reveal them." };
@@ -19667,7 +19676,9 @@
         const button = node("button", target.label, "ol-action cursor-interaction"); button.type = "button"; button.dataset.referenceTarget = i; button.setAttribute("aria-pressed", "false");
         button.addEventListener("click", () => {
           if (active === target) { clearSpotlight(); return; }
-          clearSpotlight(); active = target; reveal?.(target); button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
+          clearSpotlight(); active = target; reveal?.(target);
+          if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; main.scrollLeft = 0; }
+          button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
         });
         actions.append(button);
       }
@@ -19704,7 +19715,7 @@
       const list = matches(), ids = new Set(list.map(topic => topic.id));
       for (const option of select.options) option.hidden = !ids.has(option.value);
       if (list.length) render(ids.has(current.id) ? current.id : list[0].id);
-      else { clearSpotlight(); el("status").textContent = "No matching topics. Clear the search to see all topics."; refresh(); }
+      else { clearSpotlight(); el("position").textContent = "0 / 0 matches"; el("status").textContent = "No matching topics. Clear the search to see all topics."; refresh(); }
     });
     back.addEventListener("click", () => { clearSpotlight(); beforeChange(); main.scrollLeft = 0; back.hidden = true; select.focus({ preventScroll: true }); });
     pane.addEventListener("keydown", event => {
@@ -19719,7 +19730,7 @@
       if (active) clearSpotlight(); else close();
     }, true);
     root.addEventListener("click", event => {
-      if (active && !pane.contains(event.target)) clearSpotlight();
+      if (active && !pane.contains(event.target)) clearSpotlight(false);
     });
     addEventListener("resize", refresh); addEventListener("scroll", refresh, true);
     new ResizeObserver(refresh).observe(root);
@@ -30246,6 +30257,9 @@
   }
   // The selection's frame on the plot.
   function selectionFrame(x1, y1, x2, y2) {
+    // Align the interface outline to pixel centres: retain a fully covered ink pixel
+    // across fractional chart projections without changing measured bounds.
+    x1=Math.floor(x1)+.5; y1=Math.floor(y1)+.5; x2=Math.floor(x2)+.5; y2=Math.floor(y2)+.5;
     STROKE.selection(ctx, x1, y1, x2 - x1, y2 - y1);
     markCount.selection++;
   }
@@ -43169,7 +43183,7 @@
   referenceGuide = window.explorerReference.create({
     root,
     beforeOpen: () => { closePop(); hideHint(); setSheet(false); },
-    beforeChange: closePop,
+    beforeChange: () => { closePop(); setSheet(false); },
     colourKey: guiReferenceColourKey,
     reveal: target => {
       const element = target.selector ? root.querySelector(target.selector) : canvas;

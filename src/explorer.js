@@ -3298,7 +3298,7 @@
                 : "The cube's answer to these six parameters.";
     const provenance = el("query-provenance"); provenance.replaceChildren();
     const current = evidence.job?.key === evidenceKey() ? evidence.job?.output ?? evidence.ready : null;
-    const fields = [["Source / pack", `${PACK.live ? "Cube" : "Recorded"} · ${PACK.source ?? "source identity unavailable"} · ${PACK.state_token ?? "snapshot"}`], ["Source cutoff", when(CUT) + " UTC"], ["Canonical cutoff", CANON === null ? "Not supplied" : when(CANON) + " UTC"], ["Replay edge", S.replay ? when(activeCutoff()) + " UTC" : "Off"], ["Measured through", ["exact","cube","recorded"].includes(meas.state) ? when(Math.min(b[1], activeCutoff())) + " UTC" : Number.isFinite(meas.end) ? when(Math.min(meas.end,b[1],activeCutoff())) + " UTC" : "Unavailable"], ["Requested bounds", `${range(meas.r[0],meas.r[1])} UTC; ${price(meas.r[2]*PR)}–${price(meas.r[3]*PR)} USDT; n=${S.n}, m=${S.m}`], ["Actual measured bounds", `${range(b[0],b[1])} UTC; ${price(b[2]*PR)}–${price(b[3]*PR)} USDT; n=${meas.query.n}, m=${meas.query.m}`], ["Shown level", `n=${renderN()}, m=${renderM()}`], ["Historical evidence study", current?.provenance ? `${current.version} / ${current.uncertainty?.version}; digest ${current.provenance.sourceDigest}; fit ${when((current.a+1)*2**current.n)} UTC; ${current.provenance.reconstruction}` : "Current-source study unavailable or preparing"], ["Frozen comparison", `${comparisonModel.captures.length} captures; ${comparisonModel.selectedMetric} / ${comparisonAnalysis?.basis ?? comparisonModel.basis}; each record retains its captured source and measured-through boundary`]];
+    const fields = [["Source / pack", `${PACK.live ? "Cube" : "Recorded"} · ${PACK.source ?? "source identity unavailable"} · ${PACK.state_token ?? "snapshot"}`], ["Source cutoff", when(CUT) + " UTC"], ["Canonical cutoff", CANON === null ? "Not supplied" : when(CANON) + " UTC"], ["Replay edge", S.replay ? when(activeCutoff()) + " UTC" : "Off"], ["Measured through", Number.isFinite(meas.end) ? when(Math.min(meas.end,b[1],activeCutoff())) + " UTC" : ["exact","cube","recorded"].includes(meas.state) ? when(Math.min(b[1], activeCutoff())) + " UTC" : "Unavailable"], ["Requested bounds", `${range(meas.r[0],meas.r[1])} UTC; ${price(meas.r[2]*PR)}–${price(meas.r[3]*PR)} USDT; n=${S.n}, m=${S.m}`], ["Actual measured bounds", `${range(b[0],b[1])} UTC; ${price(b[2]*PR)}–${price(b[3]*PR)} USDT; n=${meas.query.n}, m=${meas.query.m}`], ["Shown level", `n=${renderN()}, m=${renderM()}`], ["Historical evidence study", current?.provenance ? `${current.version} / ${current.uncertainty?.version}; digest ${current.provenance.sourceDigest}; fit ${when((current.a+1)*2**current.n)} UTC; ${current.provenance.reconstruction}` : "Current-source study unavailable or preparing"], ["Frozen comparison", `${comparisonModel.captures.length} captures; ${comparisonModel.selectedMetric} / ${comparisonAnalysis?.basis ?? comparisonModel.basis}; each record retains its captured source and measured-through boundary`]];
     for (const [label,value] of fields) provenance.append(Object.assign(document.createElement("dt"),{textContent:label}),Object.assign(document.createElement("dd"),{textContent:value}));
   }
   // Copy text to the clipboard. `source` is the text, a promise of it, or a function that makes either (a
@@ -6141,7 +6141,7 @@
           : c.name && c.tag && c.tag !== c.name && !String(c.name).includes(c.tag)
             ? `${c.name} · ${c.tag}`
             : c.name || c.tag,
-      push = (l, curve) => out.push({ id: l.id, key: l.key, name: curve ? curveName(l) : lineItemName(l), hit: { key: l.key, id: l.id, item: l, colour: lineStyle(l.family || "vwap").colour, ...(curve ? { curve: { points: l.r.points } } : {}) }, at: curve ? null : l.at, kind: curve ? "curve" : l.kind });
+      push = (l, curve) => out.push({ id: l.id, key: l.key, name: curve ? curveName(l) : lineItemName(l) + (Number.isFinite(l.s?.t) ? " · " + when(l.s.t) + " UTC" : Number.isFinite(l.from) && Number.isFinite(l.to) ? " · " + range(l.from,l.to) + " UTC" : ""), hit: { key: l.key, id: l.id, item: l, colour: lineStyle(l.family || "vwap").colour, ...(curve ? { curve: { points: l.r.points } } : {}) }, at: curve ? null : l.at, kind: curve ? "curve" : l.kind });
     for (const l of items) if (!l.eq) push(l, false);
     for (const c of items.curves ?? []) push(c, true);
     // the equal highs and lows and the golden and death crosses are plotted records with their own hover details: each is a reference the cursor can be on
@@ -22994,7 +22994,7 @@
   }
   function guiAuditCommit() {
     const legend = scaleUi.models.cells, field = el("cell-key-text"), ramp = el("cell-key-ramp");
-    const text = S.mode === "candles" ? "Candles · hollow up, filled down" : S.mode === "geometry" ? "Geometry · occupancy" : legend ? [legend.summary.measure, legend.summary.basis, legend.summary.transform, legend.summary.policy].filter(Boolean).join(" · ") : "Scale preparing";
+    const text = S.mode === "candles" ? "Candles · hollow up, filled down" : S.mode === "geometry" ? "Geometry · occupancy" : legend ? [legend.summary.measure, legend.summary.basis, legend.bar?.ticks?.length ? legend.bar.ticks[0].label + " → " + legend.bar.ticks.at(-1).label + " " + legend.summary.unit : null, legend.summary.transform, legend.summary.policy].filter(Boolean).join(" · ") : "Scale preparing";
     if (field.textContent !== text) field.textContent = text;
     ramp.hidden = !legend || ["geometry", "candles"].includes(S.mode);
     const key = scaleRt.legendKey.cells + "|" + colourEpoch;
@@ -23098,6 +23098,7 @@
     if (kind === "selection") row("Selection boundary · measured rectangle", "var(--ol-ink)", "□");
     if (kind === "rallies") { row("Outlined cell · contains native rally members", "var(--ol-state)", "□"); row("Member volume · row length", "var(--ol-on)", "■"); }
     if (kind === "drawings") {
+      if (!drawingCollection().objects.length) container.append(uiEl("p","ol-muted","No drawings. Each authored object supplies its own RGB key."));
       for (const object of drawingCollection().objects) row(`${drawingDisplayName(object)} · authored annotation`, object.color);
       container.append(uiEl("p","ol-muted","A drawing's chosen RGB colour has no market meaning."));
     }

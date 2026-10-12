@@ -60,7 +60,7 @@
       targets: [{"label":"Show state key","selector":".ol-status"},{"label":"Show data status","selector":"#ol-state-pill"}], colour: "states" },
     { id: "coordinates", group: "Read the market", title: "Grid precision",
       purpose: "Reconcile exact bounds with the cube's cells.",
-      read: "The base cell is 56.25 seconds × 125 USDT, aligned to 1 Jan 2021 00:00 UTC and price zero. Level n multiplies time by 2ⁿ; m multiplies price by 2ᵐ. Bounds include the lower edge and exclude the upper; requested bounds align to base cells. Cropped edge amounts use only measured support.",
+      read: "The base cell is 56.25 seconds × 125 USDT, aligned to 1 Jan 2021 00:00 UTC and price zero. Level n multiplies time by 2ⁿ; m multiplies price by 2ᵐ. Bounds include the lower edge and exclude the upper; requested bounds align to base cells. Midpoints snap upward; a latest-data rectangle closes its open base interval. Live cropped amounts use measured support; a recorded untiled rectangle counts whole snapshot cells inside it.",
       use: "Use Bounds for UTC times and prices. Read requested and measured bounds in Query; a coarser answer does not change the requested rectangle.",
       targets: [{"label":"Show Bounds","selector":"#ol-bounds-settings"},{"label":"Show Query","selector":"#ol-tab-query"},{"label":"Show resolution","selector":"#ol-res"}], colour: "cells" },
     { id: "exposure", group: "Read the market", title: "Amounts & exposure",
@@ -75,8 +75,8 @@
       targets: [{"label":"Show colour key","selector":"#ol-cell-key"},{"label":"Show cells","region":"cells"}], colour: "cells" },
     { id: "row-comparisons", group: "Read the market", title: "Row comparison denominators",
       purpose: "Keep the three row comparisons distinct.",
-      read: "Row concentration is log₂(row period volume / mean traded-row volume): twice the mean is +1. Profile-share is log₂(current share / reference share) over overlapping clipped bins. Shared row share reports each track's percentage over wholly-in-view common bins. A zero current share is −∞; a missing positive denominator is not zero. Signed Delta cannot use a shared share axis.",
-      use: "Read the common window and both totals in Profiles. A 20% row against 10% is twice the concentration, even when the two period totals differ.",
+      read: "Row concentration is log₂(row period volume / mean traded-row volume): twice the mean is +1. Profile-share is log₂(current share / reference share) over overlapping clipped bins. Shared row share reports each track's percentage over wholly-in-view common bins. For Profile-share, zero current against positive reference is −∞; a positive current against zero reference has no reference; empty-both is separate. Shared axes coarsen by exact summation, never split a coarse row; zero totals are undefined. Signed Delta cannot use a shared share axis.",
+      use: "Read Window W and both totals in Profiles. Concentration: 100 against a mean of 50 is +1. Profile-share: 20% against 10% is +1. Shared row share: 20/100 against 40/400 draws 20% against 10%. Selection changes the current distribution; period concentration stays fixed.",
       targets: [{"label":"Show Rows","selector":"#ol-rows"},{"label":"Show Profiles","selector":"#ol-profile-settings"},{"label":"Show profile tracks","region":"profiles"}], colour: "rows" },
     { id: "poc-value", group: "Read the market", title: "POC & value area",
       purpose: "Read the profile's reported price landmarks.",
@@ -90,7 +90,7 @@
       targets: [{"label":"Show Cells menu","selector":"#ol-mode"},{"label":"Show cells","region":"cells"},{"label":"Show state key","selector":"#ol-key-guide"}], colour: "cells" },
     { id: "motion-support", group: "Read the market", title: "Path & dwell support",
       purpose: "Account for movement independently of reported trades.",
-      read: "Path attributes travel to the later trade's interval and to the crossed rows, retaining USDT travel and row spans. Dwell attributes covered time at price; its share uses covered column time and is not renormalized over the visible rows. Movement can exist without trades. Open native intervals, missing movement reads and marks too small to resolve are distinct states.",
+      read: "Path attributes travel to the later trade's interval and to the crossed rows, retaining USDT travel and row spans. Dwell attributes covered time at price; its share uses covered column time and is not renormalized over the visible rows. Movement can exist without trades. For a 250-USDT move across two 125-USDT rows, path contributions sum to two spans. Dwell sums to covered seconds; unobserved native time is not filled. Open intervals, missing reads and marks too small to resolve are distinct states.",
       use: "Inspect raw travel, dwell seconds and coverage. Use Lens for unresolved detail; the recorded snapshot does not supply movement.",
       targets: [{"label":"Show Cells menu","selector":"#ol-mode"},{"label":"Show Lens","selector":"#ol-lens"},{"label":"Show Cells table","selector":"#ol-tab-cells"}], colour: "cells" },
     { id: "session-levels", group: "Read the market", title: "Session levels",
@@ -100,7 +100,7 @@
       targets: [{"label":"Show Lines menu","selector":"#ol-lines"},{"label":"Show price chart","region":"cells"}], colour: "references" },
     { id: "structure-rules", group: "Read the market", title: "Structure & swings",
       purpose: "Distinguish a price extreme from its later confirmation.",
-      read: "Daily and 4h swings follow an ATR zigzag: reversal must exceed 3 × the preceding bar's Wilder ATR(14). The extreme's time and the confirming bar's end differ. A forming reversal is a candidate. Consecutive same-frame highs or lows within 125 USDT are equal. The prior cycle high requires a later deep low below half the prior peak and a subsequent exceedance.",
+      read: "Daily and 4h swings follow an ATR zigzag: reversal must exceed 3 × the preceding bar's Wilder ATR(14). The extreme's time and the confirming bar's end differ. A forming reversal is a candidate. Consecutive same-frame highs or lows within 125 USDT are equal. The prior cycle high precedes the last deep low below half the prior peak before the all-time high. ATH is the highest recorded trade. A gap requires consecutive supported bars; a three-bar fair-value gap lies between the first and third ranges and is known at the third bar's end.",
       use: "Inspect occurrence, confirmation and traded-through state. Replay reveals a swing only when the confirming inputs are available.",
       targets: [{"label":"Show Lines menu","selector":"#ol-lines"},{"label":"Show price chart","region":"cells"}], colour: "references" },
     { id: "retracements", group: "Read the market", title: "Retracements",
@@ -176,12 +176,12 @@
     { id: "lens-rules", group: "Work with the view", title: "Lens support & pinning",
       purpose: "Keep finer inspection separate from adopting a new view.",
       read: "Depth lowers time and price levels by up to one to four steps, stopping at base levels. Finer support is read separately and may be pending or unavailable. Inspect can hold the lens frame. Local contrast has its own colour fit; otherwise the main mapping applies. Pin adopts the rectangle and resolution and can trigger a disclosed scale change.",
-      use: "Use Alt for a temporary peek, Lens for a held region, then Pin or Enter to adopt it. Read coverage before using finer values.",
+      use: "At n=4, m=2, depth 1 reads n=3, m=1; depth 4 stops price at m=0. Use Alt for a peek, Inspect to hold, then Pin or Enter to adopt bounds/levels and record navigation. Read coverage and any calibration change.",
       targets: [{"label":"Show Lens","selector":"#ol-lens"},{"label":"Show Lens controls","selector":"#ol-lensbar"}], colour: "cells" },
     { id: "drawing-rules", group: "Work with the view", title: "Drawing operations & recovery",
       purpose: "Retain an annotation without confusing it with data.",
-      read: "G places A then B by clicks or a drag. Move the line or an endpoint; coordinates stay UTC/USDT and authored A→B order is retained. Name identifies it; Label is the caption, with a custom Name used when Label is blank. Colour is your RGB choice. Lock prevents movement; visibility and deletion are separate. Undo/Redo covers the drawing collection, not navigation.",
-      use: "Use Edit or the context menu for coordinates and Delete. Recover by timestamp/workspace/name; complete view codes include drawings. Authorship time is not recorded, so replay annotations may reflect later knowledge.",
+      read: "G places A then B by clicks or a drag. Move the line or an endpoint; coordinates stay UTC/USDT and authored A→B order is retained. Name identifies it; Label is the caption, with a custom Name used when Label is blank. Colour is your RGB choice; the caption shares it at the first usable anchor. Lock prevents movement; per-line and collection visibility are separate from deletion. Undo/Redo covers the drawing collection, not navigation.",
+      use: "Use Edit or the context menu for coordinates/Delete; More for Undo/Redo, copies and recovery. Reload keeps the tab snapshot; recovery revisions can expire on later saves. Recover by timestamp/workspace/name; complete codes keep drawings permanently. Replay annotations may reflect later knowledge; authorship time is unrecorded.",
       targets: [{"label":"Show drawing tool","selector":"#ol-trend"},{"label":"Show Lines","selector":"#ol-lines"}], colour: "drawings" },
     { id: "mobile", group: "Work with the view", title: "Phone controls & highlights",
       purpose: "Reach the same view and records on a narrow screen.",
@@ -240,8 +240,8 @@
       targets: [{"label":"Show Cases","selector":"#ol-tab-cases"},{"label":"Show Continuations","selector":"#ol-evidence-tab"}], colour: "evidence" },
     { id: "rally-rules", group: "Evaluate & retain", title: "Rally boundaries & membership",
       purpose: "Keep event discovery, filtering and members separate.",
-      read: "First passage starts at epoch-aligned anchors and ends at the first target trade; Controlled advance also constrains pullback. Swing establishes a trough and confirms on reversal; the confirming trade is outside membership. Anchored modes require completion strictly before 240 minutes. The 48h budget includes 3h45 ATR warm-up; Use visible time chooses at most 24h. ATR14-SMA is frozen at anchor/trough, distinct from chart Wilder ATR.",
-      use: "Read unfinished, left-censored and unknown-context counts. Shorter deadlines and replay reuse discovery; Refresh scans again. Export confirmed events. Stop waiting aborts the client wait, not service computation.",
+      read: "First passage starts at epoch-aligned cadence anchors and ends at the first target trade. A bps threshold is frozen reference price × bps/10,000; ATR thresholds multiply frozen ATR. Controlled advance also caps pullback. Swing establishes its trough by an initial reversal, qualifies the rise, then confirms on reversal from the high; the confirming trade is outside membership. Anchored modes require completion strictly before 240 minutes. The 48h budget includes 3h45 ATR warm-up; Use visible time chooses at most 24h. ATR14-SMA is frozen at anchor/trough, distinct from chart Wilder ATR.",
+      use: "Unfinished lacks confirmation at the ceiling; left-censored starts before supported analysis; unknown context lacks its threshold inputs. Events can overlap: each retains its identity, member totals count only its native members, and outlined cells can also contain unrelated trades. Replay requires confirmation strictly before its edge. Source revisions invalidate discovery; Refresh scans again. Stop waiting aborts the client wait, not service computation.",
       targets: [{"label":"Show Rallies","selector":"#ol-tab-rallies"},{"label":"Show rally outlines","region":"cells"}], colour: "rallies" },
     { id: "replay-objects", group: "Evaluate & retain", title: "Replay & retained objects",
       purpose: "Read each object's time eligibility honestly.",
@@ -250,7 +250,7 @@
       targets: [{"label":"Show Replay","selector":"#ol-replay"},{"label":"Show Query","selector":"#ol-tab-query"},{"label":"Show Compare","selector":"#ol-tab-compare"}], colour: "states" },
     { id: "comparison-math", group: "Evaluate & retain", title: "Comparison basis & references",
       purpose: "Compare collected cells using eligible observations.",
-      read: "Auto uses Amount for equal observed time × price exposure and Intensity when exposures differ. Means/shares keep their own units. The reference is the eligible set median or a pinned cell. Magnitude ranks use collected comparable cells, ties sharing rank; POC distance ranks nearest first. Share differences are percentage points; zero or missing references can withhold relative differences.",
+      read: "Auto uses Amount for equal observed time × price exposure and Intensity when exposures differ. Means/shares keep their own units. The reference is the eligible set median or a pinned cell. Magnitude ranks use collected comparable cells, ties sharing rank; POC distance ranks nearest first and requires an eligible POC at the edge. Share differences are percentage points; 60% − 50% is +10 pp. Ranks are competition ranks: two tied firsts are followed by third. Zero or missing references can withhold relative differences.",
       use: "Choose metric, basis, reference and POC in Compare. Read units, geometry and eligible counts; colour/length in the dashboard is its comparison scale, not the original chart shade.",
       targets: [{"label":"Show Compare","selector":"#ol-tab-compare"}], colour: "compare" },
     { id: "capture-content", group: "Evaluate & retain", title: "Frozen capture content",
@@ -260,7 +260,8 @@
       targets: [{"label":"Show Inspect","selector":"#ol-inspect-tool"},{"label":"Show Compare","selector":"#ol-tab-compare"}], colour: "compare" },
     { id: "retention", group: "Evaluate & retain", title: "What survives & what travels",
       purpose: "Choose the right retention route for each object.",
-      read: "The address keeps this tab's view; browser preferences keep panel layout and the last view. History is tab navigation; named views are browser-local settings. Links carry settings and, within the size limit, calibration; a settings-only fallback loses exact scales. Current portable codes retain active scales, axes and drawings; links omit drawings. Named views retain settings and drawings; older codes can omit them. Comparison records stay in this tab and use their own JSON export. Rallies are session discoveries.",
+      matrix: {headers:["Retains","Link","Code","Named","History","Reload"],rows:[["Bounds / measures / levels / references","Yes","Yes","Yes","Yes","Yes"],["Active colour / axes","Size limit","Yes","Yes","Yes","Yes"],["Drawings","No","Current v3","Yes","No","This tab"],["Captured cells","No","No","No","No","This tab"],["Rally discovery","No","No","No","No","No"],["Market snapshot","No","No","No","No","Current source"]]},
+      read: "The address keeps this tab's view; browser preferences keep panel layout and the last view. History is tab navigation; named views are browser-local settings. Links carry settings and, within the size limit, calibration; a settings-only fallback loses exact scales. Current portable codes retain active scales, axes and drawings; links omit drawings. Named views retain settings and drawings; older codes can omit them. Comparison records stay in this tab and use their own JSON export. Drawing recovery is browser-local, bounded and may expire; the tab snapshot restores on reload. Rallies are memory-only discoveries and are lost on reload. Comparison reloads in this tab; duplicated tabs then diverge.",
       use: "Use Views for names/links and Query for codes. Export drawings or comparison collections before clearing. Undo restores the last collection change; a scale descriptor never freezes market data.",
       targets: [{"label":"Show Views","selector":"#ol-hist"},{"label":"Show Query","selector":"#ol-tab-query"},{"label":"Show Compare","selector":"#ol-tab-compare"}], colour: "none" },
   ];
@@ -347,7 +348,11 @@
       article.dataset.topic = current.id;
       article.append(node("p", current.group, "ol-reference-group"), node("h3", current.title));
       const list = node("dl");
-      for (const [title, key] of [["Purpose", "purpose"], ["Read", "read"], ["Use", "use"]]) list.append(node("dt", title), node("dd", current[key]));
+      for (const [title, key] of [["Purpose", "purpose"], ["Read", "read"], ["Use", "use"]]) {
+        const value=node("dd",current[key]);
+        if(key==="read" && current.matrix){const wrap=node("div","","ol-reference-matrix"),table=node("table"),head=node("thead"),tr=node("tr"),body=node("tbody");for(const label of current.matrix.headers){const th=node("th",label);th.scope="col";tr.append(th);}head.append(tr);table.append(head);for(const cells of current.matrix.rows){const row=node("tr");cells.forEach((text,i)=>{const cell=node(i?"td":"th",text);if(!i)cell.scope="row";row.append(cell);});body.append(row);}table.append(body);wrap.append(table);value.append(wrap);}
+        list.append(node("dt",title),value);
+      }
       article.append(list);
       const actions = node("div", "", "ol-reference-targets");
       for (const [i, target] of current.targets.entries()) {
