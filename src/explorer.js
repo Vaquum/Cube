@@ -23050,7 +23050,9 @@
     if (panel === "rallies") table = rallyController.table;
     if (!table || (table.stamp && table.stamp !== guiExportStamp())) { postNotice({code:"export-table",text:"The table is preparing or changed; export after it settles."});return; }
     const quote = value => { let text = value == null || (typeof value === "number" && !Number.isFinite(value)) ? "Unavailable" : String(value);if(typeof value==="string"&&/^[=+@\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'; };
-    const metadata = table.metadata ?? [PACK.source??"Source not recorded",iso(CUT),S.replay?iso(activeCutoff()):"Off"], lines = [["Source","Source cutoff · UTC","Replay edge · UTC","Export scope",...table.headers].map(quote).join(",")];
+    const metadata = table.metadata ? [...table.metadata] : [PACK.source??"Source not recorded",iso(CUT),"Off"];
+    metadata[2] = S.replay ? iso(activeCutoff()) : "Off";
+    const lines = [["Source","Source cutoff · UTC","Replay edge · UTC","Export scope",...table.headers].map(quote).join(",")];
     for (let index=0;index<table.length;index++) {
       lines.push([...metadata,table.scope,...table.row(index)].map(quote).join(","));
       if(index%500===499) { await new Promise(resolve=>setTimeout(resolve,0));if(table.stamp&&table.stamp!==guiExportStamp()){postNotice({code:"export-table",text:"Export stopped because the table changed. Export the settled table again."});return;} }
