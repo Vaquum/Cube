@@ -41,6 +41,7 @@
     comparisonUnsaved = false, comparisonRejected = false, comparisonMessage = "", comparisonMenu = null,
     comparisonPocCache = {key:null,items:[]}, comparisonUndoState = null;
   const comparisonCounters = {stats:0,writes:0,bytes:0,renders:0};
+  const guiTableExports = new Map();
   const comparisonMs = (base) => Number.isFinite(base) ? (T0 + base * BASE) * 1000 : null;
   const comparisonEdge = () => S.replay ? comparisonMs(activeCutoff()) : null;
   // Diagonal through the resolution lattice: least-squares fit of
@@ -4023,6 +4024,7 @@
     if (S.mode === "candles") return buildCandleTable();
     for (const th of qsa(".ol-motion-col")) th.hidden = !mv;
     if (!query) {
+      guiTableExports.delete("cells");
       cellRows = new Map();
       cellRowsLevel = null;
       hoverRow = null;
@@ -4095,6 +4097,16 @@
             x.r - y.r,
         ),
       pages = Math.max(1, Math.ceil(cells.length / CELLS_PAGE));
+    const exportMode = S.mode, exportMotion = movementMode(), exportCut = activeCutoff();
+    guiRememberTable("cells", {
+      scope: `All ${cells.length} listed cells · ${MODE_NAMES[exportMode]} · ${S.cellSort} ${S.cellDir > 0 ? "ascending" : "descending"}`,
+      headers: ["Start · UTC","End · UTC","Low · USDT","High · USDT","Volume · USDT","Trades","Taker-buy · USDT","Taker-buy trades",...(mv ? ["Path · USDT","Dwell · seconds"] : []),"Cells value","Cells unit","Value state","Coverage","Time level n","Price level m"],
+      length: cells.length,
+      row: index => {
+        const c = cells[index], mz = mv ? moves(c) : null, reached = Boolean(mq) && c.c * ts < end, read = exportMotion ? reached ? mz ?? c : null : c, value = same && read ? cellReadout(read,null) : null;
+        return [iso(Math.max(c.c*ts,b[0])),iso(Math.min((c.c+1)*ts,b[1],exportCut)),Math.max(c.r*ps,b[2])*PR,Math.min((c.r+1)*ps,b[3])*PR,c.v,c.ct,c.bv??0,c.bt??0,...(mv?[reached?mz?.p??0:"Unavailable",reached?mz?.w??0:"Unavailable"]:[]),value?.typed?.tag==="finite"?value.typed.value:"Unavailable",value?.measure?.unit??"Unavailable",value?.typed?.tag??"pending",cellState(c,b,ts,ps),listed.n,listed.m];
+      },
+    });
     tablePage = clamp(tablePage, 0, pages - 1);
     const frag = document.createDocumentFragment();
     cellRows = new Map();
@@ -11636,6 +11648,8 @@
   }
   function buildCandleTable() {
     const r = candleRange(renderN(), S.tA, S.tB), table = el("candle-table"), pages = Math.max(1, Math.ceil(r.bars.length / CELLS_PAGE));
+    const bars = r.bars;
+    guiRememberTable("cells", { scope: `All ${bars.length} candles in view`, headers:["Start · UTC","End · UTC","Open · USDT","High · USDT","Low · USDT","Close · USDT","Net move · USDT","High−low · USDT","Net move / daily ATR","High−low / daily ATR","Direction","Status"],length:bars.length,row:index=>{const bar=bars[index],atr=contextATR(bar.start),move=bar.close-bar.open,spread=bar.high-bar.low;return [iso(bar.start),iso(bar.stop),bar.open,bar.high,bar.low,bar.close,move,spread,atr>0?move/atr:"Unavailable",atr>0?spread/atr:"Unavailable",bar.direction,bar.state==="so-far"?"So far":"Complete"];}});
     tablePage = clamp(tablePage, 0, pages - 1);
     const body = table.tBodies[0], frag = document.createDocumentFragment();
     for (const bar of r.bars.slice(tablePage * CELLS_PAGE, (tablePage + 1) * CELLS_PAGE)) {
@@ -17482,6 +17496,7 @@
     }
     evidenceLedger(e);
     if (e.error || !e.cases) {
+      guiTableExports.delete("cases");
       list.replaceChildren();
       el("case-definition").textContent = e.error;
       el("case-page").textContent = e.error || "Preparing cases";
@@ -17520,6 +17535,8 @@
             S.caseDir || y.c - x.c,
       );
     const pages = Math.max(1, Math.ceil(rows.length / CASES_PAGE));
+    const exportPrice = stepP() * PR, exportStep = stepT();
+    guiRememberTable("cases", {scope:`All ${rows.length} ${filter} cases · ${S.evidenceKind} · ${h} columns · fit ${when((e.a+1)*exportStep)} UTC`,headers:["Anchor · UTC","Outcome","Change · USDT","Starting POC · USDT","Final POC · USDT","Minimum POC change · USDT","Maximum POC change · USDT","Excursion · USDT","Taker-buy share","Seasonal ratio","State buckets","Fit anchor · UTC"],length:rows.length,row:index=>{const c=rows[index];return [iso((c.c+1)*exportStep),barrier?c.first>0?"Upper first":c.first<0?"Lower first":"Neither":c.delta>0?"Higher":c.delta<0?"Lower":"Same row",c.delta*exportPrice,(c.poc+.5)*exportPrice,(c.finalPoc+.5)*exportPrice,c.min*exportPrice,c.max*exportPrice,(c.max-c.min)*exportPrice,c.buyShare,c.seasonal?.result?.tag==="finite"?c.seasonal.result.value:"Unavailable",c.state.join("/"),iso((e.a+1)*exportStep)];}});
     S.casePage = clamp(S.casePage || 0, 0, pages - 1);
     el("case-definition").textContent =
       filter === "failure"
@@ -23010,6 +23027,28 @@
     });
     el("inspect-open-detail").addEventListener("click", () => inspectDetail(true));
     el("inspect-reference-search").addEventListener("input", () => inspectRender(true));
+    for (const panel of ["cells","cases","rallies"]) {
+      const button = uiEl("button","ol-action ol-s cursor-interaction","Export CSV"); button.type="button";button.id="ol-export-"+panel;button.setAttribute("aria-label",`Export ${panel} CSV`);button.onclick=()=>guiExportTable(panel);
+      el("panel-"+panel).querySelector(".ol-panel-head").append(button);
+    }
+  }
+  function guiExportStamp() { return JSON.stringify([last?.camera,last?.dataCut,last?.sourceVersion,S.mode,S.cellSort,S.cellDir,S.caseFilter,S.caseSort,S.caseDir,S.horizon,S.evidenceKind]); }
+  function guiRememberTable(panel, table) {
+    guiTableExports.set(panel,{...table,stamp:guiExportStamp(),metadata:[PACK.source??"Source not recorded",iso(CUT),S.replay?iso(activeCutoff()):"Off"]});
+    if (el("export-"+panel)) el("export-"+panel).disabled = false;
+  }
+  async function guiExportTable(panel) {
+    let table = guiTableExports.get(panel);
+    if (panel === "rallies") table = rallies?.table;
+    if (!table || (table.stamp && table.stamp !== guiExportStamp())) { postNotice({code:"export-table",text:"The table is preparing or changed; export after it settles."});return; }
+    const quote = value => { let text = value == null ? "Unavailable" : String(value);if(typeof value==="string"&&/^[=+@\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'; };
+    const metadata = table.metadata ?? [PACK.source??"Source not recorded",iso(CUT),S.replay?iso(activeCutoff()):"Off"], lines = [["Source","Source cutoff · UTC","Replay edge · UTC","Export scope",...table.headers].map(quote).join(",")];
+    for (let index=0;index<table.length;index++) {
+      lines.push([...metadata,table.scope,...table.row(index)].map(quote).join(","));
+      if(index%500===499) { await new Promise(resolve=>setTimeout(resolve,0));if(table.stamp&&table.stamp!==guiExportStamp()){postNotice({code:"export-table",text:"Export stopped because the table changed. Export the settled table again."});return;} }
+    }
+    guiDownloadText(`cube-${panel}-${new Date().toISOString().slice(0,10)}.csv`,lines.join("\r\n")+"\r\n","text/csv;charset=utf-8");
+    postNotice({code:"export-table",text:`${table.length} ${panel} records exported · full filtered table`});
   }
   function guiReferenceColourKey(container, topic) {
     const kind = topic.colour || "none", key = [topic.id,kind,S.mode,S.rows,S.pane,colourEpoch,scaleRt.legendKey.cells,scaleRt.legendKey.rows,scaleUi.keysKey,drawingStore.revision].join("|");

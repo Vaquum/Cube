@@ -194,7 +194,9 @@
     el("scale").addEventListener("change", () => { const atr = el("scale").value === "atr"; el("target").value = atr ? 1 : 30; el("pullback").value = el("reversal").value = atr ? .5 : 10; });
     el("deadline").addEventListener("change", () => { if (!el("deadline").checkValidity()) { el("deadline").reportValidity(); return; } deadlineMinutes = el("deadline").value === "" ? null : Number(el("deadline").value); page = 0; sync(); render(); changed(); });
     el("previous").onclick = () => { page--; render(); }; el("next").onclick = () => { page++; render(); };
-    return {sync, paint, get busy(){return busy;}, get events(){return projection && !stale && projection.pack === context().pack ? shown().filter(e => projection.visible_ids.includes(e.rally_id)) : [];}, get selectedId(){return selectedId;}, get enabled(){return !!result && !stale;}};
+    return {sync, paint,
+      get table(){if(!result||busy||stale)return null;const events=shown(), c=context(), metadata=["Binance BTCUSDT spot · "+result.pack,result.metadata.observation_ceiling,iso(c.edgeUs)],scope="Confirmed rallies · "+definitionText(result.metadata.normalized_definition)+" · deadline "+(swing()?"reversal":deadline()+" min, exclusive");return {headers:["Start · UTC","Confirmed · UTC","Return · bps","Duration · seconds","Volume · USDT","Trades"],metadata,scope,length:events.length,row:index=>{const event=events[index];return [iso(event.start_at_us),iso(event.confirmed_at_us),event.return_bps,event.duration_seconds,event.volume,event.trade_count];}};},
+      get busy(){return busy;}, get events(){return projection && !stale && projection.pack === context().pack ? shown().filter(e => projection.visible_ids.includes(e.rally_id)) : [];}, get selectedId(){return selectedId;}, get enabled(){return !!result && !stale;}};
   }
   scope.explorerRallies = {create, visible, iso, definitionText};
   if (typeof module !== "undefined") module.exports = scope.explorerRallies;
