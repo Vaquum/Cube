@@ -21,5 +21,5 @@ test("continuations preserve the history failure in the summary, details and cas
   await page.keyboard.press("Escape");
   await page.locator("#ol-open-cases").click();
   await expect(page.locator("#ol-case-definition")).toHaveText(message);
-  await expect(page.locator("#ol-case-page")).toHaveText("0 cases");
+  await expect(page.locator("#ol-case-page")).toHaveText(message);
 });

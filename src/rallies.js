@@ -24,7 +24,7 @@
     const time = us => iso(us).slice(0, 19).replace("T", " ");
     let result = null, projection = null, selectedId = null, busy = false, page = 0;
     let key = null, inFlight = null, presentationKey = null, stale = false, initialized = false, epoch = 0, errorMessage = "";
-    let deadlineMinutes = 240;
+    let deadlineMinutes = 240, discoveryController = null, inspectorExpanded = true;
     const deadline = () => deadlineMinutes;
     const swing = () => result?.metadata.normalized_definition.mode === "swing";
     const known = () => Math.min(context().edgeUs, result ? Date.parse(result.metadata.observation_ceiling) * 1000 : Infinity);
@@ -41,6 +41,7 @@
       el("discover").disabled = busy || !context().live;
       el("discover").textContent = busy ? "Discovering…" : result ? "Refresh discovery" : "Discover";
       el("window").disabled = busy;
+      el("cancel").hidden = !busy;
       for (const node of el("form").querySelectorAll("input, select")) node.disabled = busy;
       for (const [name, active] of [["cadence", mode !== "swing"], ["pullback", mode === "controlled_advance"], ["reversal", mode === "swing"]]) {
         el(name).disabled = busy || !active; el(name).required = active;
@@ -57,9 +58,20 @@
       name.textContent = label; text.textContent = value; node.append(name, text); return node;
     }
     function renderInspector() {
-      const box = el("inspector"); box.replaceChildren(); box.hidden = !selectedId;
+      const host = el("inspector"), focusedDetails = host.contains(document.activeElement) && document.activeElement?.dataset.rallyAction === "details";
+      host.replaceChildren(); host.hidden = !selectedId;
       if (!selectedId) return;
-      const title = document.createElement("div"); title.className = "ol-section-heading"; title.textContent = "Selected rally · native members"; box.append(title);
+      const title = document.createElement("div"), actions = document.createElement("div"), box = document.createElement("div");
+      title.className = "ol-section-heading"; title.textContent = "Selected rally · native members";
+      actions.className = "ol-legend-actions"; box.id = "ol-rally-details"; box.hidden = !inspectorExpanded;
+      for (const [label, action, name] of [[inspectorExpanded ? "Collapse" : "Details", () => { inspectorExpanded = !inspectorExpanded; renderInspector(); }, "details"], ["Clear rally", clearSelection, "clear"]]) {
+        const button = document.createElement("button"); button.type = "button"; button.className = "ol-action ol-s cursor-interaction"; button.textContent = label; button.dataset.rallyAction = name; button.onclick = action;
+        if (name === "details") { button.setAttribute("aria-expanded", String(inspectorExpanded)); button.setAttribute("aria-controls", box.id); }
+        actions.append(button);
+      }
+      const contextNote = document.createElement("p"); contextNote.className = "ol-muted"; contextNote.textContent = "Rally members only. Continuations uses its own column anchor.";
+      host.append(title, actions, contextNote, box);
+      if (focusedDetails) actions.querySelector('[data-rally-action="details"]').focus({preventScroll:true});
       const event = current()?.selected;
       if (!event) {
         box.append(row("State", stale ? "Source changed · refresh discovery" : errorMessage || (inFlight ? "Reading membership…" : "Hidden by replay or time-to-target filter")));
@@ -85,7 +97,7 @@
       const note = document.createElement("p"); note.className = "ol-muted";
       note.textContent = "Outlines mark cells containing members; other trades may share them. Profile and totals use members only. Event path, dwell and indicators are unavailable. Surrounding auction context remains in the regular inspector.";
       box.append(note);
-      box.dataset.rallyId = event.rally_id;
+      host.dataset.rallyId = event.rally_id;
     }
     function render() {
       controls();
@@ -116,8 +128,8 @@
       }
       renderInspector();
     }
-    async function post(path, body) {
-      const controller = new AbortController(), timeout = path.endsWith("/view") ? 30000 : 330000;
+    async function post(path, body, controller = new AbortController()) {
+      const timeout = path.endsWith("/view") ? 30000 : 330000;
       const timer = setTimeout(() => controller.abort(), timeout);
       try {
         const response = await fetch(path + "?proto=2", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body), cache:"no-store", signal:controller.signal});
@@ -125,7 +137,7 @@
         if (!response.ok) { const error = new Error(reply.detail ? (typeof reply.detail === "string" ? reply.detail : JSON.stringify(reply.detail)) : reply.error); error.status = response.status; throw error; }
         return reply;
       } catch (error) {
-        if (controller.signal.aborted) throw new Error(path.endsWith("/view") ? "Membership view timed out; select the rally again to retry." : "Request timed out. Discovery may still finish at the service; retry when the cube becomes available.");
+        if (controller.signal.aborted) throw new Error(controller.signal.reason === "user-cancel" ? "Stopped waiting. Discovery may still finish at the service." : path.endsWith("/view") ? "Membership view timed out; select the rally again to retry." : "Request timed out. Discovery may still finish at the service; retry when the cube becomes available.");
         throw error;
       } finally { clearTimeout(timer); }
     }
@@ -137,11 +149,13 @@
       if (definition.mode === "controlled_advance") definition.pullback = Number(el("pullback").value);
       const analysis = {start:el("start").value + "Z", end:el("end").value + "Z"};
       busy = true; epoch++; projection = null; selectedId = null; result = null; key = null; stale = false; errorMessage = ""; changed(); render(); status("Discovering native trades once; cube reads pause until the result returns.");
-      try { result = {...await post("/cube/rallies", {pack:c.pack, definition, analysis}), pack:c.pack}; page = 0; }
+      discoveryController = new AbortController();
+      try { result = {...await post("/cube/rallies", {pack:c.pack, definition, analysis}, discoveryController), pack:c.pack}; page = 0; }
       catch (error) { errorMessage = `${error.status ?? "Network"}: ${error.message}`; status(errorMessage); }
-      finally { busy = false; render(); sync(); changed(); }
+      finally { discoveryController = null; busy = false; render(); sync(); changed(); }
     }
     function select(id) { selectedId = id; projection = null; key = null; errorMessage = ""; inspect(); sync(); render(); changed(); }
+    function clearSelection() { selectedId = null; projection = null; key = null; sync(); render(); changed(); }
     function sync() {
       const c = context(); if (!c.ready) return;
       if (!initialized) { useWindow(); initialized = true; controls(); render(); }
@@ -178,12 +192,15 @@
     }
     el("form").addEventListener("submit", discover);
     el("window").onclick = useWindow;
-    el("clear").onclick = () => { selectedId = null; projection = null; key = null; sync(); render(); changed(); };
+    el("clear").onclick = clearSelection;
+    el("cancel").onclick = () => discoveryController?.abort("user-cancel");
     for (const name of ["mode", "scale"]) el(name).addEventListener("change", controls);
     el("scale").addEventListener("change", () => { const atr = el("scale").value === "atr"; el("target").value = atr ? 1 : 30; el("pullback").value = el("reversal").value = atr ? .5 : 10; });
     el("deadline").addEventListener("change", () => { if (!el("deadline").checkValidity()) { el("deadline").reportValidity(); return; } deadlineMinutes = el("deadline").value === "" ? null : Number(el("deadline").value); page = 0; sync(); render(); changed(); });
     el("previous").onclick = () => { page--; render(); }; el("next").onclick = () => { page++; render(); };
-    return {sync, paint, get busy(){return busy;}, get events(){return projection && !stale && projection.pack === context().pack ? shown().filter(e => projection.visible_ids.includes(e.rally_id)) : [];}, get selectedId(){return selectedId;}, get enabled(){return !!result && !stale;}};
+    return {sync, paint,
+      get table(){if(!result||busy||stale)return null;const events=shown(), c=context(), metadata=["Binance BTCUSDT spot · "+result.pack,result.metadata.observation_ceiling,iso(c.edgeUs)],scope="Confirmed rallies · "+definitionText(result.metadata.normalized_definition)+" · deadline "+(swing()?"reversal":deadline()+" min, exclusive");return {headers:["Start · UTC","Confirmed · UTC","Return · bps","Duration · seconds","Volume · USDT","Trades"],metadata,scope,length:events.length,row:index=>{const event=events[index];return [iso(event.start_at_us),iso(event.confirmed_at_us),event.return_bps,event.duration_seconds,event.volume,event.trade_count];}};},
+      get busy(){return busy;}, get events(){return projection && !stale && projection.pack === context().pack ? shown().filter(e => projection.visible_ids.includes(e.rally_id)) : [];}, get selectedId(){return selectedId;}, get enabled(){return !!result && !stale;}};
   }
   scope.explorerRallies = {create, visible, iso, definitionText};
   if (typeof module !== "undefined") module.exports = scope.explorerRallies;

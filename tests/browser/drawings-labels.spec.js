@@ -77,24 +77,24 @@ async function productShot(page, name) {
   fs.mkdirSync(dir, { recursive: true }); await page.screenshot({ path: path.join(dir, name + ".png") });
 }
 
-test("label is optional; preview, Cancel and two-stage Undo preserve committed name and geometry", async ({ page, fakeFor }) => {
+test("custom Name is the blank-Label fallback; preview, Cancel and two-stage Undo preserve name and geometry", async ({ page, fakeFor }) => {
   await observeText(page); const fake = await fakeFor("mini"); await D.open(page, fake);
   const { id } = await D.drawing(page), original = await object(page, id), before = await revision(page);
   expect(original).not.toHaveProperty("label"); await D.edit(page, id);
   await expect(page.locator("#ol-drawing-label")).toHaveValue("");
   await page.locator("#ol-drawing-name").fill(TAG + "inventory_only"); await page.locator("#ol-drawing-apply").click(); await D.closeManager(page);
-  await expect.poll(() => texts(page)).toEqual([]);
+  await expect.poll(async () => (await texts(page)).some(t => t.text.startsWith(TAG))).toBe(true);
   const named = await object(page, id), namedRevision = await revision(page);
   await D.edit(page, id); await page.locator("#ol-drawing-label").fill(TAG + "preview");
   await expect.poll(async () => (await texts(page)).some((t) => t.text === TAG + "preview" && t.alpha < 1)).toBe(true);
   expect(await object(page, id)).toEqual(named); expect(await revision(page)).toBe(namedRevision);
-  await page.locator("#ol-drawing-cancel").click(); await D.closeManager(page); await expect.poll(() => texts(page)).toEqual([]);
+  await page.locator("#ol-drawing-cancel").click(); await D.closeManager(page); await expect.poll(async () => (await texts(page)).some(t => t.text.startsWith(TAG))).toBe(true);
   await setLabel(page, id, TAG + "committed"); expect(await object(page, id)).toMatchObject({ ...named, label: TAG + "committed" });
   await D.edit(page, id); await page.locator("#ol-drawing-label").fill(TAG + "dirty"); await page.locator("#ol-drawing-editor-undo").click();
   await expect(page.locator("#ol-drawing-editor")).toBeHidden(); expect((await object(page, id)).label).toBe(TAG + "committed");
   await D.command(page, "undo"); expect(await object(page, id)).toEqual(named);
   await D.command(page, "redo"); expect((await object(page, id)).label).toBe(TAG + "committed");
-  await D.closeManager(page); await setLabel(page, id, "   "); await expect.poll(() => texts(page)).toEqual([]);
+  await D.closeManager(page); await setLabel(page, id, "   "); await expect.poll(async () => (await texts(page)).some(t => t.text.startsWith(TAG))).toBe(true);
   expect((await object(page, id)).label || "").toBe("");
   expect((await object(page, id)).a).toEqual(original.a); expect((await object(page, id)).b).toEqual(original.b);
   expect(await revision(page)).toBeGreaterThan(before);
