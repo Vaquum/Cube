@@ -301,6 +301,7 @@
     }
     function refresh() {
       if (pane.hidden) return;
+      if (innerWidth > 760) delete main.dataset.referenceReveal;
       const list = matches(), at = list.indexOf(current);
       el("prev").disabled = at <= 0;
       el("next").disabled = at < 0 || at >= list.length - 1;
@@ -309,10 +310,12 @@
       if (active) schedule();
     }
     function clearSpotlight(restore = true) {
+      const returning = restore && Boolean(main.dataset.referenceReveal);
       if (restore) delete main.dataset.referenceReveal;
       active = null; lastShape = ""; overlay.style.display = "none";
       for (const button of pane.querySelectorAll("[data-reference-target]")) button.setAttribute("aria-pressed", "false");
       el("status").textContent = "";
+      if (returning && !pane.hidden) select.focus({preventScroll:true});
     }
     function hole(rect) { return `M${rect.left},${rect.top}h${rect.width}v${rect.height}h${-rect.width}Z`; }
     function paint() {
