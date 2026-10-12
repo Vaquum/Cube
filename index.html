@@ -5569,7 +5569,7 @@
             </div>
             <div>
               <dt>Zoom price</dt>
-              <dd><kbd>Shift</kbd> with <kbd>=</kbd> <kbd>-</kbd> or the wheel, or on the price axis the wheel or a drag</dd>
+              <dd><kbd>Shift</kbd> with <kbd>=</kbd> <kbd>-</kbd> or the chart wheel, or on the price axis the wheel or a drag. Time-axis wheel still zooms time; Coupled changes both.</dd>
             </div>
             <div>
               <dt>Zoom in on a point</dt>
@@ -5786,7 +5786,7 @@
       </div>
       <p class="ol-keys-note">
         On a touch screen: drag to pan, pinch to zoom, hold to see finer cells,
-        and tap a column to anchor it.
+        and tap a completed column with Pan while Continuations or Cases is open to anchor it.
       </p>
       <p class="ol-keys-note">
         Compare: right-click a cell to Copy cell or Add to comparison, or use
@@ -19494,7 +19494,7 @@
       targets: [{"label":"Show Lens","selector":"#ol-lens"},{"label":"Show Lens controls","selector":"#ol-lensbar"}], colour: "cells" },
     { id: "drawing-rules", group: "Work with the view", title: "Drawing operations & recovery",
       purpose: "Retain an annotation without confusing it with data.",
-      read: "G places A then B by clicks or a drag. Move the line or an endpoint; coordinates stay UTC/USDT and authored A→B order is retained. Name identifies it; Label is the caption, with Name used when Label is blank. Colour is your RGB choice. Lock prevents movement; visibility and deletion are separate. Undo/Redo covers the drawing collection, not navigation.",
+      read: "G places A then B by clicks or a drag. Move the line or an endpoint; coordinates stay UTC/USDT and authored A→B order is retained. Name identifies it; Label is the caption, with a custom Name used when Label is blank. Colour is your RGB choice. Lock prevents movement; visibility and deletion are separate. Undo/Redo covers the drawing collection, not navigation.",
       use: "Use Edit or the context menu for coordinates and Delete. Recover by timestamp/workspace/name; complete view codes include drawings. Authorship time is not recorded, so replay annotations may reflect later knowledge.",
       targets: [{"label":"Show drawing tool","selector":"#ol-trend"},{"label":"Show Lines","selector":"#ol-lines"}], colour: "drawings" },
     { id: "mobile", group: "Work with the view", title: "Phone controls & highlights",
@@ -23233,7 +23233,7 @@
                 : "The cube's answer to these six parameters.";
     const provenance = el("query-provenance"); provenance.replaceChildren();
     const current = evidence.job?.key === evidenceKey() ? evidence.job?.output ?? evidence.ready : null;
-    const fields = [["Source / pack", `${PACK.live ? "Cube" : "Recorded"} · ${PACK.source ?? "source identity unavailable"} · ${PACK.state_token ?? "snapshot"}`], ["Source cutoff", when(CUT) + " UTC"], ["Canonical cutoff", CANON === null ? "Not supplied" : when(CANON) + " UTC"], ["Replay edge", S.replay ? when(activeCutoff()) + " UTC" : "Off"], ["Measured through", Number.isFinite(meas.end) ? when(meas.end) + " UTC" : "Unavailable"], ["Requested bounds", `${range(meas.r[0],meas.r[1])} UTC; ${price(meas.r[2]*PR)}–${price(meas.r[3]*PR)} USDT; n=${S.n}, m=${S.m}`], ["Actual measured bounds", `${range(b[0],b[1])} UTC; ${price(b[2]*PR)}–${price(b[3]*PR)} USDT; n=${meas.query.n}, m=${meas.query.m}`], ["Shown level", `n=${renderN()}, m=${renderM()}`], ["Historical evidence study", current?.provenance ? `${current.version} / ${current.uncertainty?.version}; digest ${current.provenance.sourceDigest}; fit ${when((current.a+1)*2**current.n)} UTC; ${current.provenance.reconstruction}` : "Current-source study unavailable or preparing"], ["Frozen comparison", `${comparisonModel.captures.length} captures; ${comparisonModel.selectedMetric} / ${comparisonAnalysis?.basis ?? comparisonModel.basis}; each record retains its captured source and measured-through boundary`]];
+    const fields = [["Source / pack", `${PACK.live ? "Cube" : "Recorded"} · ${PACK.source ?? "source identity unavailable"} · ${PACK.state_token ?? "snapshot"}`], ["Source cutoff", when(CUT) + " UTC"], ["Canonical cutoff", CANON === null ? "Not supplied" : when(CANON) + " UTC"], ["Replay edge", S.replay ? when(activeCutoff()) + " UTC" : "Off"], ["Measured through", ["exact","cube","recorded"].includes(meas.state) ? when(Math.min(b[1], activeCutoff())) + " UTC" : Number.isFinite(meas.end) ? when(Math.min(meas.end,b[1],activeCutoff())) + " UTC" : "Unavailable"], ["Requested bounds", `${range(meas.r[0],meas.r[1])} UTC; ${price(meas.r[2]*PR)}–${price(meas.r[3]*PR)} USDT; n=${S.n}, m=${S.m}`], ["Actual measured bounds", `${range(b[0],b[1])} UTC; ${price(b[2]*PR)}–${price(b[3]*PR)} USDT; n=${meas.query.n}, m=${meas.query.m}`], ["Shown level", `n=${renderN()}, m=${renderM()}`], ["Historical evidence study", current?.provenance ? `${current.version} / ${current.uncertainty?.version}; digest ${current.provenance.sourceDigest}; fit ${when((current.a+1)*2**current.n)} UTC; ${current.provenance.reconstruction}` : "Current-source study unavailable or preparing"], ["Frozen comparison", `${comparisonModel.captures.length} captures; ${comparisonModel.selectedMetric} / ${comparisonAnalysis?.basis ?? comparisonModel.basis}; each record retains its captured source and measured-through boundary`]];
     for (const [label,value] of fields) provenance.append(Object.assign(document.createElement("dt"),{textContent:label}),Object.assign(document.createElement("dd"),{textContent:value}));
   }
   // Copy text to the clipboard. `source` is the text, a promise of it, or a function that makes either (a
@@ -42995,6 +42995,7 @@
     container.dataset.key = key; container.replaceChildren(); container.hidden = kind === "none";
     if (kind === "none") return;
     container.append(uiEl("strong", "", "Colour & marks"));
+    if (kind === "rows" && !S.rows) container.append(uiEl("p","ol-muted","Rows is off. Enable Rows to read its fitted colour scale."));
     const row = (label, colour, mark = "—") => {
       const line = uiEl("div", "ol-reference-colour-row"), swatch = uiEl("i", "ol-reference-colour-swatch", mark);
       swatch.style.setProperty("--ref-ink", colour); swatch.setAttribute("aria-hidden","true"); line.append(swatch,uiEl("span","",label)); container.append(line);
