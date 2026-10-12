@@ -34211,11 +34211,11 @@
         d0 = Math.max(0, Math.floor(S.tA / DAYS)),
         d1 = Math.floor(Math.max(0, stop - 1e-6) / DAYS);
       for (let d = spaced(DAYS) ? d0 : d1; d <= d1; d++) {
-        const [t, end] = sessionVwapSpan(key, d, cut);
-        if (end <= t || end <= S.tA || t >= stop) continue;
+        const [t, end] = sessionVwapSpan(key, d, cut),
+          latest = d === dNow && stop >= cut;
+        if (end <= t || (end <= S.tA && !latest) || t >= stop) continue;
         const r = vwapCurve(t, n, t, end);
         if (r.state !== "ready" || !r.points.length) continue;
-        const latest = d === dNow && stop >= cut;
         out.push({ key, id: `${key}|${d}`, name: TOGGLES[key].name, anchor: t, day: d, r, on: latest, tag: latest ? spec.tag : null });
       }
     }

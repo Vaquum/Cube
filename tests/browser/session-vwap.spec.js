@@ -95,6 +95,15 @@ test("coarse and historical views retain exact session sums", async ({ page, fak
   await D.ready(page); await values(page);
 });
 
+test("the latest closed session remains a held reference in a narrow view after close", async ({ page, fakeFor, pane }) => {
+  const cutoff = START + DAY + 12 * HOUR, fake = await fakeFor(profile());
+  await page.goto(fake.url + "/" + hash(`&replay=1&at=${iso(cutoff)}`, cutoff - HOUR, cutoff));
+  await D.ready(page); await values(page, START + DAY, cutoff);
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => paneCanvas.textsOf(await pane.last())).toContain("Asia VWAP");
+  expect(await references(page)).toContain("Asia session VWAP · 23 Sep 2026");
+});
+
 test("empty sessions disclose no trades; recorded sources withhold regional VWAP", async ({ page, fakeFor }) => {
   const trades = TRADES.filter((t) => t.t_ms + EPOCH < START + DAY || t.t_ms + EPOCH >= START + DAY + 21 * HOUR);
   const fake = await fakeFor(profile(trades));
