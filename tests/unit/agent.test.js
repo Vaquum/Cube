@@ -89,6 +89,15 @@ test("a fenced snippet in source text cannot replace the final analysis JSON blo
   const d = document(); d.comparison.captures[0].source += '\n```json\n{"unrelated":true}\n```';
   const sealed = A.seal(d); assert.deepEqual(A.parse(A.text(sealed)), sealed);
 });
+test("missing observation rejects before any export or replay comparison can dereference it", () => {
+  const d = document(); delete d.scene.observation; d.scene = A.seal(d.scene);
+  assert.throws(() => A.validate(A.seal(d)), /observation source and cutoff/);
+});
+test("noncanonical base64 and invalid inflater results reject as explicit codec errors", async () => {
+  for (const code of ["cube-analysis:1j.A", "cube-analysis:1j.AB"]) await assert.rejects(() => A.decode(code, codecs), /Invalid analysis base64/);
+  const code = await A.encode(document(), codecs);
+  for (const invalid of [null, undefined, "text", {}]) await assert.rejects(() => A.decode(code, { inflate: async () => invalid }), /inflater did not return bytes/);
+});
 test("the maximum permitted zero-cell snapshot exports compact JSON that remains importable", () => {
   const d = document(), source = d.snapshot.sources[0];
   source.cells = Array.from({ length: 250000 }, (_, r) => ({ c: 0, r, v: 0, bv: 0, ct: 0, bt: 0 }));

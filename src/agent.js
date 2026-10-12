@@ -28,6 +28,7 @@
     if (seal(raw).id !== raw.id) fail("Analysis integrity check failed");
     const scene = E.codec.validatePortable(raw.scene, {});
     if (!scene.ok || scene.dropped.length) fail(scene.reasons.join("; ") || "Scene contains unsupported settings");
+    if (!raw.scene.observation || !Number.isFinite(raw.scene.observation.cutoffMs) || typeof raw.scene.observation.source !== "string") fail("Analysis scene requires its observation source and cutoff");
     if (raw.comparison !== null) {
       const checked = storage.comparison.validate(raw.comparison);
       if (!checked.ok) fail(checked.reason);
@@ -68,7 +69,9 @@
     const match = /^cube-analysis:1(j?)\.([A-Za-z0-9_-]+)$/.exec(code);
     if (!match) fail("Unsupported analysis code");
     let bytes = E.hash.b64urlDecode(match[2]);
+    if (!(bytes instanceof Uint8Array)) fail("Invalid analysis base64 encoding");
     if (!match[1]) { if (!inflate) fail("Compressed analysis needs an inflater"); bytes = await inflate(bytes, MAX_BYTES); }
+    if (!(bytes instanceof Uint8Array)) fail("Analysis inflater did not return bytes");
     if (bytes.length > MAX_BYTES) fail("Analysis exceeds 16 MiB");
     return parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   }
