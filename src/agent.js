@@ -40,7 +40,7 @@
     return structuredClone(raw);
   }
   function validateSnapshot(frame) {
-    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "canonicalThroughMs", "source", "token", "sources", "motion", "barChunks", "histories", "measured"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "canonicalThroughMs", "source", "token", "live", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
     if (frame.canonicalThroughMs !== null && !Number.isFinite(frame.canonicalThroughMs)) fail("Invalid canonical cutoff");
     const ids = new Set(); let count = 0;
     for (const source of [...frame.sources, ...(frame.motion || [])]) {
@@ -90,7 +90,7 @@
   }
   function compare(document, options = {}) {
     const d = validate(document);
-    return C.analyze(d.comparison?.captures || [], { ...options, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
+    return C.analyze(d.comparison?.captures || [], { ...options, edge: d.scene.view.replay ? d.scene.observation.cutoffMs : null, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
   }
   function diff(before, after) {
     const a = validate(before), b = validate(after), changes = [];
@@ -104,5 +104,57 @@
     for (const cell of old.keys()) changes.push({ cell, change: "removed" });
     return { previous: a.id, current: b.id, changes };
   }
-  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff });
+  function redact(capture, edge) {
+    const cell = structuredClone(capture);
+    if (edge === null) return cell;
+    const eligible = (support) => Number.isFinite(support?.supportEnd) && Number.isFinite(support?.knownThrough) && Math.max(support.supportEnd, support.knownThrough) <= edge;
+    for (const metric of Object.values(cell.metrics)) if (!eligible(metric)) Object.assign(metric, { tag: "hidden", value: null, numerator: null, denominator: null, reason: "Unavailable in replay" });
+    for (const detail of cell.detail) if (!eligible(detail)) Object.assign(detail, { tag: "hidden", value: null, reason: "Unavailable in replay" });
+    const context = cell.context;
+    if (context) {
+      const visible = (id) => eligible(context.supports[id]);
+      for (const support of Object.values(context.supports)) if (!eligible(support)) {
+        for (const key of ["value", "numerator", "denominator"]) if (key in support) support[key] = null;
+        if (support.result) support.result = { tag: "hidden", value: null, reason: "Unavailable in replay" };
+      }
+      for (const history of context.histories) for (const slot of history.slots) if (!visible(slot.supportId) || slot.denominatorIds.some((id) => !visible(id))) slot.result = { tag: "hidden", value: null, reason: "Unavailable in replay" };
+      const origin = context.originatingObservation;
+      if (origin && (!visible(origin.supportId) || origin.denominatorIds?.some((id) => !visible(id)))) origin.result = { tag: "hidden", value: null, reason: "Unavailable in replay" };
+      cell.originatingObservation = structuredClone(origin);
+    }
+    return cell;
+  }
+  function configure(document, patch) {
+    const d = validate(document);
+    if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "lines", "selection", "replay", "anchor", "scale"])) fail("Unknown scene setting");
+    Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport"].includes(key))));
+    if (patch.viewport) { d.scene.view.viewport = patch.viewport; d.scene.view.window = ""; Object.assign(d.scene.query, { t1: patch.viewport[0], t2: patch.viewport[1], p1: patch.viewport[2], p2: patch.viewport[3] }); }
+    if (patch.resolution) { [d.scene.query.tR, d.scene.query.pR] = patch.resolution; d.scene.view.auto = false; }
+    d.scene = seal(d.scene);
+    return validate(seal(d));
+  }
+  function annotate(document, line) {
+    const d = validate(document), collection = d.scene.drawings;
+    if (!collection) fail("Annotations require a v3 scene");
+    collection.objects.push(E.drawings.newObject(collection, line));
+    d.scene = seal(d.scene);
+    return validate(seal(d));
+  }
+  function fromQuery(answer) {
+    const { query: q, frame: f, cells, summary } = answer;
+    const snapshot = { ...f, sources: [{ id: "agent-query", n: q.n, m: q.m, b0: q.b0, b1: Math.min(q.b1, (f.cutoffMs / 1000 - f.origin) / f.baseSeconds), col0: Math.floor(q.b0 / 2 ** q.n), col1: Math.ceil(q.b1 / 2 ** q.n), cells }], motion: [], cache: {} };
+    const cut = (f.cutoffMs / 1000 - f.origin) / f.baseSeconds, bounds = [q.b0, q.b1, q.r0, q.r1], ms = (x) => Math.round((f.origin + x * f.baseSeconds) * 1000);
+    const captures = cells.map((z) => {
+      const ts = 2 ** q.n, ps = 2 ** q.m, t0 = Math.max(z.c * ts, q.b0), t1 = Math.min((z.c + 1) * ts, q.b1, cut), low = Math.max(z.r * ps, q.r0), high = Math.min((z.r + 1) * ps, q.r1), metrics = {};
+      for (const mode of ["volume", "trades", "delta", "size", "flow", "flowtrades"]) for (const basis of ["amount", ...( ["volume", "trades", "delta"].includes(mode) ? ["intensity"] : [])]) {
+        const measurement = E.measure.cellMeasurement({ mode, basis, z, geom: { BASE: f.baseSeconds, PR: f.basePrice }, level: { n: q.n, m: q.m }, bounds, cut, end: cut, CUT: cut, replay: false });
+        metrics[mode + (["volume", "trades", "delta"].includes(mode) ? "." + basis : "")] = { tag: measurement.result.tag, value: measurement.result.value ?? null, unit: measurement.unit, formula: measurement.formula, numerator: measurement.numerator ?? null, denominator: measurement.denominator ?? null, supportEnd: ms(t1), knownThrough: ms(t1), reason: measurement.result.reason ?? "" };
+      }
+      const capture = { instrument: "BTC/USDT", level: { n: q.n, m: q.m }, origin: f.origin, c: z.c, r: z.r, nominal: { t0: ms(z.c * ts), t1: ms((z.c + 1) * ts), low: z.r * ps * f.basePrice, high: (z.r + 1) * ps * f.basePrice }, observed: { t0: ms(t0), t1: ms(t1), low: low * f.basePrice, high: high * f.basePrice, seconds: (t1 - t0) * f.baseSeconds, width: (high - low) * f.basePrice }, capturedAt: Date.now(), measuredThrough: ms(t1), source: f.source + " · " + f.token, completeness: t1 === (z.c + 1) * ts ? "Complete" : "Portion", metrics, detail: [], contextOrigin: "legacy-structural", context: { supports: {}, histories: [], originatingObservation: null }, originatingObservation: null };
+      capture.id = C.identity(capture); return capture;
+    });
+    const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
+    return validate(seal({ schema: SCHEMA, instrument: "BTC/USDT", createdAt: Date.now(), mode: "captured", scene, snapshot, comparison: { comparisonVersion: 2, instrument: "BTC/USDT", selectedMetric: "volume", captures, focus: captures[0]?.id ?? null, reference: null, basis: "auto", sort: { key: "time", direction: "asc" }, view: "grid", page: 0, poc: null, expanded: false, restoreLayout: null }, selection: { query: scene.query, metrics: summary, source: f.source, measuredThrough: f.cutoffMs, state: "exact" }, focus: null }));
+  }
+  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, redact, configure, annotate, fromQuery });
 });
