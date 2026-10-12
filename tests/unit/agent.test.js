@@ -67,6 +67,35 @@ test("explicit refresh diffs changed metrics while retaining the original immuta
   assert.ok(changes.changes.some((change) => change.metric === "volume.amount" && change.before.value === 300 && change.after.value === 600));
   assert.equal(before.comparison.captures[0].metrics["volume.amount"].value, 300);
 });
+test("lossless code round trips do not manufacture metric changes from member order", async () => {
+  const d = document(), decoded = await A.decode(await A.encode(d, codecs), codecs);
+  assert.deepEqual(A.diff(d, decoded).changes, []);
+});
+test("readable export resolves unequal-exposure Auto basis exactly as comparison does", () => {
+  const d = document(), partial = d.comparison.captures[1];
+  partial.observed.t1 -= 28125; partial.observed.seconds = 28.125;
+  const sealed = A.validate(A.seal(d));
+  assert.equal(A.compare(sealed).basis, "intensity");
+  assert.match(A.text(sealed), /Selected comparison metric\/basis · volume\/intensity/);
+});
+test("replay comparisons use the scene anchor even without a caller-supplied edge", () => {
+  const d = A.configure(document(), { replay: true, anchor: 1 });
+  const values = A.compare(d).metrics.volume;
+  assert.equal(values[d.comparison.captures[0].id].value, 300);
+  assert.equal(values[d.comparison.captures[1].id].tag, "hidden");
+  assert.equal(A.compare(d, { edge: epoch + 112500 }).metrics.volume[d.comparison.captures[1].id].tag, "hidden");
+});
+test("a fenced snippet in source text cannot replace the final analysis JSON block", () => {
+  const d = document(); d.comparison.captures[0].source += '\n```json\n{"unrelated":true}\n```';
+  const sealed = A.seal(d); assert.deepEqual(A.parse(A.text(sealed)), sealed);
+});
+test("the maximum permitted zero-cell snapshot exports compact JSON that remains importable", () => {
+  const d = document(), source = d.snapshot.sources[0];
+  source.cells = Array.from({ length: 250000 }, (_, r) => ({ c: 0, r, v: 0, bv: 0, ct: 0, bt: 0 }));
+  const sealed = A.seal(d), copied = A.text(sealed);
+  assert.ok(Buffer.byteLength(copied) < A.MAX_BYTES * 3);
+  assert.equal(A.parse(copied).snapshot.sources[0].cells.length, 250000);
+});
 test("MCP process emits only JSON-RPC and supports discover, inspection and actionable errors", () => {
   const input = [{ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "test", version: "1" } } }, { jsonrpc: "2.0", method: "notifications/initialized" }, { jsonrpc: "2.0", id: 2, method: "tools/list" }, { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "cube_inspect", arguments: { document: document() } } }, { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "missing", arguments: {} } }].map(JSON.stringify).join("\n") + "\n";
   const run = spawnSync(process.execPath, ["tools/cube-agent.mjs"], { input, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 });

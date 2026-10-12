@@ -55,8 +55,8 @@
     if (count > 250000) fail("Captured canvas exceeds 250,000 cells");
   }
   function parse(text) {
-    if (typeof text !== "string" || E.hash.utf8(text).length > MAX_BYTES * 2) fail("Analysis input is too large");
-    const fence = text.match(/```json\s*\n([\s\S]*?)\n```/);
+    if (typeof text !== "string" || E.hash.utf8(text).length > MAX_BYTES * 3) fail("Analysis input is too large");
+    const fence = [...text.matchAll(/^```json\s*\n([\s\S]*?)\n```\s*$/gm)].at(-1);
     return validate(JSON.parse(fence ? fence[1] : text));
   }
   async function encode(document, { deflate } = {}) {
@@ -82,15 +82,24 @@
   }
   function text(document, { link: href = null } = {}) {
     const d = validate(document), cells = d.comparison?.captures || [];
-    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge: d.scene.view.replay ? d.scene.observation.cutoffMs : null, selectedMetric: d.comparison.selectedMetric, basis: C.analyze(cells, { basis: d.comparison.basis }).basis, poc: d.comparison.poc }))];
+    const edge = replayEdge(d), basis = C.analyze(cells, { edge, basis: d.comparison?.basis }).basis;
+    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
     if (d.selection) sections.push("Selection: " + JSON.stringify(d.selection));
     if (href) sections.push("Open canvas: " + href);
-    sections.push("```json\n" + JSON.stringify(d, null, 2) + "\n```");
+    sections.push("```json\n" + JSON.stringify(d) + "\n```");
     return sections.join("\n\n");
   }
   function compare(document, options = {}) {
     const d = validate(document);
-    return C.analyze(d.comparison?.captures || [], { ...options, edge: d.scene.view.replay ? d.scene.observation.cutoffMs : null, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
+    const sceneEdge = replayEdge(d), edge = sceneEdge === null ? options.edge ?? null : Math.min(sceneEdge, options.edge ?? sceneEdge);
+    return C.analyze(d.comparison?.captures || [], { ...options, edge, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
+  }
+  function replayEdge(d) {
+    if (!d.scene.view.replay) return null;
+    const step = 2 ** d.scene.query.tR, anchor = d.scene.view.anchor;
+    const position = d.scene.view.mode === "candles" ? anchor : Math.floor(anchor / step) * step;
+    const geometry = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 };
+    return Math.min(d.scene.observation.cutoffMs, (geometry.origin + position * geometry.baseSeconds) * 1000);
   }
   function diff(before, after) {
     const a = validate(before), b = validate(after), changes = [];
@@ -98,7 +107,7 @@
     for (const cell of b.comparison?.captures || []) {
       const prior = old.get(cell.id);
       if (!prior) { changes.push({ cell: cell.id, change: "added" }); continue; }
-      for (const [metric, value] of Object.entries(cell.metrics)) if (JSON.stringify(prior.metrics[metric]) !== JSON.stringify(value)) changes.push({ cell: cell.id, metric, before: prior.metrics[metric] ?? null, after: value });
+      for (const [metric, value] of Object.entries(cell.metrics)) if (E.hash.canonical(prior.metrics[metric] ?? null) !== E.hash.canonical(value)) changes.push({ cell: cell.id, metric, before: prior.metrics[metric] ?? null, after: value });
       old.delete(cell.id);
     }
     for (const cell of old.keys()) changes.push({ cell, change: "removed" });
