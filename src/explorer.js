@@ -21876,7 +21876,7 @@
       return;
     }
     el("market").textContent = S.replay ? "REPLAY" : PACK.live ? "LIVE" : "RECORDED";
-    el("fresh").hidden = !PACK.live;
+    el("fresh").hidden = !PACK.live || S.replay;
     if (!PACK.live) return;
     const now = Date.now(),
       quiet = now - live.updated,
