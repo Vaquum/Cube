@@ -43689,6 +43689,12 @@
       const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query));
       const body = await response.json(); if (!response.ok) throw Error(body.detail || body.error || "Refresh failed");
       if (body.frame.token !== token) throw Error("Source changed during refresh; captured evidence retained");
+      for (const cell of cells) if (!body.cells.some((z) => z.c === cell.c && z.r === cell.r)) {
+        const q = body.query, cut = E.time.msToBase(body.frame.cutoffMs, T0, BASE);
+        if (!(cell.c * 2 ** n < Math.min(q.b1, cut) && (cell.c + 1) * 2 ** n > q.b0 && cell.r * 2 ** m < q.r1 && (cell.r + 1) * 2 ** m > q.r0)) throw Error("A captured cell is outside current source support; prior evidence remains available");
+        body.cells.push({ c: cell.c, r: cell.r, v: 0, bv: 0, ct: 0, bt: 0 });
+      }
+      body.cells.sort((a, b) => a.c - b.c || a.r - b.r);
       const fresh = Agent.fromQuery(body);
       for (const cell of cells) {
         const found = fresh.comparison.captures.find((c) => c.id === cell.id);
