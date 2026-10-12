@@ -3362,7 +3362,7 @@
     importing = true;
     el("import-apply").disabled = true;
     try {
-      if (text.startsWith("cube-analysis:") || text.includes('"schema": "cube-analysis@1"') || text.includes('"schema":"cube-analysis@1"') || /^https?:/.test(text)) {
+      if (text.startsWith("cube-analysis:") || /"schema"\s*:\s*"cube-analysis@1"/.test(text) || /^https?:/.test(text)) {
         try { await agentImport(await agentRead(text)); status("Analysis opened"); } catch (error) { status("Analysis was not applied: " + error.message); }
         return;
       }
@@ -23071,7 +23071,7 @@
     if (S.replay && last) {
       const b = [Math.max(0, S.tA), Math.min(S.tB, edge)];
       captured = captured.filter((s) => s.n !== last.n || s.m !== last.m);
-      captured.push({ id: "captured-frame", n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full.cells });
+      captured.push({ id: "captured-frame", n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
     }
     return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(Math.min(CANON, edge))), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
   }

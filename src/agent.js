@@ -27,7 +27,7 @@
     if (raw.instrument !== "BTC/USDT" || !["captured", "live"].includes(raw.mode) || !Number.isSafeInteger(raw.createdAt) || raw.createdAt < 0) fail("Invalid analysis identity or mode");
     if (seal(raw).id !== raw.id) fail("Analysis integrity check failed");
     const scene = E.codec.validatePortable(raw.scene, {});
-    if (!scene.ok) fail(scene.reasons.join("; "));
+    if (!scene.ok || scene.dropped.length) fail(scene.reasons.join("; ") || "Scene contains unsupported settings");
     if (raw.comparison !== null) {
       const checked = storage.comparison.validate(raw.comparison);
       if (!checked.ok) fail(checked.reason);
@@ -82,7 +82,7 @@
   }
   function text(document, { link: href = null } = {}) {
     const d = validate(document), cells = d.comparison?.captures || [];
-    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge: d.scene.view.replay ? d.scene.observation.cutoffMs : null, selectedMetric: d.comparison.selectedMetric, basis: d.comparison.basis === "auto" ? "amount" : d.comparison.basis, poc: d.comparison.poc }))];
+    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge: d.scene.view.replay ? d.scene.observation.cutoffMs : null, selectedMetric: d.comparison.selectedMetric, basis: C.analyze(cells, { basis: d.comparison.basis }).basis, poc: d.comparison.poc }))];
     if (d.selection) sections.push("Selection: " + JSON.stringify(d.selection));
     if (href) sections.push("Open canvas: " + href);
     sections.push("```json\n" + JSON.stringify(d, null, 2) + "\n```");

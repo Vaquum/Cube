@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const host = typeof window === "undefined" ? { explorerEncoding: require("./encoding.js") } : window;
+  const host = typeof window === "undefined" ? { explorerEncoding: require("./encoding.js"), localStorage: { length: 0, getItem: () => null }, sessionStorage: { length: 0, getItem: () => null } } : window;
   // Browser storage for the explorer. This browser keeps the workspace, the last view and the
   // named views for every tab; each tab keeps its own history. Storage can be unavailable
   // (private windows, blocked site data): reads then come back empty and writes throw.

@@ -19,8 +19,8 @@ test("agent captures use the canvas kernel for amounts, intensity and ratios", (
   assert.equal(cell.metrics.flow.value, 1 / 3);
   assert.equal(cell.metrics["volume.amount"].formula, "cells.volume.amount@1");
   assert.equal(cell.metrics["volume.amount"].supportEnd, epoch + 56250);
-  assert.equal(A.compare(d).metrics.volume.count, 2);
-  assert.equal(A.compare(d).metrics.volume.reference, 200);
+  assert.equal(A.compare(d).metrics.volume[cell.id].count, 2);
+  assert.equal(A.compare(d).metrics.volume[cell.id].reference, 200);
 });
 test("text and compressed codes preserve groups, sources, selections and exact scene bytes", async () => {
   const d = document(), text = A.text(d);
@@ -29,7 +29,7 @@ test("text and compressed codes preserve groups, sources, selections and exact s
   for (const codec of [codecs, {}]) assert.deepEqual(await A.decode(await A.encode(d, codec), codecs), d);
   const canonical = (x) => Array.isArray(x) ? x.map(canonical) : x && typeof x === "object" ? Object.fromEntries(Object.keys(x).sort().map((key) => [key, canonical(x[key])])) : x;
   const { id, ...body } = d;
-  assert.equal(id, crypto.createHash("sha256").update(JSON.stringify(canonical(body))).digest("hex").slice(0, 24));
+  assert.equal(id, crypto.createHash("sha256").update(JSON.stringify(canonical(body))).digest().subarray(0, 12).toString("base64url"));
 });
 test("tampered values, unsupported schema, duplicate cells and unsafe objects reject whole", async () => {
   const tampered = document(); tampered.comparison.captures[0].metrics.size.value = 999;
