@@ -3043,11 +3043,14 @@
 /* Authored trend lines use the chart's controls, Lines inventory and dialog surfaces. */
 /* On the plot at its top left while Trend is the tool, as the lens's controls are, so the plot never moves. */
 #origo-lens .ol-drawing-toolbar {
+  /* Readouts do not consume drawing contacts beneath the floating card. */
+  pointer-events: none;
   justify-content: flex-start;
   gap: var(--sp-2);
   padding: var(--sp-1) var(--sp-2);
   font-size: var(--fs-s);
 }
+#origo-lens .ol-drawing-toolbar :is(button, input, select, a) { pointer-events: auto; }
 #origo-lens :is(.ol-drawing-toolbar, .ol-drawing-sheet-group)[hidden] { display: none; }
 #origo-lens .ol-drawing-toolbar-name {
   min-width: 0;

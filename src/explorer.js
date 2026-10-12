@@ -10311,6 +10311,9 @@
   }
   // The selection's frame on the plot.
   function selectionFrame(x1, y1, x2, y2) {
+    // Align the interface outline to pixel centres: retain a fully covered ink pixel
+    // across fractional chart projections without changing measured bounds.
+    x1=Math.floor(x1)+.5; y1=Math.floor(y1)+.5; x2=Math.floor(x2)+.5; y2=Math.floor(y2)+.5;
     STROKE.selection(ctx, x1, y1, x2 - x1, y2 - y1);
     markCount.selection++;
   }
