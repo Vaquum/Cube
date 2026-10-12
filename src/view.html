@@ -1112,6 +1112,7 @@
           <button type="button" id="ol-bounds-settings" class="ol-action ol-s cursor-interaction">Bounds</button>
           <button type="button" id="ol-key-guide" class="ol-action ol-s cursor-interaction">Key</button>
           <span id="ol-indicator-key" class="ol-indicator-key" role="group" aria-label="Indicator series" hidden><span><i style="--key-colour:var(--ol-ink)"></i>MACD</span><span><i style="--key-colour:var(--ol-line-average)"></i>Signal</span><span><i style="--key-colour:var(--ol-positive)"></i>Histogram +</span><span><i style="--key-colour:var(--ol-negative)"></i>Histogram −</span></span>
+          <span id="ol-model-disclosure" class="ol-muted" role="note" hidden></span>
         </div>
 
 
@@ -1194,7 +1195,7 @@
             <option value="1" selected>1×</option>
             <option value="2">2×</option>
             <option value="4">4×</option></select
-          ><span id="ol-replay-at" class="ol-num"></span><form id="ol-replay-jump" class="ol-exact-form"><label>Edge · UTC<input type="datetime-local" id="ol-replay-edge" step="1" required></label><button type="submit" class="ol-action ol-s cursor-interaction">Jump</button><span id="ol-replay-jump-status" role="status"></span></form
+          ><span id="ol-replay-at" class="ol-num"></span><form id="ol-replay-jump" class="ol-exact-form"><label>Edge · UTC<input type="datetime-local" id="ol-replay-edge" step="0.001" required></label><button type="submit" class="ol-action ol-s cursor-interaction">Jump</button><span id="ol-replay-jump-status" role="status"></span></form
           ><button
             type="button"
             id="ol-replay-now"

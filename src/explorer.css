@@ -3462,7 +3462,7 @@
 #origo-lens #ol-inspect-reference-search { width: 100%; min-height: 32px; font: inherit; }
 #origo-lens #ol-reference-back { position: fixed; bottom: var(--sp-4); left: var(--sp-4); z-index: 65; background: var(--ol-surface); }
 @media (max-width: 760px) {
-  #origo-lens #ol-background-controls > .ol-control-label { display: none; }
+  #origo-lens #ol-background-controls > .ol-background-label { display: none; }
   #origo-lens .ol-reference-mobile-note { display: block; }
   #origo-lens .ol-view-keys { width: 100%; }
 }

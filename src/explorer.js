@@ -9089,7 +9089,7 @@
     ].filter(step => step.group);
   }
   function flowSteps(id) {
-    const dataset = { id: "dataset", name: "Dataset", title: "Choose a dataset", desc: {
+    const dataset = { id: "dataset", name: "Measure", title: "Choose a measure", desc: {
       mode: "What the cells show.", pane: "What each column shows below the prices.", rows: "What each price row shows behind the cells.",
     }[id] };
     if (id === "mode") return [dataset, ...scaleSteps("cells")];
@@ -22997,13 +22997,17 @@
     const key = scaleRt.legendKey.cells + "|" + colourEpoch;
     if (!ramp.hidden && ramp.dataset.key !== key) { legendBar(ramp, legend, 64, 8); ramp.dataset.key = key; }
     el("indicator-key").hidden = S.pane !== "macd1d";
+    const model = S.pane === "efficiency" ? modelStatusLine("efficiency",renderN()) : "";
+    el("model-disclosure").hidden = !model;
+    const modelText = model ? model + " · Retrospective model comparison" : "";
+    if(el("model-disclosure").textContent!==modelText)el("model-disclosure").textContent=modelText;
     const form = el("bounds-form");
     if (!form.contains(document.activeElement)) {
       const q = cubeQuery(), fields = { "bounds-start": q.t1.slice(0,-1), "bounds-end": q.t2.slice(0,-1), "bounds-low": String(q.p1), "bounds-high": String(q.p2) };
       for (const [id,value] of Object.entries(fields)) if (el(id).value !== value) el(id).value = value;
     }
     if (S.replay && !el("replay-jump").contains(document.activeElement)) {
-      const edge = iso(activeCutoff()).slice(0,19); if (el("replay-edge").value !== edge) el("replay-edge").value = edge;
+      const edge = iso(activeCutoff()).slice(0,-1); if (el("replay-edge").value !== edge) el("replay-edge").value = edge;
     }
   }
   function guiAuditInit() {
@@ -23032,14 +23036,14 @@
       el("panel-"+panel).querySelector(".ol-panel-head").append(button);
     }
   }
-  function guiExportStamp() { return JSON.stringify([last?.camera,last?.dataCut,last?.sourceVersion,S.mode,S.cellSort,S.cellDir,S.caseFilter,S.caseSort,S.caseDir,S.horizon,S.evidenceKind]); }
+  function guiExportStamp() { return JSON.stringify([last?.camera,last?.b,last?.dataCut,last?.sourceVersion,CUT,activeCutoff(),S.selection,S.mode,S.cellSort,S.cellDir,S.caseFilter,S.caseSort,S.caseDir,S.horizon,S.evidenceKind]); }
   function guiRememberTable(panel, table) {
     guiTableExports.set(panel,{...table,stamp:guiExportStamp(),metadata:[PACK.source??"Source not recorded",iso(CUT),S.replay?iso(activeCutoff()):"Off"]});
     if (el("export-"+panel)) el("export-"+panel).disabled = false;
   }
   async function guiExportTable(panel) {
     let table = guiTableExports.get(panel);
-    if (panel === "rallies") table = rallies?.table;
+    if (panel === "rallies") table = rallyController.table;
     if (!table || (table.stamp && table.stamp !== guiExportStamp())) { postNotice({code:"export-table",text:"The table is preparing or changed; export after it settles."});return; }
     const quote = value => { let text = value == null ? "Unavailable" : String(value);if(typeof value==="string"&&/^[=+@\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'; };
     const metadata = table.metadata ?? [PACK.source??"Source not recorded",iso(CUT),S.replay?iso(activeCutoff()):"Off"], lines = [["Source","Source cutoff · UTC","Replay edge · UTC","Export scope",...table.headers].map(quote).join(",")];
