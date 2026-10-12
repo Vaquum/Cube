@@ -6988,7 +6988,7 @@
     el("cutoff").textContent = `Cutoff ${when(CUT)} UTC`;
     // A recorded page names its day; a live one says how fresh it is instead.
     // The state pill says when the chart is a replay, and to when; otherwise live or recorded.
-    el("market").textContent = S.replay ? "REPLAY" : PACK.live ? "LIVE" : "RECORDED";
+    el("market").textContent = activeAnalysis?.mode === "captured" ? "CAPTURED" : S.replay ? "REPLAY" : PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live || S.replay;
     el("snapshot").textContent = S.replay ? when(activeCutoff()) : PACK.live ? "" : day(CUT);
     // Latest appears when the cutoff is out of view, beside the price profile.
@@ -21846,6 +21846,8 @@
       el("fresh").textContent = "captured " + new Date(activeAnalysis.createdAt).toISOString().slice(0, 16) + " UTC";
       return;
     }
+    el("market").textContent = S.replay ? "REPLAY" : PACK.live ? "LIVE" : "RECORDED";
+    el("fresh").hidden = !PACK.live;
     if (!PACK.live) return;
     const now = Date.now(),
       quiet = now - live.updated,
