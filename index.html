@@ -3463,7 +3463,7 @@
 
 /* Direct actions lead to the same reference settings and their actual colour keys. */
 #origo-lens .ol-view-keys { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
-#origo-lens #ol-cell-key { white-space: normal; text-align: left; max-width: 440px; }
+#origo-lens #ol-cell-key { white-space: normal; text-align: left; width: 440px; max-width: 100%; flex-shrink: 0; min-height: 44px; }
 #origo-lens #ol-cell-key-ramp { flex: none; width: 64px; height: 8px; }
 #origo-lens .ol-indicator-key, #origo-lens .ol-indicator-key > span { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
 #origo-lens .ol-indicator-key i { width: 14px; height: 3px; background: var(--key-colour); }
@@ -3480,6 +3480,10 @@
 #origo-lens .ol-reference-colour-swatch { display: inline-block; flex: none; width: 24px; color: var(--ref-ink); background: none; text-align: center; }
 #origo-lens .ol-reference-colours canvas { width: 100%; height: 12px; }
 #origo-lens #ol-inspect-reference-search { width: 100%; min-height: 32px; font: inherit; }
+#origo-lens .ol-inspect:not([data-surface="references"]) #ol-inspect-reference-search { display: none; }
+@media (any-pointer: coarse), (max-width: 760px) {
+  #origo-lens #ol-inspect-reference-search { min-width: 44px; min-height: 44px; }
+}
 #origo-lens #ol-reference-back { position: fixed; bottom: var(--sp-4); left: var(--sp-4); z-index: 65; background: var(--ol-surface); }
 @media (max-width: 760px) {
   #origo-lens #ol-background-controls > .ol-background-label { display: none; }
@@ -5216,6 +5220,7 @@
         >
           <div class="ol-inspect-head">
             <span class="ol-inspect-title">Inspect</span>
+            <button type="button" id="ol-inspect-open-detail" class="ol-action cursor-interaction">Open details</button>
             <button type="button" id="ol-inspect-exit" class="ol-icon-button cursor-interaction" aria-label="Close inspector" title="Close inspector (Escape)">
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
             </button>
@@ -5230,7 +5235,6 @@
             </div>
           </div>
           <div class="ol-inspect-position" id="ol-inspect-position"></div>
-          <button type="button" id="ol-inspect-open-detail" class="ol-action cursor-interaction">Open details</button>
           <div class="ol-inspect-readout" id="ol-inspect-readout"></div>
           <div class="ol-inspect-boundary" id="ol-inspect-boundary"></div>
           <div class="ol-inspect-steps" role="group" aria-label="Move the cursor">
@@ -26100,7 +26104,7 @@
           : c.name && c.tag && c.tag !== c.name && !String(c.name).includes(c.tag)
             ? `${c.name} · ${c.tag}`
             : c.name || c.tag,
-      push = (l, curve) => out.push({ id: l.id, key: l.key, name: curve ? curveName(l) : lineItemName(l) + (Number.isFinite(l.s?.t) ? " · " + when(l.s.t) + " UTC" : Number.isFinite(l.from) && Number.isFinite(l.to) ? " · " + range(l.from,l.to) + " UTC" : ""), hit: { key: l.key, id: l.id, item: l, colour: lineStyle(l.family || "vwap").colour, ...(curve ? { curve: { points: l.r.points } } : {}) }, at: curve ? null : l.at, kind: curve ? "curve" : l.kind });
+      push = (l, curve) => out.push({ id: l.id, key: l.key, name: curve ? curveName(l) : lineItemName(l), hit: { key: l.key, id: l.id, item: l, colour: lineStyle(l.family || "vwap").colour, ...(curve ? { curve: { points: l.r.points } } : {}) }, at: curve ? null : l.at, kind: curve ? "curve" : l.kind });
     for (const l of items) if (!l.eq) push(l, false);
     for (const c of items.curves ?? []) push(c, true);
     // the equal highs and lows and the golden and death crosses are plotted records with their own hover details: each is a reference the cursor can be on
@@ -26138,7 +26142,16 @@
         .map((e, i) => ({ e, i, f: e.key === "level" ? 0 : order[familyOf(e.key)] ?? 7 }))
         .sort((a, b) => a.f - b.f || a.i - b.i)
         .map((x) => x.e);
-    // two references of one name (the swings of one timeframe, the days of the session VWAP) are told apart: by their price where they have one, then by their order
+    // Repeated names carry their own recorded time; unique names retain their short established form.
+    const names = new Map();
+    for (const e of sorted) names.set(e.name, (names.get(e.name) ?? 0) + 1);
+    for (const e of sorted) {
+      if (names.get(e.name) < 2) continue;
+      const l = e.hit?.item;
+      if (Number.isFinite(l?.s?.t)) e.name += " · " + when(l.s.t) + " UTC";
+      else if (Number.isFinite(l?.from) && Number.isFinite(l?.to)) e.name += " · " + range(l.from, l.to) + " UTC";
+    }
+    // Remaining collisions use their price, then their order.
     const total = new Map(),
       nth = new Map();
     for (const e of sorted) total.set(e.name, (total.get(e.name) ?? 0) + 1);
