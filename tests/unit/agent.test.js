@@ -69,6 +69,14 @@ test("explicit refresh diffs changed metrics while retaining the original immuta
   assert.ok(changes.changes.some((change) => change.metric === "volume.amount" && change.before.value === 300 && change.after.value === 600));
   assert.equal(before.comparison.captures[0].metrics["volume.amount"].value, 300);
 });
+test("configuring the canvas preserves the recorded selection region and totals", () => {
+  const before = document(), selection = structuredClone(before.selection);
+  const after = A.configure(before, { viewport: [2, 4, 202, 204], resolution: [1, 1] });
+  assert.deepEqual(after.scene.query, { t1: 2, t2: 4, p1: 202, p2: 204, tR: 1, pR: 1 });
+  assert.deepEqual(after.selection, selection);
+  assert.deepEqual(A.parse(A.text(after)).selection, selection);
+  assert.deepEqual(before.selection, selection);
+});
 test("lossless code round trips do not manufacture metric changes from member order", async () => {
   const d = document(), decoded = await A.decode(await A.encode(d, codecs), codecs);
   assert.deepEqual(A.diff(d, decoded).changes, []);

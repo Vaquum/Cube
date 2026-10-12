@@ -23449,7 +23449,7 @@
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
       applyView(portableView(checked.value, value.scene.id));
       drawingCommit("Open investigation", value.scene.drawings);
-      if (value.comparison) comparisonCommit(value.comparison, true, true);
+      comparisonCommit(value.comparison ?? comparisonEmpty(), true, true);
       if (value.focus) {
         const cell = value.comparison.captures.find((item) => item.id === value.focus), ts = 2 ** cell.level.n, ps = 2 ** cell.level.m;
         S.selection = [cell.c * ts, (cell.c + 1) * ts, cell.r * ps, (cell.r + 1) * ps];

@@ -103,6 +103,20 @@ test("invalid import leaves the canvas, captures and drawings intact", async ({ 
   });
   expect(result.error).toContain("integrity"); expect(result.after).toEqual(result.before);
 });
+test("importing an investigation without comparisons clears previous captures and reference", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe); await add(page, 0, 200);
+  await page.evaluate(async () => {
+    const prior = await window.cubeAgent.export(); prior.comparison.reference = prior.comparison.captures[0].id;
+    await window.cubeAgent.apply(window.explorerAgent.seal(prior));
+    const next = await window.cubeAgent.export(); next.comparison = null; next.focus = null;
+    await window.cubeAgent.apply(window.explorerAgent.seal(next));
+  });
+  const current = await page.evaluate(() => window.cubeAgent.export());
+  expect(current.comparison.captures).toEqual([]);
+  expect(current.comparison.reference).toBeNull(); expect(current.comparison.focus).toBeNull();
+  await page.locator("#ol-tab-compare").click();
+  await expect(page.locator("#ol-comparisonWorkspace")).not.toContainText("300 usdt");
+});
 test("explicit refresh reports changed values and retains previous evidence", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe); await add(page, 0, 200);
   await page.evaluate(async () => window.cubeAgent.apply(await window.cubeAgent.export()));
