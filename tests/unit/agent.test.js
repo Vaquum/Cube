@@ -162,6 +162,43 @@ test("HTTP agent preserves Unicode split across request chunks", async (t) => {
   });
   assert.equal(result.status, 200); assert.equal(result.body.scene.observation.source, sealed.scene.observation.source); assert.equal(result.body.id, sealed.id);
 });
+test("selection imports require a complete region and observation provenance", () => {
+  for (const field of ["source", "measuredThrough", "state"]) {
+    const d = document(); delete d.selection[field];
+    assert.throws(() => A.validate(A.seal(d)), /selection region or provenance/);
+  }
+  for (const field of ["t1", "t2", "p1", "p2", "tR", "pR"]) {
+    const d = document(); delete d.selection.query[field];
+    assert.throws(() => A.validate(A.seal(d)), /selection region or provenance/);
+  }
+});
+test("query captures mark clipped start and price support as portions and retain raw counters", () => {
+  const a = answer(); a.query = { n: 1, m: 1, b0: 1, b1: 2, r0: 201, r1: 202 };
+  a.cells = [{ c: 0, r: 100, v: 300, bv: 100, ct: 2, bt: 1 }];
+  const cell = A.fromQuery(a).comparison.captures[0];
+  assert.equal(cell.completeness, "Portion"); assert.equal(cell.observed.seconds, 56.25); assert.equal(cell.observed.width, 125);
+  assert.equal(cell.detail.find((d) => d.label === "Buyer-initiated USDT").value, 100);
+});
+test("selection-only diffs retain changes and removals without captured cells", () => {
+  const before = document(); before.comparison.captures = []; before.comparison.focus = null;
+  const after = structuredClone(before); after.selection.metrics.volume = 800; delete after.selection.metrics.trade_count;
+  const changes = A.diff(A.seal(before), A.seal(after)).changes;
+  assert.ok(changes.some((c) => c.selection && c.metric === "volume" && c.before === 400 && c.after === 800));
+  assert.ok(changes.some((c) => c.selection && c.metric === "trade_count" && c.after === null));
+});
+test("MCP refresh retains scattered evidence outside the configured viewport", async (t) => {
+  const { startFake } = require("../support/cube-fake.js"), { dispatch } = await import("../../tools/cube-agent.mjs");
+  const fake = await startFake({ profile: "micro:mixed" }); t.after(() => fake.close());
+  const previousUrl = process.env.CUBE_URL; process.env.CUBE_URL = fake.url;
+  t.after(() => { if (previousUrl === undefined) delete process.env.CUBE_URL; else process.env.CUBE_URL = previousUrl; });
+  const original = await dispatch("cube_query", { query: { t1: "2021-01-01T00:00:00Z", t2: "2021-01-01T00:01:52.500Z", p1: 25000, p2: 25250, tR: 56.25, pR: 125 } });
+  const narrow = A.configure(original, { viewport: [0, 1, 200, 201] });
+  fake.revise({ day: "2021-01-01", factor: 2 });
+  const after = await dispatch("cube_refresh", { document: narrow });
+  assert.deepEqual(after.document.comparison.captures.map((c) => c.id), narrow.comparison.captures.map((c) => c.id));
+  assert.equal(after.document.comparison.captures[1].metrics["volume.amount"].value, 200);
+  assert.equal(new Set(after.document.snapshot.sources.map((s) => s.token || after.document.snapshot.token)).size, 1);
+});
 test("production durable store survives a new instance and rejects corrupted or unknown references", () => {
   const script = `import sys,tempfile,json,hashlib,sqlite3\nfrom pathlib import Path\nsys.path.insert(0,'tools')\nfrom investigation_store import InvestigationStore\nwith tempfile.TemporaryDirectory() as root:\n p=Path(root)/'db.sqlite';s=InvestigationStore(p);body=b'{"schema":"cube-analysis@1","evidence":300}';i=s.put(body)\n assert i==hashlib.sha256(body).hexdigest()\n assert s.put(body)==i and InvestigationStore(p).get(i)==body\n assert s.get('a'*64) is None\n with sqlite3.connect(p) as c:c.execute('UPDATE investigations SET body=? WHERE id=?',(b'bad',i))\n try:s.get(i);raise AssertionError('corruption accepted')\n except ValueError:pass\n try:s.get('../db');raise AssertionError('path accepted')\n except ValueError:pass\nprint('durable store verified')\n`;
   const run = spawnSync("python3", ["-c", script], { encoding: "utf8" }); assert.equal(run.status, 0, run.stderr); assert.match(run.stdout, /verified/);

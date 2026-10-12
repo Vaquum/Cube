@@ -656,6 +656,7 @@ class Explorer:
             return {"query": spec, "cells": values, "summary": answer,
                     "frame": {"baseSeconds": BASE_SECONDS, "basePrice": BASE_PRICE, "origin": T0,
                               "cutoffMs": round((T0 + end * BASE_SECONDS) * 1000),
+                              "sourceCutoffMs": round((T0 + cutoff * BASE_SECONDS) * 1000),
                               "canonicalThroughMs": None if not state["canonical_through"] else round(datetime.fromisoformat(state["canonical_through"].replace("Z", "+00:00")).timestamp() * 1000),
                               "source": SOURCE, "token": token, "live": True}}
         return {"cutoff": state["cutoff"], "block": block(n, m, float(b0), end, cells), "summary": answer}
@@ -986,9 +987,14 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/cube/agent/capabilities":
                 self.json({"schema": "cube-analysis@1", "query": "/cube/agent/query", "storage": "/cube/investigations", "queryParameters": ["t1", "t2", "p1", "p2", "tR", "pR"], "maxCells": 20000})
             elif url.path == "/cube/agent/query":
-                current, _ = self.explorer.current_pack()
+                token = args.get("pack", [""])[0]
+                if token:
+                    current = {"cutoffBase": self.explorer.holding(token)["cutoff"]}
+                else:
+                    current, _ = self.explorer.current_pack()
+                    token = current["state_token"]
                 spec = agent_rectangle(args, current)
-                self.json(self.explorer.measure(spec, current["state_token"], plain=True))
+                self.json(self.explorer.measure(spec, token, plain=True))
             elif url.path in ("/cube/tile", "/cube/query"):
                 spec = rectangle(args, prices=url.path == "/cube/query")
                 token = args.get("pack", [""])[0]

@@ -58,6 +58,27 @@ export async function dispatch(name, args = {}) {
   if (name === "cube_annotate") return A.annotate(document, args.line);
   if (name === "cube_refresh") {
     const fresh = A.fromQuery(await request("/cube/agent/query?proto=2&" + new URLSearchParams(queryOf(document))));
+    if (document.comparison?.captures.length) {
+      const captures = [], token = fresh.snapshot.token;
+      for (const cell of document.comparison.captures) {
+        const f = document.snapshot, close = Math.ceil((cell.observed.t1 - f.origin * 1000) / (f.baseSeconds * 1000));
+        const query = { t1: new Date(cell.observed.t0).toISOString(), t2: new Date((f.origin + close * f.baseSeconds) * 1000).toISOString(), p1: cell.observed.low, p2: cell.observed.high, tR: f.baseSeconds * 2 ** cell.level.n, pR: f.basePrice * 2 ** cell.level.m, pack: token };
+        const answer = await request("/cube/agent/query?proto=2&" + new URLSearchParams(query));
+        if (answer.frame.token !== token) throw Error("Source changed during refresh; previous evidence retained");
+        if (!answer.cells.some((z) => z.c === cell.c && z.r === cell.r)) {
+          const q = answer.query, cut = (answer.frame.cutoffMs / 1000 - f.origin) / f.baseSeconds;
+          if (!(cell.c * 2 ** q.n < Math.min(q.b1, cut) && (cell.c + 1) * 2 ** q.n > q.b0 && cell.r * 2 ** q.m < q.r1 && (cell.r + 1) * 2 ** q.m > q.r0)) throw Error("Captured cell is outside current source support; previous evidence retained");
+          answer.cells.push({ c: cell.c, r: cell.r, v: 0, bv: 0, ct: 0, bt: 0 });
+        }
+        answer.cells.sort((a, b) => a.c - b.c || a.r - b.r);
+        const observed = A.fromQuery(answer), updated = observed.comparison.captures.find((capture) => capture.id === cell.id);
+        if (!updated) throw Error("Captured cell could not be refreshed; previous evidence retained");
+        captures.push(updated);
+        fresh.snapshot.sources.push({ ...observed.snapshot.sources[0], id: "capture-query:" + cell.id });
+        fresh.snapshot.cutoffMs = Math.max(fresh.snapshot.cutoffMs, observed.snapshot.cutoffMs);
+      }
+      fresh.comparison.captures = captures;
+    }
     fresh.scene = structuredClone(document.scene);
     // Observation provenance has a strict portable-scene allowlist.
     fresh.scene.observation = { source: fresh.snapshot.source, instrument: "BTC/USDT", cutoffMs: fresh.snapshot.cutoffMs, canonicalThroughMs: fresh.snapshot.canonicalThroughMs, token: fresh.snapshot.token, note: "Explicit refresh of captured query" };

@@ -23472,6 +23472,9 @@
     if (!activeAnalysis) throw Error("Open a captured investigation before refreshing it");
     if (!analysisOrigin?.live) throw Error("The recorded page has no live source to refresh");
     const before = await agentDocument(), refreshed = [], grouped = new Map();
+    const packResponse = await fetch("/cube/pack?proto=2&since=", { cache: "no-store" }), packBody = await packResponse.json();
+    if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
+    const token = packBody.pack.state_token;
     for (const cell of before.comparison.captures) {
       const key = cell.level.n + "," + cell.level.m;
       if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(cell);
@@ -23479,9 +23482,10 @@
     for (const cells of grouped.values()) {
       const n = cells[0].level.n, m = cells[0].level.m, isoMs = (x) => new Date(x).toISOString();
       const end = Math.max(...cells.map((c) => c.observed.t1)), closingBase = Math.ceil((end - T0 * 1000) / (BASE * 1000));
-      const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m };
+      const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m, pack: token };
       const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query));
       const body = await response.json(); if (!response.ok) throw Error(body.detail || body.error || "Refresh failed");
+      if (body.frame.token !== token) throw Error("Source changed during refresh; captured evidence retained");
       const fresh = Agent.fromQuery(body);
       for (const cell of cells) {
         const found = fresh.comparison.captures.find((c) => c.id === cell.id);
@@ -23489,12 +23493,10 @@
         refreshed.push(found);
       }
     }
-    const response = await fetch("/cube/pack?proto=2&since=", { cache: "no-store" }), body = await response.json();
-    if (!response.ok || body.status !== "pack") throw Error(body.error || "Current pack unavailable; captured evidence retained");
     window.cubeAgent.previous = before;
     activeAnalysis = null; analysisHash = null;
     agentInstallSnapshot(analysisOrigin);
-    await applyLive(body.pack, true);
+    await applyLive(packBody.pack, true);
     comparisonCommit({ ...before.comparison, captures: refreshed }, true, true); update();
     const after = await agentDocument(), difference = Agent.diff(before, after);
     activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null });

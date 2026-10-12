@@ -35,7 +35,10 @@
     }
     if (raw.focus !== null && (!raw.comparison || !raw.comparison.captures.some((cell) => cell.id === raw.focus))) fail("Unknown evidence focus");
     if (raw.snapshot !== null) validateSnapshot(raw.snapshot);
-    if (raw.selection !== null && (!keys(raw.selection, ["query", "metrics", "source", "measuredThrough", "state"]) || !keys(raw.selection.query, ["t1", "t2", "p1", "p2", "tR", "pR"]) || !raw.selection.metrics)) fail("Invalid captured selection");
+    if (raw.selection !== null) {
+      const selection = raw.selection, q = selection?.query;
+      if (!keys(selection, ["query", "metrics", "source", "measuredThrough", "state"]) || !keys(q, ["t1", "t2", "p1", "p2", "tR", "pR"]) || ![q.t1, q.t2, q.p1, q.p2, q.tR, q.pR].every(Number.isFinite) || !(q.t1 <= q.t2 && q.p1 <= q.p2) || ![q.tR, q.pR].every((n) => Number.isInteger(n) && n >= 0) || !selection.metrics || typeof selection.metrics !== "object" || Array.isArray(selection.metrics) || typeof selection.source !== "string" || !selection.source || !Number.isFinite(selection.measuredThrough) || typeof selection.state !== "string") fail("Invalid captured selection region or provenance");
+    }
     const bytes = E.hash.utf8(JSON.stringify(raw)).length;
     if (bytes > MAX_BYTES) fail("Analysis exceeds 16 MiB; narrow the captured region");
     return structuredClone(raw);
@@ -155,6 +158,10 @@
       old.delete(cell.id);
     }
     for (const cell of old.keys()) changes.push({ cell, change: "removed" });
+    for (const metric of new Set([...Object.keys(a.selection?.metrics || {}), ...Object.keys(b.selection?.metrics || {})])) {
+      const prior = a.selection?.metrics?.[metric] ?? null, value = b.selection?.metrics?.[metric] ?? null;
+      if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
+    }
     return { previous: a.id, current: b.id, changes };
   }
   function redact(capture, edge) {
@@ -204,7 +211,8 @@
         const measurement = E.measure.cellMeasurement({ mode, basis, z, geom: { BASE: f.baseSeconds, PR: f.basePrice }, level: { n: q.n, m: q.m }, bounds, cut, end: cut, CUT: cut, replay: false });
         metrics[mode + (["volume", "trades", "delta"].includes(mode) ? "." + basis : "")] = { tag: measurement.result.tag, value: measurement.result.value ?? null, unit: measurement.unit, formula: measurement.formula, numerator: measurement.numerator ?? null, denominator: measurement.denominator ?? null, supportEnd: ms(t1), knownThrough: ms(t1), reason: measurement.result.reason ?? "" };
       }
-      const capture = { instrument: "BTC/USDT", level: { n: q.n, m: q.m }, origin: f.origin, c: z.c, r: z.r, nominal: { t0: ms(z.c * ts), t1: ms((z.c + 1) * ts), low: z.r * ps * f.basePrice, high: (z.r + 1) * ps * f.basePrice }, observed: { t0: ms(t0), t1: ms(t1), low: low * f.basePrice, high: high * f.basePrice, seconds: (t1 - t0) * f.baseSeconds, width: (high - low) * f.basePrice }, capturedAt: Date.now(), measuredThrough: ms(t1), source: f.source + " · " + f.token, completeness: t1 === (z.c + 1) * ts ? "Complete" : "Portion", metrics, detail: [], contextOrigin: "legacy-structural", context: { supports: {}, histories: [], originatingObservation: null }, originatingObservation: null };
+      const whole = t0 === z.c * ts && t1 === (z.c + 1) * ts && low === z.r * ps && high === (z.r + 1) * ps;
+      const capture = { instrument: "BTC/USDT", level: { n: q.n, m: q.m }, origin: f.origin, c: z.c, r: z.r, nominal: { t0: ms(z.c * ts), t1: ms((z.c + 1) * ts), low: z.r * ps * f.basePrice, high: (z.r + 1) * ps * f.basePrice }, observed: { t0: ms(t0), t1: ms(t1), low: low * f.basePrice, high: high * f.basePrice, seconds: (t1 - t0) * f.baseSeconds, width: (high - low) * f.basePrice }, capturedAt: Date.now(), measuredThrough: ms(t1), source: f.source + " · " + f.token, completeness: whole ? "Complete" : "Portion", metrics, detail: [["Buyer-initiated USDT", z.bv, "usdt"], ["Seller-initiated USDT", z.v - z.bv, "usdt"], ["Buyer-initiated trades", z.bt, "trades"]].map(([label, value, unit]) => ({ label, value, unit, tag: "finite", supportEnd: ms(t1), knownThrough: ms(t1) })), contextOrigin: "legacy-structural", context: { supports: {}, histories: [], originatingObservation: null }, originatingObservation: null };
       capture.id = C.identity(capture); return capture;
     });
     const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
