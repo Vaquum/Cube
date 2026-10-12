@@ -19391,12 +19391,12 @@
       targets: [{"label":"Show Bounds","selector":"#ol-bounds-settings"},{"label":"Show Query","selector":"#ol-tab-query"},{"label":"Show resolution","selector":"#ol-res"}], colour: "cells" },
     { id: "exposure", group: "Read the market", title: "Amounts & exposure",
       purpose: "Compare quantities on the same measured support.",
-      read: "Amount is an observed total. Intensity divides by covered minutes and price width, reported per 125 USDT; trades use the same exposure. Shares and means use their own denominators. Path spans divide by row width; spans per minute also divide by covered time. Less than 10% nominal time or width is short exposure for a normalized measure.",
+      read: "Amount is an observed total. Intensity divides by covered minutes and price width, reported per 125 USDT; trades use the same exposure. Volume, Trades and Delta offer Amount/Intensity; means and shares keep their own denominators. Dwell uses covered column seconds; Cascade uses parent volume. Path spans divide by row width; spans per minute also divide by covered time. Less than 10% nominal time or width is short exposure for a normalized measure.",
       use: "Inspect nominal and observed bounds before comparing. A small rate denominator can amplify a value; it does not increase evidence.",
       targets: [{"label":"Show Cells menu","selector":"#ol-mode"},{"label":"Show Inspect","selector":"#ol-inspect-tool"}], colour: "cells" },
     { id: "transforms", group: "Read the market", title: "Value & relative rank",
       purpose: "Choose what differences in shade preserve.",
-      read: "Linear Value scales to U. Log Value uses log(1 + |x|/k) / log(1 + U/k), retaining sign; k sets curvature. Relative rank approximates position among fitted observations using quantile knots; it is not an exact ordering. Shares and concentration ratios have their own fixed midpoint. Invalid or uncovered observations are excluded and counted.",
+      read: "Linear Value scales to U. Log Value uses log(1 + |x|/k) / log(1 + U/k), retaining sign; k sets curvature. Relative rank approximates position among fitted observations using quantile knots; it is not an exact ordering. Shares and concentration ratios have their own fixed midpoint. Invalid or uncovered observations are excluded and counted. Values beyond a held domain saturate at an endpoint; the raw value remains. Scale range exceeded means over 10% of marks or 25% of area outside the domain. Low discrimination means over 90% of nonzero marks in one end 5% band; neither warning recolours the data.",
       use: "Read the ticks, U, k, support and clipping in the colour scale. A rank shade compares positions, not equal differences in amount.",
       targets: [{"label":"Show colour key","selector":"#ol-cell-key"},{"label":"Show cells","region":"cells"}], colour: "cells" },
     { id: "row-comparisons", group: "Read the market", title: "Row comparison denominators",
@@ -19460,7 +19460,7 @@
       use: "Use Columns and read its series key. Inspect native close time, slopes and confirmation; repeated cube columns do not create new indicator bars.",
       targets: [{"label":"Show Columns","selector":"#ol-pane"},{"label":"Show indicator pane","region":"columns"}], colour: "indicators" },
     { id: "state-glossary", group: "Read the market", title: "Non-values & recovery",
-      matrix: {headers:["State","Meaning","Action"],rows:[["Zero","Measured no activity; zero Delta can still contain trades","Read the measure"],["Reading / Pending","Read has not answered; no current value","Wait for the read"],["Preparing","Calculation has not concluded; count unknown","Wait for the result"],["Not measured","Its workflow has not run","Run the named workflow"],["Failed","Read error; no substituted zero","Read the error; retry"],["Unsupported","Capability absent in this source","Use an available measure / live source"],["Unavailable / outside support","No eligible covered input","Read support; choose covered bounds"],["Open column / parent","Unfinished support; derived value may wait","Read the measured-through edge"],["Provisional","Measured minutes may be revised by archive","Read canonical-through"],["Undefined / empty population / empty-both","Required denominator or population absent","Inspect numerator and denominator"],["No reference / no coarser parent","Required comparison input absent","Choose an eligible reference / level"],["−∞","Zero numerator against positive denominator","Read the ratio; do not treat as missing"],["No calibration","Raw value may exist; shade has no fit","Fit an eligible scale"],["Clipped / precision / edge portion","Value retains its stated support or precision limit","Inspect exact value and bounds; Lens for detail"]]},
+      matrix: {headers:["State","Meaning","Action"],rows:[["Zero","Measured no activity; zero Delta can still contain trades","Read the measure"],["Reading / Pending","Read has not answered; no current value","Wait for the read"],["Preparing","Calculation has not concluded; count unknown","Wait for the result"],["Not measured","Its workflow has not run","Run the named workflow"],["Failed","Read error; no substituted zero","Read the error; retry"],["Invalid input","Input is outside its valid measurement range","Inspect the stated reason; correct the input/source"],["Hidden in replay","Support is beyond the effective edge","Move the edge or leave Replay"],["Unsupported","Capability absent in this source","Use an available measure / live source"],["Unavailable / outside support","No eligible covered input","Read support; choose covered bounds"],["Open column / parent","Unfinished support; derived value may wait","Read the measured-through edge"],["Provisional","Measured minutes may be revised by archive","Read canonical-through"],["Undefined / empty population / empty-both","Required denominator or population absent","Inspect numerator and denominator"],["No reference / no coarser parent","Required comparison input absent","Choose an eligible reference / level"],["−∞","Zero numerator against positive denominator","Read the ratio; do not treat as missing"],["No calibration","Raw value may exist; shade has no fit","Fit an eligible scale"],["Clipped / precision / edge portion","Value retains its stated support or precision limit","Inspect exact value and bounds; Lens for detail"]]},
       purpose: "Keep an unknown value distinct from a measured zero.",
       read: "Reading/Pending awaits data; Preparing awaits calculation. Not measured requires its explicit workflow. Failed names a read error; Unsupported lacks the capability; Unavailable lacks eligible support. Undefined is not a finite ratio. −∞ is a zero numerator against positive support; no reference and empty-both have separate denominator states. Open parents can withhold derived values. Out-of-range and precision marks qualify a value rather than replace it.",
       use: "Inspect the stated reason. Retry a failed read, enable the required input, or use Lens for unresolved detail; do not replace a gap with zero.",
@@ -24063,7 +24063,7 @@
       length: cells.length,
       row: index => {
         const c = cells[index], mz = mv ? moves(c) : null, reached = Boolean(mq) && c.c * ts < end, read = exportMotion ? reached ? mz ?? c : null : c, value = same && read ? cellReadout(read,null) : null;
-        return [iso(Math.max(c.c*ts,b[0])),iso(Math.min((c.c+1)*ts,b[1],exportCut)),Math.max(c.r*ps,b[2])*PR,Math.min((c.r+1)*ps,b[3])*PR,c.v,c.ct,c.bv??0,c.bt??0,...(mv?[reached?mz?.p??0:"Unavailable",reached?mz?.w??0:"Unavailable"]:[]),value?.typed?.tag==="finite"?value.typed.value:"Unavailable",value?.measure?.unit??"Unavailable",value?.typed?.tag??"pending",cellState(c,b,ts,ps),listed.n,listed.m];
+        return [iso(Math.max(c.c*ts,b[0])),iso(Math.min((c.c+1)*ts,b[1],exportCut)),Math.max(c.r*ps,b[2])*PR,Math.min((c.r+1)*ps,b[3])*PR,c.v,c.ct,c.bv??"Unavailable",c.bt??"Unavailable",...(mv?[reached?mz?.p??0:"Unavailable",reached?mz?.w??0:"Unavailable"]:[]),value?.typed?.tag==="finite"?value.typed.value:"Unavailable",value?.measure?.unit??"Unavailable",value?.typed?.tag??"pending",cellState(c,b,ts,ps),listed.n,listed.m];
       },
     });
     tablePage = clamp(tablePage, 0, pages - 1);
@@ -43008,8 +43008,10 @@
     let table = guiTableExports.get(panel);
     if (panel === "rallies") table = rallyController.table;
     if (!table || (table.stamp && table.stamp !== guiExportStamp())) { postNotice({code:"export-table",text:"The table is preparing or changed; export after it settles."});return; }
-    const quote = value => { let text = value == null ? "Unavailable" : String(value);if(typeof value==="string"&&/^[=+@\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'; };
-    const metadata = table.metadata ?? [PACK.source??"Source not recorded",iso(CUT),S.replay?iso(activeCutoff()):"Off"], lines = [["Source","Source cutoff · UTC","Replay edge · UTC","Export scope",...table.headers].map(quote).join(",")];
+    const quote = value => { let text = value == null || (typeof value === "number" && !Number.isFinite(value)) ? "Unavailable" : String(value);if(typeof value==="string"&&/^[=+@\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'; };
+    const metadata = table.metadata ? [...table.metadata] : [PACK.source??"Source not recorded",iso(CUT),"Off"];
+    metadata[2] = S.replay ? iso(activeCutoff()) : "Off";
+    const lines = [["Source","Source cutoff · UTC","Replay edge · UTC","Export scope",...table.headers].map(quote).join(",")];
     for (let index=0;index<table.length;index++) {
       lines.push([...metadata,table.scope,...table.row(index)].map(quote).join(","));
       if(index%500===499) { await new Promise(resolve=>setTimeout(resolve,0));if(table.stamp&&table.stamp!==guiExportStamp()){postNotice({code:"export-table",text:"Export stopped because the table changed. Export the settled table again."});return;} }
@@ -43043,7 +43045,7 @@
     } else if (kind === "cells" && S.mode === "geometry") row("Occupancy · trades measured in this cell", "var(--ol-occupancy)", "□");
     if (["references","profiles"].includes(kind)) {
       if(kind==="profiles"){row("Profile amount · bar length",last?.sc?.lut?.bar?.css??colors.muted,"■");row("Taker-buy subset · inset",colors.ink,"■");}
-      row("Profile POC / value area", "var(--ol-line-poc)", "×"); row("Session / structural price level", "var(--ol-line-level)"); row("Moving average / Bollinger", "var(--ol-line-average)"); row("VWAP", "var(--ol-line-vwap)"); row("Clock · scheduled time", "var(--ol-line-clock)", "│");
+      row("Profile POC / value area", "var(--ol-line-poc)"); row("Session / structural price level", "var(--ol-line-level)"); row("Moving average / Bollinger", "var(--ol-line-average)"); row("VWAP", "var(--ol-line-vwap)"); row("Clock · scheduled time", "var(--ol-line-clock)", "│");
       container.append(uiEl("p","ol-muted","Colour names the family; name and stroke pattern identify the measure, timeframe and confirmation."));
     }
     if (kind === "averages") row("Moving average / Bollinger", "var(--ol-line-average)");
@@ -43063,7 +43065,6 @@
       container.append(uiEl("p","ol-muted","A drawing's chosen RGB colour has no market meaning."));
     }
     if (["states","resolution"].includes(kind)) {
-      row("Coverage / non-value marks · inspect their reason", "var(--ol-state)", "◇");
       const original = topic.id === "state-glossary" ? null : root.querySelector(".ol-status > .ol-status-keys");
       if (topic.id === "state-glossary") {
         const inks={state:colors.state,occupancy:colors.occupancy,surface:colors.surface};
