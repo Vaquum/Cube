@@ -46,6 +46,21 @@ test("creation, translation and duplication preserve authored labels independent
   assert.equal(recolored.label, made.label); assert.equal(recolored.color, "#fedcba"); assert.equal(Object.hasOwn(recolored, "labelColor"), false);
 });
 
+test("duplicating generated names retains fresh defaults and labels while authored default-shaped names retain copy suffixes", () => {
+  const labeled = line(4, { name: "Trend line 5", label: "Support" }), original = plain(labeled);
+  const duplicate = D.duplicate(collection(labeled), labeled.id);
+  assert.equal(duplicate.ordinal, 5); assert.equal(duplicate.name, "Trend line 6"); assert.equal(duplicate.label, "Support");
+  assert.notEqual(duplicate.id, labeled.id); assert.deepEqual(labeled, original, "duplication preserves the source name and label");
+  const another = D.duplicate(collection(labeled, duplicate), duplicate.id);
+  assert.equal(another.ordinal, 6); assert.equal(another.name, "Trend line 7"); assert.equal(another.label, "Support");
+
+  const unlabeled = line(8, { name: "Trend line 9" }), blankCopy = D.duplicate(collection(unlabeled), unlabeled.id);
+  assert.equal(blankCopy.ordinal, 9); assert.equal(blankCopy.name, "Trend line 10"); assert.equal(Object.hasOwn(blankCopy, "label"), false);
+
+  const authored = line(2, { name: "Trend line 1", label: "Resistance" }), namedCopy = D.duplicate(collection(authored), authored.id);
+  assert.equal(namedCopy.ordinal, 3); assert.equal(namedCopy.name, "Trend line 1 copy 1"); assert.equal(namedCopy.label, "Resistance");
+});
+
 test("label create, edit, clear and delete are atomic history steps; Undo/Redo restore exact text and branching clears Redo", () => {
   const store = D.createStore(collection());
   store.commit("Create", collection(line(1, { label: "Support" }))); assert.equal(store.state.objects[0].label, "Support");
