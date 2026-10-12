@@ -4709,7 +4709,7 @@
     } else if (isVwapDay(l.key)) {
       const r = lineShown(l.key.slice(5));
       if (r.state === "ready" && r.exact && r.span[0] === start && Math.min(r.span[1], activeCutoff()) === end) { bins = r.rows; width = r.rowPrice * PR; }
-    } else reason = "Swing-anchor profile not held on this exact support; dispersion unavailable";
+    } else reason = isSessionVwap(l.key) ? "Regional-session profile not held on this exact support; dispersion unavailable" : "Swing-anchor profile not held on this exact support; dispersion unavailable";
     const retrospective = candidate || knownAt !== null && t < knownAt;
     const dispersion = retrospective ? { result: referenceMissing("Retrospective comparison before VWAP measurement or anchor confirmation"), sigma: null }
       : bins && loc.close !== null ? E.measure.weightedBins({ rows: bins, rowWidth: width, vwap: value, close: loc.close }) : { result: referenceMissing(reason), sigma: null };
@@ -6143,7 +6143,7 @@
       items = S.lines.length ? lineItems(cut) : [],
       // a curve is named by its own name and, where its tag tells it apart from its siblings (Upper, Middle, Lower), the tag; a session's VWAP by its day
       curveName = (c) =>
-        c.key === "svwap" && Number.isFinite(c.anchor)
+        isSessionVwap(c.key) && Number.isFinite(c.anchor)
           ? `${c.name} · ${day(c.anchor)}`
           : c.name && c.tag && c.tag !== c.name && !String(c.name).includes(c.tag)
             ? `${c.name} · ${c.tag}`
@@ -11123,6 +11123,15 @@
   // whatever its timeframe (E.role.REFERENCE); its tag and its name give its
   // exact period. Any number can be on at once, and the address and saved
   // views keep them all.
+  // Fixed UTC windows for this 24/7 source; regional windows may overlap.
+  const SESSION_VWAPS = {
+      svwap: { hours: [0, 24], tag: "VWAP" },
+      asvwap: { hours: [0, 8], tag: "Asia VWAP" },
+      euvwap: { hours: [8, 16], tag: "Europe VWAP" },
+      usvwap: { hours: [13, 21], tag: "US VWAP" },
+    },
+    isSessionVwap = (key) => Object.hasOwn(SESSION_VWAPS, key),
+    regionalVwapsOn = () => S.lines.some((key) => key !== "svwap" && isSessionVwap(key));
   const FAMILIES = [
       { id: "profile", name: "Volume profile", colour: "poc" },
       { id: "session", name: "Session levels", colour: "level" },
@@ -11256,6 +11265,9 @@
       },
       vvwap: { family: "vwap", name: "Visible range VWAP", desc: "USDT ÷ BTC over the visible time range, across all prices; updates after time pan or zoom", live: true },
       svwap: { family: "vwap", name: "Session VWAP", desc: "USDT ÷ BTC from each 00:00 UTC", live: true },
+      asvwap: { family: "vwap", name: "Asia session VWAP", desc: "USDT ÷ BTC during 00:00–08:00 UTC each day; fixed hours, resets daily", live: true },
+      euvwap: { family: "vwap", name: "Europe session VWAP", desc: "USDT ÷ BTC during 08:00–16:00 UTC each day; fixed hours, resets daily", live: true },
+      usvwap: { family: "vwap", name: "US session VWAP", desc: "USDT ÷ BTC during 13:00–21:00 UTC each day; fixed hours, resets daily", live: true },
       avwaph: { family: "vwap", name: "From the last daily swing high", desc: "USDT ÷ BTC from it on", live: true },
       avwapl: { family: "vwap", name: "From the last daily swing low", desc: "USDT ÷ BTC from it on", live: true },
       cday: { family: "clock", name: "Day start", desc: "00:00 UTC" },
@@ -11796,9 +11808,11 @@
     };
   }
   // In replay, the bar holding the edge, up to the edge.
+  // Candle replay can end within a base interval; bar reads must retain that exact cutoff.
+  const barCutoff = () => S.replay ? activeCutoff() : cutEdge();
   function barEdgeWant(n) {
     const step = 2 ** n,
-      edge = cutEdge();
+      edge = barCutoff();
     if (!S.replay || edge % step === 0) return null;
     const key = [live.generation, n, edge].join("|");
     if (barEdges.has(key)) return null;
@@ -11818,10 +11832,10 @@
   // replay the bar at the edge; then the chunks holding the view's days at
   // the timeframe its VWAPs are drawn at.
   function barsWant() {
-    const edge = cutEdge();
+    const edge = barCutoff();
     for (const n of barLevels()) {
       const span = BAR_CHUNK * 2 ** n;
-      for (let j = Math.floor((edge - 1) / span); j >= 0; j--) {
+      for (let j = Math.floor((Math.ceil(edge) - 1) / span); j >= 0; j--) {
         const want = barChunkWant(n, j);
         if (want && !motion.failed.has(want.key)) return { ...want, relevant: () => barLevels().includes(n) };
       }
@@ -11830,7 +11844,7 @@
     }
     for (const [n, a, b] of viewBarNeeds()) {
       const span = BAR_CHUNK * 2 ** n;
-      for (let j = Math.floor(Math.max(a, b - 1) / span); j >= Math.floor(a / span); j--) {
+      for (let j = Math.floor(Math.max(a, Math.ceil(b) - 1) / span); j >= Math.floor(a / span); j--) {
         const want = barChunkWant(n, j);
         if (want && !motion.failed.has(want.key)) return want;
       }
@@ -11853,7 +11867,7 @@
   // measures end. Kept until a read or the edge changes.
   const seriesMemo = new Map();
   function barSeries(n) {
-    const edge = cutEdge(),
+    const edge = barCutoff(),
       step = 2 ** n,
       span = BAR_CHUNK * step,
       partial = S.replay && edge % step !== 0,
@@ -11884,7 +11898,7 @@
   // Where a timeframe's measures end, when the cube's end before the data does:
   // the lines built on them end there too.
   function barsShort(series) {
-    return series.state === "ready" && series.end < (S.replay ? cutEdge() : Math.floor(CUT)) ? series.end : null;
+    return series.state === "ready" && series.end < (S.replay ? activeCutoff() : Math.floor(CUT)) ? series.end : null;
   }
   // Bars combined: the first's open, the highest high, the lowest low, the
   // last's close and the volumes and trades summed.
@@ -12388,7 +12402,7 @@
     // The lines built on 4-hour bars.
     FOUR_HOUR_LINES = ["swing4h", "fibswing4h"],
     // The lines built on the days of the 8-hour bars, beside the session levels.
-    STRUCTURE_LINES = ["ath", "pch", "swing1d", "fib30", "fib90", "fibswing", "svwap", "avwaph", "avwapl"];
+    STRUCTURE_LINES = ["ath", "pch", "swing1d", "fib30", "fib90", "fibswing", ...Object.keys(SESSION_VWAPS), "avwaph", "avwapl"];
   // An ATR by bar: Wilder's smoothing of the true range over 14 bars, from
   // the list's first, as the daily ATR (NaN before the 14th bar).
   function atrSeries(list, length = 14) {
@@ -12695,7 +12709,9 @@
   }
   function vwapLevel() {
     const perPx = ((S.tB - S.tA) * BASE) / Math.max(1, G.w);
-    return VWAP_LEVELS.find((n) => BASE * 2 ** n >= 2 * perPx) ?? 9;
+    const n = VWAP_LEVELS.find((n) => BASE * 2 ** n >= 2 * perPx) ?? 9;
+    // Every regional boundary is an hour edge; a coarser bar crosses it.
+    return regionalVwapsOn() ? Math.min(n, 6) : n;
   }
   // The VWAPs on: the session's, and each anchor.
   function vwapAnchors() {
@@ -12722,7 +12738,7 @@
   // at the edge up to it.
   const rangeMemo = new Map();
   function barsBetween(n, a, b) {
-    const edge = cutEdge(),
+    const edge = barCutoff(),
       stop = Math.min(b, edge),
       step = 2 ** n,
       span = BAR_CHUNK * step,
@@ -12765,7 +12781,7 @@
   // Kept per anchor, timeframe and span, so a pan reuses it.
   const vwapMemo = new Map();
   function vwapCurve(anchor, n, from, to) {
-    const key = [anchor, n, from, to, live.generation, cutEdge(), S.replay, barsVersion].join("|"),
+    const key = [anchor, n, from, to, live.generation, barCutoff(), S.replay, barsVersion].join("|"),
       hit = vwapMemo.get(key);
     if (hit) return hit;
     const out = vwapFrom(anchor, n, from, to);
@@ -12816,18 +12832,21 @@
   // the span it is drawn over, the bar at the edge included.
   function vwapBarNeed() {
     const anchored = PACK.live && vwapAnchors().length > 0;
-    if (!PACK.live || !(S.lines.includes("svwap") || anchored)) return null;
+    if (!PACK.live || !(S.lines.some(isSessionVwap) || anchored)) return null;
     const n = vwapLevel();
     if (n === 9) return null;
-    const edge = cutEdge(),
+    const edge = barCutoff(),
       days = Math.min(Math.ceil(S.tB / DAYS) * DAYS, edge),
       b = anchored ? Math.max(days, Math.min(edge, Math.ceil(anchoredSpan(n).to))) : days;
-    return [n, Math.floor(Math.max(0, S.tA) / DAYS) * DAYS, b];
+    const a = Math.floor(Math.max(0, spaced(DAYS) || anchored ? S.tA : Math.min(S.tB, edge) - 1e-6) / DAYS) * DAYS;
+    return [n, a, b];
   }
   function viewBarNeeds() {
     if (!PACK.live) return [];
     const out = [vwapBarNeed()].filter(Boolean),
-      edge = cutEdge();
+      edge = barCutoff();
+    // Menu values refer to the cutoff day even when viewing older history.
+    if (regionalVwapsOn()) out.push([6, Math.floor(Math.max(0, activeCutoff() - 1e-6) / DAYS) * DAYS, edge]);
     for (const tf of ["15m", "3m"])
       if (averageTf(tf).some((k) => S.lines.includes(k))) {
         const n = AVERAGE_STEPS[tf],
@@ -14217,7 +14236,7 @@
       items.push(...st);
       items.marks = st.marks;
     }
-    items.curves = on.has("svwap") || S.lines.some((k) => k === "avwaph" || k === "avwapl" || isVwapDay(k)) ? vwapCurves(cut) : [];
+    items.curves = S.lines.some(isSessionVwap) || S.lines.some((k) => k === "avwaph" || k === "avwapl" || isVwapDay(k)) ? vwapCurves(cut) : [];
     if (S.lines.some((k) => AVERAGE_SPECS[k])) {
       const av = averageItems(cut);
       items.curves.push(...av.curves);
@@ -14539,22 +14558,26 @@
     }
     return hit;
   }
+  function sessionVwapSpan(key, d, cut) {
+    const [start, end] = SESSION_VWAPS[key].hours;
+    return [d * DAYS + start * 3600 / BASE, Math.min(d * DAYS + end * 3600 / BASE, cut)];
+  }
   function vwapCurves(cut) {
     const out = [],
       n = vwapLevel(),
       stop = Math.min(S.tB, cut),
       dNow = Math.floor(Math.max(0, cut - 1e-6) / DAYS);
-    if (S.lines.includes("svwap")) {
-      const d0 = Math.max(0, Math.floor(S.tA / DAYS)),
-        d1 = Math.floor(Math.max(0, stop - 1e-6) / DAYS),
-        days = [];
-      for (let d = spaced(DAYS) ? d0 : d1; d <= d1; d++) days.push(d);
-      for (const d of days) {
-        const t = d * DAYS,
-          r = vwapCurve(t, n, t, Math.min(t + DAYS, cut));
+    for (const key of S.lines.filter(isSessionVwap)) {
+      const spec = SESSION_VWAPS[key],
+        d0 = Math.max(0, Math.floor(S.tA / DAYS)),
+        d1 = Math.floor(Math.max(0, stop - 1e-6) / DAYS);
+      for (let d = spaced(DAYS) ? d0 : d1; d <= d1; d++) {
+        const [t, end] = sessionVwapSpan(key, d, cut),
+          latest = d === dNow && stop >= cut;
+        if (end <= t || (end <= S.tA && !latest) || t >= stop) continue;
+        const r = vwapCurve(t, n, t, end);
         if (r.state !== "ready" || !r.points.length) continue;
-        const latest = d === dNow && stop >= cut;
-        out.push({ key: "svwap", id: `svwap|${d}`, name: "Session VWAP", anchor: t, day: d, r, on: latest, tag: latest ? "VWAP" : null });
+        out.push({ key, id: `${key}|${d}`, name: TOGGLES[key].name, anchor: t, day: d, r, on: latest, tag: latest ? spec.tag : null });
       }
     }
     // An anchored curve spans the chunks of bars the view is in.
@@ -15932,10 +15955,16 @@
   // Whether any retracement is on, for the rows that add levels to them.
   const retracementsOn = () => S.lines.some((k) => isFibDay(k) || RETRACEMENT_ROWS.some(([row]) => row === k));
   function vwapValue(key) {
-    const edge = cutEdge();
+    const edge = barCutoff();
     let anchor;
-    if (key === "svwap") anchor = Math.floor(Math.max(0, activeCutoff() - 1e-6) / DAYS) * DAYS;
-    else if (isVwapDay(key)) anchor = vwapDayStart(key);
+    if (isSessionVwap(key)) {
+      const d = Math.floor(Math.max(0, activeCutoff() - 1e-6) / DAYS),
+        [start, end] = sessionVwapSpan(key, d, edge);
+      if (end <= start) return { text: "not open" };
+      const r = vwapCurve(start, key === "svwap" ? 9 : 6, start, end);
+      return { text: r.state === "failed" ? "unavailable" : r.state !== "ready" ? "…" : r.points.length ? price(Math.round(100 * r.points.at(-1)[1]) / 100) : "no trades",
+        title: `Fixed UTC session; measured through ${when(r.end ?? end)} UTC` };
+    } else if (isVwapDay(key)) anchor = vwapDayStart(key);
     else {
       const a = vwapAnchors().find((x) => x.key === key);
       if (!a || a.state !== "ready") return { text: a?.state === "none" ? "no swing yet" : "…" };
@@ -16295,7 +16324,7 @@
     // The level rows add to the retracements on, so they wait on what those read: the days, and the 4-hour bars for the 4-hour move.
     if (RETRACEMENT_MORE[key])
       return retracementsOn() && (bad(barSeries(9).state) || (S.lines.includes("fibswing4h") && bad(barSeries(8).state))) ? "missing" : "none";
-    if (key === "svwap" || key === "avwaph" || key === "avwapl" || isVwapDay(key)) {
+    if (isSessionVwap(key) || key === "avwaph" || key === "avwapl" || isVwapDay(key)) {
       const need = vwapBarNeed(),
         r = need ? barsBetween(...need) : null;
       return r && bad(r.state) ? "missing" : "none";
