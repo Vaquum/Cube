@@ -23113,15 +23113,17 @@
     let snapshot = scope === "cell" ? null : agentSnapshot();
     if (scope === "cell" && captures.length === 1) {
       const cell = captures[0], n = cell.level.n, m = cell.level.m, ts = 2 ** n, ps = 2 ** m;
-      const z = last.shown.map.get(cell.c + "," + cell.r);
-      if (z && cell.metrics["volume.amount"]?.tag === "finite") {
+      const volume = cell.metrics["volume.amount"], trades = cell.metrics["trades.amount"];
+      const buy = cell.detail.find((detail) => detail.label === "Buyer-initiated USDT"), buyTrades = cell.detail.find((detail) => detail.label === "Buyer-initiated trades");
+      const z = volume?.tag === "finite" && trades?.tag === "finite" && Number.isFinite(buy?.value) && Number.isFinite(buyTrades?.value)
+        ? { c: cell.c, r: cell.r, v: volume.value, bv: buy.value, ct: trades.value, bt: buyTrades.value } : null;
+      if (z) {
         const start = E.time.msToBase(cell.observed.t0, T0, BASE), stop = E.time.msToBase(cell.observed.t1, T0, BASE);
-        snapshot = { baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: cell.observed.t1, canonicalThroughMs: CANON === null ? null : Math.min(cell.observed.t1, comparisonMs(CANON)), source: cell.source, token: last.token, live: Boolean(PACK.live), sources: [{ id: "captured-cell", n, m, b0: start, b1: stop, col0: cell.c, col1: cell.c + 1, cells: [structuredClone(z)] }], motion: [], cache: {} };
+        snapshot = { baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: scene.observation.cutoffMs, canonicalThroughMs: scene.observation.canonicalThroughMs, source: cell.source, token: null, live: Boolean(PACK.live), sources: [{ id: "captured-cell", n, m, b0: start, b1: stop, col0: cell.c, col1: cell.c + 1, cells: [z] }], motion: [], cache: {} };
         const viewport = [cell.c * ts, (cell.c + 1) * ts, cell.r * ps, (cell.r + 1) * ps];
         scene.view.viewport = viewport; scene.view.window = ""; scene.view.auto = false;
         scene.view.selection = [start, stop, cell.observed.low / PR, cell.observed.high / PR];
         Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: viewport[2], p2: viewport[3], tR: n, pR: m });
-        scene.observation.cutoffMs = cell.observed.t1;
         Object.assign(scene, Agent.seal(scene));
       }
     }

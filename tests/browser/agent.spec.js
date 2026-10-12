@@ -2,7 +2,7 @@
 // Oracle: micro:mixed hand facts (cell 0/200: 300 USDT, 2 trades); fresh contexts
 // prove portable state, exact evidence retention and rollback on invalid content.
 const { test, expect } = require("./fixtures.js");
-const { atRest } = require("./scale-helpers.js");
+const { atRest } = require("./rows-support.js");
 const VIEW = "#t=2021-01-01T00:00Z~2021-01-01T00:06Z&p=24800~25500&r=0,0&auto=0&vis=2&lines=";
 async function ready(page, fake, probe) {
   await page.goto(fake.url + "/" + VIEW); await atRest(page, fake, probe);
