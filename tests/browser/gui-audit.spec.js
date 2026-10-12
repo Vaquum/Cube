@@ -89,3 +89,14 @@ test("Candle Jump preserves an exact sub-base timestamp",async({page,fakeFor,pro
   await field.fill(target);await page.locator("#ol-replay-jump button").click();await probe.waitForReady();
   expect(await field.inputValue()).toBe(target);await expect(page.locator("#ol-replay-jump-status")).toContainText("exact exclusive candle cutoff");
 });
+
+test("reference state keys retain the footer's painted glyphs",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await page.locator("#ol-key-guide").click();await probe.waitForReady();
+  const painted=await page.evaluate(()=>{
+    const originals=[...document.querySelectorAll(".ol-status > .ol-status-keys canvas")],copies=[...document.querySelectorAll("#ol-reference-colours .ol-status-keys canvas")];
+    const bytes=c=>[...c.getContext("2d").getImageData(0,0,c.width,c.height).data];
+    return {source:originals.map(bytes),copy:copies.map(bytes)};
+  });
+  expect(painted.source.length).toBeGreaterThan(0);expect(painted.source.some(b=>b.some((v,i)=>i%4===3&&v>0))).toBe(true);
+  expect(painted.copy).toEqual(painted.source);
+});

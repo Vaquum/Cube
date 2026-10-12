@@ -23106,7 +23106,9 @@
     if (["states","resolution"].includes(kind)) {
       row("Coverage / non-value marks · inspect their reason", "var(--ol-state)", "◇");
       const original = root.querySelector(".ol-status > .ol-status-keys");
-      if (original) { const copy = original.cloneNode(true); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");copy.style.flexWrap="wrap";copy.style.overflow="visible";container.append(copy); }
+      if (original) { const copy = original.cloneNode(true); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
+        copy.querySelectorAll("canvas").forEach((canvas,index)=>canvas.getContext("2d").drawImage(originals[index],0,0));
+        copy.style.flexWrap="wrap";copy.style.overflow="visible";container.append(copy); }
       container.append(uiEl("p","ol-muted","The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
     }
   }
