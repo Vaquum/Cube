@@ -23301,8 +23301,9 @@
     let captured = Object.values(sources).filter((s) => s.b0 < edge).map(source);
     if (S.replay && last) {
       const b = [Math.max(0, S.tA), Math.min(S.tB, edge)];
-      captured = captured.filter((s) => s.n !== last.n || s.m !== last.m);
-      captured.push({ id: "captured-frame", n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
+      const id = "captured-frame:" + last.n + "," + last.m;
+      captured = captured.filter((s) => s.id !== id && s.id !== "captured-frame");
+      captured.push({ id, n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
     }
     return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(Math.min(CANON, edge))), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
   }

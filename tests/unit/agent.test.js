@@ -141,6 +141,10 @@ test("HTTP-backed MCP refresh preserves the original sealed scene and returns ch
   const after = await dispatch("cube_refresh", { document: before });
   assert.deepEqual(before, original); assert.deepEqual(A.validate(before), original);
   assert.ok(after.changes.some((change) => change.metric === "volume.amount" && change.before.value === 300 && change.after.value === 600));
+  before.comparison.selectedMetric = "delta"; before.comparison.basis = "intensity"; before.comparison.reference = before.comparison.captures[0].id; before.focus = before.comparison.captures[0].id;
+  const configured = A.seal(before), refreshed = await dispatch("cube_refresh", { document: configured });
+  assert.equal(refreshed.document.comparison.selectedMetric, "delta"); assert.equal(refreshed.document.comparison.basis, "intensity");
+  assert.equal(refreshed.document.comparison.reference, configured.comparison.reference); assert.equal(refreshed.document.focus, configured.focus);
 });
 test("HTTP agent preserves Unicode split across request chunks", async (t) => {
   const { serve } = await import("../../tools/cube-agent.mjs"), http = require("node:http");

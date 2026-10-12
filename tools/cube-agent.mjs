@@ -62,6 +62,14 @@ export async function dispatch(name, args = {}) {
     // Observation provenance has a strict portable-scene allowlist.
     fresh.scene.observation = { source: fresh.snapshot.source, instrument: "BTC/USDT", cutoffMs: fresh.snapshot.cutoffMs, canonicalThroughMs: fresh.snapshot.canonicalThroughMs, token: fresh.snapshot.token, note: "Explicit refresh of captured query" };
     fresh.scene = A.seal(fresh.scene);
+    if (document.comparison) {
+      const ids = new Set(fresh.comparison.captures.map((cell) => cell.id));
+      fresh.comparison = { ...structuredClone(document.comparison), captures: fresh.comparison.captures,
+        focus: ids.has(document.comparison.focus) ? document.comparison.focus : fresh.comparison.focus,
+        reference: ids.has(document.comparison.reference) ? document.comparison.reference : null,
+        page: Math.min(document.comparison.page, Math.max(0, Math.ceil(fresh.comparison.captures.length / 24) - 1)) };
+      fresh.focus = ids.has(document.focus) ? document.focus : null;
+    }
     const updated = A.validate(A.seal(fresh));
     return { document: updated, ...A.diff(document, updated) };
   }

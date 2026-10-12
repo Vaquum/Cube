@@ -73,6 +73,14 @@ test("rectangle copy exports every measured cell and zero remains distinct from 
   expect(d.selection.metrics.volume).toBeGreaterThan(0);
   expect(d.scene.view.selection).toEqual([0, 2, 200, 202]);
 });
+test("captured replay remains exportable after changing its resolution", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);
+  await page.evaluate(() => window.cubeAgent.replay(4)); await atRest(page, fake, probe);
+  await page.evaluate(async () => window.cubeAgent.apply(await window.cubeAgent.export()));
+  await page.evaluate(() => window.cubeAgent.configure({ resolution: [1, 0] }));
+  const document = await page.evaluate(() => window.cubeAgent.export());
+  expect(new Set(document.snapshot.sources.map((source) => source.id)).size).toBe(document.snapshot.sources.length);
+});
 test("invalid import leaves the canvas, captures and drawings intact", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe); await add(page, 0, 200);
   const result = await page.evaluate(async () => {
