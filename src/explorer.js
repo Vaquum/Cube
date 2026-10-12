@@ -20012,7 +20012,7 @@
     nav.planeStatus = `Requested n ${S.n} · m ${S.m}${renderN() !== S.n || renderM() !== S.m ? ` · displayed n ${renderN()} · m ${renderM()}` : ""}${model ? ` · ${model}` : ""}`;
     if (!nav.planeHover) setPlaneStatus(nav.planeStatus);
     const gesture = trendTool
-      ? "Place A and B, or drag · G: previous tool · Esc: cancel · Keep drawing repeats"
+      ? "Place A and B, or drag · G: previous tool · Esc: cancel draft · Trend remains active"
       : S.lens
       ? "Move to inspect · Enter: pin the lens view · Shift+L: depth · V: pan"
       : S.select
