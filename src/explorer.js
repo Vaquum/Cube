@@ -20021,7 +20021,7 @@
           ? "Wheel / pinch: time + price · on the price axis: price · Alt: lens"
           : S.diagonal
             ? "Wheel / pinch: time ×k, price ×√k · on the price axis: price · Alt: lens"
-            : "Wheel / pinch: time · on the price axis or with Shift: price · Alt: lens";
+            : "Wheel / pinch: time · chart Shift / price axis: price · time axis: time · Alt: lens";
     if (el("gesture").textContent !== gesture) el("gesture").textContent = gesture;
     // The plane describes its 210 levels only while it shows, and brings them
     // up to date as it opens (see bindTopBar): navigating with it closed
