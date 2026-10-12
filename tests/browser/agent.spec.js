@@ -130,3 +130,20 @@ test("explicit refresh accepts supported cells revised to zero", async ({ page, 
   expect(result.changes.some((change) => change.metric === "volume.amount" && change.after.value === 0)).toBe(true);
   expect((await page.evaluate(() => window.cubeAgent.previous)).comparison.captures[0].metrics["volume.amount"].value).toBe(300);
 });
+
+test("refresh preserves each clipped capture's region at a shared resolution", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);
+  const before = await page.evaluate(async () => {
+    const first = await window.cubeAgent.query({ t1: "2021-01-01T00:00:56.250Z", t2: "2021-01-01T00:01:52.500Z", p1: 25125, p2: 25250, tR: 112.5, pR: 250 });
+    const second = await window.cubeAgent.query({ t1: "2021-01-01T00:01:52.500Z", t2: "2021-01-01T00:02:48.750Z", p1: 25000, p2: 25125, tR: 112.5, pR: 250 });
+    const doc = await window.cubeAgent.export();
+    doc.comparison.captures = [first.comparison.captures.find((c) => c.c === 0), second.comparison.captures.find((c) => c.c === 1)];
+    doc.comparison.focus = doc.comparison.captures[0].id;
+    await window.cubeAgent.apply(window.explorerAgent.seal(doc));
+    return doc.comparison.captures;
+  });
+  expect(before.map((cell) => cell.observed.width)).toEqual([125, 125]);
+  const result = await page.evaluate(() => window.cubeAgent.refresh());
+  expect(result.document.comparison.captures.map((cell) => cell.observed)).toEqual(before.map((cell) => cell.observed));
+  expect(result.document.comparison.captures.map((cell) => cell.metrics["volume.amount"].value)).toEqual(before.map((cell) => cell.metrics["volume.amount"].value));
+});
