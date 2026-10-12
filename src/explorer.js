@@ -39,7 +39,7 @@
   let comparisonModel = comparisonEmpty(), comparisonUI = null, comparisonAnalysis = null,
     comparisonStatsKey = "", comparisonRenderKey = "", comparisonLastEdge = undefined, comparisonRevision = 0, comparisonTimer = null,
     comparisonUnsaved = false, comparisonRejected = false, comparisonMessage = "", comparisonMenu = null,
-    comparisonPocCache = {key:null,items:[]};
+    comparisonPocCache = {key:null,items:[]}, comparisonUndoState = null;
   const comparisonCounters = {stats:0,writes:0,bytes:0,renders:0};
   const comparisonMs = (base) => Number.isFinite(base) ? (T0 + base * BASE) * 1000 : null;
   const comparisonEdge = () => S.replay ? comparisonMs(activeCutoff()) : null;
@@ -3169,7 +3169,7 @@
     // the order B steps through them. Same as cells follows the encoding.
     PANES = ["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"],
     PANE_INFO = {
-      cells: { name: "Same as cells", desc: "Each column's amount of what the cells show" },
+      cells: { name: "Same as cells", desc: "A column companion: totals, net taker flow, choppiness for Path, USDT per path for Dwell; Volume for Geometry or Candles" },
       volume: { name: "Volume", desc: "USDT traded in each column" },
       delta: { name: "Delta", desc: "Taker-buy minus taker-sell USDT in each column" },
       trades: { name: "Trades", desc: "Trades in each column" },
@@ -3297,7 +3297,7 @@
                 : "The cube's answer to these six parameters.";
     const provenance = el("query-provenance"); provenance.replaceChildren();
     const current = evidence.job?.key === evidenceKey() ? evidence.job?.output ?? evidence.ready : null;
-    const fields = [["Source / pack", `${PACK.live ? "Cube" : "Recorded"} · ${PACK.source ?? "source identity unavailable"} · ${PACK.state_token ?? "snapshot"}`], ["Source cutoff", when(CUT) + " UTC"], ["Canonical cutoff", CANON === null ? "Not supplied" : when(CANON) + " UTC"], ["Replay edge", S.replay ? when(activeCutoff()) + " UTC" : "Live"], ["Measured through", Number.isFinite(meas.end) ? when(meas.end) + " UTC" : "Unavailable"], ["Requested bounds", `${range(meas.r[0],meas.r[1])} UTC; ${price(meas.r[2]*PR)}–${price(meas.r[3]*PR)} USDT; n=${S.n}, m=${S.m}`], ["Actual measured bounds", `${range(b[0],b[1])} UTC; ${price(b[2]*PR)}–${price(b[3]*PR)} USDT; n=${meas.query.n}, m=${meas.query.m}`], ["Shown level", `n=${renderN()}, m=${renderM()}`], ["Historical evidence study", current?.provenance ? `${current.version} / ${current.uncertainty?.version}; digest ${current.provenance.sourceDigest}; fit ${when((current.a+1)*2**current.n)} UTC; ${current.provenance.reconstruction}` : "Current-source study unavailable or preparing"], ["Frozen comparison", `${comparisonModel.captures.length} captures; ${comparisonModel.selectedMetric} / ${comparisonAnalysis?.basis ?? comparisonModel.basis}; each record retains its captured source and measured-through boundary`]];
+    const fields = [["Source / pack", `${PACK.live ? "Cube" : "Recorded"} · ${PACK.source ?? "source identity unavailable"} · ${PACK.state_token ?? "snapshot"}`], ["Source cutoff", when(CUT) + " UTC"], ["Canonical cutoff", CANON === null ? "Not supplied" : when(CANON) + " UTC"], ["Replay edge", S.replay ? when(activeCutoff()) + " UTC" : "Off"], ["Measured through", Number.isFinite(meas.end) ? when(meas.end) + " UTC" : "Unavailable"], ["Requested bounds", `${range(meas.r[0],meas.r[1])} UTC; ${price(meas.r[2]*PR)}–${price(meas.r[3]*PR)} USDT; n=${S.n}, m=${S.m}`], ["Actual measured bounds", `${range(b[0],b[1])} UTC; ${price(b[2]*PR)}–${price(b[3]*PR)} USDT; n=${meas.query.n}, m=${meas.query.m}`], ["Shown level", `n=${renderN()}, m=${renderM()}`], ["Historical evidence study", current?.provenance ? `${current.version} / ${current.uncertainty?.version}; digest ${current.provenance.sourceDigest}; fit ${when((current.a+1)*2**current.n)} UTC; ${current.provenance.reconstruction}` : "Current-source study unavailable or preparing"], ["Frozen comparison", `${comparisonModel.captures.length} captures; ${comparisonModel.selectedMetric} / ${comparisonAnalysis?.basis ?? comparisonModel.basis}; each record retains its captured source and measured-through boundary`]];
     for (const [label,value] of fields) provenance.append(Object.assign(document.createElement("dt"),{textContent:label}),Object.assign(document.createElement("dd"),{textContent:value}));
   }
   // Copy text to the clipboard. `source` is the text, a promise of it, or a function that makes either (a
@@ -8631,7 +8631,7 @@
     } else add("Reference track", "Off: turn Rows on to add one", "referenceTrack", "");
     if (plan.mode !== "independent") {
       if (plan.m !== null) add("Price rows", `${price(2 ** plan.m * PR)} USDT, the coarser of the two`, "partition", plan.m);
-      if (plan.window) add("Window W", `${plan.window.bins} rows`, "window", plan.window);
+      if (plan.window) add("Window W", `[${price(plan.window.first * 2 ** plan.m * PR)}, ${price((plan.window.last + 1) * 2 ** plan.m * PR)}) USDT · ${plan.window.bins} wholly-in-view rows`, "window", plan.window);
       if (plan.denominators) {
         // the current track is always USDT; the reference is seconds when it is Time at price (each total in its own unit)
         const refUnit = under?.kind === "time" ? "seconds" : "usdt";
@@ -21879,13 +21879,13 @@
     drawingSyncUI();
     if (result?.ok) {
       const latest = window.explorerState.drawings.load();
-      drawingRecoveries = (latest.recoveries || []).map(({ collection, ...record }) => ({ ...record, count: collection.objects.length, label: `${record.pinned ? "Preserved" : "Saved"} revision ${record.revision} · ${collection.objects.length} drawings` }));
+      drawingRecoveries = (latest.recoveries || []).map(({ collection, ...record }) => ({ ...record, count: collection.objects.length, names: collection.objects.slice(0, 3).map(object => object.label || object.name).join(", "), label: `${record.pinned ? "Preserved" : "Saved"} revision ${record.revision} · ${collection.objects.length} drawings` }));
     }
     return Boolean(result?.ok);
   }
   function drawingLoad() {
     const result = window.explorerState?.drawings?.load();
-    drawingRecoveries = (result?.recoveries || []).map(({ collection, ...record }) => ({ ...record, count: collection.objects.length, label: `${record.pinned ? "Preserved" : "Saved"} revision ${record.revision} · ${collection.objects.length} drawings` }));
+    drawingRecoveries = (result?.recoveries || []).map(({ collection, ...record }) => ({ ...record, count: collection.objects.length, names: collection.objects.slice(0, 3).map(object => object.label || object.name).join(", "), label: `${record.pinned ? "Preserved" : "Saved"} revision ${record.revision} · ${collection.objects.length} drawings` }));
     if (result?.status === "ok") drawingStore = E.drawings.createStore(result.collection);
     else if (result && result.status !== "absent") {
       drawingUnsaved = true;
@@ -22475,7 +22475,9 @@
     drawingCloseChooser(); closePop(); const choices = el("drawing-choices"); choices.replaceChildren();
     drawingChoiceOrigin = el("drawing-more"); drawingWrite(el("drawing-chooser-title"), "Recover drawings");
     for (const record of drawingRecoveries) {
-      const button = drawingUIButton(record.label || record.createdAt || "Saved drawing workspace", "recover", record.id);
+      const stamp = record.createdAt ? new Date(record.createdAt).toISOString().replace("T", " ").replace(/\.\d+Z$/, " UTC") : "Time not recorded";
+      const button = drawingUIButton(`${record.label || "Saved workspace"} · ${stamp} · Workspace ${record.writer?.slice(0,8) || record.id.slice(0,8)}${record.names ? " · " + record.names : ""}`, "recover", record.id);
+      button.style.whiteSpace = "normal"; button.style.textAlign = "left";
       choices.append(button);
     }
     el("drawing-chooser").showModal(); choices.querySelector("button")?.focus({ preventScroll: true });
@@ -22893,7 +22895,8 @@
     // Sorting is pure presentation: it reuses metric cohorts and never refits their statistics.
     comparisonAnalysis={...comparisonAnalysis,ordered:C.sort?C.sort(comparisonModel.captures,comparisonModel.sort,comparisonAnalysis.metrics):C.analyze(comparisonModel.captures,{...comparisonModel,edge}).ordered};
     comparisonRenderKey=renderKey;comparisonCounters.renders++;
-    comparisonUI.render(comparisonModel,comparisonAnalysis,{edge,pocOptions:pocs,status:comparisonMessage,unsaved:comparisonUnsaved,storageRejected:comparisonRejected,context:C});
+    const pocState = !periodLines().length ? "Enable a period POC in Lines" : [...lineResults.values()].some(result => result.state === "pending") ? "Period POCs preparing" : "No eligible period POC; check coverage";
+    comparisonUI.render(comparisonModel,comparisonAnalysis,{edge,pocOptions:pocs,pocState,canUndo:comparisonUndoState !== null,status:comparisonMessage,unsaved:comparisonUnsaved,storageRejected:comparisonRejected,context:C});
     const comparisonLabel = `Compare${comparisonModel.captures.length ? ` · ${comparisonModel.captures.length}` : ""}`;
     el("comparison-count").textContent = comparisonLabel;
     el("tab-compare").setAttribute("aria-label", comparisonLabel);
@@ -22912,7 +22915,7 @@
       comparisonRefresh();
     },0);
   }
-  function comparisonCommit(next,content=false,reveal=false) {
+  function comparisonCommit(next,content=false,reveal=false,remember=true) {
     next={...next,comparisonVersion:2,selectedMetric:next.selectedMetric??"volume"};
     let preparedAnalysis=null;
     if(reveal) {
@@ -22923,6 +22926,7 @@
     }
     const prepared=window.explorerState.comparison.measure(next);
     if(!prepared.ok) {comparisonMessage=prepared.reason;comparisonRefresh(true);return false;}
+    if (content && remember) comparisonUndoState = comparisonModel;
     comparisonModel=next;if(content)comparisonRevision++;
     comparisonUI.clearCopyFallback();comparisonRefresh(true,preparedAnalysis);comparisonPersist();return true;
   }
@@ -22955,6 +22959,35 @@
     try {if(!navigator.clipboard?.writeText)throw Error("Clipboard unavailable");await navigator.clipboard.writeText(text);comparisonMessage="Cell copied";comparisonRefresh();}
     catch {S.drawer="compare";S.drawerOpen=true;applyPanels();comparisonRefresh(true);comparisonUI.showCopyFallback(C.captureText(capture,{edge:comparisonEdge(),poc:comparisonModel.poc,selectedMetric:comparisonModel.selectedMetric,basis:comparisonAnalysis?.basis??comparisonModel.basis}));}
   }
+  function guiDownloadText(name, text, type = "text/plain") {
+    const url = URL.createObjectURL(new Blob([text], { type })), link = document.createElement("a");
+    link.href = url; link.download = name; link.hidden = true; root.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function comparisonExport() {
+    const result = window.explorerState.comparison.serialize({ ...comparisonModel, expanded: false, restoreLayout: null });
+    if (!result.ok) comparisonMessage = result.reason;
+    else { guiDownloadText("cube-comparison-" + new Date().toISOString().slice(0,10) + ".json", result.raw, "application/json"); comparisonMessage = "Collection exported · frozen records and settings"; }
+    comparisonRefresh(true);
+  }
+  async function comparisonImport(file) {
+    const revision = comparisonRevision;
+    if (file.size > 4 * 1024 * 1024) { comparisonMessage = "Collection exceeds the 4 MiB limit"; comparisonRefresh(true); return; }
+    let decoded;
+    try { decoded = window.explorerState.comparison.decode(await file.text(), INSTRUMENT); }
+    catch (error) { decoded = { ok: false, reason: "Collection could not be read: " + error.message }; }
+    if (!decoded.ok) { comparisonMessage = decoded.reason; comparisonRefresh(true); return; }
+    if (revision !== comparisonRevision) { comparisonMessage = "Collection changed while the file was read; import again"; comparisonRefresh(true); return; }
+    const apply = () => {
+      if (revision !== comparisonRevision) { comparisonMessage = "Collection changed; import again"; comparisonRefresh(true); return; }
+      decoded.value.captures.forEach(comparisonFreeze);
+      if (comparisonCommit({ ...decoded.value, expanded: comparisonModel.expanded, restoreLayout: comparisonModel.restoreLayout }, true, true)) {
+        comparisonMessage = "Collection imported · source values remain frozen"; comparisonRefresh(true);
+      }
+    };
+    if (comparisonModel.captures.length) comparisonConfirm(`Replace ${comparisonModel.captures.length} captured cells with ${decoded.value.captures.length} imported cells? Undo restores this collection.`, apply);
+    else apply();
+  }
   function comparisonConfirm(message,onConfirm) {
     const returnTo=document.activeElement,dialog=document.createElement("dialog");dialog.className="ol-comparison-confirm";
     const text=document.createElement("p");text.textContent=message;dialog.append(text);
@@ -22964,6 +22997,15 @@
   }
   function comparisonDispatch(action) {
     let next={...comparisonModel};comparisonMessage="";
+    if (action.type === "export") return comparisonExport();
+    if (action.type === "import") return comparisonImport(action.file);
+    if (action.type === "undo") {
+      const prior = comparisonUndoState; if (!prior) return;
+      comparisonUndoState = null;
+      if (!comparisonCommit({ ...prior, expanded: comparisonModel.expanded, restoreLayout: comparisonModel.restoreLayout }, true, true, false)) comparisonUndoState = prior;
+      else { comparisonMessage = "Collection change undone"; comparisonRefresh(true); }
+      return;
+    }
     if(action.type==="copy")return comparisonCopy(comparisonModel.captures.find(c=>c.id===action.id));
     if(action.type==="expand")return comparisonExpand(!comparisonModel.expanded);
     if(action.type==="clear")return comparisonConfirm(`Clear all ${comparisonModel.captures.length} comparison cells?`,()=>comparisonCommit({...comparisonModel,captures:[],focus:null,reference:null,page:0},true));
