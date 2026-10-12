@@ -78,6 +78,14 @@ for (const hour of [7, 8, 13, 13.5, 16, 21]) test(`replay at ${hour}h excludes b
   await values(page, START + DAY, cutoff);
 });
 
+test("fractional candle replay excludes later trades inside the same base interval", async ({ page, fakeFor }) => {
+  const cutoff = START + DAY + 13.5 * HOUR + 100;
+  const trades = [...TRADES, { t_ms: cutoff - EPOCH + 50, price: 9000000, qty: 100000000000, takerBuy: true }].sort((a, b) => a.t_ms - b.t_ms);
+  const fake = await fakeFor(profile(trades));
+  await page.goto(fake.url + "/" + hash(`&mode=candles&replay=1&at=${iso(cutoff)}`));
+  await D.ready(page); await values(page, START + DAY, cutoff, trades);
+});
+
 test("coarse and historical views retain exact session sums", async ({ page, fakeFor }) => {
   const fake = await fakeFor(profile());
   // At this scale the ordinary VWAP would use 8-hour bars, crossing US boundaries.
