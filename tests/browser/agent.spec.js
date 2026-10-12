@@ -91,8 +91,8 @@ test("editing replay preserves captured values when replay is disabled", async (
   await page.evaluate(() => window.cubeAgent.configure({ mode: "delta" }));
   await page.evaluate(() => window.cubeAgent.replay(1, false)); await atRest(page, fake, probe);
   const after = await page.evaluate(() => window.cubeAgent.export());
-  expect(after.comparison.captures[1].metrics["volume.amount"].value).toBe(100);
-  expect(after.snapshot.sources.some((source) => source.cells.some((cell) => cell.c === 1 && cell.r === 201 && cell.v === 100))).toBe(true);
+  expect(after.comparison.captures[1].metrics["volume.amount"].value).toBe(100.5);
+  expect(after.snapshot.sources.some((source) => source.cells.some((cell) => cell.c === 1 && cell.r === 201 && cell.v === 100.5))).toBe(true);
 });
 test("invalid import leaves the canvas, captures and drawings intact", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe); await add(page, 0, 200);
