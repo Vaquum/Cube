@@ -180,7 +180,7 @@
       targets: [{"label":"Show Lens","selector":"#ol-lens"},{"label":"Show Lens controls","selector":"#ol-lensbar"}], colour: "cells" },
     { id: "drawing-rules", group: "Work with the view", title: "Drawing operations & recovery",
       purpose: "Retain an annotation without confusing it with data.",
-      read: "G places A then B by clicks or a drag. Move the line or an endpoint; coordinates stay UTC/USDT and authored A→B order is retained. Name identifies it; Label is the caption, with Name used when Label is blank. Colour is your RGB choice. Lock prevents movement; visibility and deletion are separate. Undo/Redo covers the drawing collection, not navigation.",
+      read: "G places A then B by clicks or a drag. Move the line or an endpoint; coordinates stay UTC/USDT and authored A→B order is retained. Name identifies it; Label is the caption, with a custom Name used when Label is blank. Colour is your RGB choice. Lock prevents movement; visibility and deletion are separate. Undo/Redo covers the drawing collection, not navigation.",
       use: "Use Edit or the context menu for coordinates and Delete. Recover by timestamp/workspace/name; complete view codes include drawings. Authorship time is not recorded, so replay annotations may reflect later knowledge.",
       targets: [{"label":"Show drawing tool","selector":"#ol-trend"},{"label":"Show Lines","selector":"#ol-lines"}], colour: "drawings" },
     { id: "mobile", group: "Work with the view", title: "Phone controls & highlights",

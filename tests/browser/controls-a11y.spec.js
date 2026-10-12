@@ -556,7 +556,9 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
       const floors = { selectors: ["#ol-legend", "#ol-rows-legend"], boundaries: ["#ol-legend", "#ol-rows-legend"] };
       checkContrast(await page.evaluate(COLLECT, floors), `${scheme} chips`, problems, seen);
       // The focus ring of a chip reached with the keyboard: its outline colour against what it sits on.
-      await page.focus("#ol-reference-next");
+      // The topic key adds an action before settings. Reach the actual chip via its keyboard order.
+      await page.focus("#ol-legend");
+      await page.keyboard.press("Shift+Tab");
       await page.keyboard.press("Tab");
       const ring = await page.evaluate(COLLECT, { selectors: [], boundaries: [], ring: true });
       expect(ring.ring.id).toBe("ol-legend");

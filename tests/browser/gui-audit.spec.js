@@ -5,7 +5,9 @@ const { test, expect } = require("./fixtures.js");
 const fs = require("node:fs/promises");
 async function open(page, fakeFor, probe, extra="") {
   const fake=await fakeFor("standard");
-  await page.goto(fake.url+"/#w=24h&vis=2&r=4,0"+extra);
+  const params=new URLSearchParams("w=24h&vis=2&r=4,0");
+  for(const [key,value] of new URLSearchParams(extra))params.set(key,value);
+  await page.goto(fake.url+"/#"+params);
   await probe.waitForReady(); return fake;
 }
 test("candle headers describe all eleven values in order", async({page,fakeFor,probe})=>{
@@ -20,7 +22,7 @@ test("an unchanged fractional replay edge does not step backwards",async({page,f
   await open(page,fakeFor,probe,"&r=0,0");
   await page.locator("#ol-replay").click(); await probe.waitForReady();
   const field=page.locator("#ol-replay-edge"), current=await field.inputValue();
-  const target=current.slice(0,10)+"T00:00:56.250";
+  const target=current.slice(0,10)+"T00:00:56.25";
   await field.fill(target); await page.locator("#ol-replay-jump button").click(); await probe.waitForReady();
   const before=await field.inputValue(), label=await page.locator("#ol-replay-at").textContent();
   expect(Date.parse(before+"Z")%1000).toBe(250);
@@ -53,7 +55,7 @@ test("comparison export is durable and import validation is atomic; clear has Un
 });
 test("CSV exports all listed cells rather than the visible page",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe);await page.locator("#ol-tab-cells").click();await probe.waitForReady();
-  const caption=await page.locator("#ol-table-caption").textContent(), match=caption.match(/([\d,]+) cells/);
+  const caption=await page.locator("#ol-table-caption").textContent(), match=caption.match(/([\d,]+) occupied cells/);
   expect(match).not.toBeNull();const count=Number(match[1].replaceAll(",",""));
   const waiting=page.waitForEvent("download");await page.locator("#ol-export-cells").click();
   const download=await waiting, raw=await fs.readFile(await download.path(),"utf8"), lines=raw.trimEnd().split("\r\n");
