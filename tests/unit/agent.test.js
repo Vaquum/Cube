@@ -77,6 +77,14 @@ test("configuring the canvas preserves the recorded selection region and totals"
   assert.deepEqual(A.parse(A.text(after)).selection, selection);
   assert.deepEqual(before.selection, selection);
 });
+test("configuration preserves selection evidence in valid aliased in-memory documents", () => {
+  const before = document(); before.selection.query = before.scene.query;
+  const selection = structuredClone(before.selection);
+  const after = A.configure(A.seal(before), { viewport: [2, 4, 202, 204], resolution: [1, 1] });
+  assert.deepEqual(after.selection, selection);
+  assert.deepEqual(before.selection, selection);
+  assert.equal(after.scene.query.t1, 2); assert.equal(after.scene.query.tR, 1);
+});
 test("lossless code round trips do not manufacture metric changes from member order", async () => {
   const d = document(), decoded = await A.decode(await A.encode(d, codecs), codecs);
   assert.deepEqual(A.diff(d, decoded).changes, []);

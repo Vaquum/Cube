@@ -34,6 +34,18 @@ test("agent configuration keeps live reads available", async ({ page, fakeFor, p
   fake.revise({ day: "2021-01-01", factor: 2 });
   await expect.poll(() => fake.log().filter((request) => request.path === "/cube/pack" && request.answer === "pack").length, { timeout: 20000 }).toBeGreaterThan(0);
 });
+test("configuring in-memory browser exports preserves captured selection evidence", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);
+  const result = await page.evaluate(async () => {
+    const before = await window.cubeAgent.export(), selection = structuredClone(before.selection);
+    const after = window.explorerAgent.configure(before, { viewport: [2, 4, 202, 204], resolution: [1, 1] });
+    return { selection, original: before.selection, configured: after.selection,
+      copied: window.explorerAgent.parse(window.explorerAgent.text(after)).selection, query: after.scene.query };
+  });
+  expect(result.query).toEqual({ t1: 2, t2: 4, p1: 202, p2: 204, tR: 1, pR: 1 });
+  expect(result.original).toEqual(result.selection); expect(result.configured).toEqual(result.selection);
+  expect(result.copied).toEqual(result.selection);
+});
 test("comparison and labeled drawings reopen from complete links in a fresh context", async ({ page, fakeFor, probe, freshContext }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);
   await add(page, 0, 200); await add(page, 1, 201);

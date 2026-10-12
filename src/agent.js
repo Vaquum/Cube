@@ -186,6 +186,7 @@
   }
   function configure(document, patch) {
     const d = validate(document);
+    d.scene.query = { ...d.scene.query };
     if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "lines", "selection", "replay", "anchor", "scale", "readMode"])) fail("Unknown scene setting");
     if (patch.readMode !== undefined) { if (!["captured", "live"].includes(patch.readMode)) fail("Read mode is captured or live"); d.mode = patch.readMode; }
     Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport", "readMode"].includes(key))));
