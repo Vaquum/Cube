@@ -8520,7 +8520,7 @@
       "axes",
       E.text.ui.summaryAxes,
       scaleUi.axisRecords.flatMap((rec) => [
-        row(`axis:${rec.id}`, rec.id, `${uiAxisText(rec)} · ${uiAxisDomain(rec)}${rec.unit ? ` · ${uiAxisUnit(rec.unit)}` : ""}`, { policy: rec.policy, domain: rec.domain ?? null, through: rec.provenance?.through ?? null, mappingId: rec.mappingId ?? null }),
+        row(`axis:${rec.id}`, rec.id === "profile.current" ? "Current profile" : rec.id === "profile.reference" ? "Reference profile" : rec.id.startsWith("pane.") ? "Columns" : "Axis", uiAxisText(rec), { policy: rec.policy, domain: rec.domain ?? null, through: rec.provenance?.through ?? null, mappingId: rec.mappingId ?? null }),
       ]),
     );
     const { plan, cur, ref, under } = profileUi;
