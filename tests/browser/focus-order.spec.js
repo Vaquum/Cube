@@ -46,6 +46,7 @@ test.describe("B54 screen reader and focus order", () => {
       'tab "Columns"',
       'tab "References"',
       'tab "Lens"',
+      'button "Open details"',
       'button "Close inspector"',
       'group "Move the cursor"',
       'button "Previous time cell"',
@@ -121,8 +122,9 @@ test.describe("B54 screen reader and focus order", () => {
     await expect(page.locator("#ol-inspect")).toBeVisible();
     const stops = await tabbable(page, "#ol-inspect");
     expect(stops.length, "the navigator has controls to visit").toBeGreaterThan(6);
-    // Close, the roving tablist, the details disclosure, the four steppers and the chooser follow document order.
-    await page.locator("#ol-inspect-exit").focus();
+    // Header actions, the roving tablist, disclosure, steppers and chooser follow document order.
+    // Start at the first DOM control, including the new Open details action.
+    await page.locator("#ol-inspect .ol-inspect-head button").first().focus();
     const forward = [await focused(page)];
     for (let i = 1; i < stops.length; i++) {
       await page.keyboard.press("Tab");

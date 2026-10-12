@@ -769,7 +769,9 @@
       return { ok: true, status: "ok", reason: null };
     } catch (error) { return comparisonFailure("unsaved", "stored comparison could not be discarded (" + describe(error) + ")"); }
   };
-  const comparison = Object.freeze({ read: comparisonRead, validate: comparisonValidate, measure: comparisonMeasure, serialize: comparisonSerialize, write: comparisonWrite, discard: comparisonDiscard });
+  const comparison = Object.freeze({ read: comparisonRead, validate: comparisonValidate, measure: comparisonMeasure, serialize: comparisonSerialize, write: comparisonWrite, discard: comparisonDiscard,
+    decode: (raw, instrument) => { const parsed = comparisonParse(raw, instrument); return parsed.ok && parsed.value.comparisonVersion === 1 ? { ...parsed, value: comparisonUpgrade(parsed.value) } : parsed; },
+  });
 
   window.explorerState = {
     comparison,

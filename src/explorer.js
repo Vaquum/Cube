@@ -39,8 +39,9 @@
   let comparisonModel = comparisonEmpty(), comparisonUI = null, comparisonAnalysis = null,
     comparisonStatsKey = "", comparisonRenderKey = "", comparisonLastEdge = undefined, comparisonRevision = 0, comparisonTimer = null,
     comparisonUnsaved = false, comparisonRejected = false, comparisonMessage = "", comparisonMenu = null,
-    comparisonPocCache = {key:null,items:[]};
+    comparisonPocCache = {key:null,items:[]}, comparisonUndoState = null;
   const comparisonCounters = {stats:0,writes:0,bytes:0,renders:0};
+  const guiTableExports = new Map();
   const comparisonMs = (base) => Number.isFinite(base) ? (T0 + base * BASE) * 1000 : null;
   const comparisonEdge = () => S.replay ? comparisonMs(activeCutoff()) : null;
   // Diagonal through the resolution lattice: least-squares fit of
@@ -2513,7 +2514,7 @@
       el("legend-text").title = "";
     }
     const marks = marksReadout(b);
-    el("ray-count-text").textContent = marks.rayCount + " untested levels";
+    el("ray-count-text").textContent = marks.rayCount + (marks.rayCount === 1 ? " untested level" : " untested levels");
     el("ray-count").hidden = !S.untested;
     el("va-value").textContent =
       marks.vaLow === null || meas.state === "pending" || meas.state === "failed"
@@ -3169,7 +3170,7 @@
     // the order B steps through them. Same as cells follows the encoding.
     PANES = ["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"],
     PANE_INFO = {
-      cells: { name: "Same as cells", desc: "Each column's amount of what the cells show" },
+      cells: { name: "Same as cells", desc: "A column companion: totals, net taker flow, choppiness for Path, USDT per path for Dwell; Volume for Geometry or Candles" },
       volume: { name: "Volume", desc: "USDT traded in each column" },
       delta: { name: "Delta", desc: "Taker-buy minus taker-sell USDT in each column" },
       trades: { name: "Trades", desc: "Trades in each column" },
@@ -3297,7 +3298,7 @@
                 : "The cube's answer to these six parameters.";
     const provenance = el("query-provenance"); provenance.replaceChildren();
     const current = evidence.job?.key === evidenceKey() ? evidence.job?.output ?? evidence.ready : null;
-    const fields = [["Source / pack", `${PACK.live ? "Cube" : "Recorded"} · ${PACK.source ?? "source identity unavailable"} · ${PACK.state_token ?? "snapshot"}`], ["Source cutoff", when(CUT) + " UTC"], ["Canonical cutoff", CANON === null ? "Not supplied" : when(CANON) + " UTC"], ["Replay edge", S.replay ? when(activeCutoff()) + " UTC" : "Live"], ["Measured through", Number.isFinite(meas.end) ? when(meas.end) + " UTC" : "Unavailable"], ["Requested bounds", `${range(meas.r[0],meas.r[1])} UTC; ${price(meas.r[2]*PR)}–${price(meas.r[3]*PR)} USDT; n=${S.n}, m=${S.m}`], ["Actual measured bounds", `${range(b[0],b[1])} UTC; ${price(b[2]*PR)}–${price(b[3]*PR)} USDT; n=${meas.query.n}, m=${meas.query.m}`], ["Shown level", `n=${renderN()}, m=${renderM()}`], ["Historical evidence study", current?.provenance ? `${current.version} / ${current.uncertainty?.version}; digest ${current.provenance.sourceDigest}; fit ${when((current.a+1)*2**current.n)} UTC; ${current.provenance.reconstruction}` : "Current-source study unavailable or preparing"], ["Frozen comparison", `${comparisonModel.captures.length} captures; ${comparisonModel.selectedMetric} / ${comparisonAnalysis?.basis ?? comparisonModel.basis}; each record retains its captured source and measured-through boundary`]];
+    const fields = [["Source / pack", `${PACK.live ? "Cube" : "Recorded"} · ${PACK.source ?? "source identity unavailable"} · ${PACK.state_token ?? "snapshot"}`], ["Source cutoff", when(CUT) + " UTC"], ["Canonical cutoff", CANON === null ? "Not supplied" : when(CANON) + " UTC"], ["Replay edge", S.replay ? when(activeCutoff()) + " UTC" : "Off"], ["Measured through", Number.isFinite(meas.end) ? when(Math.min(meas.end,b[1],activeCutoff())) + " UTC" : ["exact","cube","recorded"].includes(meas.state) ? when(Math.min(b[1], activeCutoff())) + " UTC" : "Unavailable"], ["Requested bounds", `${range(meas.r[0],meas.r[1])} UTC; ${price(meas.r[2]*PR)}–${price(meas.r[3]*PR)} USDT; n=${S.n}, m=${S.m}`], ["Actual measured bounds", `${range(b[0],b[1])} UTC; ${price(b[2]*PR)}–${price(b[3]*PR)} USDT; n=${meas.query.n}, m=${meas.query.m}`], ["Shown level", `n=${renderN()}, m=${renderM()}`], ["Historical evidence study", current?.provenance ? `${current.version} / ${current.uncertainty?.version}; digest ${current.provenance.sourceDigest}; fit ${when((current.a+1)*2**current.n)} UTC; ${current.provenance.reconstruction}` : "Current-source study unavailable or preparing"], ["Frozen comparison", `${comparisonModel.captures.length} captures; ${comparisonModel.selectedMetric} / ${comparisonAnalysis?.basis ?? comparisonModel.basis}; each record retains its captured source and measured-through boundary`]];
     for (const [label,value] of fields) provenance.append(Object.assign(document.createElement("dt"),{textContent:label}),Object.assign(document.createElement("dd"),{textContent:value}));
   }
   // Copy text to the clipboard. `source` is the text, a promise of it, or a function that makes either (a
@@ -3978,7 +3979,7 @@
     if (readout?.coordinate?.clip === "low" || readout?.coordinate?.clip === "high") context.textContent += ` · Numeric clipping: ${readout.coordinate.clip === "low" ? E.text.key.below : E.text.key.above}`;
     if (rv && Number.isFinite(rv.meanVolume)) context.textContent += ` · Average traded row ${usdt(rv.meanVolume)} USDT`;
     if (rv?.support.first !== null && rv?.support.first !== undefined) context.textContent += ` · Period price range ${price(rv.support.first * 2 ** q.m * PR)}–${price((rv.support.last + 1) * 2 ** q.m * PR)} USDT`;
-    context.textContent += " · Profile-share compares overlapping clipped bins; pc=s uses wholly-in-view bins.";
+    context.textContent += " · Profile-share compares overlapping clipped bins; Shared row share uses wholly-in-view bins.";
     if (tip.querySelector(".ol-tip-head")) tip.querySelector(".ol-tip-head").textContent = `${price(priceBand[0])}–${price(priceBand[1])} USDT`;
     if (readout) scaleRt.tipReadout = readout;
   }
@@ -4023,6 +4024,7 @@
     if (S.mode === "candles") return buildCandleTable();
     for (const th of qsa(".ol-motion-col")) th.hidden = !mv;
     if (!query) {
+      guiTableExports.delete("cells");
       cellRows = new Map();
       cellRowsLevel = null;
       hoverRow = null;
@@ -4095,6 +4097,16 @@
             x.r - y.r,
         ),
       pages = Math.max(1, Math.ceil(cells.length / CELLS_PAGE));
+    const exportMode = S.mode, exportMotion = movementMode(), exportCut = activeCutoff();
+    guiRememberTable("cells", {
+      scope: `All ${cells.length} listed cells · ${MODE_NAMES[exportMode]} · ${S.cellSort} ${S.cellDir > 0 ? "ascending" : "descending"}`,
+      headers: ["Start · UTC","End · UTC","Low · USDT","High · USDT","Volume · USDT","Trades","Taker-buy · USDT","Taker-buy trades",...(mv ? ["Path · USDT","Dwell · seconds"] : []),"Cells value","Cells unit","Value state","Coverage","Time level n","Price level m"],
+      length: cells.length,
+      row: index => {
+        const c = cells[index], mz = mv ? moves(c) : null, reached = Boolean(mq) && c.c * ts < end, read = exportMotion ? reached ? mz ?? c : null : c, value = same && read ? cellReadout(read,null) : null;
+        return [iso(Math.max(c.c*ts,b[0])),iso(Math.min((c.c+1)*ts,b[1],exportCut)),Math.max(c.r*ps,b[2])*PR,Math.min((c.r+1)*ps,b[3])*PR,c.v,c.ct,c.bv??"Unavailable",c.bt??"Unavailable",...(mv?[reached?mz?.p??0:"Unavailable",reached?mz?.w??0:"Unavailable"]:[]),value?.typed?.tag==="finite"?value.typed.value:"Unavailable",value?.measure?.unit??"Unavailable",value?.typed?.tag??"pending",cellState(c,b,ts,ps),listed.n,listed.m];
+      },
+    });
     tablePage = clamp(tablePage, 0, pages - 1);
     const frag = document.createDocumentFragment();
     cellRows = new Map();
@@ -6167,7 +6179,16 @@
         .map((e, i) => ({ e, i, f: e.key === "level" ? 0 : order[familyOf(e.key)] ?? 7 }))
         .sort((a, b) => a.f - b.f || a.i - b.i)
         .map((x) => x.e);
-    // two references of one name (the swings of one timeframe, the days of the session VWAP) are told apart: by their price where they have one, then by their order
+    // Repeated names carry their own recorded time; unique names retain their short established form.
+    const names = new Map();
+    for (const e of sorted) names.set(e.name, (names.get(e.name) ?? 0) + 1);
+    for (const e of sorted) {
+      if (names.get(e.name) < 2) continue;
+      const l = e.hit?.item;
+      if (Number.isFinite(l?.s?.t)) e.name += " · " + when(l.s.t) + " UTC";
+      else if (Number.isFinite(l?.from) && Number.isFinite(l?.to)) e.name += " · " + range(l.from, l.to) + " UTC";
+    }
+    // Remaining collisions use their price, then their order.
     const total = new Map(),
       nth = new Map();
     for (const e of sorted) total.set(e.name, (total.get(e.name) ?? 0) + 1);
@@ -6301,7 +6322,8 @@
     nav2.dataset.ps = String(w.sp.ps);
     // the reference chooser: a large-target way to reach every reference, the held-back ones too
     const chooser = el("inspect-reference"),
-      list = inspectReferences(),
+      query = el("inspect-reference-search").value.trim().toLowerCase(),
+      list = inspectReferences().filter(entry => !query || entry.name.toLowerCase().includes(query) || entry.id.toLowerCase().includes(query)),
       listText = list.map((e) => e.id + "\t" + e.name).join("\n");
     if (chooser.dataset.list !== listText) {
       chooser.dataset.list = listText;
@@ -7787,6 +7809,7 @@
       }
     }
     lensStatusWrite(sc);
+    guiAuditCommit();
     // The axis chip first: it builds the Columns pane's Legend, whose marks the footer keys count too
     axisChipCommit();
     profileChipCommit();
@@ -7973,7 +7996,7 @@
       // announced" is something a reader of the page finds and not an absence
       for (const name of ["scaleChangeCause", "scaleChangeFrom", "scaleChangeTo"])
         if (!legendDetails.some((d) => d.field === name)) {
-          const dd = uiEl("dd", "ol-num", "");
+          const dd = uiEl("dd", "ol-num", "No change");
           dd.dataset.field = name;
           dd.dataset.value = "";
           details.push([uiEl("dt", "", UI_CHANGE_LABELS[name]), dd]);
@@ -8003,6 +8026,7 @@
   // TEXT(S1): the short label of that field
   const uiDetailLabel = (d) => (d.label === d.value && d.label.length > 24 ? (UI_SHORT_LABELS[d.field] ?? d.field) : d.label);
   function uiUtcText(detail) {
+    if (detail.value === "" || detail.value === null || detail.value === undefined) return detail.field === "warnings" ? "None" : ["scaleChangeCause", "scaleChangeFrom", "scaleChangeTo"].includes(detail.field) ? "No change" : "Not recorded";
     return ["fitThrough", "obsCutoff", "obsCanonical"].includes(detail.field) && typeof detail.canonical === "number"
       ? uiUtcMs(detail.canonical)
       : detail.value;
@@ -8273,7 +8297,7 @@
   // The words of an axis unit id (an id with no string of its own reads as itself)
   function uiAxisUnit(unit) {
     const u = E.text.unit;
-    return { usdt: u.usdt, trades: u.trades, "usdt-per-trade": u.usdtPerTrade, "log2-ratio": u.log2, seconds: u.seconds, share: u.share }[unit] ?? unit ?? "";
+    return { usdt: u.usdt, "usdt-per-row": "USDT per row", trades: u.trades, "usdt-per-trade": u.usdtPerTrade, "log2-ratio": "log₂ ratio", seconds: u.seconds, share: u.share, "signed-share": "signed share", "row-spans": "row spans", "row-spans-per-min": "row spans / min" }[unit] ?? unit ?? "";
   }
   // "±1.92 B USDT", "0 – 100", "−2 – 2 log2 ratio": the domain as the chart's own numbers read it
   function uiAxisDomain(rec) {
@@ -8406,7 +8430,8 @@
             list.append(uiEl("dt", "", label), dd);
           };
         box.dataset.axisId = rec.id;
-        box.append(uiEl("strong", "", `${rec.id} · ${uiAxisText(rec)}`));
+        const axisName = rec.id === "profile.current" ? "Current profile" : rec.id === "profile.reference" ? "Reference profile" : rec.id.startsWith("pane.") ? "Columns" : "Axis";
+        box.append(uiEl("strong", "", `${axisName} · ${uiAxisText(rec)}`));
         add(E.text.ui.policy, rec.policy === "frozen" ? E.text.policy.axisFrozen : rec.policy === "fixed" ? E.text.policy.fixed : E.text.policy.axisAuto, "policy", rec.policy);
         if (rec.mappingId) add("Mapping", rec.mappingId, "mappingId", rec.mappingId);
         add("Domain", uiAxisDomain(rec), "domain", rec.domain);
@@ -8476,7 +8501,7 @@
     if (S.rows !== "off") view.push(row("rowsMeasure", "Rows", `${ROWS_INFO[S.rows].name} ${periodPhrase(S.period)}`, `${S.rows}:${S.period}`));
     view.push(row("dataCutoff", "Data through", uiUtcMs(cutMs), cutMs));
     if (canonMs !== null) view.push(row("canonicalThrough", "Canonical through", uiUtcMs(canonMs), canonMs));
-    view.push(row("replay", "Replay", S.replay ? `At ${uiUtcMs(cutMs)}` : "Live", Boolean(S.replay)));
+    view.push(row("replay", "Replay", S.replay ? `At ${uiUtcMs(cutMs)}` : "Off", Boolean(S.replay)));
     view.push(row("source", "Source", String(PACK.source ?? "").slice(0, 200)));
     const status = E.model.status(cutMs);
     view.push(
@@ -8504,7 +8529,7 @@
       "axes",
       E.text.ui.summaryAxes,
       scaleUi.axisRecords.flatMap((rec) => [
-        row(`axis:${rec.id}`, rec.id, `${uiAxisText(rec)} · ${uiAxisDomain(rec)}${rec.unit ? ` · ${uiAxisUnit(rec.unit)}` : ""}`, { policy: rec.policy, domain: rec.domain ?? null, through: rec.provenance?.through ?? null, mappingId: rec.mappingId ?? null }),
+        row(`axis:${rec.id}`, rec.id === "profile.current" ? "Current profile" : rec.id === "profile.reference" ? "Reference profile" : rec.id.startsWith("pane.") ? "Columns" : "Axis", uiAxisText(rec), { policy: rec.policy, domain: rec.domain ?? null, through: rec.provenance?.through ?? null, mappingId: rec.mappingId ?? null }),
       ]),
     );
     const { plan, cur, ref, under } = profileUi;
@@ -8534,7 +8559,7 @@
         box.dataset.section = s.id;
         box.append(uiEl("h4", "", s.title));
         for (const r of s.rows) {
-          const dd = uiEl("dd", "ol-num", r.value);
+          const dd = uiEl("dd", "ol-num", r.value === "" || r.value === null || r.value === undefined ? r.field === "warnings" ? "None" : r.field.startsWith("scaleChange") ? "No change" : "Not recorded" : r.value);
           dd.dataset.field = r.field;
           if (r.canonical !== null && r.canonical !== undefined) dd.dataset.value = typeof r.canonical === "string" ? r.canonical : JSON.stringify(r.canonical);
           list.append(uiEl("dt", "", r.label), dd);
@@ -8629,7 +8654,7 @@
     } else add("Reference track", "Off: turn Rows on to add one", "referenceTrack", "");
     if (plan.mode !== "independent") {
       if (plan.m !== null) add("Price rows", `${price(2 ** plan.m * PR)} USDT, the coarser of the two`, "partition", plan.m);
-      if (plan.window) add("Window W", `${plan.window.bins} rows`, "window", plan.window);
+      if (plan.window) add("Window W", `[${price(plan.window.first * 2 ** plan.m * PR)}, ${price((plan.window.last + 1) * 2 ** plan.m * PR)}) USDT · ${plan.window.bins} wholly-in-view rows`, "window", plan.window);
       if (plan.denominators) {
         // the current track is always USDT; the reference is seconds when it is Time at price (each total in its own unit)
         const refUnit = under?.kind === "time" ? "seconds" : "usdt";
@@ -9073,7 +9098,7 @@
     ].filter(step => step.group);
   }
   function flowSteps(id) {
-    const dataset = { id: "dataset", name: "Dataset", title: "Choose a dataset", desc: {
+    const dataset = { id: "dataset", name: "Measure", title: "Choose a measure", desc: {
       mode: "What the cells show.", pane: "What each column shows below the prices.", rows: "What each price row shows behind the cells.",
     }[id] };
     if (id === "mode") return [dataset, ...scaleSteps("cells")];
@@ -10295,6 +10320,10 @@
   }
   // The selection's frame on the plot.
   function selectionFrame(x1, y1, x2, y2) {
+    // Align the interface outline to pixel centres: retain a fully covered ink pixel
+    // across fractional chart projections without changing measured bounds.
+    x1=x1===G.x?x1:Math.floor(x1)+.5; y1=y1===G.y?y1:Math.floor(y1)+.5;
+    x2=x2===G.x+G.w?x2:Math.floor(x2)+.5; y2=y2===G.y+G.h?y2:Math.floor(y2)+.5;
     STROKE.selection(ctx, x1, y1, x2 - x1, y2 - y1);
     markCount.selection++;
   }
@@ -11632,6 +11661,8 @@
   }
   function buildCandleTable() {
     const r = candleRange(renderN(), S.tA, S.tB), table = el("candle-table"), pages = Math.max(1, Math.ceil(r.bars.length / CELLS_PAGE));
+    const bars = r.bars;
+    guiRememberTable("cells", { scope: `All ${bars.length} candles in view`, headers:["Start · UTC","End · UTC","Open · USDT","High · USDT","Low · USDT","Close · USDT","Net move · USDT","High−low · USDT","Net move / daily ATR","High−low / daily ATR","Direction","Status"],length:bars.length,row:index=>{const bar=bars[index],atr=contextATR(bar.start),move=bar.close-bar.open,spread=bar.high-bar.low;return [iso(bar.start),iso(bar.stop),bar.open,bar.high,bar.low,bar.close,move,spread,atr>0?move/atr:"Unavailable",atr>0?spread/atr:"Unavailable",bar.direction,bar.state==="so-far"?"So far":"Complete"];}});
     tablePage = clamp(tablePage, 0, pages - 1);
     const body = table.tBodies[0], frag = document.createDocumentFragment();
     for (const bar of r.bars.slice(tablePage * CELLS_PAGE, (tablePage + 1) * CELLS_PAGE)) {
@@ -17478,9 +17509,10 @@
     }
     evidenceLedger(e);
     if (e.error || !e.cases) {
+      guiTableExports.delete("cases");
       list.replaceChildren();
       el("case-definition").textContent = e.error;
-      el("case-page").textContent = "0 cases";
+      el("case-page").textContent = e.error || "Preparing cases";
       el("case-prev").disabled = el("case-next").disabled = true;
       return;
     }
@@ -17516,6 +17548,8 @@
             S.caseDir || y.c - x.c,
       );
     const pages = Math.max(1, Math.ceil(rows.length / CASES_PAGE));
+    const exportPrice = stepP() * PR, exportStep = stepT();
+    guiRememberTable("cases", {scope:`All ${rows.length} ${filter} cases · ${S.evidenceKind} · ${h} columns · fit ${when((e.a+1)*exportStep)} UTC`,headers:["Anchor · UTC","Outcome","Change · USDT","Starting POC · USDT","Final POC · USDT","Minimum POC change · USDT","Maximum POC change · USDT","Excursion · USDT","Taker-buy share","Seasonal ratio","State buckets","Fit anchor · UTC"],length:rows.length,row:index=>{const c=rows[index];return [iso((c.c+1)*exportStep),barrier?c.first>0?"Upper first":c.first<0?"Lower first":"Neither":c.delta>0?"Higher":c.delta<0?"Lower":"Same row",c.delta*exportPrice,(c.poc+.5)*exportPrice,(c.finalPoc+.5)*exportPrice,c.min*exportPrice,c.max*exportPrice,(c.max-c.min)*exportPrice,c.buyShare,c.seasonal?.result?.tag==="finite"?c.seasonal.result.value:"Unavailable",c.state.join("/"),iso((e.a+1)*exportStep)];}});
     S.casePage = clamp(S.casePage || 0, 0, pages - 1);
     el("case-definition").textContent =
       filter === "failure"
@@ -19987,7 +20021,7 @@
     nav.planeStatus = `Requested n ${S.n} · m ${S.m}${renderN() !== S.n || renderM() !== S.m ? ` · displayed n ${renderN()} · m ${renderM()}` : ""}${model ? ` · ${model}` : ""}`;
     if (!nav.planeHover) setPlaneStatus(nav.planeStatus);
     const gesture = trendTool
-      ? "Place A and B, or drag · G: previous tool · Esc: cancel · Keep drawing repeats"
+      ? "Place A and B, or drag · G: previous tool · Esc: cancel draft · Trend remains active"
       : S.lens
       ? "Move to inspect · Enter: pin the lens view · Shift+L: depth · V: pan"
       : S.select
@@ -19996,7 +20030,7 @@
           ? "Wheel / pinch: time + price · on the price axis: price · Alt: lens"
           : S.diagonal
             ? "Wheel / pinch: time ×k, price ×√k · on the price axis: price · Alt: lens"
-            : "Wheel / pinch: time · on the price axis or with Shift: price · Alt: lens";
+            : "Wheel / pinch: time · chart Shift / price axis: price · time axis: time · Alt: lens";
     if (el("gesture").textContent !== gesture) el("gesture").textContent = gesture;
     // The plane describes its 210 levels only while it shows, and brings them
     // up to date as it opens (see bindTopBar): navigating with it closed
@@ -21877,13 +21911,13 @@
     drawingSyncUI();
     if (result?.ok) {
       const latest = window.explorerState.drawings.load();
-      drawingRecoveries = (latest.recoveries || []).map(({ collection, ...record }) => ({ ...record, count: collection.objects.length, label: `${record.pinned ? "Preserved" : "Saved"} revision ${record.revision} · ${collection.objects.length} drawings` }));
+      drawingRecoveries = (latest.recoveries || []).map(({ collection, ...record }) => ({ ...record, count: collection.objects.length, names: collection.objects.slice(0, 3).map(object => object.label || object.name).join(", "), label: `${record.pinned ? "Preserved" : "Saved"} revision ${record.revision} · ${collection.objects.length} drawings` }));
     }
     return Boolean(result?.ok);
   }
   function drawingLoad() {
     const result = window.explorerState?.drawings?.load();
-    drawingRecoveries = (result?.recoveries || []).map(({ collection, ...record }) => ({ ...record, count: collection.objects.length, label: `${record.pinned ? "Preserved" : "Saved"} revision ${record.revision} · ${collection.objects.length} drawings` }));
+    drawingRecoveries = (result?.recoveries || []).map(({ collection, ...record }) => ({ ...record, count: collection.objects.length, names: collection.objects.slice(0, 3).map(object => object.label || object.name).join(", "), label: `${record.pinned ? "Preserved" : "Saved"} revision ${record.revision} · ${collection.objects.length} drawings` }));
     if (result?.status === "ok") drawingStore = E.drawings.createStore(result.collection);
     else if (result && result.status !== "absent") {
       drawingUnsaved = true;
@@ -22049,42 +22083,43 @@
   function drawingLabelLayout(object, g) {
     if (drawingLabelLayouts.has(object)) return drawingLabelLayouts.get(object);
     drawingLabelLayouts.set(object, null);
-    if (!object.label) return null;
+    const text = drawingCanvasLabel(object);
+    if (!text) return null;
     if (g === undefined) g = drawingGeometry(object);
     if (!g) return null;
     const rect = drawingPlot(), dx = g.b.x - g.a.x, dy = g.b.y - g.a.y, length = Math.hypot(dx, dy);
     if (length <= 16) return null;
     const direction = dx < 0 || (dx === 0 && dy > 0) ? -1 : 1,
       ux = direction * dx / length, uy = direction * dy / length,
-      mid = { x: (g.a.x + g.b.x) / 2, y: (g.a.y + g.b.y) / 2 },
+      start = direction === 1 ? g.a : g.b,
       // Without grapheme segmentation, keep the label indivisible: render it
       // whole when it fits, otherwise omit rather than alter its characters.
-      parts = drawingLabelSegmenter ? [...drawingLabelSegmenter.segment(object.label)].map((p) => p.segment) : [object.label];
+      parts = drawingLabelSegmenter ? [...drawingLabelSegmenter.segment(text)].map((p) => p.segment) : [text];
     // No shortening can rescue ink whose above-line bottom edge misses the plot.
     if (rect.w <= 2 || rect.h <= 2 || !E.drawings.clip(
       { x: g.a.x + uy * 5.5, y: g.a.y - ux * 5.5 },
       { x: g.b.x + uy * 5.5, y: g.b.y - ux * 5.5 },
       { x: rect.x + 1, y: rect.y + 1, w: rect.w - 2, h: rect.h - 2 },
     )) return null;
-    ctx.save(); ctx.font = `${TYPE.s}px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
-    let layout = null, display = object.label;
+    ctx.save(); ctx.font = `${TYPE.s}px ${FONT}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    let layout = null, display = text;
     while (parts.length) {
       const metric = ctx.measureText(display), ascent = metric.actualBoundingBoxAscent, descent = metric.actualBoundingBoxDescent,
         left = -metric.actualBoundingBoxLeft - .5, right = metric.actualBoundingBoxRight + .5,
         top = -6 - ascent - descent - .5, bottom = -6 + .5;
-      let lo = -length / 2 + 8 - left, hi = length / 2 - 8 - right;
+      let lo = 8 - left, hi = length - 8 - right;
       // Intersect all four corner constraints with the allowed along-line slide.
       for (const x of [left, right]) for (const y of [top, bottom]) {
         for (const [base, offset, step, min, max] of [
-          [mid.x, ux * x - uy * y, ux, rect.x + 1, rect.x + rect.w - 1],
-          [mid.y, uy * x + ux * y, uy, rect.y + 1, rect.y + rect.h - 1],
+          [start.x, ux * x - uy * y, ux, rect.x + 1, rect.x + rect.w - 1],
+          [start.y, uy * x + ux * y, uy, rect.y + 1, rect.y + rect.h - 1],
         ]) {
           if (Math.abs(step) < 1e-9) { if (base + offset < min || base + offset > max) hi = -Infinity; }
           else { const a = (min - base - offset) / step, b = (max - base - offset) / step; lo = Math.max(lo, Math.min(a, b)); hi = Math.min(hi, Math.max(a, b)); }
         }
       }
       if (lo <= hi && metric.width <= length - 16) {
-        const slide = clamp(0, lo, hi), origin = { x: mid.x + ux * slide + uy * (6 + descent), y: mid.y + uy * slide - ux * (6 + descent) },
+        const slide = lo, origin = { x: start.x + ux * slide + uy * (6 + descent), y: start.y + uy * slide - ux * (6 + descent) },
           project = (x, y) => ({ x: origin.x + ux * x - uy * y, y: origin.y + uy * x + ux * y }),
           height = ascent + descent + 1, count = Math.ceil(height / 3.5), width = height / count, strokes = [];
         // Parallel solid strips conservatively cover the rotated ink rectangle on
@@ -22102,7 +22137,7 @@
   function drawingPaintLabel(object, label) {
     if (!label) return;
     ctx.save(); ctx.translate(label.origin.x, label.origin.y); ctx.rotate(label.angle);
-    ctx.font = `${TYPE.s}px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.font = `${TYPE.s}px ${FONT}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
     ctx.lineWidth = 1; ctx.lineJoin = "round"; ctx.strokeStyle = drawingCasing(object.color); ctx.fillStyle = object.color;
     ctx.strokeText(label.text, 0, 0); ctx.fillText(label.text, 0, 0); ctx.restore();
   }
@@ -22318,6 +22353,9 @@
   let drawingInventoryKey = "";
   let drawingUIInitialized = false, drawingRowsKey = "", drawingRecoveryKey = "", drawingActionsKey = "", drawingToolbarKey = "";
   const drawingFieldIds = ["name", "label", "color", "a-time", "a-price", "b-time", "b-price"];
+  function drawingCustomName(object) { return object.name && object.name !== `Trend line ${object.ordinal + 1}` ? object.name : ""; }
+  function drawingDisplayName(object) { return drawingCustomName(object) || object.label || object.name; }
+  function drawingCanvasLabel(object) { return object.label || drawingCustomName(object); }
   function drawingWrite(node, value) {
     const text = String(value ?? ""); if (node.textContent !== text) node.textContent = text;
   }
@@ -22415,6 +22453,7 @@
     if (!trendTool) setTool("trend");
     drawingCancelOperation(); closePop(); setSheet(false);
     drawingEditorState = { id: object.id, origin: from, isNew: Boolean(draft), object: draft };
+    el("drawing-editor-delete").hidden = Boolean(draft);
     el("drawing-editor").dataset.drawingId = object.id;
     drawingWrite(el("drawing-editor-title"), draft ? "New trend line" : "Edit trend line");
     el("drawing-name").value = object.name; el("drawing-label").value = object.label || ""; el("drawing-color").value = el("drawing-color-picker").value = object.color;
@@ -22456,7 +22495,7 @@
       const button = document.createElement("button"), swatch = document.createElement("i"), name = document.createElement("span");
       button.type = "button"; button.className = "ol-action cursor-interaction"; button.dataset.drawingChoice = id;
       swatch.className = "ol-drawing-swatch"; swatch.style.setProperty("--drawing-rgb", object.color); swatch.setAttribute("aria-hidden", "true");
-      name.textContent = object.name + (object.locked ? " · Locked" : ""); button.append(swatch, name);
+      name.textContent = drawingDisplayName(object) + (object.locked ? " · Locked" : ""); button.append(swatch, name);
       button.addEventListener("click", () => { drawingCloseChooser(); if (onChoose) onChoose(id); else { drawingActivate(id, time); canvas.focus({ preventScroll: true }); } }); choices.append(button);
     }
     if (Number.isFinite(time)) {
@@ -22468,7 +22507,9 @@
     drawingCloseChooser(); closePop(); const choices = el("drawing-choices"); choices.replaceChildren();
     drawingChoiceOrigin = el("drawing-more"); drawingWrite(el("drawing-chooser-title"), "Recover drawings");
     for (const record of drawingRecoveries) {
-      const button = drawingUIButton(record.label || record.createdAt || "Saved drawing workspace", "recover", record.id);
+      const stamp = record.createdAt ? new Date(record.createdAt).toISOString().replace("T", " ").replace(/\.\d+Z$/, " UTC") : "Time not recorded";
+      const button = drawingUIButton(`${record.label || "Saved workspace"} · ${stamp} · Workspace ${record.writer?.slice(0,8) || record.id.slice(0,8)}${record.names ? " · " + record.names : ""}`, "recover", record.id);
+      button.style.whiteSpace = "normal"; button.style.textAlign = "left";
       choices.append(button);
     }
     el("drawing-chooser").showModal(); choices.querySelector("button")?.focus({ preventScroll: true });
@@ -22476,7 +22517,8 @@
   function drawingConfirmDelete(origin) {
     const objects = drawingCollection().objects; if (!objects.length) return;
     closePop(); drawingDeleteOrigin = origin; el("drawing-confirm").dataset.ids = objects.map((o) => o.id).join(",");
-    drawingWrite(el("drawing-confirm-title"), `Delete ${objects.length} drawings, including ${objects.filter((o) => o.locked).length} locked?`);
+    const locked = objects.filter((o) => o.locked).length;
+    drawingWrite(el("drawing-confirm-title"), `Delete ${objects.length} ${objects.length === 1 ? "drawing" : "drawings"}${locked ? `, including ${locked} locked` : ""}?`);
     if (!el("drawing-confirm").open) el("drawing-confirm").showModal(); el("drawing-confirm-cancel").focus({ preventScroll: true });
   }
   function drawingCloseConfirm() {
@@ -22499,11 +22541,20 @@
     drawingSyncInventory(); return section;
   }
   function drawingRow(object) {
-    const row = document.createElement("label"), box = document.createElement("input"), swatch = document.createElement("i"), name = document.createElement("span"), status = document.createElement("span");
-    row.className = "ol-line-row cursor-interaction"; row.dataset.drawingRow = object.id; row.dataset.id = object.id;
+    const row = document.createElement("div"), toggle = document.createElement("label"), box = document.createElement("input"), swatch = document.createElement("i"), name = document.createElement("span"), status = document.createElement("span"), remove = document.createElement("button");
+    row.className = "ol-line-row"; row.dataset.drawingRow = object.id; row.dataset.id = object.id;
+    toggle.className = "ol-drawing-row-toggle cursor-interaction";
     box.type = "checkbox"; box.dataset.drawingAction = "visible"; box.dataset.drawingId = object.id; box.addEventListener("change", () => drawingUICmd("visible", object.id, box.checked));
     swatch.className = "ol-line-swatch"; swatch.setAttribute("aria-hidden", "true"); swatch.style.setProperty("--weight", "1.5px"); name.className = "ol-line-name"; status.className = "ol-line-reason ol-num";
-    row.append(box, swatch, name, status); return row;
+    remove.type = "button"; remove.className = "ol-icon-button ol-s cursor-interaction"; remove.dataset.drawingAction = "delete"; remove.dataset.drawingId = object.id;
+    remove.innerHTML = '<svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M6 4.5v-2h4v2M4 4.5l.5 9h7l.5-9M6.5 7v4.5M9.5 7v4.5"/></svg>';
+    remove.addEventListener("click", (event) => {
+      event.stopPropagation(); const index = drawingCollection().objects.findIndex((o) => o.id === object.id);
+      drawingUICmd("delete", object.id);
+      const rows = [...el("drawing-list").querySelectorAll("[data-drawing-row]")];
+      (rows[Math.min(index, rows.length - 1)]?.querySelector('[data-drawing-action="delete"]') || el("drawing-group-visible")).focus({ preventScroll: true });
+    });
+    toggle.append(box, swatch, name, status); row.append(toggle, remove); return row;
   }
   function drawingSyncInventory() {
     const section = el("drawing-section"); if (!section) return;
@@ -22517,11 +22568,12 @@
       for (const object of objects) list.append(existing.get(object.id) || drawingRow(object)); drawingRowsKey = key;
     }
     for (const row of list.querySelectorAll("[data-drawing-row]")) {
-      const object = drawingById(row.dataset.drawingRow), state = drawingStatus(object.id), box = row.querySelector('[data-drawing-action="visible"]');
+      const object = drawingById(row.dataset.drawingRow), state = drawingStatus(object.id), name = drawingDisplayName(object), box = row.querySelector('[data-drawing-action="visible"]'), remove = row.querySelector('[data-drawing-action="delete"]');
       for (const [attr, value] of Object.entries({ name: object.name, label: object.label || "", color: object.color, visible: String(object.visible), locked: String(object.locked), active: String(object.id === activeDrawingId), state, timeA: object.a.timeMs, timeB: object.b.timeMs, priceA: object.a.priceCents, priceB: object.b.priceCents, aTimeMs: object.a.timeMs, aPriceCents: object.a.priceCents, bTimeMs: object.b.timeMs, bPriceCents: object.b.priceCents })) if (row.dataset[attr] !== String(value)) row.dataset[attr] = String(value);
-      drawingWrite(row.querySelector(".ol-line-name"), object.name); drawingWrite(row.querySelector(".ol-line-reason"), [object.locked ? "Locked" : "", state === "Shown" ? "" : state].filter(Boolean).join(" · "));
+      drawingWrite(row.querySelector(".ol-line-name"), name); drawingWrite(row.querySelector(".ol-line-reason"), [object.locked ? "Locked" : "", state === "Shown" ? "" : state].filter(Boolean).join(" · "));
       const swatch = row.querySelector(".ol-line-swatch"); if (swatch.style.getPropertyValue("--line") !== object.color) swatch.style.setProperty("--line", object.color);
-      box.checked = object.visible; drawingAttr(box, "aria-label", `Show ${object.name}`); row.title = `${object.name} · ${object.locked ? "Locked · " : ""}${state}`;
+      box.checked = object.visible; drawingAttr(box, "aria-label", `Show ${name}`); row.title = `${name} · ${object.locked ? "Locked · " : ""}${state}`;
+      drawingAttr(remove, "aria-label", `Delete ${name}`); remove.title = `Delete ${name}`;
     }
     section.querySelector(".ol-family-dot").style.background = colors.ink;
     const enabled = objects.filter((o) => collection.visible && o.visible).length, shown = objects.filter((o) => drawingStatus(o.id) === "Shown").length;
@@ -22536,10 +22588,10 @@
     const object = activeDrawingId ? drawingById(activeDrawingId) : null, toolbar = el("drawing-toolbar"),
       state = object ? drawingStatus(object.id) : "", replay = canvas.dataset.drawingReplay || "",
       draft = drawingDraft ? [drawingDraft.a.timeMs, drawingDraft.a.priceCents, drawingDraft.b?.timeMs, drawingDraft.b?.priceCents] : null,
-      key = JSON.stringify([Boolean(trendTool), object?.id, object?.name, object?.color, object?.locked, state, replay, draft]);
+      key = JSON.stringify([Boolean(trendTool), object?.id, object?.name, object?.label, object?.color, object?.locked, state, replay, draft]);
     if (key !== drawingToolbarKey) {
       toolbar.hidden = !trendTool; toolbar.dataset.activeId = object?.id || "";
-      drawingWrite(el("drawing-toolbar-name"), !draft && object ? object.name : "Trend line"); el("drawing-toolbar-name").title = object?.name || "";
+      drawingWrite(el("drawing-toolbar-name"), !draft && object ? drawingDisplayName(object) : "Trend line"); el("drawing-toolbar-name").title = object ? drawingDisplayName(object) : "";
       const placement = draft ? ["a", "b"].filter((point) => drawingDraft[point]).map((point) => `${point.toUpperCase()} · ${E.drawings.formatTime(drawingDraft[point].timeMs)} · ${E.drawings.formatPrice(drawingDraft[point].priceCents)} USDT`).join("\n") : "Click two points or drag";
       drawingWrite(el("drawing-toolbar-status"), draft || !object ? placement : object.locked ? "Locked · Right-click for line actions" : state !== "Shown" ? state : "Drag line to move · Drag an endpoint to resize");
       el("drawing-toolbar-swatch").hidden = !object; if (object) el("drawing-toolbar-swatch").style.setProperty("--drawing-rgb", object.color);
@@ -22607,7 +22659,7 @@
     const object = drawingById(id); if (!trendTool || !object) return;
     drawingActivate(id); el("tip").hidden = true;
     const node = document.createElement("div"); node.id = "ol-drawing-context"; node.className = "ol-pop ol-cell-menu";
-    node.dataset.drawingUi = ""; node.setAttribute("role", "menu"); node.setAttribute("aria-label", `Actions for ${object.name}`);
+    node.dataset.drawingUi = ""; node.setAttribute("role", "menu"); node.setAttribute("aria-label", `Actions for ${drawingDisplayName(object)}`);
     drawingContext = { node, id };
     for (const [action, label] of [["edit", "Edit line"], ["delete", "Delete line"]]) {
       const button = document.createElement("button"); button.type = "button"; button.className = "ol-item cursor-interaction";
@@ -22657,6 +22709,10 @@
       } catch (error) { drawingWrite(el("drawing-editor-error"), error.message || String(error)); }
     });
     for (const id of ["drawing-cancel", "drawing-editor-close"]) el(id).addEventListener("click", () => drawingCloseEditor(true));
+    el("drawing-editor-delete").addEventListener("click", () => {
+      if (!drawingEditorState || drawingEditorState.isNew) return;
+      const { id, origin } = drawingEditorState; drawingCloseEditor(true); drawingUICmd("delete", id); drawingRestoreFocus(origin, id, origin.index);
+    });
     el("drawing-editor-undo").addEventListener("click", () => drawingUICmd("undo")); el("drawing-chooser-close").addEventListener("click", drawingCloseChooser); el("drawing-confirm-cancel").addEventListener("click", drawingCloseConfirm);
     el("drawing-confirm-delete").addEventListener("click", () => { if (el("drawing-confirm").dataset.ids !== drawingCollection().objects.map((o) => o.id).join(",")) { drawingConfirmDelete(drawingDeleteOrigin); return; } drawingCloseConfirm(); drawingUICmd("delete-all"); });
     for (const [id, close] of [["drawing-editor", drawingCloseEditor], ["drawing-chooser", drawingCloseChooser], ["drawing-confirm", drawingCloseConfirm]]) {
@@ -22750,7 +22806,7 @@
       mz=frameMotionReady ? motionQuery?.map.get(cellKey(c,r)) ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0} : cachedMotion?.z ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0},
       motionEnd=frameMotionReady?Math.min((c+1)*ts,(!lens && motionQuery===motionFrame.rect?.query)?motionFrame.rect.end:motionFrame.src?.end??motionFrame.msrc?.end):cachedMotion?.end??null,
       metrics={},detail=[], nominal={t0:comparisonMs(c*ts),t1:comparisonMs((c+1)*ts),low:r*ps*PR,high:(r+1)*ps*PR};
-    let shortExposure=false;
+    const shortExposure = E.measure.isShort({ timeFraction: (t1 - t0) / ts, priceFraction: (high - low) / ps }, { t: true, w: true });
     const measure=(key,mode,basis="amount",pathBasis="spans",movement=false) => {
       const readyValue=!movement||motionReady;
       const measuredValue=E.measure.cellMeasurement({mode,basis,pathBasis,z:movement?mz:z,geom:{BASE,PR},level:{n,m},
@@ -22760,7 +22816,6 @@
       if(key)metrics[key]={tag:result.tag,value:result.tag==="finite"?result.value:null,formula:measuredValue.formula,
         unit:measuredValue.unit,supportEnd:end,knownThrough:end,numerator:measuredValue.numerator,
         denominator:measuredValue.denominator??result.denominator??null,reason:result.reason??""};
-      shortExposure ||= Boolean(measuredValue.exposure?.short);
       return measuredValue;
     };
     for(const mode of ["volume","trades","delta"]) {measure(mode+".amount",mode);measure(mode+".intensity",mode,"intensity");}
@@ -22795,11 +22850,11 @@
         addDetail("Row volume · captured view",row.v,"usdt",contextEnd);
         if(last.query.v>0)addDetail("Row share · captured view",row.v/last.query.v,"share",contextEnd);
       }
-      if(["exact","cube","recorded"].includes(last.meas.state))addDetail("Captured view bounds",JSON.stringify(last.meas.b.slice(0,2).map(comparisonMs))+" UTC; "+last.meas.b.slice(2).map(x=>x*PR).join("–")+" USDT","",contextEnd);
+      if(["exact","cube","recorded"].includes(last.meas.state))addDetail("Captured view bounds",range(...last.meas.b.slice(0,2))+" UTC; "+last.meas.b.slice(2).map(x=>price(x*PR)).join("–")+" USDT","",contextEnd);
       const under=last.under, bandIndex=under?.bands?Math.floor(periodPrice/2**under.bands.m):null,
         band=under?.bands?.map.get(bandIndex), periodEnd=comparisonMs(under?.through);
       if(under?.res.state==="ready"&&band) {
-        addDetail("Period · captured context",under.period+" · "+JSON.stringify(under.res.span?.map(comparisonMs))+" UTC","",periodEnd);
+        addDetail("Period · captured context",periodPhrase(under.period)+" · "+(under.res.span ? range(...under.res.span)+" UTC" : "Bounds not recorded"),"",periodEnd);
         addDetail("Period row band",[bandIndex*2**under.bands.m*PR,(bandIndex+1)*2**under.bands.m*PR].join("–"),"usdt",periodEnd);
         if(under.kind==="volume")addDetail("Period row volume",band.v,"usdt",periodEnd);
         if(under.kind==="delta")addDetail("Period net taker volume",2*band.bv-band.v,"usdt",periodEnd);
@@ -22872,7 +22927,8 @@
     // Sorting is pure presentation: it reuses metric cohorts and never refits their statistics.
     comparisonAnalysis={...comparisonAnalysis,ordered:C.sort?C.sort(comparisonModel.captures,comparisonModel.sort,comparisonAnalysis.metrics):C.analyze(comparisonModel.captures,{...comparisonModel,edge}).ordered};
     comparisonRenderKey=renderKey;comparisonCounters.renders++;
-    comparisonUI.render(comparisonModel,comparisonAnalysis,{edge,pocOptions:pocs,status:comparisonMessage,unsaved:comparisonUnsaved,storageRejected:comparisonRejected,context:C});
+    const pocState = !periodLines().length ? "Enable a period POC in Lines" : [...lineResults.values()].some(result => result.state === "pending") ? "Period POCs preparing" : "No eligible period POC; check coverage";
+    comparisonUI.render(comparisonModel,comparisonAnalysis,{edge,pocOptions:pocs,pocState,canUndo:comparisonUndoState !== null,status:comparisonMessage,unsaved:comparisonUnsaved,storageRejected:comparisonRejected,context:C});
     const comparisonLabel = `Compare${comparisonModel.captures.length ? ` · ${comparisonModel.captures.length}` : ""}`;
     el("comparison-count").textContent = comparisonLabel;
     el("tab-compare").setAttribute("aria-label", comparisonLabel);
@@ -22891,7 +22947,7 @@
       comparisonRefresh();
     },0);
   }
-  function comparisonCommit(next,content=false,reveal=false) {
+  function comparisonCommit(next,content=false,reveal=false,remember=true) {
     next={...next,comparisonVersion:2,selectedMetric:next.selectedMetric??"volume"};
     let preparedAnalysis=null;
     if(reveal) {
@@ -22902,6 +22958,7 @@
     }
     const prepared=window.explorerState.comparison.measure(next);
     if(!prepared.ok) {comparisonMessage=prepared.reason;comparisonRefresh(true);return false;}
+    if (content && remember) comparisonUndoState = comparisonModel;
     comparisonModel=next;if(content)comparisonRevision++;
     comparisonUI.clearCopyFallback();comparisonRefresh(true,preparedAnalysis);comparisonPersist();return true;
   }
@@ -22934,6 +22991,165 @@
     try {if(!navigator.clipboard?.writeText)throw Error("Clipboard unavailable");await navigator.clipboard.writeText(text);comparisonMessage="Cell copied";comparisonRefresh();}
     catch {S.drawer="compare";S.drawerOpen=true;applyPanels();comparisonRefresh(true);comparisonUI.showCopyFallback(C.captureText(capture,{edge:comparisonEdge(),poc:comparisonModel.poc,selectedMetric:comparisonModel.selectedMetric,basis:comparisonAnalysis?.basis??comparisonModel.basis}));}
   }
+  function guiDownloadText(name, text, type = "text/plain") {
+    const url = URL.createObjectURL(new Blob([text], { type })), link = document.createElement("a");
+    link.href = url; link.download = name; link.hidden = true; root.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function comparisonExport() {
+    const result = window.explorerState.comparison.serialize({ ...comparisonModel, expanded: false, restoreLayout: null });
+    if (!result.ok) comparisonMessage = result.reason;
+    else { guiDownloadText("cube-comparison-" + new Date().toISOString().slice(0,10) + ".json", result.raw, "application/json"); comparisonMessage = "Collection exported · frozen records and settings"; }
+    comparisonRefresh(true);
+  }
+  function guiAuditCommit() {
+    const legend = scaleUi.models.cells, field = el("cell-key-text"), ramp = el("cell-key-ramp");
+    const text = S.mode === "candles" ? "Candles · hollow up, filled down" : S.mode === "geometry" ? "Geometry · occupancy" : legend ? [legend.summary.measure, legend.summary.basis, legend.bar?.ticks?.length ? legend.bar.ticks[0].label + " → " + legend.bar.ticks.at(-1).label + " " + legend.summary.unit : null, legend.summary.transform, legend.summary.policy].filter(Boolean).join(" · ") : "Scale preparing";
+    if (field.textContent !== text) field.textContent = text;
+    ramp.hidden = !legend || ["geometry", "candles"].includes(S.mode);
+    const key = scaleRt.legendKey.cells + "|" + colourEpoch;
+    if (!ramp.hidden && ramp.dataset.key !== key) { legendBar(ramp, legend, 64, 8); ramp.dataset.key = key; }
+    el("indicator-key").hidden = S.pane !== "macd1d";
+    const model = S.pane === "efficiency" ? modelStatusLine("efficiency",renderN()) : "";
+    el("model-disclosure").hidden = !model;
+    const modelText = model ? model + " · Retrospective model comparison" : "";
+    if(el("model-disclosure").textContent!==modelText)el("model-disclosure").textContent=modelText;
+    const form = el("bounds-form");
+    if (!form.contains(document.activeElement)) {
+      const q = cubeQuery(), fields = { "bounds-start": q.t1.slice(0,-1), "bounds-end": q.t2.slice(0,-1), "bounds-low": String(q.p1), "bounds-high": String(q.p2) };
+      for (const [id,value] of Object.entries(fields)) if (el(id).value !== value) el(id).value = value;
+    }
+    if (S.replay && !el("replay-jump").contains(document.activeElement)) {
+      const edge = iso(activeCutoff()).slice(0,-1); if (el("replay-edge").value !== edge) el("replay-edge").value = edge;
+    }
+  }
+  function guiAuditInit() {
+    for (const [id,topic,chip] of [["cell-key","scales","legend"],["profile-settings","profiles","profile-chip"],["axis-settings","columns","axis-chip"],["key-guide","states",null]]) {
+      el(id).addEventListener("click", () => { referenceGuide.open(topic, el(id)); if (chip && !el(chip).hidden) el(chip).click(); });
+    }
+    el("bounds-settings").addEventListener("click", () => { S.drawer = "query"; S.drawerOpen = true; applyPanels(); guiAuditCommit(); el("bounds-start").focus(); });
+    el("bounds-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      const t1 = Date.parse(el("bounds-start").value + "Z"), t2 = Date.parse(el("bounds-end").value + "Z"), p1 = Number(el("bounds-low").value), p2 = Number(el("bounds-high").value);
+      if (![t1,t2,p1,p2].every(Number.isFinite) || !(t2 > t1 && p2 > p1 && p1 >= 0)) { el("bounds-status").textContent = "Use increasing UTC times and prices"; return; }
+      el("import-text").value = JSON.stringify({ ...cubeQuery(), t1: new Date(t1).toISOString(), t2: new Date(t2).toISOString(), p1, p2 });
+      el("import").hidden = false; await applyImportedView(); el("bounds-status").textContent = el("copy-status").textContent;
+    });
+    el("replay-jump").addEventListener("submit", event => {
+      event.preventDefault(); const ms = Date.parse(el("replay-edge").value + "Z"), base = E.time.msToBase(ms, T0, BASE), edge = S.mode === "candles" ? base : Math.floor(base / stepT()) * stepT();
+      if (!Number.isFinite(base) || edge <= 0 || (S.mode !== "candles" && edge < stepT()) || base > CUT) { el("replay-jump-status").textContent = "Choose an edge within the available history"; return; }
+      setPlaying(false); S.anchor = edge;
+      if (edge < S.tA || edge > S.tB) { const width = S.tB - S.tA; S.tA = Math.max(0,edge - width); S.tB = edge; S.window = null; }
+      recordView("Replay edge"); update(); save(); scaleArm(); el("replay-jump-status").textContent = iso(edge) + (S.mode === "candles" ? " · exact exclusive candle cutoff" : " · completed grid edge");
+    });
+    el("inspect-open-detail").addEventListener("click", () => inspectDetail(true));
+    el("inspect-reference-search").addEventListener("input", () => inspectRender(true));
+    for (const panel of ["cells","cases","rallies"]) {
+      const button = uiEl("button","ol-action ol-s cursor-interaction","Export CSV"); button.type="button";button.id="ol-export-"+panel;button.setAttribute("aria-label",`Export ${panel} CSV`);button.onclick=()=>guiExportTable(panel);
+      el("panel-"+panel).querySelector(".ol-panel-head").append(button);
+    }
+  }
+  function guiExportStamp() { return JSON.stringify([last?.camera,last?.b,last?.dataCut,last?.sourceVersion,CUT,activeCutoff(),S.selection,S.mode,S.cellSort,S.cellDir,S.caseFilter,S.caseSort,S.caseDir,S.horizon,S.evidenceKind]); }
+  function guiRememberTable(panel, table) {
+    guiTableExports.set(panel,{...table,stamp:guiExportStamp(),metadata:[PACK.source??"Source not recorded",iso(CUT),S.replay?iso(activeCutoff()):"Off"]});
+    if (el("export-"+panel)) el("export-"+panel).disabled = false;
+  }
+  async function guiExportTable(panel) {
+    let table = guiTableExports.get(panel);
+    if (panel === "rallies") table = rallyController.table;
+    if (!table || (table.stamp && table.stamp !== guiExportStamp())) { postNotice({code:"export-table",text:"The table is preparing or changed; export after it settles."});return; }
+    const quote = value => { let text = value == null || (typeof value === "number" && !Number.isFinite(value)) ? "Unavailable" : String(value);if(typeof value==="string"&&/^[=+@\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'; };
+    const metadata = table.metadata ? [...table.metadata] : [PACK.source??"Source not recorded",iso(CUT),"Off"];
+    metadata[2] = S.replay ? iso(activeCutoff()) : "Off";
+    const lines = [["Source","Source cutoff · UTC","Replay edge · UTC","Export scope",...table.headers].map(quote).join(",")];
+    for (let index=0;index<table.length;index++) {
+      lines.push([...metadata,table.scope,...table.row(index)].map(quote).join(","));
+      if(index%500===499) { await new Promise(resolve=>setTimeout(resolve,0));if(table.stamp&&table.stamp!==guiExportStamp()){postNotice({code:"export-table",text:"Export stopped because the table changed. Export the settled table again."});return;} }
+    }
+    guiDownloadText(`cube-${panel}-${new Date().toISOString().slice(0,10)}.csv`,lines.join("\r\n")+"\r\n","text/csv;charset=utf-8");
+    postNotice({code:"export-table",text:`${table.length} ${panel} records exported · full filtered table`});
+  }
+  function guiReferenceColourKey(container, topic) {
+    const kind = topic.colour || "none", key = [topic.id,kind,S.mode,S.rows,S.pane,colourEpoch,scaleRt.legendKey.cells,scaleRt.legendKey.rows,scaleUi.keysKey,drawingStore.revision].join("|");
+    if (container.dataset.key === key) return;
+    const focusedFit = container.contains(document.activeElement) && document.activeElement?.dataset.referenceColourAction === "fit";
+    container.dataset.key = key; container.replaceChildren(); container.hidden = kind === "none";
+    if (kind === "none") return;
+    container.append(uiEl("strong", "", "Colour & marks"));
+    if (kind === "rows" && S.rows === "off") container.append(uiEl("p","ol-muted","Rows is off. Enable Rows to read its fitted colour scale."));
+    const row = (label, colour, mark = "—") => {
+      const line = uiEl("div", "ol-reference-colour-row"), swatch = uiEl("i", "ol-reference-colour-swatch", mark);
+      swatch.style.setProperty("--ref-ink", colour); swatch.setAttribute("aria-hidden","true"); line.append(swatch,uiEl("span","",label)); container.append(line);
+    };
+    const model = kind === "rows" ? scaleUi.models.rows : kind === "columns" ? scaleUi.models.pane : scaleUi.models.cells;
+    if (["cells","rows","columns"].includes(kind) && model?.bar?.ramps && !(kind === "cells" && ["geometry","candles"].includes(S.mode))) {
+      const ramp = uiEl("canvas", ""); ramp.width = 320; ramp.height = 12; ramp.setAttribute("aria-hidden","true"); container.append(ramp); legendBar(ramp,model,320,12);
+      const ticks = uiEl("div","ol-legend-ticks ol-num"); ticks.style.height = "32px";
+      model.bar.ticks.forEach((tick,index,all)=>{const label=uiEl("span","ol-legend-tick",tick.label);label.style.left=uiBarLeft(tick.p);label.style.top=(index%2)*14+"px";label.dataset.align=index===0?"start":index===all.length-1?"end":"mid";ticks.append(label);});container.append(ticks);
+      const summary = model.summary;
+      container.append(uiEl("p","",[summary.measure,summary.basis,summary.unit,summary.transform,summary.policy,summary.top].filter(Boolean).join(" · ")));
+      const action = uiEl("button","ol-action cursor-interaction","Show fitted colour scale"); action.type="button";
+      action.dataset.referenceColourAction = "fit";
+      action.onclick=()=>{referenceGuide.open(kind==="columns"?"columns":"scales",action);el(kind==="rows"?"rows-legend":kind==="columns"?"axis-chip":"legend").click();};container.append(action);
+      if (focusedFit) action.focus({preventScroll:true});
+    }
+    if (kind === "candles" || (kind === "cells" && S.mode === "candles")) {
+      row("Up · hollow body", "var(--ol-positive)", "□"); row("Down · filled body", "var(--ol-negative)", "■"); row("Unchanged · hairline", "var(--ol-midpoint)");
+    } else if (kind === "cells" && S.mode === "geometry") row("Occupancy · trades measured in this cell", "var(--ol-occupancy)", "□");
+    if (["references","profiles"].includes(kind)) {
+      if(kind==="profiles"){row("Profile amount · bar length",last?.sc?.lut?.bar?.css??colors.muted,"■");row("Taker-buy subset · inset",colors.ink,"■");}
+      row("Profile POC / value area", "var(--ol-line-poc)"); row("Session / structural price level", "var(--ol-line-level)"); row("Moving average / Bollinger", "var(--ol-line-average)"); row("VWAP", "var(--ol-line-vwap)"); row("Clock · scheduled time", "var(--ol-line-clock)", "│");
+      container.append(uiEl("p","ol-muted","Colour names the family; name and stroke pattern identify the measure, timeframe and confirmation."));
+    }
+    if (kind === "averages") row("Moving average / Bollinger", "var(--ol-line-average)");
+    if (kind === "vwap") row("VWAP", "var(--ol-line-vwap)");
+    if (kind === "clock") row("Calendar / schedule", "var(--ol-line-clock)", "│");
+    if (kind === "indicators" || (kind === "columns" && S.pane.startsWith("macd"))) {
+      row("MACD / RSI line", "var(--ol-ink)"); row("MACD signal", "var(--ol-line-average)"); row("Histogram / cross above signal", "var(--ol-positive)", "+"); row("Histogram / cross below signal", "var(--ol-negative)", "−");
+    }
+    if (kind === "compare") { row("Unsigned comparison amount", "var(--ol-muted)", "■"); row("Positive / above share midpoint", "var(--ol-positive)", "+"); row("Negative / below share midpoint", "var(--ol-negative)", "−"); row("Midpoint", "var(--ol-midpoint)", "■"); }
+    if (kind === "evidence") { row("Matching / eligible historical sets · shapes and labels distinguish them", "var(--ol-line-compare)", "□"); container.append(uiEl("p","ol-muted","Boxes: central 50% / 80% outcomes. Pointwise intervals: estimation uncertainty, not forecast odds.")); }
+    if (kind === "histories") row("Historical miniature · each has its own scale", "var(--ol-ink)");
+    if (kind === "selection") row("Selection boundary · measured rectangle", "var(--ol-ink)", "□");
+    if (kind === "rallies") { row("Outlined cell · contains native rally members", "var(--ol-state)", "□"); row("Member volume · row length", "var(--ol-on)", "■"); }
+    if (kind === "drawings") {
+      if (!drawingCollection().objects.length) container.append(uiEl("p","ol-muted","No drawings. Each authored object supplies its own RGB key."));
+      for (const object of drawingCollection().objects) row(`${drawingDisplayName(object)} · authored annotation`, object.color);
+      container.append(uiEl("p","ol-muted","A drawing's chosen RGB colour has no market meaning."));
+    }
+    if (["states","resolution"].includes(kind)) {
+      const original = topic.id === "state-glossary" ? null : root.querySelector(".ol-status > .ol-status-keys");
+      if (topic.id === "state-glossary") {
+        const inks={state:colors.state,occupancy:colors.occupancy,surface:colors.surface};
+        for (const key of E.role.keyEntries(["zero","undefined","waiting-for-complete-parent","no-reference","empty-both","negative-infinite","outside-support","pending","failed","unsupported","invalid-input","clip-low","clip-high","no-calibration"])) {
+          const entry=uiEl("div","ol-reference-colour-row"); if(key.glyph)entry.append(uiKeySwatch(key.glyph,inks));entry.append(uiEl("span","",key.label));container.append(entry);
+        }
+        const column=uiEl("div","ol-reference-colour-row");column.append(uiKeySwatch("diamond",inks),uiEl("span","","Columns · undefined value"));container.append(column);
+      }
+      if (original) { const copy = original.cloneNode(true); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
+        copy.querySelectorAll("canvas").forEach((canvas,index)=>canvas.getContext("2d").drawImage(originals[index],0,0));
+        copy.style.flexWrap="wrap";copy.style.overflow="visible";container.append(copy); }
+      container.append(uiEl("p","ol-muted",topic.id === "state-glossary" ? "Cells/Rows non-value key, with the Columns diamond. Inspect names the exact reason; these are definitions, not counts of the current view." : "The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
+    }
+  }
+  async function comparisonImport(file) {
+    const revision = comparisonRevision;
+    if (file.size > 4 * 1024 * 1024) { comparisonMessage = "Collection exceeds the 4 MiB limit"; comparisonRefresh(true); return; }
+    let decoded;
+    try { decoded = window.explorerState.comparison.decode(await file.text(), INSTRUMENT); }
+    catch (error) { decoded = { ok: false, reason: "Collection could not be read: " + error.message }; }
+    if (!decoded.ok) { comparisonMessage = decoded.reason; comparisonRefresh(true); return; }
+    if (revision !== comparisonRevision) { comparisonMessage = "Collection changed while the file was read; import again"; comparisonRefresh(true); return; }
+    const apply = () => {
+      if (revision !== comparisonRevision) { comparisonMessage = "Collection changed; import again"; comparisonRefresh(true); return; }
+      decoded.value.captures.forEach(comparisonFreeze);
+      if (comparisonCommit({ ...decoded.value, expanded: comparisonModel.expanded, restoreLayout: comparisonModel.restoreLayout }, true, true)) {
+        comparisonMessage = "Collection imported · source values remain frozen"; comparisonRefresh(true);
+      }
+    };
+    if (comparisonModel.captures.length) comparisonConfirm(`Replace ${comparisonModel.captures.length} captured cells with ${decoded.value.captures.length} imported cells? Undo restores this collection.`, apply);
+    else apply();
+  }
   function comparisonConfirm(message,onConfirm) {
     const returnTo=document.activeElement,dialog=document.createElement("dialog");dialog.className="ol-comparison-confirm";
     const text=document.createElement("p");text.textContent=message;dialog.append(text);
@@ -22943,6 +23159,15 @@
   }
   function comparisonDispatch(action) {
     let next={...comparisonModel};comparisonMessage="";
+    if (action.type === "export") return comparisonExport();
+    if (action.type === "import") return comparisonImport(action.file);
+    if (action.type === "undo") {
+      const prior = comparisonUndoState; if (!prior) return;
+      comparisonUndoState = null;
+      if (!comparisonCommit({ ...prior, expanded: comparisonModel.expanded, restoreLayout: comparisonModel.restoreLayout }, true, true, false)) comparisonUndoState = prior;
+      else { comparisonMessage = "Collection change undone"; comparisonRefresh(true); }
+      return;
+    }
     if(action.type==="copy")return comparisonCopy(comparisonModel.captures.find(c=>c.id===action.id));
     if(action.type==="expand")return comparisonExpand(!comparisonModel.expanded);
     if(action.type==="clear")return comparisonConfirm(`Clear all ${comparisonModel.captures.length} comparison cells?`,()=>comparisonCommit({...comparisonModel,captures:[],focus:null,reference:null,page:0},true));
@@ -23036,7 +23261,14 @@
   referenceGuide = window.explorerReference.create({
     root,
     beforeOpen: () => { closePop(); hideHint(); setSheet(false); },
-    beforeChange: closePop,
+    beforeChange: () => { closePop(); setSheet(false); },
+    colourKey: guiReferenceColourKey,
+    reveal: target => {
+      const element = target.selector ? root.querySelector(target.selector) : canvas;
+      if (PHONE.matches && element?.closest("#ol-controls")) setSheet(true);
+      if (target.selector && element?.getClientRects().length) element.scrollIntoView({block:"nearest",inline:"nearest"});
+      else if (PHONE.matches && target.region && canvas.getClientRects().length) canvas.scrollIntoView({block:"nearest",inline:"nearest"});
+    },
     closeTransient: () => closePop(true),
     openKeys,
     hasTransient: () => Boolean(pop.open || root.dataset.sheet === "open" || root.querySelector("dialog[open]")),
@@ -23066,6 +23298,7 @@
   bindEvidence();
   bindNavigation();
   bindScaleUi();
+  guiAuditInit();
   try {
     qsa("button,input,select").forEach((control) => (control.disabled = true));
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
