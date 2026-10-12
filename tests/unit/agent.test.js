@@ -125,6 +125,17 @@ test("MCP process emits only JSON-RPC and supports discover, inspection and acti
   assert.equal(messages[2].result.structuredContent.comparison.captures.length, 2);
   assert.equal(messages[3].result.isError, true);
 });
+test("HTTP-backed MCP refresh preserves the original sealed scene and returns changed facts", async (t) => {
+  const { startFake } = require("../support/cube-fake.js"), { dispatch } = await import("../../tools/cube-agent.mjs");
+  const fake = await startFake({ profile: "micro:mixed" }); t.after(() => fake.close());
+  const previousUrl = process.env.CUBE_URL; process.env.CUBE_URL = fake.url;
+  t.after(() => { if (previousUrl === undefined) delete process.env.CUBE_URL; else process.env.CUBE_URL = previousUrl; });
+  const before = await dispatch("cube_query", { query: { t1: "2021-01-01T00:00:00Z", t2: "2021-01-01T00:01:52.500Z", p1: 25000, p2: 25250, tR: 56.25, pR: 125 } });
+  const original = structuredClone(before); fake.revise({ day: "2021-01-01", factor: 2 });
+  const after = await dispatch("cube_refresh", { document: before });
+  assert.deepEqual(before, original); assert.deepEqual(A.validate(before), original);
+  assert.ok(after.changes.some((change) => change.metric === "volume.amount" && change.before.value === 300 && change.after.value === 600));
+});
 test("production durable store survives a new instance and rejects corrupted or unknown references", () => {
   const script = `import sys,tempfile,json,hashlib,sqlite3\nfrom pathlib import Path\nsys.path.insert(0,'tools')\nfrom investigation_store import InvestigationStore\nwith tempfile.TemporaryDirectory() as root:\n p=Path(root)/'db.sqlite';s=InvestigationStore(p);body=b'{"schema":"cube-analysis@1","evidence":300}';i=s.put(body)\n assert i==hashlib.sha256(body).hexdigest()\n assert s.put(body)==i and InvestigationStore(p).get(i)==body\n assert s.get('a'*64) is None\n with sqlite3.connect(p) as c:c.execute('UPDATE investigations SET body=? WHERE id=?',(b'bad',i))\n try:s.get(i);raise AssertionError('corruption accepted')\n except ValueError:pass\n try:s.get('../db');raise AssertionError('path accepted')\n except ValueError:pass\nprint('durable store verified')\n`;
   const run = spawnSync("python3", ["-c", script], { encoding: "utf8" }); assert.equal(run.status, 0, run.stderr); assert.match(run.stdout, /verified/);

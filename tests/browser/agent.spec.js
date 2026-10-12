@@ -22,6 +22,14 @@ test("single-cell copy contains instant text and complete typed JSON", async ({ 
   expect(packet.schema).toBe("cube-analysis@1");
   expect(packet.comparison.captures[0].metrics.size.value).toBe(150);
   expect(packet.comparison.captures[0].context.histories.length).toBeGreaterThan(0);
+  expect(packet.snapshot.sources[0].cells[0].v).toBe(300);
+});
+test("agent configuration keeps live reads available", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);
+  await page.evaluate(() => window.cubeAgent.configure({ mode: "delta" }));
+  await expect(page.locator("#ol-analysis-status")).toContainText("Live query");
+  fake.revise({ day: "2021-01-01", factor: 2 });
+  await expect.poll(() => fake.log().filter((request) => request.path === "/cube/pack" && request.answer === "pack").length, { timeout: 20000 }).toBeGreaterThan(0);
 });
 test("comparison and labeled drawings reopen from complete links in a fresh context", async ({ page, fakeFor, probe, freshContext }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);

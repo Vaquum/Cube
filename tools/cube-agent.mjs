@@ -58,8 +58,7 @@ export async function dispatch(name, args = {}) {
   if (name === "cube_annotate") return A.annotate(document, args.line);
   if (name === "cube_refresh") {
     const fresh = A.fromQuery(await request("/cube/agent/query?proto=2&" + new URLSearchParams(queryOf(document))));
-    fresh.scene = document.scene;
-    fresh.scene.observation = { ...fresh.scene.observation, ...fresh.snapshot, cutoffMs: fresh.snapshot.cutoffMs };
+    fresh.scene = structuredClone(document.scene);
     // Observation provenance has a strict portable-scene allowlist.
     fresh.scene.observation = { source: fresh.snapshot.source, instrument: "BTC/USDT", cutoffMs: fresh.snapshot.cutoffMs, canonicalThroughMs: fresh.snapshot.canonicalThroughMs, token: fresh.snapshot.token, note: "Explicit refresh of captured query" };
     fresh.scene = A.seal(fresh.scene);

@@ -21664,6 +21664,7 @@
           signal: AbortSignal.timeout(LIVE_TIMEOUT),
         }),
         body = await response.json().catch(() => null);
+      if (activeAnalysis?.mode === "captured") { live.busy = false; return; }
       offerReload(body);
       if (!response.ok)
         throw Error(body?.error || `the server answered ${response.status}`);
@@ -23169,7 +23170,7 @@
       }
       activeAnalysis = value;
       clearTimeout(live.timer); clearTimeout(cube.timer); clearTimeout(motion.timer);
-      cube.busy?.abort?.(); motion.busy?.abort?.();
+      cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
       applyView(portableView(checked.value, value.scene.id));
       drawingCommit("Open investigation", value.scene.drawings);
@@ -23205,7 +23206,8 @@
     }
     for (const cells of grouped.values()) {
       const n = cells[0].level.n, m = cells[0].level.m, isoMs = (x) => new Date(x).toISOString();
-      const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs(Math.max(...cells.map((c) => c.observed.t1))), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m };
+      const end = Math.max(...cells.map((c) => c.observed.t1)), closingBase = Math.ceil((end - T0 * 1000) / (BASE * 1000));
+      const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m };
       const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query));
       const body = await response.json(); if (!response.ok) throw Error(body.detail || body.error || "Refresh failed");
       const fresh = Agent.fromQuery(body);
@@ -23229,15 +23231,19 @@
   }
   function agentInit() {
     const report = (operation) => Promise.resolve().then(operation).catch((error) => { el("analysis-status").textContent = error.message; throw error; });
+    const edit = async (operation) => {
+      const mode = activeAnalysis?.mode ?? "live", current = await agentDocument(), next = operation(current);
+      return agentImport(Agent.seal({ ...next, mode, snapshot: mode === "live" ? null : next.snapshot }));
+    };
     window.cubeAgent = {
       capabilities: () => ({ schema: Agent.SCHEMA, methods: ["inspect", "query", "export", "apply", "configure", "compare", "replay", "annotate", "share", "refresh"] }),
       inspect: () => agentDocument(), export: (scope = "view") => agentDocument(scope),
       query: async (query) => { const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query)); const body = await response.json(); if (!response.ok) throw Error(body.error); return Agent.fromQuery(body); },
       apply: (document) => report(() => agentImport(document)),
-      configure: async (patch) => agentImport(Agent.configure(await agentDocument(), patch)),
+      configure: (patch) => edit((document) => Agent.configure(document, patch)),
       compare: async (options) => Agent.compare(await agentDocument("comparison"), options),
-      replay: async (anchor, enabled = true) => agentImport(Agent.configure(await agentDocument(), { replay: enabled, anchor })),
-      annotate: async (line) => agentImport(Agent.annotate(await agentDocument(), line)),
+      replay: (anchor, enabled = true) => edit((document) => Agent.configure(document, { replay: enabled, anchor })),
+      annotate: (line) => edit((document) => Agent.annotate(document, line)),
       share: (document, focus) => agentShare(document, focus), refresh: () => report(agentRefresh), previous: null,
     };
     for (const [id, action] of [["copy-selection", () => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")], ["copy-comparison", () => copyText(async () => Agent.text(await agentDocument("comparison")), "Comparison for agent")], ["share-investigation", () => copyText(() => agentShare(), "Investigation link")], ["refresh-investigation", agentRefresh]]) el(id).addEventListener("click", () => { report(action).catch(() => {}); });
