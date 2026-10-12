@@ -23072,6 +23072,7 @@
   function guiReferenceColourKey(container, topic) {
     const kind = topic.colour || "none", key = [topic.id,kind,S.mode,S.rows,S.pane,colourEpoch,scaleRt.legendKey.cells,scaleRt.legendKey.rows,scaleUi.keysKey,drawingStore.revision].join("|");
     if (container.dataset.key === key) return;
+    const focusedFit = container.contains(document.activeElement) && document.activeElement?.dataset.referenceColourAction === "fit";
     container.dataset.key = key; container.replaceChildren(); container.hidden = kind === "none";
     if (kind === "none") return;
     container.append(uiEl("strong", "", "Colour & marks"));
@@ -23088,7 +23089,9 @@
       const summary = model.summary;
       container.append(uiEl("p","",[summary.measure,summary.basis,summary.unit,summary.transform,summary.policy,summary.top].filter(Boolean).join(" · ")));
       const action = uiEl("button","ol-action cursor-interaction","Show fitted colour scale"); action.type="button";
+      action.dataset.referenceColourAction = "fit";
       action.onclick=()=>{referenceGuide.open(kind==="columns"?"columns":"scales",action);el(kind==="rows"?"rows-legend":kind==="columns"?"axis-chip":"legend").click();};container.append(action);
+      if (focusedFit) action.focus({preventScroll:true});
     }
     if (kind === "candles" || (kind === "cells" && S.mode === "candles")) {
       row("Up · hollow body", "var(--ol-positive)", "□"); row("Down · filled body", "var(--ol-negative)", "■"); row("Unchanged · hairline", "var(--ol-midpoint)");

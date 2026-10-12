@@ -104,3 +104,12 @@ test("reference state keys retain the footer's painted glyphs",async({page,fakeF
   expect(painted.source.length).toBeGreaterThan(0);expect(painted.source.some(b=>b.some((v,i)=>i%4===3&&v>0))).toBe(true);
   expect(painted.copy).toEqual(painted.source);
 });
+
+test("a focused colour-key action survives redraw and Tab reaches its scale control",async({page,fakeFor,probe})=>{
+  await page.emulateMedia({colorScheme:"light"});await open(page,fakeFor,probe);
+  await page.locator("#ol-reference-toggle").click();await page.locator("#ol-reference-topic").selectOption("scales");
+  const colours=page.locator("#ol-reference-colours"),action=colours.getByRole("button",{name:"Show fitted colour scale",exact:true});
+  await action.focus();await expect(action).toBeFocused();const before=await colours.getAttribute("data-key");
+  await page.emulateMedia({colorScheme:"dark"});await expect(colours).not.toHaveAttribute("data-key",before);
+  await expect(action).toBeFocused();await page.keyboard.press("Tab");await expect(page.locator("#ol-legend")).toBeFocused();
+});
