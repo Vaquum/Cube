@@ -148,6 +148,17 @@ test("HTTP-backed MCP refresh preserves the original sealed scene and returns ch
   assert.equal(refreshed.document.comparison.selectedMetric, "delta"); assert.equal(refreshed.document.comparison.basis, "intensity");
   assert.equal(refreshed.document.comparison.reference, configured.comparison.reference); assert.equal(refreshed.document.focus, configured.focus);
 });
+test("every outward adapter scene response redacts values beyond its replay edge", async () => {
+  const { dispatch } = await import("../../tools/cube-agent.mjs"), original = document();
+  const replay = A.configure(original, { replay: true, anchor: 1 });
+  for (const [name, args] of [["cube_replay", { document: original, anchor: 1 }], ["cube_configure", { document: original, patch: { replay: true, anchor: 1 } }], ["cube_inspect", { document: replay }], ["cube_annotate", { document: replay, line: { a: { timeMs: epoch, priceCents: 2500000 }, b: { timeMs: epoch + 56250, priceCents: 2512500 }, color: "#aa5533" } }]]) {
+    const result = await dispatch(name, args);
+    assert.equal(result.comparison.captures[1].metrics["volume.amount"].value, null, name);
+    assert.equal(result.comparison.captures[1].metrics["volume.amount"].tag, "hidden", name);
+    assert.equal(result.snapshot.sources[0].cells.length, 1, name);
+  }
+  assert.equal(original.comparison.captures[1].metrics["volume.amount"].value, 100);
+});
 test("HTTP agent preserves Unicode split across request chunks", async (t) => {
   const { serve } = await import("../../tools/cube-agent.mjs"), http = require("node:http");
   const server = serve(0); await new Promise((resolve) => server.once("listening", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));

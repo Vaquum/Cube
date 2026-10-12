@@ -115,3 +115,18 @@ test("explicit refresh reports changed values and retains previous evidence", as
   await expect(page.locator("#ol-analysis-status")).toContainText("Captured evidence");
   expect((await page.evaluate(() => window.cubeAgent.export())).comparison.captures[0].metrics["volume.amount"].value).toBe(300);
 });
+
+test("explicit refresh accepts supported cells revised to zero", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe); await add(page, 0, 200);
+  await page.evaluate(async () => window.cubeAgent.apply(await window.cubeAgent.export()));
+  await page.route("**/cube/agent/query?**", async (route) => {
+    const response = await route.fetch(), body = await response.json();
+    body.cells = []; body.summary = { volume: 0, trade_count: 0, taker_buy_volume: 0, taker_buy_count: 0 };
+    await route.fulfill({ response, json: body });
+  });
+  const result = await page.evaluate(() => window.cubeAgent.refresh());
+  const metric = result.document.comparison.captures[0].metrics["volume.amount"];
+  expect(metric.tag).toBe("finite"); expect(metric.value).toBe(0);
+  expect(result.changes.some((change) => change.metric === "volume.amount" && change.after.value === 0)).toBe(true);
+  expect((await page.evaluate(() => window.cubeAgent.previous)).comparison.captures[0].metrics["volume.amount"].value).toBe(300);
+});

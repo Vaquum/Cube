@@ -51,11 +51,11 @@ export async function dispatch(name, args = {}) {
   if (name === "cube_capabilities") return { schema: A.SCHEMA, tools, maxDocumentBytes: A.MAX_BYTES, queryUnits: { time: "UTC ISO", price: "USDT", tR: "seconds", pR: "USDT" }, sceneUnits: { viewport: "base columns and base rows", resolution: "dyadic exponents", annotation: "UTC milliseconds and integer cents" }, source: baseUrl().origin };
   if (name === "cube_query") return A.fromQuery(await request("/cube/agent/query?proto=2&" + new URLSearchParams(args.query)));
   const document = await documentOf(args.document);
-  if (name === "cube_inspect") return document;
+  if (name === "cube_inspect") return A.forExport(document);
   if (name === "cube_compare") return A.compare(document, { basis: args.basis, reference: args.reference });
-  if (name === "cube_configure") return A.configure(document, args.patch);
-  if (name === "cube_replay") return A.configure(document, { replay: args.enabled !== false, anchor: args.anchor });
-  if (name === "cube_annotate") return A.annotate(document, args.line);
+  if (name === "cube_configure") return A.forExport(A.configure(document, args.patch));
+  if (name === "cube_replay") return A.forExport(A.configure(document, { replay: args.enabled !== false, anchor: args.anchor }));
+  if (name === "cube_annotate") return A.forExport(A.annotate(document, args.line));
   if (name === "cube_refresh") {
     const fresh = A.fromQuery(await request("/cube/agent/query?proto=2&" + new URLSearchParams(queryOf(document))));
     if (document.comparison?.captures.length) {
@@ -91,8 +91,8 @@ export async function dispatch(name, args = {}) {
         page: Math.min(document.comparison.page, Math.max(0, Math.ceil(fresh.comparison.captures.length / 24) - 1)) };
       fresh.focus = ids.has(document.focus) ? document.focus : null;
     }
-    const updated = A.validate(A.seal(fresh));
-    return { document: updated, ...A.diff(document, updated) };
+    const updated = A.forExport(A.seal(fresh));
+    return { document: updated, ...A.diff(A.forExport(document), updated) };
   }
   if (name === "cube_share") {
     const shared = A.forExport(document), code = await A.encode(shared, codec), base = baseUrl().href;
