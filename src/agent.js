@@ -61,7 +61,7 @@
     return validate(JSON.parse(fence ? fence[1] : text));
   }
   async function encode(document, { deflate } = {}) {
-    const bytes = E.hash.utf8(E.hash.canonical(validate(document)));
+    const bytes = E.hash.utf8(E.hash.canonical(forExport(document)));
     return deflate ? "cube-analysis:1." + E.hash.b64urlEncode(await deflate(bytes)) : "cube-analysis:1j." + E.hash.b64urlEncode(bytes);
   }
   async function decode(code, { inflate } = {}) {
@@ -84,7 +84,7 @@
     return url.href;
   }
   function text(document, { link: href = null } = {}) {
-    const d = validate(document), cells = d.comparison?.captures || [];
+    const d = forExport(document), cells = d.comparison?.captures || [];
     const edge = replayEdge(d), basis = C.analyze(cells, { edge, basis: d.comparison?.basis }).basis;
     const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
     if (d.selection) sections.push("Selection: " + JSON.stringify(d.selection));
@@ -95,7 +95,7 @@
   function compare(document, options = {}) {
     const d = validate(document);
     const sceneEdge = replayEdge(d), edge = sceneEdge === null ? options.edge ?? null : Math.min(sceneEdge, options.edge ?? sceneEdge);
-    return C.analyze(d.comparison?.captures || [], { ...options, edge, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
+    return C.analyze((d.comparison?.captures || []).map((cell) => redact(cell, edge)), { ...options, edge, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
   }
   function replayEdge(d) {
     if (!d.scene.view.replay) return null;
@@ -103,6 +103,31 @@
     const position = d.scene.view.mode === "candles" ? anchor : Math.floor(anchor / step) * step;
     const geometry = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 };
     return Math.min(d.scene.observation.cutoffMs, (geometry.origin + position * geometry.baseSeconds) * 1000);
+  }
+  function forExport(document) {
+    const d = validate(document), edge = replayEdge(d);
+    if (edge === null) return d;
+    if (d.comparison) {
+      d.comparison.captures = d.comparison.captures.map((cell) => redact(cell, edge));
+      if (d.comparison.poc && Math.max(d.comparison.poc.supportEnd ?? Infinity, d.comparison.poc.knownThrough ?? Infinity) > edge) d.comparison.poc = null;
+    }
+    if (d.selection && (!Number.isFinite(d.selection.measuredThrough) || d.selection.measuredThrough > edge)) {
+      d.selection.metrics = { tag: "hidden", value: null, reason: "Unavailable in replay" }; d.selection.state = "hidden";
+    }
+    d.scene.scales = (d.scene.scales || []).filter((scale) => Number.isFinite(scale.cutMs) && scale.cutMs <= edge && Number.isFinite(scale.obsEndMs) && scale.obsEndMs <= edge);
+    d.scene.axes = (d.scene.axes || []).filter((axis) => axis.through === null || axis.through <= edge);
+    if (d.snapshot) {
+      const frame = d.snapshot, cut = (edge / 1000 - frame.origin) / frame.baseSeconds;
+      const clip = (source) => ({ ...source, b1: Math.min(source.b1, cut), col1: Math.ceil(Math.min(source.b1, cut) / 2 ** source.n), cells: source.cells.filter((cell) => Math.min((cell.c + 1) * 2 ** source.n, source.b1) <= cut) });
+      frame.sources = frame.sources.filter((source) => source.b0 < cut).map(clip);
+      frame.motion = (frame.motion || []).filter((source) => source.b0 < cut).map(clip);
+      frame.cutoffMs = edge; frame.canonicalThroughMs = frame.canonicalThroughMs === null ? null : Math.min(frame.canonicalThroughMs, edge);
+      frame.cache = {};
+      if (!frame.sources.length) d.snapshot = null;
+    }
+    d.scene.observation.cutoffMs = edge;
+    d.scene = seal(d.scene);
+    return validate(seal(d));
   }
   function diff(before, after) {
     const a = validate(before), b = validate(after), changes = [];
@@ -168,5 +193,5 @@
     const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
     return validate(seal({ schema: SCHEMA, instrument: "BTC/USDT", createdAt: Date.now(), mode: "captured", scene, snapshot, comparison: { comparisonVersion: 2, instrument: "BTC/USDT", selectedMetric: "volume", captures, focus: captures[0]?.id ?? null, reference: null, basis: "auto", sort: { key: "time", direction: "asc" }, view: "grid", page: 0, poc: null, expanded: false, restoreLayout: null }, selection: { query: scene.query, metrics: summary, source: f.source, measuredThrough: f.cutoffMs, state: "exact" }, focus: null }));
   }
-  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, redact, configure, annotate, fromQuery });
+  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, redact, configure, annotate, fromQuery, forExport });
 });

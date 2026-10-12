@@ -1,6 +1,6 @@
 # Testing
 
-How the explorer is tested, what the tests can and cannot show, and how a push to `main` becomes a deploy. The explorer itself runs and builds without npm; everything here is development tooling and is never copied into the image: the Dockerfile copies `index.html`, `vendor/` and the three bridge Python files (cube bridge, public reader and rally adapter), and `tests/unit/repo.test.js` pins that list.
+How the explorer is tested, what the tests can and cannot show, and how a push to `main` becomes a deploy. The explorer itself runs and builds without npm; everything here is development tooling and is never copied into the image: the Dockerfile copies `index.html`, `vendor/` and the four bridge Python files (cube bridge, public reader, rally adapter and investigation store), and `tests/unit/repo.test.js` pins that list.
 
 ## What the tests are evidence of
 
@@ -158,3 +158,13 @@ The prose lint in `tests/unit/role-lint.test.js` reads `docs/*.md` along with th
 `tools/benchmark/navigation.v2.json` preserves the v1 core and D12 protocol. `navigation.v3.json` extends this immutable configuration with old-week, Rows+references and replay cases before browser measurements. It adds paired Candles cases against the baseline's corresponding cell view, reporting incremental cost, cold-load time, cached K-toggle input-to-paint/read observations, read bytes and numerical-cache/decode observations. The v2/v3 smoke path includes the declared candle cases to exercise their instrumentation; smoke numbers never establish acceptance. Core regressions retain the D12 gate; absolute budgets apply where the baseline meets them. Real-cube level and paired endpoint/required-read evidence is separate: fake timing never certifies the service. Keep incomplete or inconclusive gates outstanding.
 
 Rollback: build preceding main in a separate temporary directory, verify its existing views and bar layout with the parity/benchmark suite, then revert the Candles merge and push through the same exact-SHA deployment gate if a production fault requires rollback. Reopen #61/#62. A predeployment rollback build test does not claim a live rollback was performed.
+
+## Human and agent exchange
+
+`tests/unit/agent.test.js` uses hand arithmetic, node:crypto, node:zlib, actual
+MCP subprocesses and the production Python store/route validators. It covers
+content integrity, complete packets, causal replay, Auto basis, order-independent
+refresh, hostile transport input, source snippets, maximum snapshot reimport and
+SQLite restart/corruption behavior. `tests/browser/agent.spec.js` uses micro:mixed
+hand facts and fresh browser contexts for copy, full links, evidence focus,
+rectangle export, invalid-import retention and explicit refresh.

@@ -67,14 +67,14 @@ export async function dispatch(name, args = {}) {
     return { document: updated, ...A.diff(document, updated) };
   }
   if (name === "cube_share") {
-    const code = await A.encode(document, codec), base = baseUrl().href;
+    const shared = A.forExport(document), code = await A.encode(shared, codec), base = baseUrl().href;
     let value = code;
     if (A.link(base, code).length > A.INLINE_MAX) {
-      const record = await request("/cube/investigations?proto=2", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(document) });
+      const record = await request("/cube/investigations?proto=2", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(shared) });
       value = record.reference;
     }
     const url = A.link(base, value, document.focus);
-    return { url, documentId: document.id, evidence: (document.comparison?.captures || []).map((cell) => ({ id: cell.id, url: A.link(base, value, cell.id), markdown: `[Cell ${cell.c},${cell.r}](${A.link(base, value, cell.id)})` })) };
+    return { url, documentId: shared.id, evidence: (shared.comparison?.captures || []).map((cell) => ({ id: cell.id, url: A.link(base, value, cell.id), markdown: `[Cell ${cell.c},${cell.r}](${A.link(base, value, cell.id)})` })) };
   }
   throw Error("Operation unavailable");
 }

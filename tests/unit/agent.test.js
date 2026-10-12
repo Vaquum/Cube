@@ -85,6 +85,15 @@ test("replay comparisons use the scene anchor even without a caller-supplied edg
   assert.equal(values[d.comparison.captures[1].id].tag, "hidden");
   assert.equal(A.compare(d, { edge: epoch + 112500 }).metrics.volume[d.comparison.captures[1].id].tag, "hidden");
 });
+test("replay packet JSON and comparison ordering cannot leak future captured amounts", async () => {
+  const d = A.configure(document(), { replay: true, anchor: 1 });
+  const exported = A.parse(A.text(d));
+  assert.equal(exported.comparison.captures[1].metrics["volume.amount"].value, null);
+  assert.equal(exported.snapshot.sources[0].cells.length, 1);
+  assert.equal(A.compare(d).ordered[1].metrics["volume.amount"].value, null);
+  assert.equal((await A.decode(await A.encode(d, codecs), codecs)).snapshot.cutoffMs, epoch + 56250);
+  assert.equal(d.comparison.captures[1].metrics["volume.amount"].value, 100);
+});
 test("a fenced snippet in source text cannot replace the final analysis JSON block", () => {
   const d = document(); d.comparison.captures[0].source += '\n```json\n{"unrelated":true}\n```';
   const sealed = A.seal(d); assert.deepEqual(A.parse(A.text(sealed)), sealed);

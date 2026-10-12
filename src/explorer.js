@@ -23105,11 +23105,25 @@
     const ids = new Set(captures.map((cell) => cell.id));
     const model = { ...structuredClone(comparisonModel), captures, focus: ids.has(comparisonModel.focus) ? comparisonModel.focus : captures[0]?.id ?? null, reference: ids.has(comparisonModel.reference) ? comparisonModel.reference : null, page: 0, expanded: false, restoreLayout: null };
     if (edge !== null && model.poc && Math.max(model.poc.supportEnd ?? Infinity, model.poc.knownThrough ?? Infinity) > edge) model.poc = null;
-    const snapshot = scope === "cell" ? null : agentSnapshot();
+    let snapshot = scope === "cell" ? null : agentSnapshot();
+    if (scope === "cell" && captures.length === 1) {
+      const cell = captures[0], n = cell.level.n, m = cell.level.m, ts = 2 ** n, ps = 2 ** m;
+      const z = last.shown.map.get(cell.c + "," + cell.r);
+      if (z && cell.metrics["volume.amount"]?.tag === "finite") {
+        const start = E.time.msToBase(cell.observed.t0, T0, BASE), stop = E.time.msToBase(cell.observed.t1, T0, BASE);
+        snapshot = { baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: cell.observed.t1, canonicalThroughMs: CANON === null ? null : Math.min(cell.observed.t1, comparisonMs(CANON)), source: cell.source, token: last.token, live: Boolean(PACK.live), sources: [{ id: "captured-cell", n, m, b0: start, b1: stop, col0: cell.c, col1: cell.c + 1, cells: [structuredClone(z)] }], motion: [], cache: {} };
+        const viewport = [cell.c * ts, (cell.c + 1) * ts, cell.r * ps, (cell.r + 1) * ps];
+        scene.view.viewport = viewport; scene.view.window = ""; scene.view.auto = false;
+        scene.view.selection = [start, stop, cell.observed.low / PR, cell.observed.high / PR];
+        Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: viewport[2], p2: viewport[3], tR: n, pR: m });
+        scene.observation.cutoffMs = cell.observed.t1;
+        Object.assign(scene, Agent.seal(scene));
+      }
+    }
     return Agent.validate(Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection: { query: scene.query, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut))), state: last.meas.state }, focus: null }));
   }
   async function agentShare(document = null, focus = null) {
-    const value = document ? Agent.validate(document) : await agentDocument(), code = await Agent.encode(value, { deflate: deflateGzip });
+    const value = Agent.forExport(document ? Agent.validate(document) : await agentDocument()), code = await Agent.encode(value, { deflate: deflateGzip });
     let reference = code;
     if (Agent.link(location.href, code, focus).length > Agent.INLINE_MAX) {
       if (!PACK.live && !analysisOrigin?.live) throw Error("This investigation needs durable storage on the live host. Copy the complete analysis document instead.");
