@@ -23324,8 +23324,8 @@
     if (!Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.cubeMap)) return new Map(value.cubeMap.map(([key, member]) => [key, agentRevive(member)]));
     return Array.isArray(value) ? value.map(agentRevive) : Object.fromEntries(Object.entries(value).map(([key, member]) => [key, agentRevive(member)]));
   }
-  function agentSnapshot() {
-    const edge = activeCutoff(), source = (s) => ({ id: s.id, n: s.n, m: s.m, b0: s.b0, b1: Math.min(s.b1, edge), col0: s.col0, col1: Math.ceil(Math.min(s.b1, edge) / 2 ** s.n), ...(s.end === undefined ? {} : { end: Math.min(s.end, edge) }), ...(s.token === undefined ? {} : { token: s.token }), cells: s.cells.filter((z) => !S.replay || (z.c + 1) * 2 ** s.n <= edge) });
+  function agentSnapshot(causal = true) {
+    const replay = causal && S.replay, edge = causal ? activeCutoff() : CUT, source = (s) => ({ id: s.id, n: s.n, m: s.m, b0: s.b0, b1: Math.min(s.b1, edge), col0: s.col0, col1: Math.ceil(Math.min(s.b1, edge) / 2 ** s.n), ...(s.end === undefined ? {} : { end: Math.min(s.end, edge) }), ...(s.token === undefined ? {} : { token: s.token }), cells: s.cells.filter((z) => !replay || (z.c + 1) * 2 ** s.n <= edge) });
     const maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
     const cache = {};
     for (const [key, map] of Object.entries(maps)) {
@@ -23333,7 +23333,7 @@
       cache[key] = map;
     }
     let captured = Object.values(sources).filter((s) => s.b0 < edge).map(source);
-    if (S.replay && last) {
+    if (replay && last) {
       const b = [Math.max(0, S.tA), Math.min(S.tB, edge)];
       const id = "captured-frame:" + last.n + "," + last.m;
       captured = captured.filter((s) => s.id !== id && s.id !== "captured-frame");
@@ -23363,7 +23363,7 @@
     referenceView = null; motion.view = null; if (sources.reference && sources.recent) rebuildReference();
     S.dataset = Object.keys(sources)[0];
   }
-  async function agentDocument(scope = "view", supplied = null) {
+  async function agentDocument(scope = "view", supplied = null, causal = true) {
     if (!ready || !last) throw Error("Wait for a committed canvas before copying evidence");
     if (!comparisonModel.expanded) {
       const current = () => last && last.sourceRevision === comparisonSourceRevision && last.token === (PACK.state_token ?? null) && last.camera.every((value, i) => value === [S.tA, S.tB, S.pA, S.pB, S.n, S.m, S.replay, S.anchor][i]);
@@ -23371,13 +23371,14 @@
       if (!current()) throw Error("The canvas changed while evidence was captured; copy again after it settles");
     }
     const scene = (await E.codec.decodePortable(await viewCode(), { inflate: inflateBounded })).payload;
-    const edge = comparisonEdge();
+    const edge = causal ? comparisonEdge() : null;
+    if (!causal) { scene.observation.cutoffMs = wholeMs(comparisonMs(CUT)); Object.assign(scene, Agent.seal(scene)); }
     let captures = supplied || (scope === "comparison" || scope === "view" ? comparisonModel.captures : last.shown.cells.map((z) => comparisonCapture({ surface: "cells", n: last.n, m: last.m, c: z.c, r: z.r })).filter(Boolean));
     captures = captures.map((cell) => Agent.redact(cell, edge));
     const ids = new Set(captures.map((cell) => cell.id));
     const model = { ...structuredClone(comparisonModel), captures, focus: ids.has(comparisonModel.focus) ? comparisonModel.focus : captures[0]?.id ?? null, reference: ids.has(comparisonModel.reference) ? comparisonModel.reference : null, page: 0, expanded: false, restoreLayout: null };
     if (edge !== null && model.poc && Math.max(model.poc.supportEnd ?? Infinity, model.poc.knownThrough ?? Infinity) > edge) model.poc = null;
-    let snapshot = scope === "cell" ? null : agentSnapshot();
+    let snapshot = scope === "cell" ? null : agentSnapshot(causal);
     if (scope === "cell" && captures.length === 1) {
       const cell = captures[0], n = cell.level.n, m = cell.level.m, ts = 2 ** n, ps = 2 ** m;
       const volume = cell.metrics["volume.amount"], trades = cell.metrics["trades.amount"];
@@ -23400,7 +23401,8 @@
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
       selection = { query: scene.query, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
     }
-    return Agent.forExport(Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null }));
+    const document = Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null });
+    return causal ? Agent.forExport(document) : Agent.validate(document);
   }
   async function agentShare(document = null, focus = null) {
     const value = Agent.forExport(document ? Agent.validate(document) : await agentDocument()), code = await Agent.encode(value, { deflate: deflateGzip });
@@ -23433,8 +23435,8 @@
     const value = Agent.validate(document), checked = E.codec.validatePortable(value.scene, viewEnv());
     if (!checked.ok || checked.dropped.length) throw Error(checked.reasons.join("; ") || "Scene contains unavailable settings");
     if (value.snapshot && (value.snapshot.origin !== T0 || value.snapshot.baseSeconds !== BASE || value.snapshot.basePrice !== PR)) throw Error("Captured canvas uses a different cube lattice");
-    const prior = activeAnalysis, before = await agentDocument();
-    if (!analysisOrigin) analysisOrigin = agentSnapshot();
+    const prior = activeAnalysis, before = await agentDocument("view", null, false);
+    if (!analysisOrigin) analysisOrigin = agentSnapshot(false);
     try {
       if (drawingCollection().objects.length && JSON.stringify(drawingCollection()) !== JSON.stringify(value.scene.drawings)) {
         const preserved = window.explorerState.drawings.preserve(drawingCollection());
@@ -23506,7 +23508,7 @@
   function agentInit() {
     const report = (operation) => Promise.resolve().then(operation).catch((error) => { el("analysis-status").textContent = error.message; throw error; });
     const edit = async (operation, requestedMode) => {
-      const mode = requestedMode ?? activeAnalysis?.mode ?? "live", current = await agentDocument(), next = operation(current);
+      const mode = requestedMode ?? activeAnalysis?.mode ?? "live", current = await agentDocument("view", null, false), next = operation(current);
       return agentImport(Agent.seal({ ...next, mode, snapshot: mode === "live" ? null : next.snapshot }));
     };
     window.cubeAgent = {

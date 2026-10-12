@@ -81,6 +81,19 @@ test("captured replay remains exportable after changing its resolution", async (
   const document = await page.evaluate(() => window.cubeAgent.export());
   expect(new Set(document.snapshot.sources.map((source) => source.id)).size).toBe(document.snapshot.sources.length);
 });
+test("editing replay preserves captured values when replay is disabled", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);
+  await add(page, 0, 200); await add(page, 1, 201);
+  await page.evaluate(() => window.cubeAgent.configure({ readMode: "captured" }));
+  await page.evaluate(() => window.cubeAgent.replay(1)); await atRest(page, fake, probe);
+  expect((await page.evaluate(() => window.cubeAgent.export())).comparison.captures[1].metrics["volume.amount"].tag).toBe("hidden");
+  await page.evaluate(() => window.cubeAgent.annotate({ a: { timeMs: 1609459200000, priceCents: 2500000 }, b: { timeMs: 1609459256250, priceCents: 2512500 }, color: "#aa5533", label: "Replay observation" }));
+  await page.evaluate(() => window.cubeAgent.configure({ mode: "delta" }));
+  await page.evaluate(() => window.cubeAgent.replay(1, false)); await atRest(page, fake, probe);
+  const after = await page.evaluate(() => window.cubeAgent.export());
+  expect(after.comparison.captures[1].metrics["volume.amount"].value).toBe(100);
+  expect(after.snapshot.sources.some((source) => source.cells.some((cell) => cell.c === 1 && cell.r === 201 && cell.v === 100))).toBe(true);
+});
 test("invalid import leaves the canvas, captures and drawings intact", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe); await add(page, 0, 200);
   const result = await page.evaluate(async () => {

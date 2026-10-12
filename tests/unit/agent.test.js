@@ -168,7 +168,7 @@ test("selection imports require a complete region and observation provenance", (
     assert.throws(() => A.validate(A.seal(d)), /selection region or provenance/);
   }
   for (const field of ["t1", "t2", "p1", "p2", "tR", "pR"]) {
-    const d = document(); delete d.selection.query[field];
+    const d = document(); d.selection.query = { ...d.selection.query }; delete d.selection.query[field];
     assert.throws(() => A.validate(A.seal(d)), /selection region or provenance/);
   }
 });
@@ -196,7 +196,7 @@ test("MCP refresh retains scattered evidence outside the configured viewport", a
   fake.revise({ day: "2021-01-01", factor: 2 });
   const after = await dispatch("cube_refresh", { document: narrow });
   assert.deepEqual(after.document.comparison.captures.map((c) => c.id), narrow.comparison.captures.map((c) => c.id));
-  assert.equal(after.document.comparison.captures[1].metrics["volume.amount"].value, 200);
+  assert.equal(after.document.comparison.captures.find((c) => c.c === 1 && c.r === 201).metrics["volume.amount"].value, 200);
   assert.equal(new Set(after.document.snapshot.sources.map((s) => s.token || after.document.snapshot.token)).size, 1);
 });
 test("production durable store survives a new instance and rejects corrupted or unknown references", () => {
