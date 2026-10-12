@@ -100,6 +100,8 @@ for (const [surface, options] of [["desktop", { viewport: { width: 1500, height:
     await expect(page.locator("#ol-drawing-confirm")).toBeHidden();
     expect(await committed(page)).toEqual(before.filter((object) => object.id === second.id));
     await expect(inventoryRow(page, second.id).getByRole("button", { name: "Delete Trend line 2", exact: true })).toBeFocused();
+    await D.closeManager(page);
+    if (await page.locator("#ol-sheet-close").isVisible()) await page.locator("#ol-sheet-close").click();
     await D.command(page, "undo"); expect(await committed(page)).toEqual(before);
     await D.lines(page);
     await expect(inventoryRow(page, first.id).locator(".ol-line-name")).toHaveText("Support");
