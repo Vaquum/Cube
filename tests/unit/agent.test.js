@@ -60,6 +60,8 @@ test("configuration and annotation reseal complete scenes; evidence links identi
   const url = new URL(A.link("https://cube.example/", "ref:" + "a".repeat(64), d.comparison.captures[0].id));
   assert.equal(new URLSearchParams(url.hash.slice(1)).get("evidence"), d.comparison.captures[0].id);
   assert.throws(() => A.configure(d, { madeUp: true }), /Unknown/);
+  assert.equal(A.configure(d, { readMode: "live" }).mode, "live");
+  assert.throws(() => A.configure(d, { readMode: "unknown" }), /Read mode/);
 });
 test("explicit refresh diffs changed metrics while retaining the original immutable document", () => {
   const before = document(), next = answer(); next.cells[0].v = 600;

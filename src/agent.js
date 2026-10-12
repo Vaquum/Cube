@@ -179,8 +179,9 @@
   }
   function configure(document, patch) {
     const d = validate(document);
-    if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "lines", "selection", "replay", "anchor", "scale"])) fail("Unknown scene setting");
-    Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport"].includes(key))));
+    if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "lines", "selection", "replay", "anchor", "scale", "readMode"])) fail("Unknown scene setting");
+    if (patch.readMode !== undefined) { if (!["captured", "live"].includes(patch.readMode)) fail("Read mode is captured or live"); d.mode = patch.readMode; }
+    Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport", "readMode"].includes(key))));
     if (patch.viewport) { d.scene.view.viewport = patch.viewport; d.scene.view.window = ""; Object.assign(d.scene.query, { t1: patch.viewport[0], t2: patch.viewport[1], p1: patch.viewport[2], p2: patch.viewport[3] }); }
     if (patch.resolution) { [d.scene.query.tR, d.scene.query.pR] = patch.resolution; d.scene.view.auto = false; }
     d.scene = seal(d.scene);

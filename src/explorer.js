@@ -23472,8 +23472,8 @@
   }
   function agentInit() {
     const report = (operation) => Promise.resolve().then(operation).catch((error) => { el("analysis-status").textContent = error.message; throw error; });
-    const edit = async (operation) => {
-      const mode = activeAnalysis?.mode ?? "live", current = await agentDocument(), next = operation(current);
+    const edit = async (operation, requestedMode) => {
+      const mode = requestedMode ?? activeAnalysis?.mode ?? "live", current = await agentDocument(), next = operation(current);
       return agentImport(Agent.seal({ ...next, mode, snapshot: mode === "live" ? null : next.snapshot }));
     };
     window.cubeAgent = {
@@ -23481,7 +23481,7 @@
       inspect: () => agentDocument(), export: (scope = "view") => agentDocument(scope),
       query: async (query) => { const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query)); const body = await response.json(); if (!response.ok) throw Error(body.error); return Agent.fromQuery(body); },
       apply: (document) => report(() => agentImport(document)),
-      configure: (patch) => edit((document) => Agent.configure(document, patch)),
+      configure: (patch) => edit((document) => Agent.configure(document, patch), patch.readMode),
       compare: async (options) => Agent.compare(await agentDocument("comparison"), options),
       replay: (anchor, enabled = true) => edit((document) => Agent.configure(document, { replay: enabled, anchor })),
       annotate: (line) => edit((document) => Agent.annotate(document, line)),
