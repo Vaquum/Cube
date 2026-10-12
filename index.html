@@ -19376,13 +19376,17 @@
     }
     if (raw.focus !== null && (!raw.comparison || !raw.comparison.captures.some((cell) => cell.id === raw.focus))) fail("Unknown evidence focus");
     if (raw.snapshot !== null) validateSnapshot(raw.snapshot);
-    if (raw.selection !== null && (!keys(raw.selection, ["query", "metrics", "source", "measuredThrough", "state"]) || !keys(raw.selection.query, ["t1", "t2", "p1", "p2", "tR", "pR"]) || !raw.selection.metrics)) fail("Invalid captured selection");
+    if (raw.selection !== null) {
+      const selection = raw.selection, q = selection?.query;
+      if (!keys(selection, ["query", "metrics", "source", "measuredThrough", "state"]) || !keys(q, ["t1", "t2", "p1", "p2", "tR", "pR"]) || ![q.t1, q.t2, q.p1, q.p2, q.tR, q.pR].every(Number.isFinite) || !(q.t1 <= q.t2 && q.p1 <= q.p2) || ![q.tR, q.pR].every((n) => Number.isInteger(n) && n >= 0) || !selection.metrics || typeof selection.metrics !== "object" || Array.isArray(selection.metrics) || typeof selection.source !== "string" || !selection.source || !Number.isFinite(selection.measuredThrough) || typeof selection.state !== "string") fail("Invalid captured selection region or provenance");
+    }
     const bytes = E.hash.utf8(JSON.stringify(raw)).length;
     if (bytes > MAX_BYTES) fail("Analysis exceeds 16 MiB; narrow the captured region");
     return structuredClone(raw);
   }
   function validateSnapshot(frame) {
-    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "canonicalThroughMs", "source", "token", "live", "generation", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "sourceCutoffMs", "canonicalThroughMs", "source", "token", "live", "generation", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (frame.sourceCutoffMs !== undefined && (!Number.isFinite(frame.sourceCutoffMs) || frame.sourceCutoffMs < frame.cutoffMs)) fail("Invalid captured source cutoff");
     if (frame.generation !== undefined && (!Number.isSafeInteger(frame.generation) || frame.generation < 0)) fail("Invalid captured cache generation");
     if (frame.canonicalThroughMs !== null && !Number.isFinite(frame.canonicalThroughMs)) fail("Invalid canonical cutoff");
     const ids = new Set(); let count = 0;
@@ -19464,13 +19468,26 @@
       const clip = (source) => ({ ...source, b1: Math.min(source.b1, cut), col1: Math.ceil(Math.min(source.b1, cut) / 2 ** source.n), cells: source.cells.filter((cell) => Math.min((cell.c + 1) * 2 ** source.n, source.b1) <= cut) });
       frame.sources = frame.sources.filter((source) => source.b0 < cut).map(clip);
       frame.motion = (frame.motion || []).filter((source) => source.b0 < cut).map(clip);
-      frame.cutoffMs = edge; frame.canonicalThroughMs = frame.canonicalThroughMs === null ? null : Math.min(frame.canonicalThroughMs, edge);
-      frame.cache = {};
+      frame.sourceCutoffMs ??= frame.cutoffMs;
+      frame.cutoffMs = edge;
+      frame.cache = replayCache(frame.cache || {}, cut);
       if (!frame.sources.length) d.snapshot = null;
     }
     d.scene.observation.cutoffMs = edge;
     d.scene = seal(d.scene);
     return validate(seal(d));
+  }
+  function replayCache(cache, cut) {
+    const output = {}, entries = (name) => cache[name]?.cubeMap || [], put = (name, values) => { output[name] = { cubeMap: values }; };
+    put("barChunks", entries("barChunks").filter(([, r]) => r.a < cut).map(([key, r]) => [key, { ...r, end: Math.min(r.end, cut), bars: r.bars.filter((bar) => (bar.c + 1) * 2 ** r.n <= cut) }]));
+    put("barEdges", entries("barEdges").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
+    put("candleRanges", entries("candleRanges").map(([key, r]) => {
+      const stop = r.end <= cut ? Math.min(r.b, cut) : Math.floor(cut / 2 ** r.n) * 2 ** r.n;
+      return [key, { ...r, b: stop, end: Math.min(r.end, stop), bars: r.bars.filter((bar) => bar.through <= stop) }];
+    }).filter(([, r]) => r.b > r.a));
+    for (const name of ["lineResults", "lineLatest"]) put(name, entries(name).filter(([, r]) => Array.isArray(r.span) && r.span[1] <= cut));
+    put("visibleVwaps", entries("visibleVwaps").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
+    return output;
   }
   function diff(before, after) {
     const a = validate(before), b = validate(after), changes = [];
@@ -19482,6 +19499,10 @@
       old.delete(cell.id);
     }
     for (const cell of old.keys()) changes.push({ cell, change: "removed" });
+    for (const metric of new Set([...Object.keys(a.selection?.metrics || {}), ...Object.keys(b.selection?.metrics || {})])) {
+      const prior = a.selection?.metrics?.[metric] ?? null, value = b.selection?.metrics?.[metric] ?? null;
+      if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
+    }
     return { previous: a.id, current: b.id, changes };
   }
   function redact(capture, edge) {
@@ -19506,8 +19527,9 @@
   }
   function configure(document, patch) {
     const d = validate(document);
-    if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "lines", "selection", "replay", "anchor", "scale"])) fail("Unknown scene setting");
-    Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport"].includes(key))));
+    if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "lines", "selection", "replay", "anchor", "scale", "readMode"])) fail("Unknown scene setting");
+    if (patch.readMode !== undefined) { if (!["captured", "live"].includes(patch.readMode)) fail("Read mode is captured or live"); d.mode = patch.readMode; }
+    Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport", "readMode"].includes(key))));
     if (patch.viewport) { d.scene.view.viewport = patch.viewport; d.scene.view.window = ""; Object.assign(d.scene.query, { t1: patch.viewport[0], t2: patch.viewport[1], p1: patch.viewport[2], p2: patch.viewport[3] }); }
     if (patch.resolution) { [d.scene.query.tR, d.scene.query.pR] = patch.resolution; d.scene.view.auto = false; }
     d.scene = seal(d.scene);
@@ -19530,7 +19552,8 @@
         const measurement = E.measure.cellMeasurement({ mode, basis, z, geom: { BASE: f.baseSeconds, PR: f.basePrice }, level: { n: q.n, m: q.m }, bounds, cut, end: cut, CUT: cut, replay: false });
         metrics[mode + (["volume", "trades", "delta"].includes(mode) ? "." + basis : "")] = { tag: measurement.result.tag, value: measurement.result.value ?? null, unit: measurement.unit, formula: measurement.formula, numerator: measurement.numerator ?? null, denominator: measurement.denominator ?? null, supportEnd: ms(t1), knownThrough: ms(t1), reason: measurement.result.reason ?? "" };
       }
-      const capture = { instrument: "BTC/USDT", level: { n: q.n, m: q.m }, origin: f.origin, c: z.c, r: z.r, nominal: { t0: ms(z.c * ts), t1: ms((z.c + 1) * ts), low: z.r * ps * f.basePrice, high: (z.r + 1) * ps * f.basePrice }, observed: { t0: ms(t0), t1: ms(t1), low: low * f.basePrice, high: high * f.basePrice, seconds: (t1 - t0) * f.baseSeconds, width: (high - low) * f.basePrice }, capturedAt: Date.now(), measuredThrough: ms(t1), source: f.source + " · " + f.token, completeness: t1 === (z.c + 1) * ts ? "Complete" : "Portion", metrics, detail: [], contextOrigin: "legacy-structural", context: { supports: {}, histories: [], originatingObservation: null }, originatingObservation: null };
+      const whole = t0 === z.c * ts && t1 === (z.c + 1) * ts && low === z.r * ps && high === (z.r + 1) * ps;
+      const capture = { instrument: "BTC/USDT", level: { n: q.n, m: q.m }, origin: f.origin, c: z.c, r: z.r, nominal: { t0: ms(z.c * ts), t1: ms((z.c + 1) * ts), low: z.r * ps * f.basePrice, high: (z.r + 1) * ps * f.basePrice }, observed: { t0: ms(t0), t1: ms(t1), low: low * f.basePrice, high: high * f.basePrice, seconds: (t1 - t0) * f.baseSeconds, width: (high - low) * f.basePrice }, capturedAt: Date.now(), measuredThrough: ms(t1), source: f.source + " · " + f.token, completeness: whole ? "Complete" : "Portion", metrics, detail: [["Buyer-initiated USDT", z.bv, "usdt"], ["Seller-initiated USDT", z.v - z.bv, "usdt"], ["Buyer-initiated trades", z.bt, "trades"]].map(([label, value, unit]) => ({ label, value, unit, tag: "finite", supportEnd: ms(t1), knownThrough: ms(t1) })), contextOrigin: "legacy-structural", context: { supports: {}, histories: [], originatingObservation: null }, originatingObservation: null };
       capture.id = C.identity(capture); return capture;
     });
     const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
@@ -27166,7 +27189,7 @@
     el("cutoff").textContent = `Cutoff ${when(CUT)} UTC`;
     // A recorded page names its day; a live one says how fresh it is instead.
     // The state pill says when the chart is a replay, and to when; otherwise live or recorded.
-    el("market").textContent = S.replay ? "REPLAY" : PACK.live ? "LIVE" : "RECORDED";
+    el("market").textContent = activeAnalysis?.mode === "captured" ? "CAPTURED" : S.replay ? "REPLAY" : PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live || S.replay;
     el("snapshot").textContent = S.replay ? when(activeCutoff()) : PACK.live ? "" : day(CUT);
     // Latest appears when the cutoff is out of view, beside the price profile.
@@ -31675,7 +31698,10 @@
   // Candles are an alternative price surface, not a scalar cell measurement.
   let candlePrevious = "volume", candleVersion = 0;
   const candleCache = new E.candles.Cache(), candleMemo = new Map(), candleScratch = {}, candleMetrics = { decodeMs: 0, encodedBytes: 0, decodedBytes: 0 };
-  function candleEdge() { return Math.max(0, Math.min(Math.floor(CUT), S.replay ? activeCutoff() : Math.floor(CUT))); }
+  function candleEdge() {
+    const sourceCut = activeAnalysis?.mode === "captured" && activeAnalysis.snapshot?.sourceCutoffMs !== undefined ? E.time.msToBase(activeAnalysis.snapshot.sourceCutoffMs, T0, BASE) : CUT;
+    return Math.max(0, Math.min(Math.floor(sourceCut), S.replay ? activeCutoff() : Math.floor(CUT)));
+  }
   function candleWindow(n, a, b, edge) {
     const r = E.candles.span(n, a, b, edge), step = 2 ** n;
     if (r.b - r.a > TILE_COLUMNS * step) {
@@ -42050,6 +42076,8 @@
       el("fresh").textContent = "captured " + new Date(activeAnalysis.createdAt).toISOString().slice(0, 16) + " UTC";
       return;
     }
+    el("market").textContent = S.replay ? "REPLAY" : PACK.live ? "LIVE" : "RECORDED";
+    el("fresh").hidden = !PACK.live;
     if (!PACK.live) return;
     const now = Date.now(),
       quiet = now - live.updated,
@@ -43503,15 +43531,16 @@
     const cache = {};
     for (const [key, map] of Object.entries(maps)) {
       // Replay exports only supports already known at its edge. Raw future caches never travel.
-      cache[key] = S.replay ? new Map() : map;
+      cache[key] = map;
     }
     let captured = Object.values(sources).filter((s) => s.b0 < edge).map(source);
     if (S.replay && last) {
       const b = [Math.max(0, S.tA), Math.min(S.tB, edge)];
-      captured = captured.filter((s) => s.n !== last.n || s.m !== last.m);
-      captured.push({ id: "captured-frame", n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
+      const id = "captured-frame:" + last.n + "," + last.m;
+      captured = captured.filter((s) => s.id !== id && s.id !== "captured-frame");
+      captured.push({ id, n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
     }
-    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(Math.min(CANON, edge))), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
+    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), sourceCutoffMs: wholeMs(comparisonMs(CUT)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(CANON)), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
   }
   function agentInstallSnapshot(frame) {
     if (frame.baseSeconds !== BASE || frame.basePrice !== PR || frame.origin !== T0) throw Error("Captured canvas uses a different cube lattice");
@@ -43567,11 +43596,12 @@
       }
     }
     let selection = { query: scene.query, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut))), state: last.meas.state };
+    if (["pending", "failed"].includes(last.meas.state)) selection.metrics = { tag: last.meas.state, value: null, reason: last.meas.error ?? "Selection measurement is not ready" };
     if (scope === "cell" && captures.length === 1) {
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
       selection = { query: scene.query, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
     }
-    return Agent.validate(Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null }));
+    return Agent.forExport(Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null }));
   }
   async function agentShare(document = null, focus = null) {
     const value = Agent.forExport(document ? Agent.validate(document) : await agentDocument()), code = await Agent.encode(value, { deflate: deflateGzip });
@@ -43643,6 +43673,9 @@
     if (!activeAnalysis) throw Error("Open a captured investigation before refreshing it");
     if (!analysisOrigin?.live) throw Error("The recorded page has no live source to refresh");
     const before = await agentDocument(), refreshed = [], grouped = new Map();
+    const packResponse = await fetch("/cube/pack?proto=2&since=", { cache: "no-store" }), packBody = await packResponse.json();
+    if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
+    const token = packBody.pack.state_token;
     for (const cell of before.comparison.captures) {
       const key = cell.level.n + "," + cell.level.m;
       if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(cell);
@@ -43650,9 +43683,10 @@
     for (const cells of grouped.values()) {
       const n = cells[0].level.n, m = cells[0].level.m, isoMs = (x) => new Date(x).toISOString();
       const end = Math.max(...cells.map((c) => c.observed.t1)), closingBase = Math.ceil((end - T0 * 1000) / (BASE * 1000));
-      const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m };
+      const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m, pack: token };
       const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query));
       const body = await response.json(); if (!response.ok) throw Error(body.detail || body.error || "Refresh failed");
+      if (body.frame.token !== token) throw Error("Source changed during refresh; captured evidence retained");
       const fresh = Agent.fromQuery(body);
       for (const cell of cells) {
         const found = fresh.comparison.captures.find((c) => c.id === cell.id);
@@ -43660,12 +43694,10 @@
         refreshed.push(found);
       }
     }
-    const response = await fetch("/cube/pack?proto=2&since=", { cache: "no-store" }), body = await response.json();
-    if (!response.ok || body.status !== "pack") throw Error(body.error || "Current pack unavailable; captured evidence retained");
     window.cubeAgent.previous = before;
     activeAnalysis = null; analysisHash = null;
     agentInstallSnapshot(analysisOrigin);
-    await applyLive(body.pack, true);
+    await applyLive(packBody.pack, true);
     comparisonCommit({ ...before.comparison, captures: refreshed }, true, true); update();
     const after = await agentDocument(), difference = Agent.diff(before, after);
     activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null });
@@ -43674,8 +43706,8 @@
   }
   function agentInit() {
     const report = (operation) => Promise.resolve().then(operation).catch((error) => { el("analysis-status").textContent = error.message; throw error; });
-    const edit = async (operation) => {
-      const mode = activeAnalysis?.mode ?? "live", current = await agentDocument(), next = operation(current);
+    const edit = async (operation, requestedMode) => {
+      const mode = requestedMode ?? activeAnalysis?.mode ?? "live", current = await agentDocument(), next = operation(current);
       return agentImport(Agent.seal({ ...next, mode, snapshot: mode === "live" ? null : next.snapshot }));
     };
     window.cubeAgent = {
@@ -43683,7 +43715,7 @@
       inspect: () => agentDocument(), export: (scope = "view") => agentDocument(scope),
       query: async (query) => { const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query)); const body = await response.json(); if (!response.ok) throw Error(body.error); return Agent.fromQuery(body); },
       apply: (document) => report(() => agentImport(document)),
-      configure: (patch) => edit((document) => Agent.configure(document, patch)),
+      configure: (patch) => edit((document) => Agent.configure(document, patch), patch.readMode),
       compare: async (options) => Agent.compare(await agentDocument("comparison"), options),
       replay: (anchor, enabled = true) => edit((document) => Agent.configure(document, { replay: enabled, anchor })),
       annotate: (line) => edit((document) => Agent.annotate(document, line)),
