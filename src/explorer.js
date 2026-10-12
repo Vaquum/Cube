@@ -23135,6 +23135,7 @@
       }
     }
     let selection = { query: scene.query, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut))), state: last.meas.state };
+    if (["pending", "failed"].includes(last.meas.state)) selection.metrics = { tag: last.meas.state, value: null, reason: last.meas.error ?? "Selection measurement is not ready" };
     if (scope === "cell" && captures.length === 1) {
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
       selection = { query: scene.query, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };

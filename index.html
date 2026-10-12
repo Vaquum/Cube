@@ -5039,6 +5039,7 @@
               <button type="button" id="ol-copy-comparison" class="ol-action cursor-interaction">Copy comparison</button>
               <button type="button" id="ol-share-investigation" class="ol-action cursor-interaction">Share investigation</button>
               <button type="button" id="ol-refresh-investigation" class="ol-action cursor-interaction">Refresh current source</button>
+              <button type="button" id="ol-previous-investigation" class="ol-action cursor-interaction" title="Return to the captured values before the last refresh">Restore previous capture</button>
             </div>
             <p id="ol-analysis-status" class="ol-muted" role="status"></p>
             <div id="ol-import" hidden>
@@ -19294,7 +19295,8 @@
     return structuredClone(raw);
   }
   function validateSnapshot(frame) {
-    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "canonicalThroughMs", "source", "token", "live", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (!keys(frame, ["baseSeconds", "basePrice", "origin", "cutoffMs", "canonicalThroughMs", "source", "token", "live", "generation", "sources", "motion", "cache"]) || ![frame.baseSeconds, frame.basePrice, frame.origin, frame.cutoffMs].every(Number.isFinite) || frame.baseSeconds <= 0 || frame.basePrice <= 0 || typeof frame.live !== "boolean" || !Array.isArray(frame.sources) || !frame.sources.length) fail("Invalid captured canvas");
+    if (frame.generation !== undefined && (!Number.isSafeInteger(frame.generation) || frame.generation < 0)) fail("Invalid captured cache generation");
     if (frame.canonicalThroughMs !== null && !Number.isFinite(frame.canonicalThroughMs)) fail("Invalid canonical cutoff");
     const ids = new Set(); let count = 0;
     for (const source of [...frame.sources, ...(frame.motion || [])]) {
@@ -19340,6 +19342,7 @@
     const d = forExport(document), cells = d.comparison?.captures || [];
     const edge = replayEdge(d), basis = C.analyze(cells, { edge, basis: d.comparison?.basis }).basis;
     const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
+    if (cells.some((cell) => !cell.context?.histories?.length)) sections.push("Frozen histories not captured for some cells; missing context is unavailable, not zero.");
     if (d.selection) sections.push("Selection: " + JSON.stringify(d.selection));
     if (href) sections.push("Open canvas: " + href);
     sections.push("```json\n" + JSON.stringify(d) + "\n```");
@@ -19348,7 +19351,7 @@
   function compare(document, options = {}) {
     const d = validate(document);
     const sceneEdge = replayEdge(d), edge = sceneEdge === null ? options.edge ?? null : Math.min(sceneEdge, options.edge ?? sceneEdge);
-    return C.analyze((d.comparison?.captures || []).map((cell) => redact(cell, edge)), { ...options, edge, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference ?? d.comparison?.reference, poc: options.poc ?? d.comparison?.poc });
+    return C.analyze((d.comparison?.captures || []).map((cell) => redact(cell, edge)), { ...options, edge, basis: options.basis ?? d.comparison?.basis ?? "auto", reference: options.reference === undefined ? d.comparison?.reference : options.reference, poc: options.poc === undefined ? d.comparison?.poc : options.poc });
   }
   function replayEdge(d) {
     if (!d.scene.view.replay) return null;
@@ -42942,10 +42945,15 @@
   }
 
   function agentSerialize(value) {
-    return JSON.parse(JSON.stringify(value, (_key, member) => member instanceof Map ? { cubeMap: [...member] } : typeof member === "number" && !Number.isFinite(member) ? null : member));
+    return JSON.parse(JSON.stringify(value, (_key, member) => member instanceof Map ? { cubeMap: [...member] } : ArrayBuffer.isView(member) && !(member instanceof DataView) ? { cubeTyped: member.constructor.name, values: Array.from(member) } : typeof member === "number" && !Number.isFinite(member) ? null : member));
   }
   function agentRevive(value) {
     if (!value || typeof value !== "object") return value;
+    if (!Array.isArray(value) && Object.keys(value).length === 2 && typeof value.cubeTyped === "string" && Array.isArray(value.values)) {
+      const types = { Float64Array, Float32Array, Uint32Array, Int32Array, Uint16Array, Int16Array, Uint8Array, Int8Array, Uint8ClampedArray };
+      if (!Object.hasOwn(types, value.cubeTyped)) throw Error("Unsupported captured numerical array");
+      return new types[value.cubeTyped](value.values.map((member) => member === null ? NaN : member));
+    }
     if (!Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.cubeMap)) return new Map(value.cubeMap.map(([key, member]) => [key, agentRevive(member)]));
     return Array.isArray(value) ? value.map(agentRevive) : Object.fromEntries(Object.entries(value).map(([key, member]) => [key, agentRevive(member)]));
   }
@@ -42963,10 +42971,11 @@
       captured = captured.filter((s) => s.n !== last.n || s.m !== last.m);
       captured.push({ id: "captured-frame", n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
     }
-    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(Math.min(CANON, edge))), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
+    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(Math.min(CANON, edge))), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
   }
   function agentInstallSnapshot(frame) {
     if (frame.baseSeconds !== BASE || frame.basePrice !== PR || frame.origin !== T0) throw Error("Captured canvas uses a different cube lattice");
+    if (frame.generation !== undefined) live.generation = frame.generation;
     sources = Object.fromEntries(frame.sources.map((s) => [s.id, structuredClone(s)]));
     motion.sources = Object.fromEntries((frame.motion || []).map((s) => [s.id.replace(/^motion:/, ""), structuredClone(s)]));
     for (const source of Object.values(motion.sources)) for (const z of source.cells) { if (z.hi === null) z.hi = NaN; if (z.lo === null) z.lo = NaN; }
@@ -43120,7 +43129,7 @@
     comparisonCommit({ ...before.comparison, captures: refreshed }, true, true); update();
     const after = await agentDocument(), difference = Agent.diff(before, after);
     activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null });
-    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained by cubeAgent.previous.";
+    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes.";
     scheduleLive(3); return { document: after, ...difference };
   }
   function agentInit() {
@@ -43140,7 +43149,7 @@
       annotate: (line) => edit((document) => Agent.annotate(document, line)),
       share: (document, focus) => agentShare(document, focus), refresh: () => report(agentRefresh), previous: null,
     };
-    for (const [id, action] of [["copy-selection", () => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")], ["copy-comparison", () => copyText(async () => Agent.text(await agentDocument("comparison")), "Comparison for agent")], ["share-investigation", () => copyText(() => agentShare(), "Investigation link")], ["refresh-investigation", agentRefresh]]) el(id).addEventListener("click", () => { report(action).catch(() => {}); });
+    for (const [id, action] of [["copy-selection", () => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")], ["copy-comparison", () => copyText(async () => Agent.text(await agentDocument("comparison")), "Comparison for agent")], ["share-investigation", () => copyText(() => agentShare(), "Investigation link")], ["refresh-investigation", agentRefresh], ["previous-investigation", () => { if (!window.cubeAgent.previous) throw Error("No previous capture is available on this page"); return agentImport(window.cubeAgent.previous); }]]) el(id).addEventListener("click", () => { report(action).catch(() => {}); });
     canvas.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c" && S.selection) { event.preventDefault(); report(() => copyText(async () => Agent.text(await agentDocument("selection")), "Selection for agent")).catch(() => {}); }
     });
