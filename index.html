@@ -4125,7 +4125,7 @@
             aria-label="Pan"
             aria-keyshortcuts="V"
             data-keys="V"
-            data-hint="Drag to navigate; click a column to anchor; G edits drawings"
+            data-hint="Drag to navigate; Replay/Continuations/Cases: click sets the anchor; G edits drawings"
           >
             <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
               <path
@@ -5185,7 +5185,7 @@
           ><span id="ol-keys-ref" class="ol-keys-scale ol-keys-ref" aria-label="References"></span>
         </div>
         <span class="ol-gesture" id="ol-gesture"
-          >Drag to pan · wheel to zoom · click to anchor</span
+          >Drag to pan · wheel to zoom · Replay/Continuations/Cases: click anchors</span
         >
         <div class="ol-status-meta ol-num">
           <span id="ol-pixel-state"></span><span id="ol-scope"
@@ -19372,7 +19372,7 @@
     { id: "profiles", group: "Read the market", title: "Profile tracks",
       purpose: "Compare how activity is distributed across price levels.",
       read: "The current track is view or selection volume, with taker-buy volume inset; the reference track uses the Rows measure and period. Independent axes scales each separately. Shared absolute makes equal lengths equal amounts. Shared row share makes each row a percentage of its own track's total over the common price window: 20% versus 10% is twice the concentration.",
-      use: "Use Profiles or expand Profile comparison below. Shared absolute needs Volume on both tracks; row share needs nonnegative distributions. Read Window W, both totals and domains. Narrow charts fold the tracks; Show the tracks reveals them.",
+      use: "Use Profiles or expand Profile comparison below. Shared absolute needs Volume on both tracks; row share needs nonnegative distributions. Read Window W, both totals and domains. Narrow charts fold the tracks; use Profiles to reveal them.",
       targets: [{"label":"Show profile tracks","region":"profiles"}], colour: "profiles" },
     { id: "columns", group: "Read the market", title: "Columns & indicators",
       purpose: "Read time-based summaries below the price grid.",
@@ -39980,7 +39980,7 @@
           ? "Wheel / pinch: time + price · on the price axis: price · Alt: lens"
           : S.diagonal
             ? "Wheel / pinch: time ×k, price ×√k · on the price axis: price · Alt: lens"
-            : "Wheel / pinch: time · on the price axis or with Shift: price · Alt: lens";
+            : "Wheel / pinch: time · chart Shift / price axis: price · time axis: time · Alt: lens";
     if (el("gesture").textContent !== gesture) el("gesture").textContent = gesture;
     // The plane describes its 210 levels only while it shows, and brings them
     // up to date as it opens (see bindTopBar): navigating with it closed
