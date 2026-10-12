@@ -23011,6 +23011,53 @@
     el("inspect-open-detail").addEventListener("click", () => inspectDetail(true));
     el("inspect-reference-search").addEventListener("input", () => inspectRender(true));
   }
+  function guiReferenceColourKey(container, topic) {
+    const kind = topic.colour || "none", key = [topic.id,kind,S.mode,S.rows,S.pane,colourEpoch,scaleRt.legendKey.cells,scaleRt.legendKey.rows,scaleUi.keysKey,drawingStore.revision].join("|");
+    if (container.dataset.key === key) return;
+    container.dataset.key = key; container.replaceChildren(); container.hidden = kind === "none";
+    if (kind === "none") return;
+    container.append(uiEl("strong", "", "Colour & marks"));
+    const row = (label, colour, mark = "—") => {
+      const line = uiEl("div", "ol-reference-colour-row"), swatch = uiEl("i", "ol-reference-colour-swatch", mark);
+      swatch.style.setProperty("--ref-ink", colour); swatch.setAttribute("aria-hidden","true"); line.append(swatch,uiEl("span","",label)); container.append(line);
+    };
+    const model = kind === "rows" ? scaleUi.models.rows : kind === "columns" ? scaleUi.models.pane : scaleUi.models.cells;
+    if (["cells","rows","columns"].includes(kind) && model?.bar?.ramps && !["geometry","candles"].includes(S.mode)) {
+      const ramp = uiEl("canvas", ""); ramp.width = 320; ramp.height = 12; ramp.setAttribute("aria-hidden","true"); container.append(ramp); legendBar(ramp,model,320,12);
+      const summary = model.summary;
+      container.append(uiEl("p","",[summary.measure,summary.basis,summary.unit,summary.transform,summary.policy,summary.top].filter(Boolean).join(" · ")));
+      const action = uiEl("button","ol-action cursor-interaction","Show fitted colour scale"); action.type="button";
+      action.onclick=()=>{referenceGuide.open(kind==="columns"?"columns":"scales",action);el(kind==="rows"?"rows-legend":kind==="columns"?"axis-chip":"legend").click();};container.append(action);
+    }
+    if (kind === "candles" || (kind === "cells" && S.mode === "candles")) {
+      row("Up · hollow body", "var(--ol-ink)", "□"); row("Down · filled body", "var(--ol-ink)", "■"); row("Unchanged · hairline", "var(--ol-ink)");
+    } else if (kind === "cells" && S.mode === "geometry") row("Occupancy · trades measured in this cell", "var(--ol-occupancy)", "□");
+    if (["references","profiles"].includes(kind)) {
+      row("Profile POC / value area", "var(--ol-line-poc)", "×"); row("Session / structural price level", "var(--ol-line-level)"); row("Moving average / Bollinger", "var(--ol-line-average)"); row("VWAP", "var(--ol-line-vwap)"); row("Clock · scheduled time", "var(--ol-line-clock)", "│");
+      container.append(uiEl("p","ol-muted","Colour names the family; name and stroke pattern identify the measure, timeframe and confirmation."));
+    }
+    if (kind === "averages") row("Moving average / Bollinger", "var(--ol-line-average)");
+    if (kind === "vwap") row("VWAP", "var(--ol-line-vwap)");
+    if (kind === "clock") row("Calendar / schedule", "var(--ol-line-clock)", "│");
+    if (kind === "indicators" || (kind === "columns" && S.pane.startsWith("macd"))) {
+      row("MACD / RSI line", "var(--ol-ink)"); row("MACD signal", "var(--ol-line-average)"); row("Histogram / cross above signal", "var(--ol-positive)", "+"); row("Histogram / cross below signal", "var(--ol-negative)", "−");
+    }
+    if (kind === "compare") { row("Unsigned comparison amount", "var(--ol-muted)", "■"); row("Positive / above share midpoint", "var(--ol-positive)", "+"); row("Negative / below share midpoint", "var(--ol-negative)", "−"); row("Midpoint", "var(--ol-midpoint)", "■"); }
+    if (kind === "evidence") { row("Matching / eligible historical sets · shapes and labels distinguish them", "var(--ol-line-compare)", "□"); container.append(uiEl("p","ol-muted","Boxes: central 50% / 80% outcomes. Pointwise intervals: estimation uncertainty, not forecast odds.")); }
+    if (kind === "histories") row("Historical miniature · each has its own scale", "var(--ol-ink)");
+    if (kind === "selection") row("Selection boundary · measured rectangle", "var(--ol-ink)", "□");
+    if (kind === "rallies") { row("Outlined cell · contains native rally members", "var(--ol-state)", "□"); row("Member volume profile", "var(--ol-muted)", "■"); }
+    if (kind === "drawings") {
+      for (const object of drawingCollection().objects) row(`${drawingDisplayName(object)} · authored annotation`, object.color);
+      container.append(uiEl("p","ol-muted","A drawing's chosen RGB colour has no market meaning."));
+    }
+    if (["states","resolution"].includes(kind)) {
+      row("Coverage / non-value marks · inspect their reason", "var(--ol-state)", "◇");
+      const original = root.querySelector(".ol-status > .ol-status-keys");
+      if (original) { const copy = original.cloneNode(true); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");copy.style.flexWrap="wrap";copy.style.overflow="visible";container.append(copy); }
+      container.append(uiEl("p","ol-muted","The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
+    }
+  }
   async function comparisonImport(file) {
     const revision = comparisonRevision;
     if (file.size > 4 * 1024 * 1024) { comparisonMessage = "Collection exceeds the 4 MiB limit"; comparisonRefresh(true); return; }
@@ -23141,6 +23188,13 @@
     root,
     beforeOpen: () => { closePop(); hideHint(); setSheet(false); },
     beforeChange: closePop,
+    colourKey: guiReferenceColourKey,
+    reveal: target => {
+      const element = target.selector ? root.querySelector(target.selector) : canvas;
+      if (PHONE.matches && element?.closest("#ol-controls")) setSheet(true);
+      if (target.selector && element?.getClientRects().length) element.scrollIntoView({block:"nearest",inline:"nearest"});
+      else if (PHONE.matches && target.region && canvas.getClientRects().length) canvas.scrollIntoView({block:"nearest",inline:"nearest"});
+    },
     closeTransient: () => closePop(true),
     openKeys,
     hasTransient: () => Boolean(pop.open || root.dataset.sheet === "open" || root.querySelector("dialog[open]")),
