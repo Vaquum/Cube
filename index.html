@@ -31447,9 +31447,11 @@
     };
   }
   // In replay, the bar holding the edge, up to the edge.
+  // Candle replay can end within a base interval; bar reads must retain that exact cutoff.
+  const barCutoff = () => S.replay ? activeCutoff() : cutEdge();
   function barEdgeWant(n) {
     const step = 2 ** n,
-      edge = cutEdge();
+      edge = barCutoff();
     if (!S.replay || edge % step === 0) return null;
     const key = [live.generation, n, edge].join("|");
     if (barEdges.has(key)) return null;
@@ -31469,10 +31471,10 @@
   // replay the bar at the edge; then the chunks holding the view's days at
   // the timeframe its VWAPs are drawn at.
   function barsWant() {
-    const edge = cutEdge();
+    const edge = barCutoff();
     for (const n of barLevels()) {
       const span = BAR_CHUNK * 2 ** n;
-      for (let j = Math.floor((edge - 1) / span); j >= 0; j--) {
+      for (let j = Math.floor((Math.ceil(edge) - 1) / span); j >= 0; j--) {
         const want = barChunkWant(n, j);
         if (want && !motion.failed.has(want.key)) return { ...want, relevant: () => barLevels().includes(n) };
       }
@@ -31481,7 +31483,7 @@
     }
     for (const [n, a, b] of viewBarNeeds()) {
       const span = BAR_CHUNK * 2 ** n;
-      for (let j = Math.floor(Math.max(a, b - 1) / span); j >= Math.floor(a / span); j--) {
+      for (let j = Math.floor(Math.max(a, Math.ceil(b) - 1) / span); j >= Math.floor(a / span); j--) {
         const want = barChunkWant(n, j);
         if (want && !motion.failed.has(want.key)) return want;
       }
@@ -31504,7 +31506,7 @@
   // measures end. Kept until a read or the edge changes.
   const seriesMemo = new Map();
   function barSeries(n) {
-    const edge = cutEdge(),
+    const edge = barCutoff(),
       step = 2 ** n,
       span = BAR_CHUNK * step,
       partial = S.replay && edge % step !== 0,
@@ -31535,7 +31537,7 @@
   // Where a timeframe's measures end, when the cube's end before the data does:
   // the lines built on them end there too.
   function barsShort(series) {
-    return series.state === "ready" && series.end < (S.replay ? cutEdge() : Math.floor(CUT)) ? series.end : null;
+    return series.state === "ready" && series.end < (S.replay ? activeCutoff() : Math.floor(CUT)) ? series.end : null;
   }
   // Bars combined: the first's open, the highest high, the lowest low, the
   // last's close and the volumes and trades summed.
@@ -32375,7 +32377,7 @@
   // at the edge up to it.
   const rangeMemo = new Map();
   function barsBetween(n, a, b) {
-    const edge = cutEdge(),
+    const edge = barCutoff(),
       stop = Math.min(b, edge),
       step = 2 ** n,
       span = BAR_CHUNK * step,
@@ -32418,7 +32420,7 @@
   // Kept per anchor, timeframe and span, so a pan reuses it.
   const vwapMemo = new Map();
   function vwapCurve(anchor, n, from, to) {
-    const key = [anchor, n, from, to, live.generation, cutEdge(), S.replay, barsVersion].join("|"),
+    const key = [anchor, n, from, to, live.generation, barCutoff(), S.replay, barsVersion].join("|"),
       hit = vwapMemo.get(key);
     if (hit) return hit;
     const out = vwapFrom(anchor, n, from, to);
@@ -32472,7 +32474,7 @@
     if (!PACK.live || !(S.lines.some(isSessionVwap) || anchored)) return null;
     const n = vwapLevel();
     if (n === 9) return null;
-    const edge = cutEdge(),
+    const edge = barCutoff(),
       days = Math.min(Math.ceil(S.tB / DAYS) * DAYS, edge),
       b = anchored ? Math.max(days, Math.min(edge, Math.ceil(anchoredSpan(n).to))) : days;
     const a = Math.floor(Math.max(0, spaced(DAYS) || anchored ? S.tA : Math.min(S.tB, edge) - 1e-6) / DAYS) * DAYS;
@@ -32481,7 +32483,7 @@
   function viewBarNeeds() {
     if (!PACK.live) return [];
     const out = [vwapBarNeed()].filter(Boolean),
-      edge = cutEdge();
+      edge = barCutoff();
     // Menu values refer to the cutoff day even when viewing older history.
     if (regionalVwapsOn()) out.push([6, Math.floor(Math.max(0, activeCutoff() - 1e-6) / DAYS) * DAYS, edge]);
     for (const tf of ["15m", "3m"])
@@ -35592,7 +35594,7 @@
   // Whether any retracement is on, for the rows that add levels to them.
   const retracementsOn = () => S.lines.some((k) => isFibDay(k) || RETRACEMENT_ROWS.some(([row]) => row === k));
   function vwapValue(key) {
-    const edge = cutEdge();
+    const edge = barCutoff();
     let anchor;
     if (isSessionVwap(key)) {
       const d = Math.floor(Math.max(0, activeCutoff() - 1e-6) / DAYS),
