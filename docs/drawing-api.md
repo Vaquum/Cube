@@ -16,7 +16,7 @@ coincident anchors, duplicate IDs/ordinals and more than200 objects without muta
 | `empty()` | A new visible empty collection. |
 | `normalizeCollection(raw)`, `normalizeObject(raw)` | Fresh validated values; invalid input throws a descriptive `RangeError`. Objects sort by ordinal. |
 | `newObject(collection,{a,b,color,id?,name?,label?,visible?,locked?})` | One new object, not an appended collection. Secure ID/default name and next ordinal;200-object limit. |
-| `duplicate(collection,id)` | One new visible, unlocked object with copied endpoints/RGB/label and a bounded unique copy name. |
+| `duplicate(collection,id)` | One new visible, unlocked object with copied endpoints/RGB/label. Generated names receive the new ordinal's default name; custom names receive a bounded unique copy name. |
 | `point(timeMs,priceUSDT)` | Quantize once to nearest millisecond/cent, ties upward; reject outside the domain. |
 | `translate(object,deltaTimeMs,deltaPriceUSDT)` | Quantize one delta and preserve the anchor vector; reject locked or out-of-domain movement. |
 | `parseTime(text)`, `parsePrice(text)` | Integer milliseconds/cents; exact UTC `YYYY-MM-DDTHH:mm:ss[.SSS]Z` and unsigned decimal with at most2 fractional digits. Invalid dates and extra precision reject. |
