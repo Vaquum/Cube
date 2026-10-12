@@ -23067,6 +23067,8 @@
     const model = kind === "rows" ? scaleUi.models.rows : kind === "columns" ? scaleUi.models.pane : scaleUi.models.cells;
     if (["cells","rows","columns"].includes(kind) && model?.bar?.ramps && !(kind === "cells" && ["geometry","candles"].includes(S.mode))) {
       const ramp = uiEl("canvas", ""); ramp.width = 320; ramp.height = 12; ramp.setAttribute("aria-hidden","true"); container.append(ramp); legendBar(ramp,model,320,12);
+      const ticks = uiEl("div","ol-legend-ticks ol-num"); ticks.style.height = "32px";
+      model.bar.ticks.forEach((tick,index,all)=>{const label=uiEl("span","ol-legend-tick",tick.label);label.style.left=uiBarLeft(tick.p);label.style.top=(index%2)*14+"px";label.dataset.align=index===0?"start":index===all.length-1?"end":"mid";ticks.append(label);});container.append(ticks);
       const summary = model.summary;
       container.append(uiEl("p","",[summary.measure,summary.basis,summary.unit,summary.transform,summary.policy,summary.top].filter(Boolean).join(" · ")));
       const action = uiEl("button","ol-action cursor-interaction","Show fitted colour scale"); action.type="button";
@@ -23076,6 +23078,7 @@
       row("Up · hollow body", "var(--ol-positive)", "□"); row("Down · filled body", "var(--ol-negative)", "■"); row("Unchanged · hairline", "var(--ol-midpoint)");
     } else if (kind === "cells" && S.mode === "geometry") row("Occupancy · trades measured in this cell", "var(--ol-occupancy)", "□");
     if (["references","profiles"].includes(kind)) {
+      if(kind==="profiles"){row("Profile amount · bar length",last?.sc?.lut?.bar?.css??colors.muted,"■");row("Taker-buy subset · inset",colors.ink,"■");}
       row("Profile POC / value area", "var(--ol-line-poc)", "×"); row("Session / structural price level", "var(--ol-line-level)"); row("Moving average / Bollinger", "var(--ol-line-average)"); row("VWAP", "var(--ol-line-vwap)"); row("Clock · scheduled time", "var(--ol-line-clock)", "│");
       container.append(uiEl("p","ol-muted","Colour names the family; name and stroke pattern identify the measure, timeframe and confirmation."));
     }
@@ -23089,7 +23092,7 @@
     if (kind === "evidence") { row("Matching / eligible historical sets · shapes and labels distinguish them", "var(--ol-line-compare)", "□"); container.append(uiEl("p","ol-muted","Boxes: central 50% / 80% outcomes. Pointwise intervals: estimation uncertainty, not forecast odds.")); }
     if (kind === "histories") row("Historical miniature · each has its own scale", "var(--ol-ink)");
     if (kind === "selection") row("Selection boundary · measured rectangle", "var(--ol-ink)", "□");
-    if (kind === "rallies") { row("Outlined cell · contains native rally members", "var(--ol-state)", "□"); row("Member volume profile", "var(--ol-muted)", "■"); }
+    if (kind === "rallies") { row("Outlined cell · contains native rally members", "var(--ol-state)", "□"); row("Member volume · row length", "var(--ol-on)", "■"); }
     if (kind === "drawings") {
       for (const object of drawingCollection().objects) row(`${drawingDisplayName(object)} · authored annotation`, object.color);
       container.append(uiEl("p","ol-muted","A drawing's chosen RGB colour has no market meaning."));
