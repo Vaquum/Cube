@@ -43681,7 +43681,8 @@
     if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
     const token = packBody.pack.state_token;
     for (const cell of before.comparison.captures) {
-      const key = cell.level.n + "," + cell.level.m;
+      const whole = ["t0", "t1", "low", "high"].every((bound) => cell.observed[bound] === cell.nominal[bound]);
+      const key = cell.level.n + "," + cell.level.m + (whole ? "" : ":" + cell.id);
       if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(cell);
     }
     for (const cells of grouped.values()) {
