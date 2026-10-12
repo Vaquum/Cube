@@ -82,3 +82,10 @@ test("phone Show reveals the control above the reference and Back restores the a
   await expect(page.locator("#ol-reference-topic")).toHaveValue("columns");
   await expect(page.locator("#origo-lens")).not.toHaveAttribute("data-sheet","open");
 });
+
+test("Candle Jump preserves an exact sub-base timestamp",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe,"&mode=candles");await page.locator("#ol-replay").click();await probe.waitForReady();
+  const field=page.locator("#ol-replay-edge"),value=await field.inputValue(),target=value.slice(0,10)+"T00:00:56.125";
+  await field.fill(target);await page.locator("#ol-replay-jump button").click();await probe.waitForReady();
+  expect(await field.inputValue()).toBe(target);await expect(page.locator("#ol-replay-jump-status")).toContainText("exact exclusive candle cutoff");
+});

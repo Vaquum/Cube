@@ -23026,11 +23026,11 @@
       el("import").hidden = false; await applyImportedView(); el("bounds-status").textContent = el("copy-status").textContent;
     });
     el("replay-jump").addEventListener("submit", event => {
-      event.preventDefault(); const ms = Date.parse(el("replay-edge").value + "Z"), base = E.time.msToBase(ms, T0, BASE), edge = Math.floor(base / stepT()) * stepT();
-      if (!Number.isFinite(base) || edge < stepT() || edge > CUT) { el("replay-jump-status").textContent = "Choose an edge within the available history"; return; }
+      event.preventDefault(); const ms = Date.parse(el("replay-edge").value + "Z"), base = E.time.msToBase(ms, T0, BASE), edge = S.mode === "candles" ? base : Math.floor(base / stepT()) * stepT();
+      if (!Number.isFinite(base) || edge <= 0 || (S.mode !== "candles" && edge < stepT()) || base > CUT) { el("replay-jump-status").textContent = "Choose an edge within the available history"; return; }
       setPlaying(false); S.anchor = edge;
       if (edge < S.tA || edge > S.tB) { const width = S.tB - S.tA; S.tA = Math.max(0,edge - width); S.tB = edge; S.window = null; }
-      recordView("Replay edge"); update(); save(); scaleArm(); el("replay-jump-status").textContent = when(edge) + " UTC · completed grid edge";
+      recordView("Replay edge"); update(); save(); scaleArm(); el("replay-jump-status").textContent = iso(edge) + (S.mode === "candles" ? " · exact exclusive candle cutoff" : " · completed grid edge");
     });
     el("inspect-open-detail").addEventListener("click", () => inspectDetail(true));
     el("inspect-reference-search").addEventListener("input", () => inspectRender(true));
