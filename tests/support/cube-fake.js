@@ -32,6 +32,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // The slot a request would take in the bridge: reads with measures (motion, bars) hold the motion slot, the other reads the cube slot, the
 // poll neither. The page keeps one read per slot in flight, so two overlapping in one slot is a page bug (or a test gate left open).
 function slotOf(pathname, args) {
+  if (pathname.startsWith("/cube/investigations")) return "storage";
   if (pathname === "/cube/rallies" || pathname === "/cube/rallies/view") return "rallies";
   if (pathname === "/cube/pack") return "poll";
   if (pathname === "/cube/motion" || pathname === "/cube/bars") return "motion";
@@ -206,6 +207,7 @@ class FakeCube {
 
   // (Re)build the model from the options: the cube over a fresh store, and the bridge over the cube.
   boot() {
+    this.investigations ||= new Map();
     if (this.opts.mode === "recorded") {
       this.profile = null;
       this.cube = null;
@@ -302,6 +304,14 @@ class FakeCube {
     }
     if (this.closed) return;
 
+    if (req.method === "POST" && pathname === "/cube/investigations") {
+      if (args.proto?.[0] !== PROTOCOL) return sendJson({ error: OUTDATED }, 409);
+      let raw = ""; for await (const part of req) raw += part;
+      const id = require("node:crypto").createHash("sha256").update(raw).digest("hex");
+      this.investigations.set(id, JSON.parse(raw));
+      return sendJson({ id, reference: "ref:" + id }, 201);
+    }
+
     // Recorded canonical output exercises this boundary without inventing market events.
     if (req.method === "POST" && (pathname === "/cube/rallies" || pathname === "/cube/rallies/view")) {
       if (args.proto?.[0] !== PROTOCOL) return sendJson({error:OUTDATED, reload:true}, 409);
@@ -357,6 +367,19 @@ class FakeCube {
       const bridge = this.bridge;
       const token = args.pack?.[0] ?? "";
       if (pathname === "/cube/pack") return json(bridge.update(args.since?.[0] ?? ""));
+      if (pathname.startsWith("/cube/investigations/")) {
+        const stored = this.investigations.get(pathname.split("/").pop());
+        return stored ? json(stored) : json({ error: "investigation_not_found" }, 404);
+      }
+      if (pathname === "/cube/agent/query") {
+        const pack = this.currentPack(), cutoff = pack.cutoffBase;
+        const n = Math.log2(Number(args.tR[0]) / wire.BASE_SECONDS), m = Math.log2(Number(args.pR[0]) / wire.BASE_PRICE);
+        const t1 = wire.baseUnits(args.t1[0]), t2 = wire.baseUnits(args.t2[0]);
+        const spec = rectangle(Object.fromEntries(Object.entries({ n, m, b0: Math.floor(t1 + .5), b1: t2 >= cutoff ? Math.ceil(cutoff) : Math.floor(t2 + .5), r0: Math.floor(Number(args.p1[0]) / wire.BASE_PRICE + .5), r1: Math.floor(Number(args.p2[0]) / wire.BASE_PRICE + .5) }).map(([key, value]) => [key, [String(value)]])), true);
+        const measured = bridge.measure(spec, pack.state_token), block = wire.decodeBlock(measured.block);
+        const cells = Array.from({ length: block.count }, (_, i) => ({ c: block.col[i], r: block.row[i], v: block.vol[i], bv: block.tbvol[i], ct: block.cnt[i], bt: block.tbcnt[i] }));
+        return json({ query: spec, cells, summary: measured.summary, frame: { baseSeconds: wire.BASE_SECONDS, basePrice: wire.BASE_PRICE, origin: wire.T0, cutoffMs: (wire.T0 + Math.min(spec.b1, cutoff) * wire.BASE_SECONDS) * 1000, canonicalThroughMs: pack.canonical_through ? Date.parse(pack.canonical_through) : null, source: pack.source, token: pack.state_token, live: true } });
+      }
       if (pathname === "/cube/tile" || pathname === "/cube/query") {
         const spec = rectangle(args, pathname === "/cube/query");
         if (args.motion?.[0] === "1") return json(bridge.motionMeasure(spec, token, pathname === "/cube/query"));
