@@ -33,6 +33,11 @@ test("discovery, exact members, deadline and zoom reuse one canonical result wit
  // The inspector can already show a coarse n12/m3 projection while the requested n0/m0 tile loads.
  // Let the finer projection and final draw finish before counting requests attributable to local filtering.
  await probe.waitForReady();
+ const details=inspector.locator('[data-rally-action="details"]');await details.focus();await page.keyboard.press("Enter");
+ await expect(details).toHaveText("Details");await expect(details).toHaveAttribute("aria-expanded","false");await expect(details).toBeFocused();
+ await expect(page.locator("#ol-rally-details")).toBeHidden();await page.keyboard.press("Space");
+ await expect(details).toHaveText("Collapse");await expect(details).toHaveAttribute("aria-expanded","true");await expect(details).toBeFocused();
+ await expect(page.locator("#ol-rally-details")).toBeVisible();
  const viewsBefore=fake.log().filter(e=>e.path==="/cube/rallies/view").length;
  await page.locator("#ol-rally-deadline").fill("4");await page.locator("#ol-rally-deadline").dispatchEvent("change");
  await expect(page.locator("#ol-rally-rows tr")).toHaveCount(2);await expect(inspector).toContainText("Hidden by replay or time-to-target filter");
