@@ -46,7 +46,7 @@
     { id: "profiles", group: "Read the market", title: "Profile tracks",
       purpose: "Compare how activity is distributed across price levels.",
       read: "The current track is view or selection volume, with taker-buy volume inset; the reference track uses the Rows measure and period. Independent axes scales each separately. Shared absolute makes equal lengths equal amounts. Shared row share makes each row a percentage of its own track's total over the common price window: 20% versus 10% is twice the concentration.",
-      use: "Use Profiles or expand Profile comparison below. Shared absolute needs Volume on both tracks; row share needs nonnegative distributions. Read Window W, both totals and domains. Narrow charts fold the tracks; Show the tracks reveals them.",
+      use: "Use Profiles or expand Profile comparison below. Shared absolute needs Volume on both tracks; row share needs nonnegative distributions. Read Window W, both totals and domains. Narrow charts fold the tracks; use Profiles to reveal them.",
       targets: [{"label":"Show profile tracks","region":"profiles"}], colour: "profiles" },
     { id: "columns", group: "Read the market", title: "Columns & indicators",
       purpose: "Read time-based summaries below the price grid.",
