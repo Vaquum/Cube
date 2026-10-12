@@ -23,6 +23,8 @@ test("single-cell copy contains instant text and complete typed JSON", async ({ 
   expect(packet.comparison.captures[0].metrics.size.value).toBe(150);
   expect(packet.comparison.captures[0].context.histories.length).toBeGreaterThan(0);
   expect(packet.snapshot.sources[0].cells[0].v).toBe(300);
+  expect(packet.selection.metrics.volume).toBe(300);
+  expect(packet.selection.metrics.trades).toBe(2);
 });
 test("agent configuration keeps live reads available", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("micro:mixed"); await ready(page, fake, probe);

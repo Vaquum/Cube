@@ -136,6 +136,20 @@ test("HTTP-backed MCP refresh preserves the original sealed scene and returns ch
   assert.deepEqual(before, original); assert.deepEqual(A.validate(before), original);
   assert.ok(after.changes.some((change) => change.metric === "volume.amount" && change.before.value === 300 && change.after.value === 600));
 });
+test("HTTP agent preserves Unicode split across request chunks", async (t) => {
+  const { serve } = await import("../../tools/cube-agent.mjs"), http = require("node:http");
+  const server = serve(0); await new Promise((resolve) => server.once("listening", resolve)); t.after(() => new Promise((resolve) => server.close(resolve)));
+  const d = document(); d.scene.observation.source += " · € evidence"; d.scene = A.seal(d.scene);
+  const sealed = A.seal(d), payload = Buffer.from(JSON.stringify({ operation: "cube_inspect", arguments: { document: sealed } }));
+  const split = payload.indexOf(Buffer.from("€")) + 1;
+  const result = await new Promise((resolve, reject) => {
+    const request = http.request({ host: "127.0.0.1", port: server.address().port, path: "/agent", method: "POST", headers: { "Content-Type": "application/json" } }, (response) => {
+      const chunks = []; response.on("data", (chunk) => chunks.push(chunk)); response.on("end", () => resolve({ status: response.statusCode, body: JSON.parse(Buffer.concat(chunks)) }));
+    });
+    request.on("error", reject); request.write(payload.subarray(0, split)); setImmediate(() => request.end(payload.subarray(split)));
+  });
+  assert.equal(result.status, 200); assert.equal(result.body.scene.observation.source, sealed.scene.observation.source); assert.equal(result.body.id, sealed.id);
+});
 test("production durable store survives a new instance and rejects corrupted or unknown references", () => {
   const script = `import sys,tempfile,json,hashlib,sqlite3\nfrom pathlib import Path\nsys.path.insert(0,'tools')\nfrom investigation_store import InvestigationStore\nwith tempfile.TemporaryDirectory() as root:\n p=Path(root)/'db.sqlite';s=InvestigationStore(p);body=b'{"schema":"cube-analysis@1","evidence":300}';i=s.put(body)\n assert i==hashlib.sha256(body).hexdigest()\n assert s.put(body)==i and InvestigationStore(p).get(i)==body\n assert s.get('a'*64) is None\n with sqlite3.connect(p) as c:c.execute('UPDATE investigations SET body=? WHERE id=?',(b'bad',i))\n try:s.get(i);raise AssertionError('corruption accepted')\n except ValueError:pass\n try:s.get('../db');raise AssertionError('path accepted')\n except ValueError:pass\nprint('durable store verified')\n`;
   const run = spawnSync("python3", ["-c", script], { encoding: "utf8" }); assert.equal(run.status, 0, run.stderr); assert.match(run.stdout, /verified/);

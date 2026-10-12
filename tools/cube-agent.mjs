@@ -100,8 +100,9 @@ export function serve(port) {
     if (req.headers.origin && req.headers.origin !== `http://127.0.0.1:${port}`) { res.writeHead(403); res.end(); return; }
     if (req.method !== "POST" || req.url !== "/agent" || req.headers["content-type"]?.split(";")[0] !== "application/json") { res.writeHead(404); res.end(); return; }
     try {
-      let body = "";
-      for await (const part of req) { body += part; if (Buffer.byteLength(body) > A.MAX_BYTES * 2) throw Error("Request too large"); }
+      const chunks = []; let bytes = 0;
+      for await (const part of req) { bytes += part.length; if (bytes > A.MAX_BYTES * 2) throw Error("Request too large"); chunks.push(part); }
+      const body = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks));
       const { operation, arguments: args } = JSON.parse(body), result = await dispatch(operation, args);
       res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(result));
     } catch (error) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: error.message })); }
