@@ -1947,7 +1947,7 @@
   flex: 0 1 auto;
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
 }
 /* Above phone width the footer stays one line: each key keeps its width, so a long row scrolls rather than
    wrapping onto a second line that shrinks the chart when keys come and go. */
@@ -3440,6 +3440,34 @@
 }
 
 /* Reference figures retain the core card type and neutral ink, with declared axes. */
+
+/* Direct actions lead to the same reference settings and their actual colour keys. */
+#origo-lens .ol-view-keys { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+#origo-lens #ol-cell-key { white-space: normal; text-align: left; max-width: 440px; }
+#origo-lens #ol-cell-key-ramp { flex: none; width: 64px; height: 8px; }
+#origo-lens .ol-indicator-key, #origo-lens .ol-indicator-key > span { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
+#origo-lens .ol-indicator-key i { width: 14px; height: 3px; background: var(--key-colour); }
+#origo-lens .ol-exact-form { display: flex; flex-wrap: wrap; align-items: end; gap: var(--sp-2); margin: var(--sp-2) 0; }
+#origo-lens .ol-exact-form label { display: flex; flex-direction: column; }
+#origo-lens .ol-exact-form input { font: inherit; min-height: var(--h-m); max-width: 19em; color: var(--ol-ink); background: var(--ol-surface); border: 1px solid var(--ol-border); border-radius: var(--r-s); }
+#origo-lens #ol-bounds-form { padding-bottom: var(--sp-3); border-bottom: 1px solid var(--ol-line); }
+#origo-lens .ol-line-name { white-space: normal; overflow: visible; text-overflow: clip; }
+#origo-lens .ol-line-reason { max-width: 11em; white-space: normal; }
+#origo-lens #ol-reference-search { width: 100%; min-height: 36px; font: inherit; color: var(--ol-ink); background: var(--ol-surface); border: 1px solid var(--ol-border); border-radius: var(--r-m); padding: var(--sp-1) var(--sp-2); }
+#origo-lens .ol-reference-colours { margin: var(--sp-4) 0; }
+#origo-lens .ol-reference-colours > strong { display: block; margin-bottom: var(--sp-2); }
+#origo-lens .ol-reference-colour-row { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-1) 0; }
+#origo-lens .ol-reference-colour-swatch { display: inline-block; flex: none; width: 24px; color: var(--ref-ink); background: none; text-align: center; }
+#origo-lens .ol-reference-colours canvas { width: 100%; height: 12px; }
+#origo-lens #ol-inspect-reference-search { width: 100%; min-height: 32px; font: inherit; }
+#origo-lens #ol-reference-back { position: fixed; bottom: var(--sp-4); left: var(--sp-4); z-index: 65; background: var(--ol-surface); }
+@media (max-width: 760px) {
+  #origo-lens #ol-background-controls > .ol-control-label { display: none; }
+  #origo-lens .ol-reference-mobile-note { display: block; }
+  #origo-lens .ol-view-keys { width: 100%; }
+}
+@media (min-width: 761px) { #origo-lens .ol-reference-mobile-note { display: none; } }
+
 #origo-lens :is(.ol-reference-track, .ol-related-plot) {
   display: block;
   width: 100%;

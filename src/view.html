@@ -787,6 +787,7 @@
       <div class="ol-reference-head"><h2 id="ol-reference-title">System reference</h2><button type="button" id="ol-reference-close" class="ol-icon-button cursor-interaction" aria-label="Close reference"><svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg></button></div>
       <p class="ol-reference-intro">Read the market, work with the view, then compare the evidence. Highlight any part to locate it.</p>
       <label class="ol-reference-topic-label" for="ol-reference-topic">Topic</label>
+      <input type="search" id="ol-reference-search" aria-label="Search reference" placeholder="Find a topic">
       <select id="ol-reference-topic" aria-label="Reference topic"></select>
       <div class="ol-reference-sequence"><button type="button" id="ol-reference-prev" class="ol-action cursor-interaction">Previous</button><span id="ol-reference-position" class="ol-muted"></span><button type="button" id="ol-reference-next" class="ol-action cursor-interaction">Next</button></div>
       <div id="ol-reference-body" class="ol-reference-body">
@@ -1101,6 +1102,14 @@
           >
         </div>
         <span id="ol-candle-legend" class="ol-candle-legend" role="group" aria-label="Candle direction" hidden></span>
+        <div class="ol-view-keys" role="group" aria-label="Chart interpretation">
+          <button type="button" id="ol-cell-key" class="ol-action ol-s cursor-interaction" aria-label="Cell colour key"><canvas id="ol-cell-key-ramp" width="64" height="8" aria-hidden="true"></canvas><span id="ol-cell-key-text">Cell colour scale</span></button>
+          <button type="button" id="ol-profile-settings" class="ol-action ol-s cursor-interaction">Profiles</button>
+          <button type="button" id="ol-axis-settings" class="ol-action ol-s cursor-interaction">Axes</button>
+          <button type="button" id="ol-bounds-settings" class="ol-action ol-s cursor-interaction">Bounds</button>
+          <button type="button" id="ol-key-guide" class="ol-action ol-s cursor-interaction">Key</button>
+          <span id="ol-indicator-key" class="ol-indicator-key" role="group" aria-label="Indicator series" hidden><span><i style="--key-colour:var(--ol-ink)"></i>MACD</span><span><i style="--key-colour:var(--ol-line-average)"></i>Signal</span><span><i style="--key-colour:var(--ol-positive)"></i>Histogram +</span><span><i style="--key-colour:var(--ol-negative)"></i>Histogram −</span></span>
+        </div>
 
 
         <span id="ol-chart-focus" class="ol-chart-focus" aria-hidden="true">Chart focused</span>
@@ -1182,7 +1191,7 @@
             <option value="1" selected>1×</option>
             <option value="2">2×</option>
             <option value="4">4×</option></select
-          ><span id="ol-replay-at" class="ol-num"></span
+          ><span id="ol-replay-at" class="ol-num"></span><form id="ol-replay-jump" class="ol-exact-form"><label>Edge · UTC<input type="datetime-local" id="ol-replay-edge" step="1" required></label><button type="submit" class="ol-action ol-s cursor-interaction">Jump</button><span id="ol-replay-jump-status" role="status"></span></form
           ><button
             type="button"
             id="ol-replay-now"
@@ -1508,6 +1517,13 @@
             aria-labelledby="ol-tab-query"
             hidden
           >
+            <form id="ol-bounds-form" class="ol-exact-form">
+              <label>Start · UTC<input type="datetime-local" id="ol-bounds-start" step="0.001" required></label>
+              <label>End · UTC<input type="datetime-local" id="ol-bounds-end" step="0.001" required></label>
+              <label>Low · USDT<input type="number" id="ol-bounds-low" min="0" step="any" required></label>
+              <label>High · USDT<input type="number" id="ol-bounds-high" min="0" step="any" required></label>
+              <button type="submit" class="ol-action cursor-interaction">Apply bounds</button><span id="ol-bounds-status" role="status"></span>
+            </form>
             <p class="ol-muted">Cell size<span id="ol-query-mini" class="ol-num ol-query-mini"></span></p>
             <label for="ol-query-text"
               >Six parameters · requested base-cell bounds</label
@@ -1542,6 +1558,7 @@
               ><span id="ol-copy-status" role="status"></span>
             </div>
             <div id="ol-import" hidden>
+              <p class="ol-muted">Paste the six-parameter JSON above, or a code starting with origo-cube:. A query sets bounds and cell size; a view code also restores settings and calibration. Export comparison collections separately.</p>
               <label for="ol-import-text">Paste a cube query or view code</label
               ><textarea id="ol-import-text" rows="3"></textarea
               ><button
@@ -1671,6 +1688,7 @@
             </div>
           </div>
           <div class="ol-inspect-position" id="ol-inspect-position"></div>
+          <button type="button" id="ol-inspect-open-detail" class="ol-action cursor-interaction">Open details</button>
           <div class="ol-inspect-readout" id="ol-inspect-readout"></div>
           <div class="ol-inspect-boundary" id="ol-inspect-boundary"></div>
           <div class="ol-inspect-steps" role="group" aria-label="Move the cursor">
@@ -1682,7 +1700,7 @@
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 10 5-5 5 5" /></svg></button
             ><button type="button" data-step="down" class="ol-icon-button cursor-interaction" aria-label="Next lower price row" title="Next lower price row (Down)">
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg></button
-            ><select id="ol-inspect-reference" aria-label="Reference" title="Choose a reference"></select>
+            ><input type="search" id="ol-inspect-reference-search" aria-label="Find a reference" placeholder="Find a reference"><select id="ol-inspect-reference" aria-label="Reference" title="Choose a reference"></select>
           </div>
           <span class="ol-sr" id="ol-inspect-live" role="status" aria-live="polite"></span>
           <div class="ol-inspect-chooser" id="ol-inspect-chooser" role="dialog" aria-label="References at the tap" hidden></div>

@@ -6301,7 +6301,8 @@
     nav2.dataset.ps = String(w.sp.ps);
     // the reference chooser: a large-target way to reach every reference, the held-back ones too
     const chooser = el("inspect-reference"),
-      list = inspectReferences(),
+      query = el("inspect-reference-search").value.trim().toLowerCase(),
+      list = inspectReferences().filter(entry => !query || entry.name.toLowerCase().includes(query) || entry.id.toLowerCase().includes(query)),
       listText = list.map((e) => e.id + "\t" + e.name).join("\n");
     if (chooser.dataset.list !== listText) {
       chooser.dataset.list = listText;
@@ -7787,6 +7788,7 @@
       }
     }
     lensStatusWrite(sc);
+    guiAuditCommit();
     // The axis chip first: it builds the Columns pane's Legend, whose marks the footer keys count too
     axisChipCommit();
     profileChipCommit();
@@ -22970,6 +22972,45 @@
     else { guiDownloadText("cube-comparison-" + new Date().toISOString().slice(0,10) + ".json", result.raw, "application/json"); comparisonMessage = "Collection exported · frozen records and settings"; }
     comparisonRefresh(true);
   }
+  function guiAuditCommit() {
+    const legend = scaleUi.models.cells, field = el("cell-key-text"), ramp = el("cell-key-ramp");
+    const text = S.mode === "candles" ? "Candles · hollow up, filled down" : S.mode === "geometry" ? "Geometry · occupancy" : legend ? [legend.summary.measure, legend.summary.basis, legend.summary.transform, legend.summary.policy].filter(Boolean).join(" · ") : "Scale preparing";
+    if (field.textContent !== text) field.textContent = text;
+    ramp.hidden = !legend || ["geometry", "candles"].includes(S.mode);
+    const key = scaleRt.legendKey.cells + "|" + colourEpoch;
+    if (!ramp.hidden && ramp.dataset.key !== key) { legendBar(ramp, legend, 64, 8); ramp.dataset.key = key; }
+    el("indicator-key").hidden = S.pane !== "macd1d";
+    const form = el("bounds-form");
+    if (!form.contains(document.activeElement)) {
+      const q = cubeQuery(), fields = { "bounds-start": q.t1.slice(0,-1), "bounds-end": q.t2.slice(0,-1), "bounds-low": String(q.p1), "bounds-high": String(q.p2) };
+      for (const [id,value] of Object.entries(fields)) if (el(id).value !== value) el(id).value = value;
+    }
+    if (S.replay && !el("replay-jump").contains(document.activeElement)) {
+      const edge = iso(activeCutoff()).slice(0,19); if (el("replay-edge").value !== edge) el("replay-edge").value = edge;
+    }
+  }
+  function guiAuditInit() {
+    for (const [id,topic,chip] of [["cell-key","scales","legend"],["profile-settings","profiles","profile-chip"],["axis-settings","columns","axis-chip"],["key-guide","states",null]]) {
+      el(id).addEventListener("click", () => { referenceGuide.open(topic, el(id)); if (chip && !el(chip).hidden) el(chip).click(); });
+    }
+    el("bounds-settings").addEventListener("click", () => { S.drawer = "query"; S.drawerOpen = true; applyPanels(); guiAuditCommit(); el("bounds-start").focus(); });
+    el("bounds-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      const t1 = Date.parse(el("bounds-start").value + "Z"), t2 = Date.parse(el("bounds-end").value + "Z"), p1 = Number(el("bounds-low").value), p2 = Number(el("bounds-high").value);
+      if (![t1,t2,p1,p2].every(Number.isFinite) || !(t2 > t1 && p2 > p1 && p1 >= 0)) { el("bounds-status").textContent = "Use increasing UTC times and prices"; return; }
+      el("import-text").value = JSON.stringify({ ...cubeQuery(), t1: new Date(t1).toISOString(), t2: new Date(t2).toISOString(), p1, p2 });
+      el("import").hidden = false; await applyImportedView(); el("bounds-status").textContent = el("copy-status").textContent;
+    });
+    el("replay-jump").addEventListener("submit", event => {
+      event.preventDefault(); const ms = Date.parse(el("replay-edge").value + "Z"), base = E.time.msToBase(ms, T0, BASE), edge = Math.floor(base / stepT()) * stepT();
+      if (!Number.isFinite(base) || edge < stepT() || edge > CUT) { el("replay-jump-status").textContent = "Choose an edge within the available history"; return; }
+      setPlaying(false); S.anchor = edge;
+      if (edge < S.tA || edge > S.tB) { const width = S.tB - S.tA; S.tA = Math.max(0,edge - width); S.tB = edge; S.window = null; }
+      recordView("Replay edge"); update(); save(); scaleArm(); el("replay-jump-status").textContent = when(edge) + " UTC · completed grid edge";
+    });
+    el("inspect-open-detail").addEventListener("click", () => inspectDetail(true));
+    el("inspect-reference-search").addEventListener("input", () => inspectRender(true));
+  }
   async function comparisonImport(file) {
     const revision = comparisonRevision;
     if (file.size > 4 * 1024 * 1024) { comparisonMessage = "Collection exceeds the 4 MiB limit"; comparisonRefresh(true); return; }
@@ -23129,6 +23170,7 @@
   bindEvidence();
   bindNavigation();
   bindScaleUi();
+  guiAuditInit();
   try {
     qsa("button,input,select").forEach((control) => (control.disabled = true));
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
