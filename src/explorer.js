@@ -23086,7 +23086,7 @@
     } else if (kind === "cells" && S.mode === "geometry") row("Occupancy · trades measured in this cell", "var(--ol-occupancy)", "□");
     if (["references","profiles"].includes(kind)) {
       if(kind==="profiles"){row("Profile amount · bar length",last?.sc?.lut?.bar?.css??colors.muted,"■");row("Taker-buy subset · inset",colors.ink,"■");}
-      row("Profile POC / value area", "var(--ol-line-poc)", "×"); row("Session / structural price level", "var(--ol-line-level)"); row("Moving average / Bollinger", "var(--ol-line-average)"); row("VWAP", "var(--ol-line-vwap)"); row("Clock · scheduled time", "var(--ol-line-clock)", "│");
+      row("Profile POC / value area", "var(--ol-line-poc)"); row("Session / structural price level", "var(--ol-line-level)"); row("Moving average / Bollinger", "var(--ol-line-average)"); row("VWAP", "var(--ol-line-vwap)"); row("Clock · scheduled time", "var(--ol-line-clock)", "│");
       container.append(uiEl("p","ol-muted","Colour names the family; name and stroke pattern identify the measure, timeframe and confirmation."));
     }
     if (kind === "averages") row("Moving average / Bollinger", "var(--ol-line-average)");
@@ -23106,7 +23106,6 @@
       container.append(uiEl("p","ol-muted","A drawing's chosen RGB colour has no market meaning."));
     }
     if (["states","resolution"].includes(kind)) {
-      row("Coverage / non-value marks · inspect their reason", "var(--ol-state)", "◇");
       const original = topic.id === "state-glossary" ? null : root.querySelector(".ol-status > .ol-status-keys");
       if (topic.id === "state-glossary") {
         const inks={state:colors.state,occupancy:colors.occupancy,surface:colors.surface};
