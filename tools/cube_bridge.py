@@ -96,6 +96,7 @@ from urllib.parse import parse_qs, urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from market_state_reader import MarketStateError, query, read_table  # noqa: E402
 from rally_bridge import RallyStore  # noqa: E402
+from investigation_store import InvestigationStore, MAX_BYTES as INVESTIGATION_MAX_BYTES  # noqa: E402
 
 T0 = 1609459200
 BASE_SECONDS = 56.25
@@ -512,6 +513,7 @@ class Explorer:
         # older than the server it asks, and offers a reload.
         self.version = hashlib.sha256(page.read_bytes()).hexdigest()[:12]
         self.rallies = RallyStore(self, CUBE_URL, (CUBE_SLOT, MOTION_SLOT))
+        self.investigations = InvestigationStore()
 
     def current_pack(self) -> tuple[dict, float]:
         """The current pack and its age in seconds; rebuilt once it is older than a minute, or
@@ -627,7 +629,7 @@ class Explorer:
             cells = merge(cells, extra, n, m)
         return cells, held, response, summary, opened, extent
 
-    def measure(self, spec: dict, token: str) -> dict:
+    def measure(self, spec: dict, token: str, *, plain: bool = False) -> dict:
         """The cube's cells and summary for one rectangle, for the page holding pack ``token``
         (rectangle_cells)."""
         n, m, b0, b1, r0, r1 = (spec[key] for key in ("n", "m", "b0", "b1", "r0", "r1"))
@@ -644,6 +646,19 @@ class Explorer:
             data_cutoff=state["data_cutoff"], canonical_through=state["canonical_through"],
             state_token=state["state_token"],
         )
+        if plain:
+            if len(cells["col"]) > 20000:
+                raise ValueError("Agent query exceeds 20,000 cells; narrow the region or use coarser resolution")
+            values = [{"c": int(cells["col"][i]), "r": int(cells["row"][i]),
+                       "v": float(cells["vol"][i]), "bv": float(cells["tbvol"][i]),
+                       "ct": float(cells["cnt"][i]), "bt": float(cells["tbcnt"][i])}
+                      for i in range(len(cells["col"]))]
+            return {"query": spec, "cells": values, "summary": answer,
+                    "frame": {"baseSeconds": BASE_SECONDS, "basePrice": BASE_PRICE, "origin": T0,
+                              "cutoffMs": round((T0 + end * BASE_SECONDS) * 1000),
+                              "sourceCutoffMs": round((T0 + cutoff * BASE_SECONDS) * 1000),
+                              "canonicalThroughMs": None if not state["canonical_through"] else round(datetime.fromisoformat(state["canonical_through"].replace("Z", "+00:00")).timestamp() * 1000),
+                              "source": SOURCE, "token": token, "live": True}}
         return {"cutoff": state["cutoff"], "block": block(n, m, float(b0), end, cells), "summary": answer}
 
     def touched(self, n: int, b0: int, b1: int, token: str) -> dict:
@@ -903,7 +918,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         url = urlsplit(self.path)
-        if url.path not in ("/cube/rallies", "/cube/rallies/view"):
+        if url.path not in ("/cube/rallies", "/cube/rallies/view", "/cube/investigations"):
             self.json({"error": "not_found"}, 404)
             return
         try:
@@ -917,7 +932,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
                 raise ValueError("Content-Type must be application/json")
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 65536:
+            if not 0 < length <= (INVESTIGATION_MAX_BYTES if url.path == "/cube/investigations" else 65536):
                 self.json({"error": "request_too_large"}, 413)
                 return
             def unique(pairs):
@@ -930,6 +945,11 @@ class Handler(BaseHTTPRequestHandler):
             def invalid_constant(value):
                 raise ValueError(f"nonfinite JSON number: {value}")
             body = json.loads(self.rfile.read(length), object_pairs_hook=unique, parse_constant=invalid_constant)
+            if url.path == "/cube/investigations":
+                raw = json.dumps(body, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode()
+                identity = self.explorer.investigations.put(raw)
+                self.json({"id": identity, "reference": "ref:" + identity}, 201)
+                return
             operation = self.explorer.rallies.view if url.path.endswith("/view") else self.explorer.rallies.discover
             self.json(operation(body))
         except (ValueError, TypeError, KeyError) as error:
@@ -958,6 +978,23 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/cube/pack":
                 since = args.get("since", [""])[0]
                 self.json(self.explorer.update(since))
+            elif url.path.startswith("/cube/investigations/"):
+                body = self.explorer.investigations.get(url.path.rsplit("/", 1)[1])
+                if body is None:
+                    self.json({"error": "investigation_not_found"}, 404)
+                else:
+                    self.reply(200, "application/json", body)
+            elif url.path == "/cube/agent/capabilities":
+                self.json({"schema": "cube-analysis@1", "query": "/cube/agent/query", "storage": "/cube/investigations", "queryParameters": ["t1", "t2", "p1", "p2", "tR", "pR"], "maxCells": 20000})
+            elif url.path == "/cube/agent/query":
+                token = args.get("pack", [""])[0]
+                if token:
+                    current = {"cutoffBase": self.explorer.holding(token)["cutoff"]}
+                else:
+                    current, _ = self.explorer.current_pack()
+                    token = current["state_token"]
+                spec = agent_rectangle(args, current)
+                self.json(self.explorer.measure(spec, token, plain=True))
             elif url.path in ("/cube/tile", "/cube/query"):
                 spec = rectangle(args, prices=url.path == "/cube/query")
                 token = args.get("pack", [""])[0]
@@ -1043,6 +1080,22 @@ def integer(args: dict, key: str) -> int:
     if not value.is_integer():
         raise ValueError(f"{key} must be an integer")
     return int(value)
+
+
+def agent_rectangle(args: dict, current: dict) -> dict:
+    def number(key):
+        value = float(args[key][0])
+        if not math.isfinite(value):
+            raise ValueError(f"{key} must be finite")
+        return value
+    n, m = math.log2(number("tR") / BASE_SECONDS), math.log2(number("pR") / BASE_PRICE)
+    if not n.is_integer() or not m.is_integer() or not (0 <= n <= 20 and 0 <= m <= 9):
+        raise ValueError("tR and pR must be supported dyadic sizes in seconds and USDT")
+    t1, t2 = base_units(args["t1"][0]), base_units(args["t2"][0])
+    cutoff = float(current["cutoffBase"])
+    b0, b1 = math.floor(t1 + .5), math.ceil(cutoff) if t2 >= cutoff else math.floor(t2 + .5)
+    r0, r1 = math.floor(number("p1") / BASE_PRICE + .5), math.floor(number("p2") / BASE_PRICE + .5)
+    return rectangle({key: [str(value)] for key, value in {"n": int(n), "m": int(m), "b0": b0, "b1": b1, "r0": r0, "r1": r1}.items()}, True)
 
 
 def level(args: dict) -> tuple[int, int]:

@@ -20,7 +20,7 @@ def main():
         if not name.startswith(("tests/fixtures/", "tools/encoding-parts/")):
             run("node", "--check", name)
     run("python3", "-m", "py_compile", "tools/cube_bridge.py", "tools/market_state_reader.py",
-        "tools/build.py", "tools/rally_bridge.py", "tools/check-static.py")
+        "tools/build.py", "tools/rally_bridge.py", "tools/investigation_store.py", "tools/check-static.py")
     run("docker", "compose", "config", "-q")
 
 

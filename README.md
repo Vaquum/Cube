@@ -80,6 +80,10 @@ Text on the chart stands on an opaque plate, so it is read against a known colou
 
 Keys work anywhere on the page except in text fields, and every control's tooltip names its key; `?` lists them all. On a phone the chart comes first and the controls open in a sheet.
 
+## Human and agent exchange
+
+Copy cells directly into a conversation as readable measurements plus validated JSON. Query adds **Copy selection**, **Copy comparison**, **Share investigation**, and explicit **Refresh current source**. Complete investigation links carry captured evidence, comparisons and drawings; small links embed the document and larger ones use persistent storage on the live host. A Node adapter exposes the shared operations through MCP or local HTTP. [Agent interface](docs/agent-interface.md) documents commands, schemas, causal cutoffs and evidence links.
+
 ## Live cube data
 
 On the Origo host the explorer runs beside the market state cube ([PRD-0022](https://github.com/Vaquum/Origo/issues/462)) and reads it live. The cube's query service answers with paths to Arrow files on its own volume, so `tools/cube_bridge.py` runs where that volume is mounted: it asks the service for cells, reads the files through the cube's supported reader (`tools/market_state_reader.py`, a pinned copy from Origo 3.28.0) and serves `index.html` with a live pack in place of the recorded snapshot, behind the Vaquum portal login.

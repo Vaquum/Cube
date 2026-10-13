@@ -300,3 +300,15 @@ Area selection uses the cell presentation adapter over the rectangle's own measu
 ### Continuations activation and chart focus
 
 A bare-root visit restores the last camera and display settings but starts on Measures, even if the stored last view had Continuations enabled. Explicit addresses, imported codes, named views and navigation history retain their encoded tab. Pan clicks/taps and comma/period can change an anchor only while Replay, Continuations or the Cases drawer is active; they never enable Continuations. The C toggle, tab button, historical-case action and drawing Anchor evidence here action remain explicit activation routes. Chart keyboard focus retains its tab stop and restoration behavior and is indicated by the underlined Chart focused cue in the header rather than an enclosing canvas outline.
+
+## Portable agent evidence
+
+`cube-analysis@1` is the human/agent exchange document, separate from legacy chart
+links and complete view codes. It carries typed comparison captures, complete
+scene settings and optional captured numerical canvas sources. Shared captures
+retain their observed exposure, source/pack and independently supported histories.
+Missing measurements remain typed non-values, not zero. Replay output uses the
+scene edge; unsupported later values are hidden. An explicit current-source
+refresh produces a new capture and a canonical metric diff, retaining prior
+evidence. This does not reconstruct historical revisions of the cube.
+See [Agent interface](agent-interface.md) for exact transport and storage bounds.

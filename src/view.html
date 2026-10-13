@@ -1561,6 +1561,14 @@
                 Restore view</button
               ><span id="ol-copy-status" role="status"></span>
             </div>
+            <div class="ol-query-actions" aria-label="Human and agent exchange">
+              <button type="button" id="ol-copy-selection" class="ol-action cursor-interaction">Copy selection</button>
+              <button type="button" id="ol-copy-comparison" class="ol-action cursor-interaction">Copy comparison</button>
+              <button type="button" id="ol-share-investigation" class="ol-action cursor-interaction">Share investigation</button>
+              <button type="button" id="ol-refresh-investigation" class="ol-action cursor-interaction">Refresh current source</button>
+              <button type="button" id="ol-previous-investigation" class="ol-action cursor-interaction" title="Return to the captured values before the last refresh">Restore previous capture</button>
+            </div>
+            <p id="ol-analysis-status" class="ol-muted" role="status"></p>
             <div id="ol-import" hidden>
               <p class="ol-muted">Paste the six-parameter JSON above, or a code starting with origo-cube:. A query sets bounds and cell size; a view code also restores settings and calibration. Export comparison collections separately.</p>
               <label for="ol-import-text">Paste a cube query or view code</label
