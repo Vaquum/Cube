@@ -30,6 +30,7 @@ const cases = [
   { id: 'inspector', hash: '#w=24h', action: 'side' },
   { id: 'disclosure', hash: '#w=24h&mode=path', action: 'details' },
   { id: 'comparison-128', hash: '#w=24h&tab=compare', action: 'comparison', captures: 128 },
+  { id: 'cells-sort', hash: '#w=24h&tab=cells', action: 'cells' },
   { id: 'phone-sheet', hash: '#w=24h', action: 'sheet', phone: true },
 ];
 const p95 = xs => xs.length ? [...xs].sort((a,b)=>a-b)[Math.ceil(xs.length*.95)-1] : 0;
@@ -66,6 +67,7 @@ async function trial(browser, build, definition) {
     await page.waitForFunction(()=>document.querySelector('#ol-loading').hidden);
     await build.fake.idle({quietMs:300,timeoutMs:20000});
     if(definition.captures) await page.locator('#ol-tab-compare').click();
+    if(definition.action==='cells') await page.locator('#ol-tab-cells').click();
     await pause(page);
     const counters=async()=>Object.fromEntries((await session.send('Performance.getMetrics')).metrics.map(x=>[x.name,x.value]));
     const before=await counters();
@@ -86,6 +88,8 @@ async function trial(browser, build, definition) {
     } else if(definition.action==='details') {
       const button=page.locator('#ol-context .ol-selection-card .ol-core-details > summary').first();
       for(let i=0;i<6;i++){await button.click();await page.waitForTimeout(i%2?650:70);}
+    } else if(definition.action==='cells') {
+      for(let i=0;i<6;i++){await page.locator('[data-sort="price"]').click();await page.waitForTimeout(650);}
     } else if(definition.action==='comparison') {
       const workspace=page.locator('#ol-comparisonWorkspace');
       for(const action of ['sort','matrix','expand','expand','cards','sort']) {
