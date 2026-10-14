@@ -839,8 +839,8 @@
     const actor = { n: renderN(), m: renderM(), previous, progress: 0 };
     transition = actor;
     Flow.spring(canvas, "cells", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
-      write: ({ progress }) => { if (transition === actor) { actor.progress = progress; requestDraw(); } },
-      complete: () => { if (transition === actor) { transition = null; requestDraw(); } Flow.cancelMotion(canvas, "cells"); } });
+      write: ({ progress }) => { if (transition === actor) { actor.progress = progress; requestDraw(true); } },
+      complete: () => { if (transition === actor) { transition = null; requestDraw(true); } Flow.cancelMotion(canvas, "cells"); } });
   }
   const MORPH_BOUNDS = { start: 0, end: 0, low: 0, high: 0 };
   function morphBounds(start, end, low, high, actor = transition) {
@@ -859,7 +859,9 @@
     MORPH_BOUNDS.high += (high - MORPH_BOUNDS.high) * progress;
     return MORPH_BOUNDS;
   }
-  function requestDraw() {
+  let drawRevision = 0, paintedRevision = -1;
+  function requestDraw(presentationOnly = false) {
+    if (!presentationOnly) drawRevision++;
     if (!raf)
       raf = requestAnimationFrame(() => {
         raf = 0;
@@ -2143,7 +2145,8 @@
     if (!ready || comparisonModel.expanded || scaleRt.fault) return;
     // A draw is already owed: it resolves every channel again and asks for what the state now needs, so a fit
     // made first could calibrate a context that is no longer the one on screen.
-    if (raf) return scaleAfter(16);
+    // Presentation-only cell frames do not change that context or delay its fit.
+    if (raf && paintedRevision !== drawRevision) return scaleAfter(16);
     const now = performance.now(),
       settled = calibrationSettled(),
       vp = viewParts(),
@@ -2272,6 +2275,7 @@
     drawingLabelLayouts = new WeakMap();
     if (!ready) return;
     if (comparisonModel.expanded) { comparisonRefresh(); return; }
+    paintedRevision = drawRevision;
     geometry();
     for (const k in markCount) markCount[k] = 0;
     refTally.clear();
@@ -3012,6 +3016,7 @@
     S.anchor = null;
     S.replay = false;
     windowRange(key);
+    transition = null; Flow.cancelMotion(canvas, "cells");
     chooseSource();
     // The window's own level, for about a hundred columns; auto level then
     // fits it to the screen.
@@ -3019,7 +3024,7 @@
     S.m = w.m;
     fit();
     limits();
-    if (S.auto && G.w) autoLevel();
+    if (S.auto && G.w) autoLevel(false);
     hover = null;
     el("tip").hidden = true;
   }
@@ -16874,17 +16879,27 @@
   }
   // The registered axis of an ordinary column pane (the spine's axisFrame, the one wrapper around the
   // registry): a ratio's is fixed at ±2; an Auto one takes the exact maximum of the values displayed, once
-  // the read that feeds the pane has settled (a rectangle still being measured, or a motion read still
-  // out, is not a cohort). The signature changes exactly when a displayed value might.
+  // the loaded display source covers its view (an unrelated rectangle-total query
+  // does not change these drawn columns). The signature changes exactly when a displayed value might.
+  let paneAxisBasis = "";
   function paneAxis(pane, mv) {
     const { key, measure, cols, from, to, b } = pane,
       id = "pane." + key;
     if (measure.ratio) return axisFrame(id, { eligible: true, sig: "" });
-    const meas = measurement(),
-      ready =
-        (meas.state === "exact" || meas.state === "recorded" || meas.state === "cube") &&
-        !meas.updating &&
+    const meas = measurement(), src = displaySource(),
+      [start, stop] = sourceRange(src), [viewStart, viewEnd] = viewRange(),
+      basis = [scaleWorkspace(), id, renderN(), renderM()].join("|"),
+      // These bars come from loaded display columns, independently of the
+      // exact rectangle totals. Do not hold their axis behind that query.
+      ready = start <= viewStart && stop >= viewEnd &&
         (!measure.motion || Boolean(mv?.src && !motionIssue()));
+    if (paneAxisBasis !== basis) {
+      // A different aggregation has different bar magnitudes. A frozen
+      // comparison domain is intentional and remains authoritative.
+      if (!heldCount() && scaleRt.axes.get(id, scaleWorkspace())?.policy === "auto")
+        scaleRt.axes.drop(id, scaleWorkspace());
+      paneAxisBasis = basis;
+    }
     return axisFrame(id, {
       sign: measure.signed ? "signed-symmetric" : "unsigned",
       eligible: ready,
@@ -18084,14 +18099,17 @@
     const r = canvas.getBoundingClientRect();
     return layoutNow(r.width, r.height);
   }
-  function autoLevel() {
+  function autoLevel(animate = true) {
+    // A whole-window command interrupts old presentation even at a locked or
+    // unchanged level. Its destination never inherits the departed grid.
+    if (!animate) { transition = null; Flow.cancelMotion(canvas, "cells"); }
     if (comparisonModel.expanded || !canvas.getClientRects().length || canvas.getBoundingClientRect().height <= 0 || !S.auto || !(S.tB > S.tA) || !(S.pB > S.pA)) return false;
     const g = navGeometry(),
       n = pixelLevel(S.n, S.tB - S.tA, g.w, N_MAX),
       m = S.diagonal ? diagonalM(n) : pixelLevel(S.m, S.pB - S.pA, g.h, M_MAX),
       changed = n !== S.n || m !== S.m;
     if (changed) {
-      beginLevelMorph();
+      if (animate) beginLevelMorph();
       S.n = n;
       S.m = m;
     }
@@ -20236,10 +20254,10 @@
     // rewrites none of them.
     if (!el("res-pop").hidden) refreshPlane();
   }
-  function settleNavigation(label, refit = false) {
+  function settleNavigation(label, refit = false, animate = true) {
     confine();
     if (refit && S.refit && !S.coupled && !S.diagonal) fit();
-    autoLevel();
+    autoLevel(animate);
     hover = null;
     el("tip").hidden = true;
     update();
@@ -21431,7 +21449,7 @@
         S.pA += y;
         S.pB += y;
         S.window = "";
-        settleNavigation(windowStep ? null : "Pan", false);
+        settleNavigation(windowStep ? null : "Pan", false, !windowStep);
         if (windowStep) fitPrice("Window step", 0.05, true);
       } else if (k === "End") jumpLatest();
       else if (k === "Escape") escapeKey();
@@ -21678,7 +21696,7 @@
   function fitPrice(label, padding, waitForData = false) {
     pendingWindowPriceFit = null;
     fit(padding);
-    if (S.auto) autoLevel();
+    if (S.auto) autoLevel(!waitForData);
     recordView(label);
     update();
     save();
@@ -21698,7 +21716,7 @@
     if (windowPriceFitPending()) return;
     pendingWindowPriceFit = null;
     fit(pending.padding);
-    if (S.auto) autoLevel();
+    if (S.auto) autoLevel(false);
     update();
     syncURL(true);
     save();
@@ -23839,7 +23857,8 @@
     for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
     Flow.onMotionFrame(() => referenceGuide?.refresh(true));
-    Flow.reveal(el("main"), { distance: 0 });
+    // The first data paint stays visible while the controls enter.
+    Flow.reveal(el("controls"), { distance: 0 });
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();
     scaleArm();
