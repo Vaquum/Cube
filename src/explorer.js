@@ -3016,6 +3016,7 @@
     S.anchor = null;
     S.replay = false;
     windowRange(key);
+    transition = null; Flow.cancelMotion(canvas, "cells");
     chooseSource();
     // The window's own level, for about a hundred columns; auto level then
     // fits it to the screen.
@@ -3023,7 +3024,7 @@
     S.m = w.m;
     fit();
     limits();
-    if (S.auto && G.w) autoLevel();
+    if (S.auto && G.w) autoLevel(false);
     hover = null;
     el("tip").hidden = true;
   }
@@ -18098,14 +18099,15 @@
     const r = canvas.getBoundingClientRect();
     return layoutNow(r.width, r.height);
   }
-  function autoLevel() {
+  function autoLevel(animate = true) {
     if (comparisonModel.expanded || !canvas.getClientRects().length || canvas.getBoundingClientRect().height <= 0 || !S.auto || !(S.tB > S.tA) || !(S.pB > S.pA)) return false;
     const g = navGeometry(),
       n = pixelLevel(S.n, S.tB - S.tA, g.w, N_MAX),
       m = S.diagonal ? diagonalM(n) : pixelLevel(S.m, S.pB - S.pA, g.h, M_MAX),
       changed = n !== S.n || m !== S.m;
     if (changed) {
-      beginLevelMorph();
+      if (animate) beginLevelMorph();
+      else { transition = null; Flow.cancelMotion(canvas, "cells"); }
       S.n = n;
       S.m = m;
     }
@@ -20250,10 +20252,10 @@
     // rewrites none of them.
     if (!el("res-pop").hidden) refreshPlane();
   }
-  function settleNavigation(label, refit = false) {
+  function settleNavigation(label, refit = false, animate = true) {
     confine();
     if (refit && S.refit && !S.coupled && !S.diagonal) fit();
-    autoLevel();
+    autoLevel(animate);
     hover = null;
     el("tip").hidden = true;
     update();
@@ -21445,7 +21447,7 @@
         S.pA += y;
         S.pB += y;
         S.window = "";
-        settleNavigation(windowStep ? null : "Pan", false);
+        settleNavigation(windowStep ? null : "Pan", false, !windowStep);
         if (windowStep) fitPrice("Window step", 0.05, true);
       } else if (k === "End") jumpLatest();
       else if (k === "Escape") escapeKey();
@@ -21692,7 +21694,7 @@
   function fitPrice(label, padding, waitForData = false) {
     pendingWindowPriceFit = null;
     fit(padding);
-    if (S.auto) autoLevel();
+    if (S.auto) autoLevel(!waitForData);
     recordView(label);
     update();
     save();
@@ -21712,7 +21714,7 @@
     if (windowPriceFitPending()) return;
     pendingWindowPriceFit = null;
     fit(pending.padding);
-    if (S.auto) autoLevel();
+    if (S.auto) autoLevel(false);
     update();
     syncURL(true);
     save();

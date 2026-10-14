@@ -60,3 +60,14 @@ test("year columns get their own axis while exact totals are still being read",a
  await expect(page.locator("#ol-axis-chip")).toHaveAttribute("data-axis-state","auto");
  gate.open();
 });
+
+// A full window jump can refit a wide price camera into a finer level.
+// Destination cells must not overlap inside their former parent geometry.
+test("seven-day stepping paints its destination resolution without a cell morph",async({page,fakeFor,probe})=>{
+ const fake=await fakeFor("standard");
+ await page.goto(fake.url+"/#w=7d&p=10000~50000&pane=volume");await probe.waitForReady();
+ await page.locator("#ol-canvas").focus();await page.keyboard.press("Shift+ArrowLeft");
+ expect(await page.locator("#ol-canvas").getAttribute("data-motion-running")).toBeNull();
+ await probe.waitForReady();
+ expect(await page.locator("#ol-canvas").getAttribute("data-motion-running")).toBeNull();
+});
