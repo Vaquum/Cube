@@ -3555,6 +3555,14 @@
 @media (prefers-reduced-motion: reduce), print {
   #origo-lens, #origo-lens *, #origo-lens *::before, #origo-lens *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+/* Explicit tracks keep canvas coordinates native while side/reference widths settle. */
+@media (min-width: 761px) {
+  #origo-lens .ol-main[data-flow-grid] > .ol-reference { grid-column: 1; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-chart { grid-column: 2; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-side-grip { grid-column: 3; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-side { grid-column: 4; grid-row: 1; }
+}
+#origo-lens [data-flow-size] { display: block !important; }
 
     </style>
   </head>
@@ -19297,8 +19305,8 @@
       for (const button of root.querySelectorAll('[data-comparison-action="view"]')) button.setAttribute("aria-pressed", String(button.dataset.value === (model.view || "grid")));
       q(".ol-comparison-empty").hidden = !!captures.length;
       q(".ol-comparison-panes").hidden = !captures.length;
-      focusPane.innerHTML = renderFocus(selected, analysis);
-      q(".ol-comparison-entries").innerHTML = model.view === "matrix" ? renderMatrix(entries, analysis) : renderCards(entries, analysis);
+      window.explorerMotion.html(focusPane, renderFocus(selected, analysis));
+      window.explorerMotion.html(q(".ol-comparison-entries"), model.view === "matrix" ? renderMatrix(entries, analysis) : renderCards(entries, analysis));
       q(".ol-comparison-collection").hidden = captures.length === 1 && model.view !== "matrix";
       q('[data-comparison-position]').textContent = ordered.length ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, ordered.length)} of ${ordered.length} · Page ${page + 1} of ${pages}` : "0 cells";
       q('[data-value="previous"]').disabled = page === 0;
@@ -19951,33 +19959,38 @@
         button.addEventListener("click", () => {
           if (active === target) { clearSpotlight(); return; }
           clearSpotlight(); active = target; reveal?.(target);
-          if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; main.scrollLeft = 0; }
+          if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; window.explorerMotion.scrollAxis(main, 0, "x"); }
           button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
         });
         actions.append(button);
       }
-      el("targets").replaceChildren(...actions.children);
-      el("article").replaceChildren(article);
+      window.explorerMotion.replaceChildren(el("targets"), ...actions.children);
+      article.dataset.flowKey = current.id;
+      window.explorerMotion.replaceChildren(el("article"), article);
       const settings = current.settings || current.id;
       for (const section of pane.querySelectorAll("[data-reference-settings]")) section.hidden = section.dataset.referenceSettings !== settings;
       el("colours").replaceChildren(); delete el("colours").dataset.key; colourKey?.(el("colours"), current);
       el("position").textContent = `${Math.max(0,index + 1)} / ${available.length}${el("search").value ? " matches" : ""}`;
       el("prev").disabled = index === 0; el("next").disabled = index === topics.length - 1;
-      el("body").scrollTop = 0;
+      window.explorerMotion.scrollAxis(el("body"), 0);
       refresh();
     }
     function open(id, origin = document.activeElement) {
+      const finishGrid = window.explorerMotion.captureGrid(main);
       if (pane.hidden) returnFocus = origin;
       beforeOpen(); pane.hidden = false; main.dataset.reference = "open"; el("toggle").setAttribute("aria-expanded", "true"); el("toggle").setAttribute("aria-pressed", "true");
       if (id) { el("search").value = ""; for (const option of select.options) option.hidden = false; render(id); } else refresh();
       select.focus({ preventScroll: true });
+      finishGrid();
     }
     function close() {
+      const finishGrid = window.explorerMotion.captureGrid(main);
       beforeChange();
       clearSpotlight(); pane.hidden = true; delete main.dataset.reference; el("toggle").setAttribute("aria-expanded", "false"); el("toggle").setAttribute("aria-pressed", "false");
-      back.hidden = true; main.scrollLeft = 0;
+      back.hidden = true; window.explorerMotion.scrollAxis(main, 0, "x");
       const destination = returnFocus?.isConnected && returnFocus.getClientRects().length && !returnFocus.closest("[hidden]") ? returnFocus : el("toggle");
       destination.focus({ preventScroll: true });
+      finishGrid();
     }
     el("toggle").addEventListener("click", () => pane.hidden ? open(null, el("toggle")) : close());
     el("close").addEventListener("click", close);
@@ -19991,7 +20004,7 @@
       if (list.length) render(ids.has(current.id) ? current.id : list[0].id);
       else { clearSpotlight(); el("position").textContent = "0 / 0 matches"; el("status").textContent = "No matching topics. Clear the search to see all topics."; refresh(); }
     });
-    back.addEventListener("click", () => { clearSpotlight(); beforeChange(); main.scrollLeft = 0; back.hidden = true; select.focus({ preventScroll: true }); });
+    back.addEventListener("click", () => { clearSpotlight(); beforeChange(); window.explorerMotion.scrollAxis(main, 0, "x"); back.hidden = true; select.focus({ preventScroll: true }); });
     pane.addEventListener("keydown", event => {
       if (event.key === "Escape" && closeTransient()) event.preventDefault();
       event.stopPropagation();
@@ -20075,8 +20088,8 @@
     }
     function renderInspector() {
       const host = el("inspector"), focusedDetails = host.contains(document.activeElement) && document.activeElement?.dataset.rallyAction === "details";
-      host.replaceChildren(); host.hidden = !selectedId;
-      if (!selectedId) return;
+      host.hidden = !selectedId;
+      if (!selectedId) { window.explorerMotion.replaceChildren(host); return; }
       const title = document.createElement("div"), actions = document.createElement("div"), box = document.createElement("div");
       title.className = "ol-section-heading"; title.textContent = "Selected rally · native members";
       actions.className = "ol-legend-actions"; box.id = "ol-rally-details"; box.hidden = !inspectorExpanded;
@@ -20086,12 +20099,11 @@
         actions.append(button);
       }
       const contextNote = document.createElement("p"); contextNote.className = "ol-muted"; contextNote.textContent = "Rally members only. Continuations uses its own column anchor.";
-      host.append(title, actions, contextNote, box);
-      if (focusedDetails) actions.querySelector('[data-rally-action="details"]').focus({preventScroll:true});
+      const commit = () => { window.explorerMotion.replaceChildren(host,title,actions,contextNote,box); if (focusedDetails) host.querySelector('[data-rally-action="details"]').focus({preventScroll:true}); };
       const event = current()?.selected;
       if (!event) {
         box.append(row("State", stale ? "Source changed · refresh discovery" : errorMessage || (inFlight ? "Reading membership…" : "Hidden by replay or time-to-target filter")));
-        return;
+        commit(); return;
       }
       const {normalized_definition: d, analysis} = result.metadata;
       box.append(row("Retained definition", definitionText(d)), row("Analysis · UTC", `${analysis.start} → ${analysis.end}`),
@@ -20113,6 +20125,7 @@
       const note = document.createElement("p"); note.className = "ol-muted";
       note.textContent = "Outlines mark cells containing members; other trades may share them. Profile and totals use members only. Event path, dwell and indicators are unavailable. Surrounding auction context remains in the regular inspector.";
       box.append(note);
+      commit();
       host.dataset.rallyId = event.rally_id;
     }
     function render() {
@@ -20120,18 +20133,19 @@
       const definition = el("definition"); definition.hidden = !result;
       definition.textContent = result ? `Retained discovery · ${definitionText(result.metadata.normalized_definition)}. Analysis · UTC: ${result.metadata.analysis.start} → ${result.metadata.analysis.end}. Retained until Refresh discovery; form edits apply only to the next discovery.` : "";
       const events = shown(), pages = Math.max(1, Math.ceil(events.length / PAGE)); page = Math.min(page, pages - 1);
-      const body = el("rows"); body.replaceChildren();
+      const body = el("rows"), fragment = document.createDocumentFragment();
       for (const e of events.slice(page * PAGE, (page + 1) * PAGE)) {
         const tr = document.createElement("tr"), td = document.createElement("td"), button = document.createElement("button");
         button.type = "button"; button.className = "ol-action ol-s cursor-interaction";
         button.textContent = time(e.start_at_us); button.setAttribute("aria-pressed", String(e.rally_id === selectedId));
         button.title = e.rally_id; button.dataset.rallyId = e.rally_id;
-        button.onclick = () => select(e.rally_id); td.append(button); tr.append(td);
+        button.onclick = () => select(e.rally_id); td.append(button); tr.append(td); tr.dataset.flowKey = e.rally_id;
         for (const value of [time(e.confirmed_at_us), fmt(e.return_bps) + " bps", fmt(e.duration_seconds) + " s", fmt(e.volume), fmt(e.trade_count, 0)]) {
           const cell = document.createElement("td"); cell.textContent = value; tr.append(cell);
         }
-        body.append(tr);
+        fragment.append(tr);
       }
+      window.explorerMotion.replaceChildren(body,fragment);
       el("page").textContent = `${events.length} confirmed · ${page + 1}/${pages}`;
       el("previous").disabled = page === 0; el("next").disabled = page + 1 >= pages;
       if (!context().live) status("Discovery requires the live Origo cube. The recorded page has no native rally endpoint.");
@@ -20260,6 +20274,7 @@
   const nativeDetails = new WeakSet();
   let retirementGeometry = new Map();
   let rootElement;
+  let presentationHeld = false;
   let preference;
   let frame = 0, previousTime = 0;
   const bounded = (value) => Math.max(0, Math.min(1, value));
@@ -20354,7 +20369,7 @@
           channel.velocity[key] ??= 0;
       channel.start = performance.now() + (options.delay ?? 0);
       channel.active = true;
-      if (reducedMotion()) {
+      if (reducedMotion() || presentationHeld || document.hidden) {
           complete(channel);
           return;
       }
@@ -20616,10 +20631,10 @@
       return result;
   }
   /** Fixed owners opt in explicitly; descendants and text mutations are ignored. */
-  function watchPanel(element, opened, slide = 0) {
+  function watchPanel(element, opened, slide = 0, owner = element, attributes = ['class', 'hidden']) {
       let previous = opened();
       let display = getComputedStyle(element).display;
-      new MutationObserver(() => {
+      const update = () => {
           const next = opened();
           if (previous === next)
               return;
@@ -20639,9 +20654,11 @@
           spring(element, 'panel', { from: { progress: next ? 0 : 1 }, to: { progress: next ? 1 : 0 },
               write: ({ progress }) => {
                   element.style.opacity = String(bounded(progress));
-                  if (slide)
+                  if (slide === 2)
+                      element.style.transform = `translateY(${(1 - progress) * 100}%)`;
+                  else if (slide)
                       element.style.transform = `translateX(${slide * (1 - progress) * 100}%)`;
-                  else
+                  else if (slide !== 3)
                       element.style.translate = `0 ${(1 - progress) * MOTION.travel}px`;
               }, complete: () => {
                   element.style.opacity = '';
@@ -20653,7 +20670,9 @@
                   element.style.removeProperty('--flow-display');
                   cancelMotion(element, 'panel');
               } });
-      }).observe(element, { attributes: true, attributeFilter: ['class', 'hidden'] });
+      };
+      new MutationObserver(update).observe(owner, { attributes: true, attributeFilter: attributes });
+      window.addEventListener('resize', update);
   }
   /** Bounded scrolling follows live geometry and yields immediately to direct input. */
   function scroll(element, destination, actor) {
@@ -20698,8 +20717,9 @@
       }
       preference.addEventListener('change', () => { if (preference?.matches)
           finishMotion(); });
-      window.addEventListener('resize', () => finishMotion());
-      window.addEventListener('beforeprint', () => finishMotion());
+      window.addEventListener('resize', () => { presentationHeld = true; finishMotion(); requestAnimationFrame(() => { presentationHeld = false; }); });
+      window.addEventListener('beforeprint', () => { presentationHeld = true; finishMotion(); });
+      window.addEventListener('afterprint', () => { presentationHeld = false; });
       document.addEventListener('visibilitychange', () => { if (document.hidden)
           finishMotion(); });
       window.addEventListener('pagehide', () => finishMotion(undefined, true));
@@ -20742,7 +20762,142 @@
       });
   }
   
-  const api = Object.freeze({ MOTION, SPRING, MOTION_CSS, integrate, reducedMotion, motionActive, motionValue, spring, cancelMotion, finishMotion, onMotionFrame, reveal, layout, retire, intrinsicHeight, disclosure, resizeContent, watchPanel, scroll, scrollToActor, initMotion });
+
+  // Keys describe semantic actors; transient motion attributes never define identity.
+  function actorKey(node, index) {
+    if (node.nodeType !== 1) return `${node.nodeType}:${index}`;
+    if (node.id) return `id:${node.id}`;
+    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep']) {
+      if (node.dataset[name] !== undefined) return `${node.tagName}:${name}:${node.dataset[name]}:${node.dataset.id ?? node.dataset.value ?? ''}`;
+    }
+    return `${node.nodeType}:${node.nodeName}:${index}`;
+  }
+  function patchNode(current, next) {
+    if (current === next) return current;
+    if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName) return next;
+    if (current.nodeType !== 1) {
+      if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+      return current;
+    }
+    const active = current === document.activeElement;
+    const open = current instanceof HTMLDetailsElement ? current.open : null;
+    const motionStyles = [...current.style].filter(name => name.startsWith('--flow-') || (current.hasAttribute('data-motion-running') && ['opacity', 'translate', 'height', 'overflow', 'padding-top', 'padding-bottom'].includes(name))).map(name => [name,current.style.getPropertyValue(name)]);
+    for (const attr of [...current.attributes]) {
+      if (attr.name.startsWith('data-flow-') || attr.name === 'data-motion-running' || attr.name === 'open' && open !== null) continue;
+      if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
+    }
+    for (const attr of next.attributes) {
+      if (attr.name === 'open' && open !== null) continue;
+      if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
+    }
+    for (const [name,value] of motionStyles) current.style.setProperty(name,value);
+    // Native editing keeps its draft, selection and IME ownership. Non-editable values update directly.
+    if (current instanceof HTMLInputElement) {
+      if (!active && current.value !== next.value) current.value = next.value;
+      current.checked = next.checked;
+    }
+    if (current instanceof HTMLTextAreaElement && !active) current.value = next.value;
+    for (const event of ['onclick','onchange','oninput','onsubmit','onkeydown']) if (next[event]) current[event] = next[event];
+    patchChildren(current, [...next.childNodes]);
+    if (current instanceof HTMLSelectElement && !active) current.value = next.value;
+    if (open !== null) current.open = open;
+    return current;
+  }
+  function patchChildren(host, nextNodes) {
+    const old = [...host.childNodes], keyed = new Map(old.map((node,index) => [actorKey(node,index), node]));
+    const used = new Set();
+    let cursor = host.firstChild;
+    nextNodes.forEach((next,index) => {
+      const existing = keyed.get(actorKey(next,index));
+      const node = existing ? patchNode(existing,next) : next;
+      if (existing && node !== existing) { if (existing instanceof HTMLElement) retire(existing); else existing.remove(); }
+      used.add(node);
+      if (node !== cursor) host.insertBefore(node,cursor?.parentNode === host ? cursor : null);
+      cursor = node.nextSibling;
+    });
+    for (const node of old) if (!used.has(node) && node.parentNode === host) {
+      if (node instanceof HTMLElement) retire(node); else node.remove();
+    }
+  }
+  function replaceChildren(host, ...content) {
+    const nodes = content.flatMap(node => node.nodeType === 11 ? [...node.childNodes] : [node]);
+    const before = [...host.childNodes].map(actorKey), after = nodes.map(actorKey);
+    const structural = before.length !== after.length || before.some((key,index) => key !== after[index]);
+    if (structural && host.getClientRects().length && !reducedMotion()) {
+      layout(host, () => patchChildren(host,nodes), ':scope > *', node => actorKey(node,[...host.children].indexOf(node)));
+    } else patchChildren(host,nodes);
+  }
+  function html(host, content) {
+    const template = document.createElement('template'); template.innerHTML = content;
+    replaceChildren(host,template.content);
+  }
+  // Capture before logical state changes, then interpolate only presentation dimensions.
+  function captureSize(element, animate = true, opened = () => !element.hidden) {
+    const before = element.getBoundingClientRect().height;
+    return () => {
+      const oldHeight = element.style.height, oldOverflow = element.style.overflow;
+      element.style.height = ''; element.style.overflow = '';
+      const after = opened() ? element.getBoundingClientRect().height : 0;
+      if (!animate || reducedMotion() || Math.abs(before-after) < .5 && !motionValue(element,'size')) {
+        cancelMotion(element,'size'); delete element.dataset.flowSize; return;
+      }
+      element.style.height = oldHeight; element.style.overflow = oldOverflow;
+      element.dataset.flowSize = '';
+      spring(element,'size',{from:{height:before},to:{height:after},write:({height})=>{
+        element.style.height = `${Math.max(0,height)}px`; element.style.overflow = 'hidden';
+      },complete:()=>{
+        element.style.height = ''; element.style.overflow = ''; delete element.dataset.flowSize;
+        cancelMotion(element,'size');
+      }});
+    };
+  }
+  function captureGrid(main, animate = true) {
+    const elements = [...main.children];
+    const live = motionValue(main,"grid");
+    const before = elements.map((element,index) => live ? live["c"+index] : element.getClientRects().length ? element.getBoundingClientRect().width : 0);
+    return () => {
+      main.style.gridTemplateColumns = ''; delete main.dataset.flowGrid;
+      const retained = elements.filter(element => element.hidden && element.hasAttribute("data-flow-panel-retained"));
+      for (const element of retained) { delete element.dataset.flowRetained; delete element.dataset.flowPanelRetained; }
+      const after = elements.map(element => !element.hidden && element.getClientRects().length ? element.getBoundingClientRect().width : 0);
+      for (const element of retained) { element.dataset.flowRetained=""; element.dataset.flowPanelRetained=""; }
+      if (!animate || innerWidth <= 760 || reducedMotion() || before.every((value,index)=>Math.abs(value-after[index])<.5) && !motionValue(main,'grid')) {
+        cancelMotion(main,'grid'); return;
+      }
+      // Each explicit column keeps its native canvas geometry throughout the resize.
+      const from=Object.fromEntries(before.map((value,index)=>['c'+index,value]));
+      const to=Object.fromEntries(after.map((value,index)=>['c'+index,value]));
+      main.dataset.flowGrid = '';
+      spring(main,'grid',{from,to,write:values=>{
+        main.style.gridTemplateColumns=elements.map((_,index)=>`${Math.max(0,values['c'+index])}px`).join(' ');
+      },complete:()=>{
+        main.style.gridTemplateColumns=''; delete main.dataset.flowGrid; cancelMotion(main,'grid');
+      }});
+    };
+  }
+  function observeSize(element) {
+    let height=element.getBoundingClientRect().height;
+    new MutationObserver(records=>{
+      if (!records.some(record=>record.type==='childList' || record.type==='characterData' || record.type==='attributes' && ['hidden','open'].includes(record.attributeName))) return;
+      if (!element.getClientRects().length || reducedMotion()) { height=element.getBoundingClientRect().height; return; }
+      const natural=intrinsicHeight(element);
+      if (Math.abs(natural-height)<.5 && !motionValue(element,'content-size')) return;
+      element.style.overflow='hidden';
+      spring(element,'content-size',{from:{height},to:()=>({height:intrinsicHeight(element)}),write:value=>{
+        height=value.height; element.style.height=`${Math.max(0,height)}px`;
+      },complete:()=>{
+        element.style.height='';element.style.overflow='';height=element.getBoundingClientRect().height;cancelMotion(element,'content-size');
+      }});
+    }).observe(element,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','open']});
+  }
+  function scrollAxis(element, destination, axis = 'y') {
+    const property=axis==='x'?'scrollLeft':'scrollTop', size=axis==='x'?'scrollWidth':'scrollHeight', client=axis==='x'?'clientWidth':'clientHeight';
+    if (document.hidden) return;
+    spring(element,'scroll',{from:{value:element[property]},to:()=>({value:Math.max(0,Math.min(element[size]-element[client],typeof destination==='function'?destination():destination))}),
+      write:({value})=>{element[property]=value;},complete:()=>cancelMotion(element,'scroll')});
+  }
+
+  const api = Object.freeze({ stationary: () => presentationHeld || reducedMotion() || document.hidden, replaceChildren, html, captureSize, captureGrid, observeSize, scrollAxis, MOTION, SPRING, MOTION_CSS, integrate, reducedMotion, motionActive, motionValue, spring, cancelMotion, finishMotion, onMotionFrame, reveal, layout, retire, intrinsicHeight, disclosure, resizeContent, watchPanel, scroll, scrollToActor, initMotion });
   if (typeof module === "object" && module.exports) module.exports = api;
   else scope.explorerMotion = api;
 })(typeof window === "undefined" ? globalThis : window);
@@ -21581,6 +21736,23 @@
     }
     probe.remove();
     themeChanged();
+  }
+  function beginLevelMorph() {
+    if (Flow.stationary() || S.mode === "candles") { Flow.cancelMotion(canvas, "cells"); transition = null; return; }
+    const previous = transition ? { ...transition } : null;
+    const actor = { n: renderN(), m: renderM(), previous, progress: 0 };
+    transition = actor;
+    Flow.spring(canvas, "cells", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
+      write: ({ progress }) => { if (transition === actor) { actor.progress = progress; requestDraw(); } },
+      complete: () => { if (transition === actor) { transition = null; requestDraw(); } Flow.cancelMotion(canvas, "cells"); } });
+  }
+  function morphBounds(bounds, actor = transition) {
+    if (!actor) return bounds;
+    const time = 2 ** actor.n, priceStep = 2 ** actor.m;
+    const a = Math.floor(bounds[0] / time) * time, low = Math.floor(bounds[2] / priceStep) * priceStep;
+    const previous = morphBounds([a, a + time, low, low + priceStep], actor.previous);
+    const progress = clamp(actor.progress, 0, 1);
+    return bounds.map((value,index) => previous[index] + (value - previous[index]) * progress);
   }
   function requestDraw() {
     if (!raf)
@@ -22789,7 +22961,7 @@
         continue;
       }
       if (held?.key === cur.warnKey) continue;
-      if (transition && performance.now() - transition.start < 170) {
+      if (transition) {
         wait = 60;
         continue;
       }
@@ -22998,7 +23170,7 @@
     refTally.clear();
     const { src, cut, moving, sum, full, meas, b, query, shown, mv, ts, ps } = viewParts(),
       u = transition
-        ? clamp((performance.now() - transition.start) / 170, 0, 1)
+        ? clamp(transition.progress, 0, 1)
         : 1;
     // The scale frame: one resolved mapping per colour channel. A fault in it is not the chart's: it leaves
     // an occupancy-only chart and the legacy legend, and says so once (see scaleFault).
@@ -23297,10 +23469,7 @@
     selectionPresentation(meas, mv, selectionContext.seasonal, selectionContext.response);
     comparisonRefresh();
     rallyController.sync();
-    if (transition) {
-      if (u >= 1) transition = null;
-      else requestDraw();
-    }
+    // The shared spring owns frame scheduling and completion, including reversals.
     // The tooltip and the legend marker follow a mapping, theme or pack that changed under them.
     try {
       refreshTip();
@@ -24787,7 +24956,7 @@
       cellRows = new Map();
       cellRowsLevel = null;
       hoverRow = null;
-      el("table-body").replaceChildren();
+      Flow.replaceChildren(el("table-body"), );
       // pending, failed and unavailable are three states, each with its own words (the inspection navigator reads any position the table lacks)
       const why = last?.meas?.state === "failed" ? "failed" : last?.meas?.state === "pending" || !last ? "pending" : "unavailable";
       el("table-caption").dataset.state = why;
@@ -24959,7 +25128,12 @@
       heldAction = active?.dataset.cellComparisonAction;
     cellsFocusRestoring = true;
     try {
-      el("table-body").replaceChildren(frag);
+      Flow.replaceChildren(el("table-body"), frag);
+      for (const entry of cellRows.values()) {
+        const retained = [...el("table-body").children].find(row => row.dataset.cellKey === entry.tr.dataset.cellKey);
+        if (!retained) throw new Error("Cell row reconciliation lost its actor");
+        entry.tr = retained;
+      }
       if (held != null) {
         const exact = [...el("table-body").children].find((r) => r.dataset.cellKey === held), same = exact ?? el("table-body").firstElementChild;
         if (same) {
@@ -27875,9 +28049,7 @@
     if (mode === "diagonal") {
       if (S.auto) autoLevel();
       else if (S.m !== diagonalM(S.n)) {
-        transition = reduce
-          ? null
-          : { n: renderN(), m: renderM(), start: performance.now() };
+        beginLevelMorph();
         S.m = diagonalM(S.n);
       }
     }
@@ -27939,6 +28111,8 @@
     };
   // Inspector and drawer: open state and sizes, from S, within the window.
   function applyPanels() {
+    const finishGrid = Flow.captureGrid(el("main"), ready && !root.querySelector(".ol-grip[data-active=true]")),
+      finishDrawer = Flow.captureSize(root.querySelector(".ol-drawer-body"), ready && !root.querySelector(".ol-grip[data-active=true]"), () => S.drawerOpen);
     const main = el("main"),
       drawer = el("drawer"),
       side = el("side-toggle"),
@@ -27975,7 +28149,8 @@
       tab.tabIndex = 0;
       el("panel-" + tab.dataset.drawer).hidden = !on;
     }
-
+    finishGrid();
+    finishDrawer();
   }
   function openDrawer(tab, open = true) {
     if (comparisonModel.expanded && (tab !== "compare" || !open)) comparisonExpand(false);
@@ -27988,6 +28163,8 @@
   // Drag, or arrow keys on a focused grip, resize the inspector and the drawer.
   function bindGrip(grip, begin, onMove, onKey) {
     grip.addEventListener("pointerdown", (e) => {
+      Flow.cancelMotion(el("main"), "grid");
+      Flow.cancelMotion(root.querySelector(".ol-drawer-body"), "size");
       grip.setPointerCapture(e.pointerId);
       grip.dataset.active = "true";
       const start = { x: e.clientX, y: e.clientY };
@@ -28005,6 +28182,7 @@
       grip.addEventListener("pointercancel", end);
     });
     grip.addEventListener("keydown", (e) => {
+      Flow.finishMotion(el("main"));
       if (onKey(e.key)) {
         e.preventDefault();
         e.stopPropagation();
@@ -28018,7 +28196,7 @@
       height0 = 0;
     bindGrip(
       el("side-grip"),
-      () => (width0 = clamp(S.sideWidth, 260, sideMax())),
+      () => (width0 = clamp(el("side").getBoundingClientRect().width, 260, sideMax())),
       (dx) => {
         S.sideWidth = clamp(width0 - dx, 260, sideMax());
         applyPanels();
@@ -28035,7 +28213,7 @@
     );
     bindGrip(
       el("drawer-grip"),
-      () => (height0 = clamp(S.drawerHeight, 120, drawerMax())),
+      () => (height0 = clamp(root.querySelector(".ol-drawer-body").getBoundingClientRect().height, 120, drawerMax())),
       (dx, dy) => {
         S.drawerHeight = clamp(height0 - dy, 120, drawerMax());
         applyPanels();
@@ -29311,7 +29489,7 @@
     summaryRt.timer = 0;
     if (!(S.drawerOpen && S.drawer === "query") || !el("summary-body")) return;
     summaryRt.sections = summarySections();
-    el("summary-body").replaceChildren(
+    Flow.replaceChildren(el("summary-body"), 
       ...summaryRt.sections.map((s) => {
         const box = uiEl("section", "ol-summary-section"),
           list = uiEl("dl", "ol-legend-details");
@@ -29634,7 +29812,7 @@
     if (scaleRt.fault) uiFault();
     if (!cur) {
       box.hidden = true;
-      el("notice-text").replaceChildren();
+      Flow.replaceChildren(el("notice-text"), );
     } else {
       // Every notice still waiting is in the banner's DOM (so the observation surface and a reader of the page
       // find each one with its count and its lines), and only the current one shows: the rest are hidden until
@@ -29663,7 +29841,7 @@
         });
       // TEXT(S1): the count of the notices that wait behind the one shown
       if (waiting.length > 1) items.push(uiEl("span", "ol-notice-queued", ` +${waiting.length - 1} more`));
-      el("notice-text").replaceChildren(...items);
+      Flow.replaceChildren(el("notice-text"), ...items);
       box.dataset.level = cur.level;
       if (scaleUi.noticeOpen !== cur.id) scaleUi.noticeOpen = "";
       const more = el("notice-more");
@@ -29732,7 +29910,7 @@
     el("notice-more").addEventListener("click", () => {
       const list = document.getElementById("ol-note-details"),
         open = Boolean(list?.hidden);
-      if (list) list.hidden = !open;
+      if (list) Flow.disclosure(list, open);
       scaleUi.noticeOpen = open ? el("notice").dataset.noticeId : "";
       el("notice-more").setAttribute("aria-expanded", String(open));
     });
@@ -30011,6 +30189,7 @@
       progress = uiEl("div", "ol-flow-progress"), body = uiEl("div", "ol-flow-body"),
       footer = uiEl("div", "ol-flow-footer");
     panel.dataset.step = step.id;
+    body.dataset.flowKey = `${id}:${step.id}`;
     panel.setAttribute("aria-label", `${name}: ${step.name}, step ${at + 1} of ${steps.length}`);
     progress.setAttribute("role", "group");
     progress.setAttribute("aria-label", "Configuration steps");
@@ -30053,7 +30232,7 @@
     next.className = "ol-action ol-flow-next cursor-interaction";
     next.dataset[`${id}Nav`] = "next";
     footer.append(next);
-    panel.replaceChildren(header, body, footer);
+    Flow.replaceChildren(panel, header, body, footer);
     uiPopPlace(panel, el(id), "start");
   }
   const buildModeMenu = () => buildFlowMenu("mode"),
@@ -30182,6 +30361,7 @@
       hint.box.className = "ol-hint";
       hint.box.setAttribute("aria-hidden", "true");
       root.append(hint.box);
+      Flow.watchPanel(hint.box, () => !hint.box.hidden, 3);
     }
     const box = hint.box,
       head = document.createElement("div"),
@@ -30769,14 +30949,8 @@
       ya = G.Y((z.r + 1) * ps),
       yb = G.Y(z.r * ps);
     if (transition && u < 1) {
-      const ot = 2 ** transition.n,
-        op = 2 ** transition.m,
-        oa = Math.floor((z.c * ts) / ot) * ot,
-        ob = Math.floor((z.r * ps) / op) * op;
-      xa = G.X(oa) + (xa - G.X(oa)) * u;
-      xb = G.X(oa + ot) + (xb - G.X(oa + ot)) * u;
-      ya = G.Y(ob + op) + (ya - G.Y(ob + op)) * u;
-      yb = G.Y(ob) + (yb - G.Y(ob)) * u;
+      const bounds = morphBounds([z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps]);
+      xa = G.X(bounds[0]); xb = G.X(bounds[1]); ya = G.Y(bounds[3]); yb = G.Y(bounds[2]);
     }
     if (xb < G.x || xa > G.x + G.w || yb < G.y || ya > G.y + G.h) return;
     cellPass(frame);
@@ -36805,15 +36979,15 @@
       fdays = S.lines.filter(isFibDay);
     if (el("lines-vdays").dataset.keys !== vdays.join(",")) {
       el("lines-vdays").dataset.keys = vdays.join(",");
-      el("lines-vdays").replaceChildren(...vdays.map((key) => lineRow(key, true)));
+      Flow.replaceChildren(el("lines-vdays"), ...vdays.map((key) => lineRow(key, true)));
     }
     if (el("lines-fdays").dataset.keys !== fdays.join(",")) {
       el("lines-fdays").dataset.keys = fdays.join(",");
-      el("lines-fdays").replaceChildren(...fdays.map((key) => lineRow(key, true)));
+      Flow.replaceChildren(el("lines-fdays"), ...fdays.map((key) => lineRow(key, true)));
     }
     if (el("lines-days").dataset.keys !== days.join(",")) {
       el("lines-days").dataset.keys = days.join(",");
-      el("lines-days").replaceChildren(...days.map((key) => lineRow(key, true)));
+      Flow.replaceChildren(el("lines-days"), ...days.map((key) => lineRow(key, true)));
     }
     for (const box of qsa("#ol-lines-pop input[data-line]")) {
       const key = box.dataset.line,
@@ -38411,7 +38585,7 @@
       tr.append(td);
       fragment.append(tr);
     }
-    list.replaceChildren(fragment);
+    Flow.replaceChildren(list, fragment);
     el("case-page").textContent = rows.length
       ? `${S.casePage + 1} / ${pages} · ${integer(rows.length)}`
       : "0 cases";
@@ -38698,9 +38872,7 @@
       m = S.diagonal ? diagonalM(n) : pixelLevel(S.m, S.pB - S.pA, g.h, M_MAX),
       changed = n !== S.n || m !== S.m;
     if (changed) {
-      transition = reduce
-        ? null
-        : { n: renderN(), m: renderM(), start: performance.now() };
+      beginLevelMorph();
       S.n = n;
       S.m = m;
     }
@@ -39438,14 +39610,8 @@
       ya = G.Y((z.r + 1) * ps),
       yb = G.Y(z.r * ps);
     if (transition && u < 1) {
-      const ot = 2 ** transition.n,
-        op = 2 ** transition.m,
-        oa = Math.floor((z.c * ts) / ot) * ot,
-        ob = Math.floor((z.r * ps) / op) * op;
-      xa = G.X(oa) + (xa - G.X(oa)) * u;
-      xb = G.X(oa + ot) + (xb - G.X(oa + ot)) * u;
-      ya = G.Y(ob + op) + (ya - G.Y(ob + op)) * u;
-      yb = G.Y(ob) + (yb - G.Y(ob)) * u;
+      const bounds = morphBounds([z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps]);
+      xa = G.X(bounds[0]); xb = G.X(bounds[1]); ya = G.Y(bounds[3]); yb = G.Y(bounds[2]);
     }
     if (xb < G.x || xa > G.x + G.w || yb < G.y || ya > G.y + G.h) return false;
     BOX.xa = xa;
@@ -39730,9 +39896,7 @@
       else if ((n !== S.n || m !== S.m) && m !== diagonalM(n))
         S.diagonal = false;
     }
-    transition = reduce
-      ? null
-      : { n: renderN(), m: renderM(), start: performance.now() };
+    beginLevelMorph();
     S.auto = false;
     S.n = n;
     S.m = m;
@@ -39944,6 +40108,7 @@
       const x = hist.entries[i],
         b = document.createElement("button");
       b.type = "button";
+      b.dataset.flowKey = x.id;
       b.className = "ol-entry cursor-interaction";
       b.setAttribute("aria-current", i === hist.index ? "step" : "false");
       b.append(
@@ -39955,11 +40120,12 @@
       );
       b.addEventListener("click", () => {
         closePop();
-        if (i !== hist.index) history.go(i - hist.index);
+        const index = hist.entries.findIndex(entry => entry.id === x.id);
+        if (index !== hist.index) history.go(index - hist.index);
       });
       frag.append(b);
     }
-    el("breadcrumbs").replaceChildren(frag);
+    Flow.replaceChildren(el("breadcrumbs"), frag);
   }
   // Back and Forward return to a place and leave how it is shown alone; an
   // address edited by hand is taken whole. "How it is shown" is every field of the codec's table (the
@@ -39975,9 +40141,7 @@
       if (i < 0) reportRefused(address);
       return;
     }
-    transition = reduce
-      ? null
-      : { n: renderN(), m: renderM(), start: performance.now() };
+    beginLevelMorph();
     applyView(i < 0 ? view : { ...view, ...visualOf(), records: undefined, axes: [], appearance: null });
     if (i < 0) reportView(view);
     // The step after Back or Forward is new, whatever its kind.
@@ -40122,7 +40286,7 @@
     try {
       const apply = () => {
         const priorTransition = transition;
-        transition = reduce ? null : { n: renderN(), m: renderM(), start: performance.now() };
+        beginLevelMorph();
         try { applyView(view); } catch (error) { transition = priorTransition; throw error; }
       };
       if (view.drawings) { if (!await drawingReplace(view.drawings, apply)) return; }
@@ -40772,6 +40936,7 @@
         open = document.createElement("button"),
         remove = document.createElement("button");
       row.className = "ol-saved-row";
+      row.dataset.flowKey = x.name;
       open.type = remove.type = "button";
       open.className = "ol-entry cursor-interaction";
       open.title = x.window || x.live
@@ -40780,7 +40945,7 @@
       open.append(rowText(x.name, "ol-entry-main"), rowText(viewDetail(x), "ol-entry-sub"));
       open.addEventListener("click", () => {
         closePop();
-        openView(x);
+        openView(views.list.find(view => view.name === x.name));
       });
       remove.className = "ol-icon-button ol-s cursor-interaction";
       remove.setAttribute("aria-label", `Delete “${x.name}”`);
@@ -40798,7 +40963,7 @@
           "ol-muted ol-empty",
         ),
       );
-    el("saved").replaceChildren(frag);
+    Flow.replaceChildren(el("saved"), frag);
   }
   // Open the views popover; to save, with the name field ready to type.
   function openViews(naming = false) {
@@ -41358,9 +41523,7 @@
     // The tile is the chart's now: it stops being lens-only before confine() chooses the block to show.
     f.src.lens = false;
     if (PACK.blocks[f.src.id]) PACK.blocks[f.src.id].lens = false;
-    transition = reduce || S.mode === "candles"
-      ? null
-      : { n: renderN(), m: renderM(), start: performance.now() };
+    beginLevelMorph();
     S.tA = f.ta;
     S.tB = f.tbRaw;
     S.pA = Math.max(0, f.pa);
@@ -42185,7 +42348,7 @@
     nav.pointers.clear();
     clearTimeout(nav.zoomTimer);
     gestureAt = 0;
-    tableHover = hover = transition = null;
+    tableHover = hover = transition = null; Flow.finishMotion(root);
     scaleRt.ctl.cancel();
     clearTimeout(scaleRt.timer);
     scaleRt.timer = 0;
@@ -42220,7 +42383,7 @@
     drawingCancelOperation(); drawingKeyContext = false;
     if (!modes().includes(mode)) return;
     if (mode === "candles" && S.mode !== "candles") candlePrevious = S.mode;
-    if (mode === "candles" || S.mode === "candles") transition = null;
+    if (mode === "candles" || S.mode === "candles") { transition = null; Flow.cancelMotion(canvas, "cells"); }
     S.mode = mode;
     update();
     save();
@@ -43351,7 +43514,7 @@
       visibility.className = "ol-line-row cursor-interaction"; box.type = "checkbox"; box.id = "ol-drawing-group-visible"; swatch.className = "ol-line-swatch"; swatch.setAttribute("aria-hidden", "true"); name.className = "ol-line-name"; name.textContent = "Show drawings";
       box.addEventListener("change", () => drawingUICmd("group-visible", null, box.checked)); visibility.append(box, swatch, name); body.prepend(visibility);
       familiesOpen(); const open = Boolean(familyOpen.drawing); head.setAttribute("aria-expanded", String(open)); body.hidden = !open;
-      head.addEventListener("click", () => { const open = head.getAttribute("aria-expanded") !== "true"; setFamilyOpen("drawing", open); head.setAttribute("aria-expanded", String(open)); body.hidden = !open; });
+      head.addEventListener("click", () => { const open = head.getAttribute("aria-expanded") !== "true"; setFamilyOpen("drawing", open); head.setAttribute("aria-expanded", String(open)); Flow.disclosure(body, open); });
       parent.insertBefore(section, parent.querySelector(".ol-family"));
     }
     drawingSyncInventory(); return section;
@@ -43380,8 +43543,11 @@
     const collection = drawingCollection(), objects = collection.objects, list = el("drawing-list"), key = objects.map((o) => o.id).join(",");
     if (key !== drawingRowsKey) {
       const existing = new Map([...list.querySelectorAll("[data-drawing-row]")].map((r) => [r.dataset.drawingRow, r]));
-      for (const [id, row] of existing) if (!objects.some((o) => o.id === id)) row.remove();
-      for (const object of objects) list.append(existing.get(object.id) || drawingRow(object)); drawingRowsKey = key;
+      Flow.layout(list, () => {
+        for (const [id, row] of existing) if (!objects.some((o) => o.id === id)) Flow.retire(row);
+        for (const object of objects) list.append(existing.get(object.id) || drawingRow(object));
+      }, ":scope > [data-drawing-row]", row => row.dataset.drawingRow);
+      drawingRowsKey = key;
     }
     for (const row of list.querySelectorAll("[data-drawing-row]")) {
       const object = drawingById(row.dataset.drawingRow), state = drawingStatus(object.id), name = drawingDisplayName(object), box = row.querySelector('[data-drawing-action="visible"]'), remove = row.querySelector('[data-drawing-action="delete"]');
@@ -43440,7 +43606,7 @@
     retry.hidden = !drawingUnsaved; recover.hidden = !drawingRecoveries.length; status.id = "ol-drawing-storage-status"; status.className = "ol-drawing-summary";
     status.textContent = drawingUnsaved ? `Unsaved drawings${drawingStorageReason ? ": " + drawingStorageReason : ""}` : ""; status.hidden = !drawingUnsaved;
     buttons.push(undo, redo, remove, exported, retry, recover, status);
-    panel.replaceChildren(...buttons); if (focused) panel.querySelector(`[data-drawing-action="${focused}"]`)?.focus({ preventScroll: true });
+    Flow.replaceChildren(panel, ...buttons); if (focused) panel.querySelector(`[data-drawing-action="${focused}"]`)?.focus({ preventScroll: true });
   }
   function drawingPlaceActions() {
     const panel = el("drawing-actions"), group = el("drawing-more").parentElement; let sheet = el("drawing-sheet-group");
@@ -43455,7 +43621,7 @@
   }
   function drawingCloseContext(focus = false) {
     if (!drawingContext) return false;
-    drawingContext.node.remove(); drawingContext = null;
+    Flow.retire(drawingContext.node); drawingContext = null;
     if (focus) canvas.focus({ preventScroll: true });
     return true;
   }
@@ -43487,7 +43653,7 @@
       }); node.append(button);
     }
     root.append(node); node.style.left = clamp(position.x, 8, Math.max(8, innerWidth - node.offsetWidth - 8)) + "px";
-    node.style.top = clamp(position.y, 8, Math.max(8, innerHeight - node.offsetHeight - 8)) + "px"; node.firstElementChild.focus({ preventScroll: true });
+    node.style.top = clamp(position.y, 8, Math.max(8, innerHeight - node.offsetHeight - 8)) + "px"; node.firstElementChild.focus({ preventScroll: true });Flow.reveal(node,{distance:Flow.MOTION.information});
   }
   function drawingContextOwnsKey(event) {
     if (!drawingContext) return false;
@@ -43798,7 +43964,7 @@
     const next={...comparisonModel,expanded,restoreLayout:expanded?layout:null};
     if(!comparisonCommit(next))return;
     if(!expanded&&layout)Object.assign(S,layout);
-    else if(expanded) {S.drawer="compare";S.drawerOpen=true;transition=null;clearTimeout(scaleRt.timer);scaleRt.timer=0;clearTimeout(cube.timer);clearTimeout(motion.timer);comparisonUI.focusControl("expand");}
+    else if(expanded) {S.drawer="compare";S.drawerOpen=true;transition=null;Flow.cancelMotion(canvas,"cells");clearTimeout(scaleRt.timer);scaleRt.timer=0;clearTimeout(cube.timer);clearTimeout(motion.timer);comparisonUI.focusControl("expand");}
     applyPanels();comparisonUI.focusControl("expand");
     if(!expanded){geometry();update();scheduleCube();scaleArm();}
   }
@@ -44017,7 +44183,7 @@
     }
   }
   function comparisonCloseMenu(focus=false) {
-    if(!comparisonMenu)return false;const state=comparisonMenu;comparisonMenu=null;state.node.remove();
+    if(!comparisonMenu)return false;const state=comparisonMenu;comparisonMenu=null;Flow.retire(state.node);
     if(focus&&state.owner?.isConnected)state.owner.focus({preventScroll:true});return true;
   }
   function comparisonOpenMenu(event,target) {
@@ -44036,7 +44202,7 @@
         comparisonCloseMenu(type==="copy");if(type==="copy")comparisonCopy(state.capture);else comparisonAdd(state.capture,type==="update");
       });node.append(b);
     }
-    root.append(node);node.style.position="fixed";node.style.left=Math.min(event.clientX,innerWidth-node.offsetWidth-8)+"px";node.style.top=Math.min(event.clientY,innerHeight-node.offsetHeight-8)+"px";node.firstElementChild.focus();
+    root.append(node);node.style.position="fixed";node.style.left=Math.min(event.clientX,innerWidth-node.offsetWidth-8)+"px";node.style.top=Math.min(event.clientY,innerHeight-node.offsetHeight-8)+"px";node.firstElementChild.focus();Flow.reveal(node,{distance:Flow.MOTION.information});
   }
   function comparisonOwnsKey(event,target) {
     if(target?.closest(".ol-comparison-confirm"))return true;
@@ -44321,8 +44487,8 @@
     reveal: target => {
       const element = target.selector ? root.querySelector(target.selector) : canvas;
       if (PHONE.matches && element?.closest("#ol-controls")) setSheet(true);
-      if (target.selector && element?.getClientRects().length) element.scrollIntoView({block:"nearest",inline:"nearest"});
-      else if (PHONE.matches && target.region && canvas.getClientRects().length) canvas.scrollIntoView({block:"nearest",inline:"nearest"});
+      if (target.selector && element?.getClientRects().length) Flow.scrollToActor(element,"nearest");
+      else if (PHONE.matches && target.region && canvas.getClientRects().length) Flow.scrollToActor(canvas,"nearest");
     },
     closeTransient: () => closePop(true),
     openKeys,
@@ -44386,7 +44552,17 @@
     // The restored comparison owns control availability after the global startup lock is released.
     comparisonLoad();
     transition = null;
-    for (const panel of qsa(".ol-pop, .ol-inspect-detail, .ol-inspect-chooser, #ol-import")) Flow.watchPanel(panel, () => !panel.hidden);
+    for (const panel of qsa(".ol-pop, .ol-inspect-detail, .ol-inspect-chooser, #ol-import")) {
+      Flow.watchPanel(panel, () => !panel.hidden);
+      if (panel.matches(".ol-pop:not(.ol-cell-menu)")) Flow.observeSize(panel);
+    }
+    Flow.watchPanel(root.querySelector(".ol-drawer-body"), () => el("drawer").dataset.open === "true", 0, el("drawer"), ["data-open"]);
+    Flow.watchPanel(root.querySelector(".ol-side-body"), () => el("main").dataset.side === "open", 0, el("main"), ["data-side"]);
+    Flow.watchPanel(el("controls"), () => !PHONE.matches || root.dataset.sheet === "open", 2, root, ["data-sheet"]);
+    Flow.watchPanel(el("reference"), () => !el("reference").hidden, -1);
+    Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
+    for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
+    Flow.onMotionFrame(() => referenceGuide?.refresh());
     Flow.reveal(el("main"), { distance: 0 });
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();

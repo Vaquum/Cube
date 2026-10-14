@@ -105,7 +105,7 @@ test("the page holds state, encoding and app script text verbatim, in that order
   const bytes = fs.readFileSync(t.file("out/index.html"));
   const page = bytes.toString("utf8");
   const els = scripts(page);
-  assert.deepEqual(els.map((e) => e.attrs), ['src="vendor/d3.min.js"', 'type="application/json" id="origo-lens-data"', "", "", "", "", "", "", "", "", ""]);
+  assert.deepEqual(els.map((e) => e.attrs), ['src="vendor/d3.min.js"', 'type="application/json" id="origo-lens-data"', "", "", "", "", "", "", "", "", "", ""]);
   const [d3, data, state, encoding, evidence, comparison, dashboard, agent, reference, rallies, motion, app] = els;
   assert.equal(d3.body, "");
   assert.equal(state.body, t.read("src/state.js"));

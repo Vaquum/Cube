@@ -36,6 +36,7 @@
   const nativeDetails = new WeakSet();
   let retirementGeometry = new Map();
   let rootElement;
+  let presentationHeld = false;
   let preference;
   let frame = 0, previousTime = 0;
   const bounded = (value) => Math.max(0, Math.min(1, value));
@@ -130,7 +131,7 @@
           channel.velocity[key] ??= 0;
       channel.start = performance.now() + (options.delay ?? 0);
       channel.active = true;
-      if (reducedMotion()) {
+      if (reducedMotion() || presentationHeld || document.hidden) {
           complete(channel);
           return;
       }
@@ -392,10 +393,10 @@
       return result;
   }
   /** Fixed owners opt in explicitly; descendants and text mutations are ignored. */
-  function watchPanel(element, opened, slide = 0) {
+  function watchPanel(element, opened, slide = 0, owner = element, attributes = ['class', 'hidden']) {
       let previous = opened();
       let display = getComputedStyle(element).display;
-      new MutationObserver(() => {
+      const update = () => {
           const next = opened();
           if (previous === next)
               return;
@@ -415,9 +416,11 @@
           spring(element, 'panel', { from: { progress: next ? 0 : 1 }, to: { progress: next ? 1 : 0 },
               write: ({ progress }) => {
                   element.style.opacity = String(bounded(progress));
-                  if (slide)
+                  if (slide === 2)
+                      element.style.transform = `translateY(${(1 - progress) * 100}%)`;
+                  else if (slide)
                       element.style.transform = `translateX(${slide * (1 - progress) * 100}%)`;
-                  else
+                  else if (slide !== 3)
                       element.style.translate = `0 ${(1 - progress) * MOTION.travel}px`;
               }, complete: () => {
                   element.style.opacity = '';
@@ -429,7 +432,9 @@
                   element.style.removeProperty('--flow-display');
                   cancelMotion(element, 'panel');
               } });
-      }).observe(element, { attributes: true, attributeFilter: ['class', 'hidden'] });
+      };
+      new MutationObserver(update).observe(owner, { attributes: true, attributeFilter: attributes });
+      window.addEventListener('resize', update);
   }
   /** Bounded scrolling follows live geometry and yields immediately to direct input. */
   function scroll(element, destination, actor) {
@@ -474,8 +479,9 @@
       }
       preference.addEventListener('change', () => { if (preference?.matches)
           finishMotion(); });
-      window.addEventListener('resize', () => finishMotion());
-      window.addEventListener('beforeprint', () => finishMotion());
+      window.addEventListener('resize', () => { presentationHeld = true; finishMotion(); requestAnimationFrame(() => { presentationHeld = false; }); });
+      window.addEventListener('beforeprint', () => { presentationHeld = true; finishMotion(); });
+      window.addEventListener('afterprint', () => { presentationHeld = false; });
       document.addEventListener('visibilitychange', () => { if (document.hidden)
           finishMotion(); });
       window.addEventListener('pagehide', () => finishMotion(undefined, true));
@@ -518,7 +524,142 @@
       });
   }
   
-  const api = Object.freeze({ MOTION, SPRING, MOTION_CSS, integrate, reducedMotion, motionActive, motionValue, spring, cancelMotion, finishMotion, onMotionFrame, reveal, layout, retire, intrinsicHeight, disclosure, resizeContent, watchPanel, scroll, scrollToActor, initMotion });
+
+  // Keys describe semantic actors; transient motion attributes never define identity.
+  function actorKey(node, index) {
+    if (node.nodeType !== 1) return `${node.nodeType}:${index}`;
+    if (node.id) return `id:${node.id}`;
+    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep']) {
+      if (node.dataset[name] !== undefined) return `${node.tagName}:${name}:${node.dataset[name]}:${node.dataset.id ?? node.dataset.value ?? ''}`;
+    }
+    return `${node.nodeType}:${node.nodeName}:${index}`;
+  }
+  function patchNode(current, next) {
+    if (current === next) return current;
+    if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName) return next;
+    if (current.nodeType !== 1) {
+      if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+      return current;
+    }
+    const active = current === document.activeElement;
+    const open = current instanceof HTMLDetailsElement ? current.open : null;
+    const motionStyles = [...current.style].filter(name => name.startsWith('--flow-') || (current.hasAttribute('data-motion-running') && ['opacity', 'translate', 'height', 'overflow', 'padding-top', 'padding-bottom'].includes(name))).map(name => [name,current.style.getPropertyValue(name)]);
+    for (const attr of [...current.attributes]) {
+      if (attr.name.startsWith('data-flow-') || attr.name === 'data-motion-running' || attr.name === 'open' && open !== null) continue;
+      if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
+    }
+    for (const attr of next.attributes) {
+      if (attr.name === 'open' && open !== null) continue;
+      if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
+    }
+    for (const [name,value] of motionStyles) current.style.setProperty(name,value);
+    // Native editing keeps its draft, selection and IME ownership. Non-editable values update directly.
+    if (current instanceof HTMLInputElement) {
+      if (!active && current.value !== next.value) current.value = next.value;
+      current.checked = next.checked;
+    }
+    if (current instanceof HTMLTextAreaElement && !active) current.value = next.value;
+    for (const event of ['onclick','onchange','oninput','onsubmit','onkeydown']) if (next[event]) current[event] = next[event];
+    patchChildren(current, [...next.childNodes]);
+    if (current instanceof HTMLSelectElement && !active) current.value = next.value;
+    if (open !== null) current.open = open;
+    return current;
+  }
+  function patchChildren(host, nextNodes) {
+    const old = [...host.childNodes], keyed = new Map(old.map((node,index) => [actorKey(node,index), node]));
+    const used = new Set();
+    let cursor = host.firstChild;
+    nextNodes.forEach((next,index) => {
+      const existing = keyed.get(actorKey(next,index));
+      const node = existing ? patchNode(existing,next) : next;
+      if (existing && node !== existing) { if (existing instanceof HTMLElement) retire(existing); else existing.remove(); }
+      used.add(node);
+      if (node !== cursor) host.insertBefore(node,cursor?.parentNode === host ? cursor : null);
+      cursor = node.nextSibling;
+    });
+    for (const node of old) if (!used.has(node) && node.parentNode === host) {
+      if (node instanceof HTMLElement) retire(node); else node.remove();
+    }
+  }
+  function replaceChildren(host, ...content) {
+    const nodes = content.flatMap(node => node.nodeType === 11 ? [...node.childNodes] : [node]);
+    const before = [...host.childNodes].map(actorKey), after = nodes.map(actorKey);
+    const structural = before.length !== after.length || before.some((key,index) => key !== after[index]);
+    if (structural && host.getClientRects().length && !reducedMotion()) {
+      layout(host, () => patchChildren(host,nodes), ':scope > *', node => actorKey(node,[...host.children].indexOf(node)));
+    } else patchChildren(host,nodes);
+  }
+  function html(host, content) {
+    const template = document.createElement('template'); template.innerHTML = content;
+    replaceChildren(host,template.content);
+  }
+  // Capture before logical state changes, then interpolate only presentation dimensions.
+  function captureSize(element, animate = true, opened = () => !element.hidden) {
+    const before = element.getBoundingClientRect().height;
+    return () => {
+      const oldHeight = element.style.height, oldOverflow = element.style.overflow;
+      element.style.height = ''; element.style.overflow = '';
+      const after = opened() ? element.getBoundingClientRect().height : 0;
+      if (!animate || reducedMotion() || Math.abs(before-after) < .5 && !motionValue(element,'size')) {
+        cancelMotion(element,'size'); delete element.dataset.flowSize; return;
+      }
+      element.style.height = oldHeight; element.style.overflow = oldOverflow;
+      element.dataset.flowSize = '';
+      spring(element,'size',{from:{height:before},to:{height:after},write:({height})=>{
+        element.style.height = `${Math.max(0,height)}px`; element.style.overflow = 'hidden';
+      },complete:()=>{
+        element.style.height = ''; element.style.overflow = ''; delete element.dataset.flowSize;
+        cancelMotion(element,'size');
+      }});
+    };
+  }
+  function captureGrid(main, animate = true) {
+    const elements = [...main.children];
+    const live = motionValue(main,"grid");
+    const before = elements.map((element,index) => live ? live["c"+index] : element.getClientRects().length ? element.getBoundingClientRect().width : 0);
+    return () => {
+      main.style.gridTemplateColumns = ''; delete main.dataset.flowGrid;
+      const retained = elements.filter(element => element.hidden && element.hasAttribute("data-flow-panel-retained"));
+      for (const element of retained) { delete element.dataset.flowRetained; delete element.dataset.flowPanelRetained; }
+      const after = elements.map(element => !element.hidden && element.getClientRects().length ? element.getBoundingClientRect().width : 0);
+      for (const element of retained) { element.dataset.flowRetained=""; element.dataset.flowPanelRetained=""; }
+      if (!animate || innerWidth <= 760 || reducedMotion() || before.every((value,index)=>Math.abs(value-after[index])<.5) && !motionValue(main,'grid')) {
+        cancelMotion(main,'grid'); return;
+      }
+      // Each explicit column keeps its native canvas geometry throughout the resize.
+      const from=Object.fromEntries(before.map((value,index)=>['c'+index,value]));
+      const to=Object.fromEntries(after.map((value,index)=>['c'+index,value]));
+      main.dataset.flowGrid = '';
+      spring(main,'grid',{from,to,write:values=>{
+        main.style.gridTemplateColumns=elements.map((_,index)=>`${Math.max(0,values['c'+index])}px`).join(' ');
+      },complete:()=>{
+        main.style.gridTemplateColumns=''; delete main.dataset.flowGrid; cancelMotion(main,'grid');
+      }});
+    };
+  }
+  function observeSize(element) {
+    let height=element.getBoundingClientRect().height;
+    new MutationObserver(records=>{
+      if (!records.some(record=>record.type==='childList' || record.type==='characterData' || record.type==='attributes' && ['hidden','open'].includes(record.attributeName))) return;
+      if (!element.getClientRects().length || reducedMotion()) { height=element.getBoundingClientRect().height; return; }
+      const natural=intrinsicHeight(element);
+      if (Math.abs(natural-height)<.5 && !motionValue(element,'content-size')) return;
+      element.style.overflow='hidden';
+      spring(element,'content-size',{from:{height},to:()=>({height:intrinsicHeight(element)}),write:value=>{
+        height=value.height; element.style.height=`${Math.max(0,height)}px`;
+      },complete:()=>{
+        element.style.height='';element.style.overflow='';height=element.getBoundingClientRect().height;cancelMotion(element,'content-size');
+      }});
+    }).observe(element,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','open']});
+  }
+  function scrollAxis(element, destination, axis = 'y') {
+    const property=axis==='x'?'scrollLeft':'scrollTop', size=axis==='x'?'scrollWidth':'scrollHeight', client=axis==='x'?'clientWidth':'clientHeight';
+    if (document.hidden) return;
+    spring(element,'scroll',{from:{value:element[property]},to:()=>({value:Math.max(0,Math.min(element[size]-element[client],typeof destination==='function'?destination():destination))}),
+      write:({value})=>{element[property]=value;},complete:()=>cancelMotion(element,'scroll')});
+  }
+
+  const api = Object.freeze({ stationary: () => presentationHeld || reducedMotion() || document.hidden, replaceChildren, html, captureSize, captureGrid, observeSize, scrollAxis, MOTION, SPRING, MOTION_CSS, integrate, reducedMotion, motionActive, motionValue, spring, cancelMotion, finishMotion, onMotionFrame, reveal, layout, retire, intrinsicHeight, disclosure, resizeContent, watchPanel, scroll, scrollToActor, initMotion });
   if (typeof module === "object" && module.exports) module.exports = api;
   else scope.explorerMotion = api;
 })(typeof window === "undefined" ? globalThis : window);

@@ -364,33 +364,38 @@
         button.addEventListener("click", () => {
           if (active === target) { clearSpotlight(); return; }
           clearSpotlight(); active = target; reveal?.(target);
-          if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; main.scrollLeft = 0; }
+          if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; window.explorerMotion.scrollAxis(main, 0, "x"); }
           button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
         });
         actions.append(button);
       }
-      el("targets").replaceChildren(...actions.children);
-      el("article").replaceChildren(article);
+      window.explorerMotion.replaceChildren(el("targets"), ...actions.children);
+      article.dataset.flowKey = current.id;
+      window.explorerMotion.replaceChildren(el("article"), article);
       const settings = current.settings || current.id;
       for (const section of pane.querySelectorAll("[data-reference-settings]")) section.hidden = section.dataset.referenceSettings !== settings;
       el("colours").replaceChildren(); delete el("colours").dataset.key; colourKey?.(el("colours"), current);
       el("position").textContent = `${Math.max(0,index + 1)} / ${available.length}${el("search").value ? " matches" : ""}`;
       el("prev").disabled = index === 0; el("next").disabled = index === topics.length - 1;
-      el("body").scrollTop = 0;
+      window.explorerMotion.scrollAxis(el("body"), 0);
       refresh();
     }
     function open(id, origin = document.activeElement) {
+      const finishGrid = window.explorerMotion.captureGrid(main);
       if (pane.hidden) returnFocus = origin;
       beforeOpen(); pane.hidden = false; main.dataset.reference = "open"; el("toggle").setAttribute("aria-expanded", "true"); el("toggle").setAttribute("aria-pressed", "true");
       if (id) { el("search").value = ""; for (const option of select.options) option.hidden = false; render(id); } else refresh();
       select.focus({ preventScroll: true });
+      finishGrid();
     }
     function close() {
+      const finishGrid = window.explorerMotion.captureGrid(main);
       beforeChange();
       clearSpotlight(); pane.hidden = true; delete main.dataset.reference; el("toggle").setAttribute("aria-expanded", "false"); el("toggle").setAttribute("aria-pressed", "false");
-      back.hidden = true; main.scrollLeft = 0;
+      back.hidden = true; window.explorerMotion.scrollAxis(main, 0, "x");
       const destination = returnFocus?.isConnected && returnFocus.getClientRects().length && !returnFocus.closest("[hidden]") ? returnFocus : el("toggle");
       destination.focus({ preventScroll: true });
+      finishGrid();
     }
     el("toggle").addEventListener("click", () => pane.hidden ? open(null, el("toggle")) : close());
     el("close").addEventListener("click", close);
@@ -404,7 +409,7 @@
       if (list.length) render(ids.has(current.id) ? current.id : list[0].id);
       else { clearSpotlight(); el("position").textContent = "0 / 0 matches"; el("status").textContent = "No matching topics. Clear the search to see all topics."; refresh(); }
     });
-    back.addEventListener("click", () => { clearSpotlight(); beforeChange(); main.scrollLeft = 0; back.hidden = true; select.focus({ preventScroll: true }); });
+    back.addEventListener("click", () => { clearSpotlight(); beforeChange(); window.explorerMotion.scrollAxis(main, 0, "x"); back.hidden = true; select.focus({ preventScroll: true }); });
     pane.addEventListener("keydown", event => {
       if (event.key === "Escape" && closeTransient()) event.preventDefault();
       event.stopPropagation();

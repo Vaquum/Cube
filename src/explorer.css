@@ -3538,3 +3538,11 @@
 @media (prefers-reduced-motion: reduce), print {
   #origo-lens, #origo-lens *, #origo-lens *::before, #origo-lens *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+/* Explicit tracks keep canvas coordinates native while side/reference widths settle. */
+@media (min-width: 761px) {
+  #origo-lens .ol-main[data-flow-grid] > .ol-reference { grid-column: 1; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-chart { grid-column: 2; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-side-grip { grid-column: 3; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-side { grid-column: 4; grid-row: 1; }
+}
+#origo-lens [data-flow-size] { display: block !important; }

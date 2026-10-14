@@ -59,8 +59,8 @@
     }
     function renderInspector() {
       const host = el("inspector"), focusedDetails = host.contains(document.activeElement) && document.activeElement?.dataset.rallyAction === "details";
-      host.replaceChildren(); host.hidden = !selectedId;
-      if (!selectedId) return;
+      host.hidden = !selectedId;
+      if (!selectedId) { window.explorerMotion.replaceChildren(host); return; }
       const title = document.createElement("div"), actions = document.createElement("div"), box = document.createElement("div");
       title.className = "ol-section-heading"; title.textContent = "Selected rally · native members";
       actions.className = "ol-legend-actions"; box.id = "ol-rally-details"; box.hidden = !inspectorExpanded;
@@ -70,12 +70,11 @@
         actions.append(button);
       }
       const contextNote = document.createElement("p"); contextNote.className = "ol-muted"; contextNote.textContent = "Rally members only. Continuations uses its own column anchor.";
-      host.append(title, actions, contextNote, box);
-      if (focusedDetails) actions.querySelector('[data-rally-action="details"]').focus({preventScroll:true});
+      const commit = () => { window.explorerMotion.replaceChildren(host,title,actions,contextNote,box); if (focusedDetails) host.querySelector('[data-rally-action="details"]').focus({preventScroll:true}); };
       const event = current()?.selected;
       if (!event) {
         box.append(row("State", stale ? "Source changed · refresh discovery" : errorMessage || (inFlight ? "Reading membership…" : "Hidden by replay or time-to-target filter")));
-        return;
+        commit(); return;
       }
       const {normalized_definition: d, analysis} = result.metadata;
       box.append(row("Retained definition", definitionText(d)), row("Analysis · UTC", `${analysis.start} → ${analysis.end}`),
@@ -97,6 +96,7 @@
       const note = document.createElement("p"); note.className = "ol-muted";
       note.textContent = "Outlines mark cells containing members; other trades may share them. Profile and totals use members only. Event path, dwell and indicators are unavailable. Surrounding auction context remains in the regular inspector.";
       box.append(note);
+      commit();
       host.dataset.rallyId = event.rally_id;
     }
     function render() {
@@ -104,18 +104,19 @@
       const definition = el("definition"); definition.hidden = !result;
       definition.textContent = result ? `Retained discovery · ${definitionText(result.metadata.normalized_definition)}. Analysis · UTC: ${result.metadata.analysis.start} → ${result.metadata.analysis.end}. Retained until Refresh discovery; form edits apply only to the next discovery.` : "";
       const events = shown(), pages = Math.max(1, Math.ceil(events.length / PAGE)); page = Math.min(page, pages - 1);
-      const body = el("rows"); body.replaceChildren();
+      const body = el("rows"), fragment = document.createDocumentFragment();
       for (const e of events.slice(page * PAGE, (page + 1) * PAGE)) {
         const tr = document.createElement("tr"), td = document.createElement("td"), button = document.createElement("button");
         button.type = "button"; button.className = "ol-action ol-s cursor-interaction";
         button.textContent = time(e.start_at_us); button.setAttribute("aria-pressed", String(e.rally_id === selectedId));
         button.title = e.rally_id; button.dataset.rallyId = e.rally_id;
-        button.onclick = () => select(e.rally_id); td.append(button); tr.append(td);
+        button.onclick = () => select(e.rally_id); td.append(button); tr.append(td); tr.dataset.flowKey = e.rally_id;
         for (const value of [time(e.confirmed_at_us), fmt(e.return_bps) + " bps", fmt(e.duration_seconds) + " s", fmt(e.volume), fmt(e.trade_count, 0)]) {
           const cell = document.createElement("td"); cell.textContent = value; tr.append(cell);
         }
-        body.append(tr);
+        fragment.append(tr);
       }
+      window.explorerMotion.replaceChildren(body,fragment);
       el("page").textContent = `${events.length} confirmed · ${page + 1}/${pages}`;
       el("previous").disabled = page === 0; el("next").disabled = page + 1 >= pages;
       if (!context().live) status("Discovery requires the live Origo cube. The recorded page has no native rally endpoint.");

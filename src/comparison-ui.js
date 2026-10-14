@@ -245,8 +245,8 @@
       for (const button of root.querySelectorAll('[data-comparison-action="view"]')) button.setAttribute("aria-pressed", String(button.dataset.value === (model.view || "grid")));
       q(".ol-comparison-empty").hidden = !!captures.length;
       q(".ol-comparison-panes").hidden = !captures.length;
-      focusPane.innerHTML = renderFocus(selected, analysis);
-      q(".ol-comparison-entries").innerHTML = model.view === "matrix" ? renderMatrix(entries, analysis) : renderCards(entries, analysis);
+      window.explorerMotion.html(focusPane, renderFocus(selected, analysis));
+      window.explorerMotion.html(q(".ol-comparison-entries"), model.view === "matrix" ? renderMatrix(entries, analysis) : renderCards(entries, analysis));
       q(".ol-comparison-collection").hidden = captures.length === 1 && model.view !== "matrix";
       q('[data-comparison-position]').textContent = ordered.length ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, ordered.length)} of ${ordered.length} · Page ${page + 1} of ${pages}` : "0 cells";
       q('[data-value="previous"]').disabled = page === 0;
