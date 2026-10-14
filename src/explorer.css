@@ -1178,6 +1178,11 @@
   color: var(--ol-muted);
   cursor: default;
 }
+#origo-lens #ol-lines-pop .ol-marks {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
 #origo-lens .ol-legend {
   margin-left: auto;
   display: flex;
