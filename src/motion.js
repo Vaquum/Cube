@@ -558,7 +558,7 @@
   function actorKey(node, index) {
     if (node.nodeType !== 1) return `${node.nodeType}:${index}`;
     if (node.id) return `id:${node.id}`;
-    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'section', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep']) {
+    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'section', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep', 'modeNav', 'paneNav', 'rowsNav', 'scaleItem', 'mode', 'pane', 'rows', 'period', 'timeframe']) {
       if (node.dataset[name] !== undefined) return `${node.tagName}:${name}:${node.dataset[name]}:${node.dataset.drawingId ?? node.dataset.id ?? node.dataset.value ?? ''}`;
     }
     return `${node.nodeType}:${node.nodeName}:${index}`;
@@ -588,7 +588,7 @@
       current.checked = next.checked;
     }
     if (current instanceof HTMLTextAreaElement && !active) current.value = next.value;
-    for (const event of ['onclick','onchange','oninput','onsubmit','onkeydown']) if (next[event]) current[event] = next[event];
+    for (const event of ['onclick','onchange','oninput','onsubmit','onkeydown','oncontextmenu']) if (current[event] || next[event]) current[event] = next[event];
     if (current.hasAttribute('data-flow-collection')) replaceChildren(current, ...next.childNodes);
     else patchChildren(current, [...next.childNodes]);
     if (current instanceof HTMLSelectElement && !active) current.value = next.value;

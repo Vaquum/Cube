@@ -9035,10 +9035,10 @@
     b.className = "ol-item cursor-interaction";
     b.setAttribute("role", role);
     b.append(...children);
-    b.addEventListener("click", () => {
+    b.onclick = () => {
       if (close) closePop(true);
       onChoose();
-    });
+    };
     return b;
   }
   // A key shown beside a name; the name's element states it to assistive
@@ -9177,11 +9177,11 @@
       if (finish) closePop(true);
       else flowAdvance(id);
     }, b = menuItem(role, children, () => choose(false), false);
-    b.addEventListener("contextmenu", event => {
+    b.oncontextmenu = event => {
       event.preventDefault();
       event.stopPropagation();
       choose(true);
-    });
+    };
     return b;
   }
   function flowDatasetItem(id, key, info, selected, available, onChoose) {
