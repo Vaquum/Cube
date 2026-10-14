@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import {createRequire} from 'node:module';
+import {execFileSync} from 'node:child_process';
 import {chromium} from '@playwright/test';
 const require=createRequire(import.meta.url);
 const {materialise}=require('../tests/support/builds.js');
@@ -17,7 +18,7 @@ const browser=await chromium.launch();
 const report=[];
 try {
  for(const ref of [baseline,'HEAD']) {
-  const build=materialise(ref,`startup-${ref}`);
+  const build=materialise(execFileSync('git',['rev-parse',ref],{encoding:'utf8'}).trim(),`startup-${ref}`);
   const html=fs.readFileSync(path.join(build.dir,'index.html'),'utf8').replace(/(<script type="application\/json" id="origo-lens-data">)[\s\S]*?(<\/script>)/,`$1${pack}$2`);
   const server=http.createServer((req,res)=>{
    if(req.url.startsWith('/cube/')&&bridge) {
