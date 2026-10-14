@@ -11,7 +11,9 @@ const require=createRequire(import.meta.url);
 const {materialise}=require('../tests/support/builds.js');
 const input=process.argv[2], baseline=process.argv[3]||'f860aeb';
 if(!input) throw Error('Usage: node tools/diagnose_startup.mjs BRIDGE_PAGE [BASELINE]');
-const pack=fs.readFileSync(input,'utf8').match(/<script type="application\/json" id="origo-lens-data">([\s\S]*?)<\/script>/)[1];
+const packs=[...fs.readFileSync(input,'utf8').matchAll(/<script type="application\/json" id="origo-lens-data">([\s\S]*?)<\/script>/g)];
+if(packs.length!==1) throw Error(`Expected exactly one origo-lens-data block; found ${packs.length}`);
+const pack=packs[0][1];JSON.parse(pack);
 const out=path.resolve('reports/startup');fs.mkdirSync(out,{recursive:true});
 const bridge=process.env.CUBE_DIAGNOSTIC_BRIDGE;
 const browser=await chromium.launch();
@@ -20,13 +22,13 @@ try {
  for(const hash of ['#w=7d&pane=volume','#t=2025-10-15T20:42:27.803Z~2026-10-17T22:15:52.478Z&p=51000~123000&vis=2&ap=slate2-8f7890f7&mode=flowtrades&pane=volume&rows=delta&sc=r:e:G122938837.33704054,9514161.291727602:delta.roll-90.0.e.l:1791633420000,206,0:wUJ6BmrNhSHPpisc']) for(const ref of [baseline,'HEAD']) {
   const id=(hash.startsWith('#w')?'week':'year')+'-'+ref, requests=[];
   const build=materialise(execFileSync('git',['rev-parse',ref],{encoding:'utf8'}).trim(),`startup-${ref}`);
-  const html=fs.readFileSync(path.join(build.dir,'index.html'),'utf8').replace(/(<script type="application\/json" id="origo-lens-data">)[\s\S]*?(<\/script>)/,`$1${pack}$2`);
+  const html=fs.readFileSync(path.join(build.dir,'index.html'),'utf8').replace(/(<script type="application\/json" id="origo-lens-data">)[\s\S]*?(<\/script>)/,(_,open,close)=>open+pack+close);
   const server=http.createServer((req,res)=>{
    if(req.url.startsWith('/cube/')&&bridge) {
-    const at=Date.now();const remote=http.get(bridge+req.url,r=>{requests.push({path:req.url,status:r.statusCode,ms:Date.now()-at});res.writeHead(r.statusCode,r.headers);r.pipe(res);});remote.on('error',()=>{res.writeHead(502);res.end('{}');});return;
+    const at=Date.now();const remote=http.get(bridge+req.url,r=>{requests.push({path:req.url,status:r.statusCode,ms:Date.now()-at});res.writeHead(r.statusCode,r.headers);r.pipe(res);});remote.on('error',()=>{requests.push({path:req.url,status:502,ms:Date.now()-at,error:'bridge connection failed'});res.writeHead(502,{'Content-Type':'application/json'});res.end('{"error":"diagnostic bridge connection failed"}');});return;
    }
    if(req.url.startsWith('/cube/')) {res.writeHead(503,{'Content-Type':'application/json'});res.end('{"error":"diagnostic bridge unavailable"}');return;}
-   if(req.url.startsWith('/vendor/')) {res.writeHead(200,{'Content-Type':'application/javascript'});res.end(fs.readFileSync(path.join(build.dir,'vendor',path.basename(req.url))));return;}
+   if(req.url.startsWith('/vendor/')) {if(req.url!=='/vendor/d3.min.js'){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':'application/javascript'});res.end(fs.readFileSync(path.join(build.dir,'vendor','d3.min.js')));return;}
    res.writeHead(200,{'Content-Type':'text/html'});res.end(html);
   });await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const context=await browser.newContext({viewport:{width:1730,height:900},deviceScaleFactor:2,reducedMotion:'no-preference'});
