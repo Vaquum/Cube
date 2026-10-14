@@ -278,7 +278,7 @@
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform 0.15s;
+  transition: transform var(--flow-settle) var(--flow-spring);
 }
 #origo-lens details[open] > summary::before {
   transform: rotate(45deg);
@@ -1981,7 +1981,7 @@
   border-bottom: 1px solid var(--ol-line);
 }
 #origo-lens #ol-side-toggle .ol-icon {
-  transition: transform 0.15s;
+  transition: transform var(--flow-settle) var(--flow-spring);
 }
 #origo-lens .ol-main[data-side="closed"] #ol-side-toggle .ol-icon {
   transform: rotate(180deg);
@@ -3518,3 +3518,23 @@
 #origo-lens .ol-reference-matrix { overflow-x: auto; margin-top: var(--sp-2); }
 #origo-lens .ol-reference-matrix table { width: 100%; border-collapse: collapse; font-size: var(--fs-s); }
 #origo-lens .ol-reference-matrix :is(th,td) { padding: var(--sp-1); border-bottom: 1px solid var(--ol-line); text-align: left; vertical-align: top; }
+
+/* Tactile flow composes actor offsets without replacing native positioning. */
+#origo-lens [data-flow-enter], #origo-lens [data-flow-layout] {
+  translate: calc(var(--flow-layout-x, 0px) + var(--flow-enter-x, 0px)) calc(var(--flow-layout-y, 0px) + var(--flow-enter-y, 0px));
+}
+#origo-lens [data-flow-retained][hidden], #origo-lens [data-flow-panel-retained] { display: var(--flow-display, block) !important; pointer-events: none; }
+#origo-lens [data-flow-retiring], #origo-lens [data-motion-running] { animation: none !important; transition: none !important; }
+#origo-lens details[data-flow-details] > [data-flow-disclosure] { display: var(--flow-display, block) !important; }
+#origo-lens :is(button, input, select, summary), #origo-lens input[type="checkbox"]::before {
+  transition: background-color var(--flow-feedback) ease-out, border-color var(--flow-feedback) ease-out, color var(--flow-feedback) ease-out;
+}
+#origo-lens summary::before, #origo-lens #ol-side-toggle .ol-icon { transition: transform var(--flow-settle) var(--flow-spring); }
+@supports (transition-behavior: allow-discrete) {
+  #origo-lens dialog { opacity: 0; translate: 0 20px; transition: opacity var(--flow-settle) var(--flow-spring), translate var(--flow-settle) var(--flow-spring), display var(--flow-settle) allow-discrete, overlay var(--flow-settle) allow-discrete; }
+  #origo-lens dialog[open] { opacity: 1; translate: 0 0; }
+  @starting-style { #origo-lens dialog[open] { opacity: 0; translate: 0 20px; } }
+}
+@media (prefers-reduced-motion: reduce), print {
+  #origo-lens, #origo-lens *, #origo-lens *::before, #origo-lens *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

@@ -9,6 +9,9 @@
   // a value comes from it, so a page that lacks it says so in its own loading line and stops, where a
   // missing module would otherwise surface as an error nobody sees. `E.text` cannot be used here: E is
   // what is missing.
+  const Flow = window.explorerMotion;
+  if (!Flow) throw new Error("explorerMotion is missing");
+  Flow.initMotion(root);
   const E = window.explorerEncoding;
   const Agent = window.explorerAgent;
   const initialAnalysisHash = new URLSearchParams(location.hash.slice(1)).has("analysis") ? location.hash : null;
@@ -23634,6 +23637,8 @@
     // The restored comparison owns control availability after the global startup lock is released.
     comparisonLoad();
     transition = null;
+    for (const panel of qsa(".ol-pop, .ol-inspect-detail, .ol-inspect-chooser, #ol-import")) Flow.watchPanel(panel, () => !panel.hidden);
+    Flow.reveal(el("main"), { distance: 0 });
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();
     scaleArm();
