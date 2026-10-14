@@ -52,10 +52,11 @@ test.describe("B45 the lines are the same lines with the same values", () => {
     const read = Object.values(before).filter((r) => /\d/.test(r.value)).length;
     console.log(`B45: ${Object.keys(before).length} rows, ${read} with a number in the original`);
     expect(read, "most rows carry a number, so the comparison is of numbers and not of blanks").toBeGreaterThan(25);
-    // Rows added since: visible-range POC/VWAP, regional VWAPs and retracement rows (#108).
-    const added = ["visible", "vvwap", "asvwap", "euvwap", "usvwap", "fibswing4h", "fibclassic", "fibext"];
+    // Rows added since: visible-range POC/VWAP, regional VWAPs, retracement rows and developing daily POC.
+    const added = ["visible", "vvwap", "asvwap", "euvwap", "usvwap", "fibswing4h", "fibclassic", "fibext", "devpoc"];
     expect(Object.keys(after).sort(), "original keys plus the rows added since").toEqual([...Object.keys(before), ...added].sort());
     expect(after.visible).toEqual({ family: "profile", value: "" });
+    expect(after.devpoc).toEqual({ family: "profile", value: "" });
     expect(after.vvwap).toEqual({ family: "vwap", value: "" });
     for (const key of ["asvwap", "euvwap", "usvwap"]) expect(after[key]).toEqual({ family: "vwap", value: "" });
     for (const key of ["fibswing4h", "fibclassic", "fibext"]) expect(after[key]).toEqual({ family: "structure", value: "" });
