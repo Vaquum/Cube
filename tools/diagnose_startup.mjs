@@ -17,18 +17,19 @@ const bridge=process.env.CUBE_DIAGNOSTIC_BRIDGE;
 const browser=await chromium.launch();
 const report=[];
 try {
- for(const ref of [baseline,'HEAD']) {
+ for(const hash of ['#w=7d&pane=volume','#t=2025-10-15T20:42:27.803Z~2026-10-17T22:15:52.478Z&p=51000~123000&vis=2&ap=slate2-8f7890f7&mode=flowtrades&pane=volume&rows=delta&sc=r:e:G122938837.33704054,9514161.291727602:delta.roll-90.0.e.l:1791633420000,206,0:wUJ6BmrNhSHPpisc']) for(const ref of [baseline,'HEAD']) {
+  const id=(hash.startsWith('#w')?'week':'year')+'-'+ref, requests=[];
   const build=materialise(execFileSync('git',['rev-parse',ref],{encoding:'utf8'}).trim(),`startup-${ref}`);
   const html=fs.readFileSync(path.join(build.dir,'index.html'),'utf8').replace(/(<script type="application\/json" id="origo-lens-data">)[\s\S]*?(<\/script>)/,`$1${pack}$2`);
   const server=http.createServer((req,res)=>{
    if(req.url.startsWith('/cube/')&&bridge) {
-    const remote=http.get(bridge+req.url,r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});remote.on('error',()=>{res.writeHead(502);res.end('{}');});return;
+    const at=Date.now();const remote=http.get(bridge+req.url,r=>{requests.push({path:req.url,status:r.statusCode,ms:Date.now()-at});res.writeHead(r.statusCode,r.headers);r.pipe(res);});remote.on('error',()=>{res.writeHead(502);res.end('{}');});return;
    }
    if(req.url.startsWith('/cube/')) {res.writeHead(503,{'Content-Type':'application/json'});res.end('{"error":"diagnostic bridge unavailable"}');return;}
    if(req.url.startsWith('/vendor/')) {res.writeHead(200,{'Content-Type':'application/javascript'});res.end(fs.readFileSync(path.join(build.dir,'vendor',path.basename(req.url))));return;}
    res.writeHead(200,{'Content-Type':'text/html'});res.end(html);
   });await new Promise(r=>server.listen(0,'127.0.0.1',r));
-  const context=await browser.newContext({viewport:{width:1500,height:950},reducedMotion:'no-preference'});
+  const context=await browser.newContext({viewport:{width:1730,height:900},deviceScaleFactor:2,reducedMotion:'no-preference'});
   await context.addInitScript(()=>{
    const native=requestAnimationFrame;window.__startup={frames:[],tasks:[],firstCanvas:null,firstVisible:null,events:[]};
    const long=new PerformanceObserver(list=>{for(const e of list.getEntries())__startup.tasks.push({at:e.startTime,ms:e.duration});});long.observe({type:'longtask',buffered:true});
@@ -40,15 +41,15 @@ try {
   });
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   const cdp=await context.newCDPSession(page);await cdp.send('Profiler.enable');await cdp.send('Profiler.start');
-  await page.goto(`http://127.0.0.1:${server.address().port}/#w=7d&pane=volume`,{waitUntil:'domcontentloaded'});
+  await page.goto(`http://127.0.0.1:${server.address().port}/${hash}`, {waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>Boolean(window.cubeAgent),{},{timeout:60000});
-  await page.waitForTimeout(1000);
+  await page.waitForFunction(()=>document.querySelector('#ol-loading').hidden,{},{timeout:60000});await page.waitForTimeout(1000);
   const startup=await page.evaluate(()=>({...__startup,loading:document.querySelector('#ol-loading').textContent}));
   await page.locator('#ol-canvas').focus();await page.keyboard.press('Shift+ArrowLeft');await page.waitForTimeout(3000);
   const navigation=await page.evaluate(()=>({...__startup,loading:document.querySelector('#ol-loading').textContent,hash:location.hash}));
-  const {profile}=await cdp.send('Profiler.stop');fs.writeFileSync(path.join(out,`cpu-${ref}.json`),JSON.stringify(profile));
-  await page.screenshot({path:path.join(out,`${ref}.png`)});
-  report.push({ref,sha:build.sha,errors,startup,navigation});console.log(JSON.stringify({ref,firstCanvas:startup.firstCanvas,firstVisible:startup.firstVisible,longTasks:startup.tasks,slowDraws:startup.frames.filter(x=>x.drawn&&x.ms>20),errors}));
+  const {profile}=await cdp.send('Profiler.stop');fs.writeFileSync(path.join(out,`cpu-${id}.json`),JSON.stringify(profile));
+  await page.screenshot({path:path.join(out,`${id}.png`)});
+  report.push({id,ref,hash,requests,sha:build.sha,errors,startup,navigation});console.log(JSON.stringify({id,requests,firstCanvas:startup.firstCanvas,firstVisible:startup.firstVisible,longTasks:startup.tasks,slowDraws:startup.frames.filter(x=>x.drawn&&x.ms>20),errors}));
   await context.close();await new Promise(r=>server.close(r));
  }
 }finally{await browser.close();}
