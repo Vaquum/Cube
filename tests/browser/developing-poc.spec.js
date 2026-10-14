@@ -47,6 +47,22 @@ test("default-off toggle sits below Daily POC, persists, and draws a causal gold
   await menu(page); await expect(checkbox(page)).toBeChecked();
   await close(page); await page.screenshot({ path: info.outputPath("developing-daily-poc.png") });
 });
+test("equal-height sample boundaries preserve the volume already known at the cursor", async ({ page, fakeFor, probe, pane }) => {
+  const fake = await fakeFor({ ...profile, trades: [...trades, { t_ms: 61 * 60000, price: 2512500, qty: 100000000, takerBuy: true }] });
+  await page.goto(`${fake.url}/${view}&lines=devpoc`); await probe.waitForReady();
+  await probe.waitForQuiet({ quietMs: 300 });
+  const stroke = await trailStroke(pane), box = await page.locator("#ol-canvas").boundingBox();
+  const boundary = stroke.path.findIndex((p, i) => i && p[0] === stroke.path[i - 1][0] && p[1] === stroke.path[i - 1][1]);
+  expect(boundary).toBeGreaterThan(0);
+  const tip = page.locator("#ol-tip"), point = stroke.path[boundary];
+  await page.mouse.move(box.x + point[0] - 2, box.y + point[1]);
+  await expect(tip).toHaveAttribute("data-reference-family", "developing-poc");
+  await expect(tip).toHaveAttribute("data-reference-known-at", "64");
+  await expect(tip).toContainText("125,625");
+  await page.mouse.move(box.x + point[0] + 2, box.y + point[1]);
+  await expect(tip).toHaveAttribute("data-reference-known-at", "80");
+  await expect(tip).toContainText("150,750");
+});
 test("replay withholds unfinished samples and the next UTC session resets accumulation", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor(profile);
   await page.goto(`${fake.url}/${view.replace("02:00Z", "00:25Z")}&lines=devpoc`); await probe.waitForReady();

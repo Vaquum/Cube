@@ -15621,7 +15621,7 @@
         if (p.x < xs[0] - 2 || p.x > xb) return false;
         if (item?.step) {
           for (let j = 1; j < xs.length; j++) {
-            if (xs[j] !== xs[j - 1] || Math.abs(p.x - xs[j]) > 4 || p.y < Math.min(ys[j], ys[j - 1]) - 4 || p.y > Math.max(ys[j], ys[j - 1]) + 4) continue;
+            if (xs[j] !== xs[j - 1] || ys[j] === ys[j - 1] || Math.abs(p.x - xs[j]) > 4 || p.y < Math.min(ys[j], ys[j - 1]) - 4 || p.y > Math.max(ys[j], ys[j - 1]) + 4) continue;
             sampleTime = points.find(point => Math.abs(G.X(point[0]) - xs[j]) < 1e-6)?.[0] ?? null;
             return true;
           }
