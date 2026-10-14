@@ -18256,6 +18256,10 @@
         body = await response.json().catch(() => null);
       offerReload(body);
       if (body?.error === "cube_changed") {
+        if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
+          controller.abort();
+          throw Error("obsolete cube answer");
+        }
         // The cube holds another revision of history than this page. Nothing is
         // mixed: the page takes the new data first, then asks again.
         cube.stale = true;
@@ -18286,6 +18290,7 @@
     loadingLine.reads.delete(want.key);
     cube.busy = null;
     if (cube.stale) pollLive();
+    if (pendingWindowPriceFit) { chooseSource(); finishWindowPriceFit(); }
     update();
     scaleArm();
     pumpCube();
@@ -18649,6 +18654,10 @@
         body = await response.json().catch(() => null);
       offerReload(body);
       if (body?.error === "cube_changed") {
+        if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
+          controller.abort();
+          throw Error("obsolete cube answer");
+        }
         cube.stale = true;
         throw Error("the cube changed; taking its new data first");
       }
@@ -18666,6 +18675,7 @@
       if (!cube.stale && !controller.signal.aborted) motion.failed.set(want.key, message);
     }
     motion.busy = null;
+    finishWindowPriceFit();
     if (S.mode === "candles" && S.drawerOpen && S.drawer === "cells") buildCandleTable();
     if (cube.stale) pollLive();
     requestDraw();
@@ -21273,7 +21283,8 @@
         zoomStep(!shift);
         nav.zoomKeys.add(id);
       } else if (k.startsWith("Arrow")) {
-        const dt = (S.tB - S.tA) * 0.15,
+        const windowStep = shift && (k === "ArrowLeft" || k === "ArrowRight"),
+          dt = (S.tB - S.tA) * (windowStep ? 1 : 0.15),
           dp = (S.pB - S.pA) * 0.15,
           [x, y] = {
             ArrowLeft: [-dt, 0],
@@ -21286,7 +21297,8 @@
         S.pA += y;
         S.pB += y;
         S.window = "";
-        settleNavigation("Pan", false);
+        settleNavigation(windowStep ? null : "Pan", false);
+        if (windowStep) fitPrice("Window step", 0.05, true);
       } else if (k === "End") jumpLatest();
       else if (k === "Escape") escapeKey();
       else if (k === "Enter") {
@@ -21517,12 +21529,43 @@
     recordView(S.auto ? "Auto" : "Locked");
     save();
   }
-  function fitPrice(label, padding) {
+  let pendingWindowPriceFit = null;
+  const windowPriceFitContext = () => [S.tA, S.tB, S.pA, S.pB, S.n, S.m, S.auto, S.mode, S.replay, S.anchor].join("|");
+  const windowPriceFitPending = () => S.mode === "candles"
+    ? candleRange(renderN(), S.tA, S.tB).state === "pending"
+    : PACK.live && Boolean(viewTileSpec());
+  function fitPrice(label, padding, waitForData = false) {
+    pendingWindowPriceFit = null;
     fit(padding);
     if (S.auto) autoLevel();
     recordView(label);
     update();
     save();
+    if (waitForData && windowPriceFitPending()) {
+      pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding };
+    }
+  }
+  // View data can arrive after the step. Complete its fit only while its camera
+  // and history entry still apply; replace that entry so Back undoes the step.
+  function finishWindowPriceFit() {
+    const pending = pendingWindowPriceFit;
+    if (!pending) return;
+    if (pending.context !== windowPriceFitContext() || pending.entry !== hist.entries[hist.index]?.id) {
+      pendingWindowPriceFit = null;
+      return;
+    }
+    if (windowPriceFitPending()) return;
+    pendingWindowPriceFit = null;
+    fit(pending.padding);
+    if (S.auto) autoLevel();
+    update();
+    syncURL(true);
+    save();
+    // Fitting can make auto resolution request a finer tile. Keep the same
+    // operation through that read, using the camera this fit just produced.
+    if (windowPriceFitPending()) {
+      pendingWindowPriceFit = { ...pending, context: windowPriceFitContext() };
+    }
   }
   // Replay only hides the trades after its anchor: the price range, the
   // selection and the inspector stay as they were.
