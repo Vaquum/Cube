@@ -875,15 +875,17 @@
   function layoutNow(width, height) {
     return layout(width, height, eventKinds().length, S.rows !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen);
   }
-  function geometry() {
+  function geometry(paint = true) {
     if (comparisonModel.expanded) return;
     const rect = canvas.getBoundingClientRect(),
       width = rect.width,
       height = rect.height,
       dpr = devicePixelRatio || 1;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (paint) {
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     // the canvas's width as the layout has it, read here, where the draw starts and nothing has been written yet: a read later in the draw would make the browser lay out the page for it
     G = { width, height, client: canvas.clientWidth, ...layoutNow(width, height) };
     G.X = d3
@@ -23676,7 +23678,7 @@
     Flow.watchPanel(root.querySelector(".ol-drawer-body"), () => el("drawer").dataset.open === "true", 0, el("drawer"), ["data-open"]);
     Flow.watchPanel(root.querySelector(".ol-side-body"), () => el("main").dataset.side === "open", 0, el("main"), ["data-side"]);
     Flow.watchPanel(el("controls"), () => !PHONE.matches || root.dataset.sheet === "open", 2, root, ["data-sheet"]);
-    Flow.watchPanel(el("reference"), () => !el("reference").hidden, -1);
+    Flow.watchPanel(el("reference"), () => !el("reference").hidden, 3);
     Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
     for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
@@ -23689,10 +23691,11 @@
     new ResizeObserver(() => {
       if (ready && !comparisonModel.expanded && canvas.getBoundingClientRect().height > 0) {
         if (drawingDrag) drawingCancelOperation();
-        geometry();
+        geometry(false);
         if (S.auto) autoLevel();
         update();
         noteGesture();
+        requestDraw();
       }
     }).observe(canvas);
     matchMedia("(prefers-color-scheme: dark)").addEventListener(

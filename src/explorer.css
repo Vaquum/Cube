@@ -1122,6 +1122,7 @@
 
 /* Workspace: the chart column, a resize grip and the inspector. */
 #origo-lens .ol-main {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 6px var(--side-w);
   min-height: 0;
@@ -1725,6 +1726,7 @@
   color: var(--ol-muted);
 }
 #origo-lens .ol-drawer-body {
+  position: relative;
   height: var(--drawer-h);
   overflow: auto;
   border-top: 1px solid var(--ol-line);
@@ -3548,6 +3550,11 @@
   #origo-lens .ol-main[data-flow-grid] > .ol-side { grid-column: 4; grid-row: 1; }
 }
 #origo-lens [data-flow-size] { display: block !important; }
+#origo-lens .ol-panel[hidden][data-flow-panel-retained] { position: absolute; inset: 0; }
+#origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-panel-retained]:not([data-flow-size]) { position: absolute; width: 100%; height: 0; overflow: hidden; }
+@media (min-width: 761px) {
+  #origo-lens .ol-main:not([data-flow-grid]) > .ol-reference[hidden][data-flow-panel-retained] { position: absolute; inset: 0 auto 0 0; width: var(--reference-w); }
+}
 
 /* Closed visuals cannot accept input; reopening restores interaction before observers run. */
 #origo-lens [hidden][data-flow-retained],

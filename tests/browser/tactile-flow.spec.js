@@ -26,6 +26,20 @@ test("inspector reversal starts from its presented width and restores native siz
   expect(await page.locator("#ol-main").getAttribute("data-flow-grid")).toBeNull();
   expect(await page.locator("#ol-main").evaluate(node=>node.style.gridTemplateColumns)).toBe("");
 });
+test("panel resizing keeps a complete canvas frame between paints",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await settled(page);
+  const alpha=()=>page.locator("#ol-canvas").evaluate(canvas=>canvas.getContext("2d").getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data[3]);
+  expect(await alpha()).toBeGreaterThan(0);await page.locator("#ol-side-toggle").click();
+  const blank=await page.evaluate(async()=>{
+    const canvas=document.querySelector("#ol-canvas"),ctx=canvas.getContext("2d");let blank=0;
+    for(let i=0;i<20;i++){
+      await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+      if(!ctx.getImageData(Math.floor(canvas.width/2),Math.floor(canvas.height/2),1,1).data[3])blank++;
+    }
+    return blank;
+  });
+  expect(blank).toBe(0);await settled(page);
+});
 test("sort retains a cell row, its focused action and authoritative values",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe,"micro:mixed");
   await page.locator("#ol-tab-cells").click();await settled(page);

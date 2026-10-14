@@ -1139,6 +1139,7 @@
 
 /* Workspace: the chart column, a resize grip and the inspector. */
 #origo-lens .ol-main {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 6px var(--side-w);
   min-height: 0;
@@ -1742,6 +1743,7 @@
   color: var(--ol-muted);
 }
 #origo-lens .ol-drawer-body {
+  position: relative;
   height: var(--drawer-h);
   overflow: auto;
   border-top: 1px solid var(--ol-line);
@@ -3565,6 +3567,11 @@
   #origo-lens .ol-main[data-flow-grid] > .ol-side { grid-column: 4; grid-row: 1; }
 }
 #origo-lens [data-flow-size] { display: block !important; }
+#origo-lens .ol-panel[hidden][data-flow-panel-retained] { position: absolute; inset: 0; }
+#origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-panel-retained]:not([data-flow-size]) { position: absolute; width: 100%; height: 0; overflow: hidden; }
+@media (min-width: 761px) {
+  #origo-lens .ol-main:not([data-flow-grid]) > .ol-reference[hidden][data-flow-panel-retained] { position: absolute; inset: 0 auto 0 0; width: var(--reference-w); }
+}
 
 /* Closed visuals cannot accept input; reopening restores interaction before observers run. */
 #origo-lens [hidden][data-flow-retained],
@@ -19965,13 +19972,13 @@
       article.append(list);
       const actions = node("div", "", "ol-reference-targets");
       for (const [i, target] of current.targets.entries()) {
-        const button = node("button", target.label, "ol-action cursor-interaction"); button.type = "button"; button.dataset.referenceTarget = i; button.setAttribute("aria-pressed", "false");
-        button.addEventListener("click", () => {
+        const button = node("button", target.label, "ol-action cursor-interaction"); button.type = "button"; button.dataset.referenceTarget = i; button.dataset.flowKey = target.selector || target.region; button.setAttribute("aria-pressed", "false");
+        button.onclick = event => {
           if (active === target) { clearSpotlight(); return; }
           clearSpotlight(); active = target; reveal?.(target);
           if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; window.explorerMotion.scrollAxis(main, 0, "x"); }
-          button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
-        });
+          event.currentTarget.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
+        };
         actions.append(button);
       }
       window.explorerMotion.replaceChildren(el("targets"), ...actions.children);
@@ -21832,15 +21839,17 @@
   function layoutNow(width, height) {
     return layout(width, height, eventKinds().length, S.rows !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen);
   }
-  function geometry() {
+  function geometry(paint = true) {
     if (comparisonModel.expanded) return;
     const rect = canvas.getBoundingClientRect(),
       width = rect.width,
       height = rect.height,
       dpr = devicePixelRatio || 1;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (paint) {
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     // the canvas's width as the layout has it, read here, where the draw starts and nothing has been written yet: a read later in the draw would make the browser lay out the page for it
     G = { width, height, client: canvas.clientWidth, ...layoutNow(width, height) };
     G.X = d3
@@ -44633,7 +44642,7 @@
     Flow.watchPanel(root.querySelector(".ol-drawer-body"), () => el("drawer").dataset.open === "true", 0, el("drawer"), ["data-open"]);
     Flow.watchPanel(root.querySelector(".ol-side-body"), () => el("main").dataset.side === "open", 0, el("main"), ["data-side"]);
     Flow.watchPanel(el("controls"), () => !PHONE.matches || root.dataset.sheet === "open", 2, root, ["data-sheet"]);
-    Flow.watchPanel(el("reference"), () => !el("reference").hidden, -1);
+    Flow.watchPanel(el("reference"), () => !el("reference").hidden, 3);
     Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
     for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
@@ -44646,10 +44655,11 @@
     new ResizeObserver(() => {
       if (ready && !comparisonModel.expanded && canvas.getBoundingClientRect().height > 0) {
         if (drawingDrag) drawingCancelOperation();
-        geometry();
+        geometry(false);
         if (S.auto) autoLevel();
         update();
         noteGesture();
+        requestDraw();
       }
     }).observe(canvas);
     matchMedia("(prefers-color-scheme: dark)").addEventListener(

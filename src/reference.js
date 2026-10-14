@@ -360,13 +360,13 @@
       article.append(list);
       const actions = node("div", "", "ol-reference-targets");
       for (const [i, target] of current.targets.entries()) {
-        const button = node("button", target.label, "ol-action cursor-interaction"); button.type = "button"; button.dataset.referenceTarget = i; button.setAttribute("aria-pressed", "false");
-        button.addEventListener("click", () => {
+        const button = node("button", target.label, "ol-action cursor-interaction"); button.type = "button"; button.dataset.referenceTarget = i; button.dataset.flowKey = target.selector || target.region; button.setAttribute("aria-pressed", "false");
+        button.onclick = event => {
           if (active === target) { clearSpotlight(); return; }
           clearSpotlight(); active = target; reveal?.(target);
           if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; window.explorerMotion.scrollAxis(main, 0, "x"); }
-          button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
-        });
+          event.currentTarget.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
+        };
         actions.append(button);
       }
       window.explorerMotion.replaceChildren(el("targets"), ...actions.children);
