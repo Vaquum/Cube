@@ -18256,6 +18256,10 @@
         body = await response.json().catch(() => null);
       offerReload(body);
       if (body?.error === "cube_changed") {
+        if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
+          controller.abort();
+          throw Error("obsolete cube answer");
+        }
         // The cube holds another revision of history than this page. Nothing is
         // mixed: the page takes the new data first, then asks again.
         cube.stale = true;
@@ -18650,6 +18654,10 @@
         body = await response.json().catch(() => null);
       offerReload(body);
       if (body?.error === "cube_changed") {
+        if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
+          controller.abort();
+          throw Error("obsolete cube answer");
+        }
         cube.stale = true;
         throw Error("the cube changed; taking its new data first");
       }
