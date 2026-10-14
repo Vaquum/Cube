@@ -136,7 +136,8 @@ function checkProblems(text, facts) {
   // Triggers and the sha output that deploy.yml compares with GITHUB_SHA.
   const on = section(lines, "on") ?? [];
   for (const trigger of ["push:", "pull_request:", "workflow_call:"]) if (!has(on, trigger)) add(`on: is missing ${trigger.slice(0, -1)}`);
-  if (!has(on, "branches-ignore: [main]") || !has(on, "tags: ['**']")) add("standalone pushes must exclude main and retain tags (main is checked by deploy)");
+  const push = under(on, on.findIndex(line => line.trim() === "push:"));
+  if (push.filter(line => line.trim()).map(line => line.trim()).join("|") !== "tags: ['**']") add("standalone pushes must be tags only (branches use PR checks; main is checked by deploy)");
   if (!has(on, "sha:") || !has(on, "value: ${{ jobs.static.outputs.sha }}")) add("workflow_call must output sha from jobs.static.outputs.sha");
 
   const jobs = jobsOf(lines);
@@ -479,7 +480,8 @@ describe("the guards bite: a mutated copy of the real text is refused", () => {
     ["a runner that moves", "    runs-on: ubuntu-24.04\n    timeout-minutes: 10\n    steps:", "    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:", "ubuntu-24.04"],
     ["a job without a bound", "    timeout-minutes: 15\n", "", "timeout-minutes"],
     ["a job with an unreasonable bound", "    timeout-minutes: 25\n", "    timeout-minutes: 360\n", "timeout-minutes"],
-    ["duplicate main push checks", "    branches-ignore: [main]\n", "", "exclude main"],
+    ["duplicate branch push checks", "    tags: ['**']\n", "    tags: ['**']\n    branches: ['**']\n", "tags only"],
+    ["unfiltered push checks", "    tags: ['**']\n", "", "tags only"],
     ["a missing shard", "        shard: [1, 2, 3, 4]", "        shard: [1, 2, 3]", "four shards"],
     ["early matrix cancellation", "      fail-fast: false", "      fail-fast: true", "four shards"],
     ["browser retries hide a failure", "--workers=2 --retries=0", "--workers=2 --retries=1", "zero retries"],
