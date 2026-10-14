@@ -37,6 +37,12 @@ test("default-off toggle sits below Daily POC, persists, and draws a causal gold
   await expect(tip).toHaveAttribute("data-reference-family", "developing-poc");
   expect(JSON.parse(await tip.getAttribute("data-observation")).result.value).toBe(25062.5);
   await expect(tip).toHaveAttribute("data-reference-known-at", "16");
+  const jump = stroke.path.findIndex((p, i) => i && p[0] === stroke.path[i - 1][0] && p[1] !== stroke.path[i - 1][1]);
+  expect(Math.abs(stroke.path[jump][1] - stroke.path[jump - 1][1])).toBeGreaterThan(8);
+  await page.mouse.move(box.x + stroke.path[jump][0], box.y + (stroke.path[jump][1] + stroke.path[jump - 1][1]) / 2);
+  await expect(tip).toHaveAttribute("data-reference-family", "developing-poc");
+  expect(JSON.parse(await tip.getAttribute("data-observation")).result.value).toBe(25187.5);
+  await expect(tip).toHaveAttribute("data-reference-known-at", "32");
   await page.mouse.move(0, 0); await page.reload(); await probe.waitForReady();
   await menu(page); await expect(checkbox(page)).toBeChecked();
   await close(page); await page.screenshot({ path: info.outputPath("developing-daily-poc.png") });

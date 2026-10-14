@@ -4559,7 +4559,7 @@
     const l = h.item, t = Math.min(hover?.t ?? activeCutoff(), activeCutoff());
     if (!l) return;
     if (l.kind === "developing-poc") {
-      const point = developingPocPoint(l, t), knownAt = point?.[0] ?? null;
+      const point = developingPocPoint(l, h.sampleTime ?? t), knownAt = point?.[0] ?? null;
       return referenceCard(tip, { primary: referenceMetric("Developing daily POC", point?.[1], "price"),
         companions: [referenceMetric("Accumulated session volume", point?.[2], "usdt"), referenceMetric("POC row volume", point?.[3], "usdt"), referenceMetric("Sample known at", knownAt, "base-time")],
         time: [l.anchor, knownAt ?? l.anchor], knownAt, family: "developing-poc", status: point ? "Cumulative UTC session as of sample" : "No observed sample at this time",
@@ -15614,10 +15614,18 @@
   // The line or tag under the pointer: a tag's box, or within 4 pixels of a
   // line where it is drawn.
   function lineAt(p) {
+    let sampleTime = null;
     const inside = (b) => p.x >= b[0] && p.x <= b[2] && p.y >= b[1] && p.y <= b[3],
       // A curve's height at the pointer, between its points, or on past its end.
-      onCurve = ({ curve: { xs, ys }, xb }) => {
+      onCurve = ({ curve: { xs, ys, points }, xb, item }) => {
         if (p.x < xs[0] - 2 || p.x > xb) return false;
+        if (item?.step) {
+          for (let j = 1; j < xs.length; j++) {
+            if (xs[j] !== xs[j - 1] || Math.abs(p.x - xs[j]) > 4 || p.y < Math.min(ys[j], ys[j - 1]) - 4 || p.y > Math.max(ys[j], ys[j - 1]) + 4) continue;
+            sampleTime = points.find(point => Math.abs(G.X(point[0]) - xs[j]) < 1e-6)?.[0] ?? null;
+            return true;
+          }
+        }
         let i = 0;
         while (i < xs.length - 1 && xs[i + 1] < p.x) i++;
         const u = i < xs.length - 1 && xs[i + 1] > xs[i] ? clamp((p.x - xs[i]) / (xs[i + 1] - xs[i]), 0, 1) : 0,
@@ -15631,7 +15639,7 @@
           u = clamp(((p.x - x0) * dx + (p.y - y0) * dy) / Math.max(1e-9, dx * dx + dy * dy), 0, 1);
         return Math.hypot(p.x - (x0 + u * dx), p.y - (y0 + u * dy)) <= 4;
       };
-    return (
+    const hit = (
       lineHits.find((h) => h.tag && inside(h.tag)) ||
       lineHits.find((h) => h.mark && inside(h.mark)) ||
       lineHits.find((h) => h.y !== undefined && Math.abs(p.y - h.y) <= 4 && p.x >= h.xa - 2 && p.x <= h.xb) ||
@@ -15639,6 +15647,7 @@
       lineHits.find((h) => h.eq && nearSegment(h.eq)) ||
       null
     );
+    return hit && sampleTime !== null ? { ...hit, sampleTime } : hit;
   }
   const SIDE_NAMES = { VAH: "value area high", VAL: "value area low", POC: "POC" };
   function lineTip(tip, h) {
@@ -15660,7 +15669,7 @@
     const l = h.item,
       usdtAt = (x) => `${price(x * PR)} USDT`;
     if (l.kind === "developing-poc") {
-      const point = developingPocPoint(l, Math.min(hover?.t ?? l.r.end, activeCutoff()));
+      const point = developingPocPoint(l, Math.min(h.sampleTime ?? hover?.t ?? l.r.end, activeCutoff()));
       tipRows(tip, "Developing daily POC", point ? `${price(point[1])} USDT · as of ${when(point[0])} UTC` : "No observed sample at this time", [
         ["Session", `${day(l.anchor)} 00:00 UTC`], ["Accumulated volume", point ? `${compact(point[2])} USDT` : "not measured"],
       ], "Cumulative 125 USDT rows; 15-minute samples and live so far. Lower-row ties.");
