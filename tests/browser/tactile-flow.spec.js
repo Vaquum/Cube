@@ -216,3 +216,20 @@ test("revisiting the Rows period step keeps the current date draft authoritative
   await menu.locator(".ol-flow-date button").click();
   await expect.poll(()=>page.url()).toContain("2026-09-03");
 });
+
+test("nested disclosure close starts from its fully presented popover height",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await settled(page);
+  await page.evaluate(()=>{
+    const panel=document.createElement("div"),details=document.createElement("details"),summary=document.createElement("summary"),body=document.createElement("div"),content=document.createElement("div");
+    panel.id="nested-size-fixture";panel.style.width="200px";summary.textContent="Nested details";content.style.height="100px";
+    body.append(content);details.append(summary,body);panel.append(details);document.querySelector("#origo-lens").append(panel);
+    window.explorerMotion.observeSize(panel);const warm=document.createElement("div");warm.style.height="5px";panel.append(warm);
+  });await settled(page);
+  await page.locator("#nested-size-fixture summary").click();await settled(page);
+  const result=await page.evaluate(async()=>{
+    const panel=document.querySelector("#nested-size-fixture"),before=panel.getBoundingClientRect().height;
+    panel.querySelector("summary").click();await Promise.resolve();return {before,after:panel.getBoundingClientRect().height};
+  });
+  expect(Math.abs(result.after-result.before)).toBeLessThan(1);await settled(page);
+  expect(await page.locator("#nested-size-fixture").evaluate(node=>node.getBoundingClientRect().height)).toBeLessThan(result.before-90);
+});

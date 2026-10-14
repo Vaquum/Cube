@@ -23731,6 +23731,7 @@
     Flow.watchPanel(root.querySelector(".ol-side-body"), () => el("main").dataset.side === "open", 0, el("main"), ["data-side"]);
     Flow.watchPanel(el("controls"), () => !PHONE.matches || root.dataset.sheet === "open", 2, root, ["data-sheet"]);
     Flow.watchPanel(el("reference"), () => !el("reference").hidden, 3);
+    Flow.watchPanel(el("view-keys"), () => !el("view-keys").hidden, 3);
     Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
     for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);

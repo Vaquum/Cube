@@ -3573,6 +3573,7 @@
 }
 #origo-lens [data-flow-size] { display: block !important; }
 #origo-lens .ol-panel[hidden][data-flow-panel-retained] { position: absolute; inset: 0; }
+#origo-lens .ol-view-keys[hidden][data-flow-panel-retained] { position: absolute; }
 #origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-panel-retained]:not([data-flow-size]) { position: absolute; width: 100%; height: 0; overflow: hidden; }
 @media (min-width: 761px) {
   #origo-lens .ol-main:not([data-flow-grid]) > .ol-reference[hidden][data-flow-panel-retained] { position: absolute; inset: 0 auto 0 0; width: var(--reference-w); }
@@ -20953,6 +20954,12 @@
   }
   function observeSize(element) {
     let height=element.getBoundingClientRect().height;
+    // Nested springs change native height through style writes, not content
+    // mutations. Remember that presented size without starting another spring.
+    new ResizeObserver(() => {
+      if (!element.hidden && !motionValue(element,'content-size') && element.getClientRects().length)
+        height=element.getBoundingClientRect().height;
+    }).observe(element);
     new MutationObserver(records=>{
       if (!contentChanged(records)) return;
       if (!element.getClientRects().length || reducedMotion()) { height=element.getBoundingClientRect().height; return; }
@@ -44714,6 +44721,7 @@
     Flow.watchPanel(root.querySelector(".ol-side-body"), () => el("main").dataset.side === "open", 0, el("main"), ["data-side"]);
     Flow.watchPanel(el("controls"), () => !PHONE.matches || root.dataset.sheet === "open", 2, root, ["data-sheet"]);
     Flow.watchPanel(el("reference"), () => !el("reference").hidden, 3);
+    Flow.watchPanel(el("view-keys"), () => !el("view-keys").hidden, 3);
     Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
     for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);

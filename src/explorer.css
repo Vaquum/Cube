@@ -3556,6 +3556,7 @@
 }
 #origo-lens [data-flow-size] { display: block !important; }
 #origo-lens .ol-panel[hidden][data-flow-panel-retained] { position: absolute; inset: 0; }
+#origo-lens .ol-view-keys[hidden][data-flow-panel-retained] { position: absolute; }
 #origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-panel-retained]:not([data-flow-size]) { position: absolute; width: 100%; height: 0; overflow: hidden; }
 @media (min-width: 761px) {
   #origo-lens .ol-main:not([data-flow-grid]) > .ol-reference[hidden][data-flow-panel-retained] { position: absolute; inset: 0 auto 0 0; width: var(--reference-w); }

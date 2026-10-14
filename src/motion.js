@@ -679,6 +679,12 @@
   }
   function observeSize(element) {
     let height=element.getBoundingClientRect().height;
+    // Nested springs change native height through style writes, not content
+    // mutations. Remember that presented size without starting another spring.
+    new ResizeObserver(() => {
+      if (!element.hidden && !motionValue(element,'content-size') && element.getClientRects().length)
+        height=element.getBoundingClientRect().height;
+    }).observe(element);
     new MutationObserver(records=>{
       if (!contentChanged(records)) return;
       if (!element.getClientRects().length || reducedMotion()) { height=element.getBoundingClientRect().height; return; }
