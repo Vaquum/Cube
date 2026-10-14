@@ -81,7 +81,7 @@
     { id: "poc-value", group: "Read the market", title: "POC & value area",
       purpose: "Read the profile's reported price landmarks.",
       read: "POC is the centre of its highest-volume row; equal maxima choose the lower row. Buy POC uses taker-buy volume and is unavailable without it. Value area starts at POC and grows contiguously toward the larger neighbouring volume, lower on a tie, until whole rows hold at least 70%. Row width and measured period affect each landmark.",
-      use: "Distinguish Column POCs, the current profile and period references. Turn on 70% area or choose period landmarks in Lines; inspect their support.",
+      use: "Distinguish Column POCs, the current profile and period references. In Lines, use Column overlays for Column POCs and 70% area, or choose period landmarks; inspect their support.",
       targets: [{"label":"Show POC overlay","selector":"#ol-poc"},{"label":"Show 70% area","selector":"#ol-area"},{"label":"Show Lines","selector":"#ol-lines"}], colour: "references" },
     { id: "cascade", group: "Read the market", title: "Cascade & its parent",
       purpose: "Read concentration without treating it as a liquidation detector.",

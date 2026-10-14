@@ -236,7 +236,7 @@
           aria-label="Lines"
           aria-keyshortcuts="P"
           data-keys="P"
-          data-hint="Your drawings, calculated reference lines, session levels and the clock"
+          data-hint="Column overlays, your drawings, calculated reference lines, session levels and the clock"
         >
           <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M1.5 4.5h13M1.5 8h9M1.5 11.5h11" />
@@ -277,6 +277,18 @@
             >
           </div>
           <p class="ol-lines-summary" id="ol-lines-summary" role="status"></p>
+          <section aria-labelledby="ol-column-overlays-title">
+            <div class="ol-list-head" id="ol-column-overlays-title">Column overlays</div>
+            <div class="ol-marks" role="group" aria-labelledby="ol-column-overlays-title">
+              <label title="Each column's point of control, and the profile's (P and B) · Shift+P"
+                ><input type="checkbox" id="ol-poc" />Column POCs</label
+              ><label title="Each column's value area: the rows around its POC that hold 70% of its volume"
+                ><input type="checkbox" id="ol-area" />70% area</label
+              ><label title="Column POCs that no later column in view has traded at"
+                ><input type="checkbox" id="ol-untested" />Untested in view</label
+              >
+            </div>
+          </section>
           <section class="ol-family" data-family="profile">
             <button
               type="button"
@@ -1094,15 +1106,6 @@
           >
             <span id="ol-focus-chip-text"></span>
           </button>
-        </div>
-        <div class="ol-marks" role="group" aria-label="Overlays">
-          <label title="Each column's point of control, and the profile's (P and B) · Shift+P"
-            ><input type="checkbox" id="ol-poc" />Column POCs</label
-          ><label title="Each column's value area: the rows around its POC that hold 70% of its volume"
-            ><input type="checkbox" id="ol-area" />70% area</label
-          ><label title="Column POCs that no later column in view has traded at"
-            ><input type="checkbox" id="ol-untested" />Untested in view</label
-          >
         </div>
         <span id="ol-candle-legend" class="ol-candle-legend" role="group" aria-label="Candle direction" hidden></span>
         <div id="ol-view-keys" class="ol-view-keys" role="group" aria-label="Chart interpretation" aria-keyshortcuts="Shift+J" hidden>
@@ -2206,7 +2209,7 @@
               <dd><kbd>X</kbd></dd>
             </div>
             <div>
-              <dt>Lines: POC lines, session levels and the clock</dt>
+              <dt>Lines: column overlays, POC lines, session levels and the clock</dt>
               <dd><kbd>P</kbd></dd>
             </div>
             <div>

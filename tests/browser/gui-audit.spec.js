@@ -36,6 +36,15 @@ test("full supported volume captures do not inherit absent movement exposure",as
   await expect(page.locator(".ol-comparison-completeness")).toContainText("Complete");
   await expect(page.locator(".ol-comparison-completeness")).not.toContainText("Short exposure");
 });
+test("hiding the interpretation bar returns focus to Restore chart when Compare is expanded",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await page.locator("#ol-tab-cells").click();await probe.waitForReady();
+  await page.locator('#ol-table-body tr[data-state="complete"]').first().getByRole("button",{name:"Add to comparison",exact:true}).click();
+  const expand=page.locator('[data-comparison-action="expand"]');await expand.click();
+  await page.locator("#ol-reset-canvas").focus();await page.keyboard.press("Shift+J");
+  await page.locator("#ol-cell-key").focus();await page.keyboard.press("Shift+J");
+  await expect(page.locator("#ol-view-keys")).toBeHidden();await expect(expand).toBeFocused();
+  await page.keyboard.press("Enter");await expect(page.locator("#ol-canvas")).toBeVisible();
+});
 test("comparison export is durable and import validation is atomic; clear has Undo",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe); await page.locator("#ol-tab-cells").click(); await probe.waitForReady();
   await page.locator('#ol-table-body tr[data-state="complete"]').first().getByRole("button",{name:"Add to comparison",exact:true}).click();
@@ -85,6 +94,11 @@ test("phone Show reveals the control above the reference and Back restores the a
   await page.locator("#ol-reference-back").click(); await expect(page.locator("#ol-reference")).toBeVisible();
   await expect(page.locator("#ol-reference-topic")).toHaveValue("columns");
   await expect(page.locator("#origo-lens")).not.toHaveAttribute("data-sheet","open");
+  await page.locator("#ol-reference-topic").selectOption("poc-value");
+  await page.getByRole("button",{name:"Show POC overlay",exact:true}).click();
+  await expect(page.locator("#ol-lines-pop")).toBeVisible();await expect(page.locator("#ol-poc")).toBeVisible();
+  await page.locator("#ol-poc").check();await expect(page.locator("#ol-poc")).toBeChecked();
+  await page.locator("#ol-reference-back").click();await expect(page.locator("#ol-reference-topic")).toHaveValue("poc-value");
 });
 
 test("Candle Jump preserves an exact sub-base timestamp",async({page,fakeFor,probe})=>{
@@ -96,6 +110,14 @@ test("Candle Jump preserves an exact sub-base timestamp",async({page,fakeFor,pro
 
 test("reference state keys retain the footer's painted glyphs",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe);
+  for(const id of ["poc","area","untested"])await expect(page.locator("#ol-"+id)).toBeHidden();
+  await page.locator("#ol-canvas").focus();await page.keyboard.press("p");
+  const overlays=page.locator('#ol-lines-pop [role="group"][aria-labelledby="ol-column-overlays-title"]');
+  await expect(overlays).toBeVisible();
+  for(const id of ["poc","area","untested"])await overlays.locator("#ol-"+id).check();
+  await page.keyboard.press("Escape");await page.locator("#ol-canvas").focus();await page.keyboard.press("Shift+P");
+  await expect(page.locator("#ol-poc")).not.toBeChecked();
+  for(const id of ["area","untested"])await expect(page.locator("#ol-"+id)).toBeChecked();
   await expect(page.locator("#ol-view-keys")).toBeHidden();
   await page.locator("#ol-canvas").focus();await page.keyboard.press("Shift+J");
   await expect(page.locator("#ol-view-keys")).toBeVisible();
