@@ -3574,3 +3574,6 @@
 @media (max-width: 760px) {
   #origo-lens:not([data-sheet="open"]) .ol-controls[data-flow-retained] { interactivity: inert; pointer-events: none; }
 }
+
+/* Retiring copies hold presentation without starting descendant feedback. */
+#origo-lens [data-flow-retiring], #origo-lens [data-flow-retiring] * { transition: none !important; animation: none !important; }

@@ -315,10 +315,19 @@
       let ghost = element.cloneNode(true);
       const descendants = [...element.querySelectorAll('*')];
       const copies = [...ghost.querySelectorAll('*')];
-      descendants.forEach((node, index) => {
+      // Static descendants already carry their authored classes and inline styles.
+      // Freeze only running presentation; dense matrix exits need no per-cell styles.
+      const animated = new Set(element.querySelectorAll('[data-motion-running],[data-flow-layout],[data-flow-enter]'));
+      for (const animation of element.getAnimations?.({ subtree: true }) ?? []) {
+          const actor = animation.effect?.target;
+          if (actor instanceof Element && actor !== element && element.contains(actor)) animated.add(actor);
+      }
+      for (const node of animated) {
+          const index = descendants.indexOf(node);
+          if (index < 0) continue;
           const presented = getComputedStyle(node);
-          Object.assign(copies[index].style, { translate: presented.translate, transform: presented.transform, opacity: presented.opacity, transition: 'none', animation: 'none' });
-      });
+          Object.assign(copies[index].style, { translate: presented.translate, transform: presented.transform, opacity: presented.opacity });
+      }
       ghost.style.translate = 'none';
       ghost.style.transform = 'none';
       if (element instanceof HTMLTableRowElement) {
@@ -335,7 +344,7 @@
       }
       ghost.inert = true;
       ghost.setAttribute('aria-hidden', 'true');
-      for (const node of [ghost, ...ghost.querySelectorAll('*')]) {
+      for (const node of [ghost, ...ghost.querySelectorAll('[id],[data-motion-running],[data-flow-layout],[data-flow-enter]')]) {
           node.removeAttribute('id');
           node.removeAttribute('data-motion-running');
           node.removeAttribute('data-flow-layout');

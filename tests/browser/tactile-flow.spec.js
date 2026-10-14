@@ -237,3 +237,27 @@ test("nested disclosure close starts from its fully presented popover height",as
   expect(Math.abs(result.after-result.before)).toBeLessThan(1);await settled(page);
   expect(await page.locator("#nested-size-fixture").evaluate(node=>node.getBoundingClientRect().height)).toBeLessThan(result.before-90);
 });
+
+
+test("retirement freezes moving descendants, clears IDs and releases its inert copy",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await settled(page);
+  const state=await page.evaluate(async()=>{
+    const parent=document.createElement('div');parent.id='retire-source';
+    Object.assign(parent.style,{position:'fixed',left:'60px',top:'120px',width:'180px',height:'80px',opacity:'.6'});
+    parent.innerHTML='<span id="retire-flow">Moving text</span><button id="retire-native">Native opacity</button>';
+    document.querySelector('#origo-lens').append(parent);
+    const flow=parent.firstElementChild,native=parent.lastElementChild;flow.style.display='inline-block';
+    window.explorerMotion.reveal(flow,{distance:8});
+    native.animate([{opacity:.2},{opacity:1}],{duration:1000});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const before={top:flow.getBoundingClientRect().top,flowOpacity:Number(getComputedStyle(flow).opacity),nativeOpacity:Number(getComputedStyle(native).opacity)};
+    window.explorerMotion.retire(parent);
+    const ghost=document.querySelector('[data-flow-retiring]');
+    return {before,after:{top:ghost.firstElementChild.getBoundingClientRect().top,flowOpacity:Number(getComputedStyle(ghost.firstElementChild).opacity),nativeOpacity:Number(getComputedStyle(ghost.lastElementChild).opacity)},ids:ghost.querySelectorAll('[id]').length,inert:ghost.inert,aria:ghost.getAttribute('aria-hidden'),original:parent.isConnected};
+  });
+  expect(Math.abs(state.after.top-state.before.top)).toBeLessThan(.1);
+  expect(Math.abs(state.after.flowOpacity-state.before.flowOpacity)).toBeLessThan(.01);
+  expect(Math.abs(state.after.nativeOpacity-state.before.nativeOpacity)).toBeLessThan(.01);
+  expect(state.ids).toBe(0);expect(state.inert).toBe(true);expect(state.aria).toBe('true');expect(state.original).toBe(false);
+  await settled(page);expect(await page.locator('[data-flow-retiring]').count()).toBe(0);
+});
