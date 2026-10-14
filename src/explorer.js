@@ -18100,6 +18100,9 @@
     return layoutNow(r.width, r.height);
   }
   function autoLevel(animate = true) {
+    // A whole-window command interrupts old presentation even at a locked or
+    // unchanged level. Its destination never inherits the departed grid.
+    if (!animate) { transition = null; Flow.cancelMotion(canvas, "cells"); }
     if (comparisonModel.expanded || !canvas.getClientRects().length || canvas.getBoundingClientRect().height <= 0 || !S.auto || !(S.tB > S.tA) || !(S.pB > S.pA)) return false;
     const g = navGeometry(),
       n = pixelLevel(S.n, S.tB - S.tA, g.w, N_MAX),
@@ -18107,7 +18110,6 @@
       changed = n !== S.n || m !== S.m;
     if (changed) {
       if (animate) beginLevelMorph();
-      else { transition = null; Flow.cancelMotion(canvas, "cells"); }
       S.n = n;
       S.m = m;
     }

@@ -71,3 +71,15 @@ test("seven-day stepping paints its destination resolution without a cell morph"
  await probe.waitForReady();
  expect(await page.locator("#ol-canvas").getAttribute("data-motion-running")).toBeNull();
 });
+
+for(const auto of [false,true]) test(`a whole-window step interrupts an active ${auto?"auto":"manual"} resolution morph`,async({page,fakeFor,probe})=>{
+ const fake=await fakeFor("standard");
+ await page.goto(fake.url+"/#w=7d&pane=volume");await probe.waitForReady();
+ await page.locator("#ol-canvas").focus();await page.keyboard.press("]");
+ if(auto)await page.keyboard.press("a");
+ expect(await page.locator("#ol-canvas").getAttribute("data-motion-running")).not.toBeNull();
+ await page.keyboard.press("Shift+ArrowLeft");
+ expect(await page.locator("#ol-canvas").getAttribute("data-motion-running")).toBeNull();
+ await probe.waitForReady();
+ expect(await page.locator("#ol-canvas").getAttribute("data-motion-running")).toBeNull();
+});
