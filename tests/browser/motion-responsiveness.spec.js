@@ -44,7 +44,7 @@ test("cell calibration commits while presentation keeps requesting frames",async
  await page.goto(fake.url+"/#w=24h");await probe.waitForReady();
  await page.evaluate(()=>{window.__holdCellSpring=true;});
  await page.locator("#ol-canvas").focus();await page.keyboard.press("]");
- await expect(page.locator("#ol-legend")).toHaveAttribute("data-state","ok",{timeout:4000});
+ await expect(page.locator("#ol-legend")).toHaveAttribute("data-state","ready",{timeout:4000});
  expect(await page.locator("#ol-canvas").getAttribute("data-motion-running")).not.toBeNull();
  await page.evaluate(()=>{window.__holdCellSpring=false;});
 });
@@ -53,7 +53,7 @@ test("year columns get their own axis while exact totals are still being read",a
  const fake=await fakeFor("standard");
  await page.goto(fake.url+"/#w=24h&pane=volume");await probe.waitForReady();await fake.idle();
  const before=Number((await page.locator("#ol-axis-chip").getAttribute("data-domain")).split(",")[1]);
- const gate=fake.on("/cube/query",{when:args=>Number(args.b1?.[0])-Number(args.b0?.[0])>300*86400/56.25}).hold();
+ const gate=fake.on({route:"/cube/query",when:args=>Number(args.b1)-Number(args.b0)>300*86400/56.25}).gate();
  await page.locator("#ol-canvas").focus();await page.keyboard.press("9");await gate.arrived();
  await expect.poll(async()=>Number((await page.locator("#ol-axis-chip").getAttribute("data-domain")).split(",")[1])).toBeGreaterThan(before*4);
  expect(gate.held).toBeGreaterThan(0);
