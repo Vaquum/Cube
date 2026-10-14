@@ -1,10 +1,10 @@
 name: Check explorer
-# Pull requests and branches without a confirmed current mergeable PR run standalone checks. main is checked once by
-# deploy.yml through workflow_call, on the exact deployed commit. No check concurrency group can
-# cancel the deploy caller; deploy.yml owns its separate, non-cancelling deploy-main group.
+# Pull requests run standalone checks; tags are checked on push. main is checked once by
+# deploy.yml through workflow_call, on the exact deployed commit. Branch pushes do not trigger this
+# workflow: every push is expected to have a PR, and the duplicate push runs only produced skipped jobs.
+# No check concurrency group can cancel the deploy caller; deploy.yml owns its separate, non-cancelling deploy-main group.
 on:
   push:
-    branches-ignore: [main]
     tags: ['**']
   pull_request:
   workflow_call:
