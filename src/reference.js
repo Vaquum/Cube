@@ -300,7 +300,7 @@
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0 ? { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height, overReference: element.closest("#ol-controls") && root.dataset.sheet === "open" } : null;
     }
-    function refresh() {
+    function refresh(currentFrame = false) {
       if (pane.hidden) return;
       if (innerWidth > 760) delete main.dataset.referenceReveal;
       const list = matches(), at = list.indexOf(current);
@@ -308,7 +308,10 @@
       el("next").disabled = at < 0 || at >= list.length - 1;
       colourKey?.(el("colours"), current);
       back.hidden = innerWidth > 760 || (!active && !main.dataset.referenceReveal && main.scrollLeft < 40);
-      if (active) schedule();
+      if (active) {
+        if (currentFrame) { if (scheduled) cancelAnimationFrame(scheduled); paint(); }
+        else schedule();
+      }
     }
     function clearSpotlight(restore = true) {
       const returning = restore && Boolean(main.dataset.referenceReveal);

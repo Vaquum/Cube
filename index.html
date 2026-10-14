@@ -19912,7 +19912,7 @@
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0 ? { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height, overReference: element.closest("#ol-controls") && root.dataset.sheet === "open" } : null;
     }
-    function refresh() {
+    function refresh(currentFrame = false) {
       if (pane.hidden) return;
       if (innerWidth > 760) delete main.dataset.referenceReveal;
       const list = matches(), at = list.indexOf(current);
@@ -19920,7 +19920,10 @@
       el("next").disabled = at < 0 || at >= list.length - 1;
       colourKey?.(el("colours"), current);
       back.hidden = innerWidth > 760 || (!active && !main.dataset.referenceReveal && main.scrollLeft < 40);
-      if (active) schedule();
+      if (active) {
+        if (currentFrame) { if (scheduled) cancelAnimationFrame(scheduled); paint(); }
+        else schedule();
+      }
     }
     function clearSpotlight(restore = true) {
       const returning = restore && Boolean(main.dataset.referenceReveal);
@@ -44646,7 +44649,7 @@
     Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
     for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
-    Flow.onMotionFrame(() => referenceGuide?.refresh());
+    Flow.onMotionFrame(() => referenceGuide?.refresh(true));
     Flow.reveal(el("main"), { distance: 0 });
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();

@@ -23682,7 +23682,7 @@
     Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
     for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
-    Flow.onMotionFrame(() => referenceGuide?.refresh());
+    Flow.onMotionFrame(() => referenceGuide?.refresh(true));
     Flow.reveal(el("main"), { distance: 0 });
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();
