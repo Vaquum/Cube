@@ -107,20 +107,25 @@ test("reopened panels accept synchronous focus during an exit",async({page,fakeF
   });
   expect(focused).toBe(true);
 });
-test("mode visibility survives a native disclosure animation",async({page,fakeFor,probe})=>{
-  await open(page,fakeFor,probe);
-  await page.evaluate(()=>{location.hash="#w=24h&mode=path";});await S.atRest(page,null,probe);
-  const summary=page.locator("#ol-context details > summary").filter({hasText:"Cell counts"});
-  await summary.click();
-  await page.evaluate(()=>{location.hash="#w=24h&mode=volume";});await settled(page);
-  await expect(page.locator("#ol-moved-row")).toHaveJSProperty("hidden",true);
+test("authored visibility survives a native disclosure animation",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await settled(page);
+  await page.evaluate(()=>{
+    const details=document.createElement("details"),summary=document.createElement("summary"),body=document.createElement("div");
+    details.id="visibility-fixture";summary.textContent="Movement details";body.textContent="Movement-only counts";
+    details.append(summary,body);document.querySelector("#origo-lens").append(details);
+    summary.click();body.hidden=true;
+  });await settled(page);
+  await expect(page.locator("#visibility-fixture > div")).toHaveJSProperty("hidden",true);
 });
 test("closed reset dialogs reject interaction throughout their exit",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe,"mini");await require("./drawings-support.js").drawing(page);await page.locator("#ol-reset-canvas").click();
   await expect(page.locator("#ol-reset-confirm")).toHaveJSProperty("open",true);
+  const action=await page.locator("#ol-reset-apply").boundingBox();
   await page.keyboard.press("Escape");
   const closed=await page.locator("#ol-reset-confirm").evaluate(node=>({open:node.open,interactive:getComputedStyle(node).interactivity,pointer:getComputedStyle(node).pointerEvents}));
   expect(closed.open).toBe(false);expect(closed.pointer).toBe("none");expect(closed.interactive).toBe("inert");
+  await page.mouse.click(action.x+action.width/2,action.y+action.height/2);
+  expect(await require("./drawings-support.js").count(page)).toBe(1);
 });
 test("tooltips retain their anchored position while fading",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe);

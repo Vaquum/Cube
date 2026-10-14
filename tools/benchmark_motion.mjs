@@ -18,7 +18,7 @@ if (git('status', '--porcelain', '--untracked-files=no')) throw new Error('Commi
 const protocol = {
   version: 1, pairs: 5, viewport: { width: 1500, height: 950 }, reducedMotion: 'no-preference',
   budgets: { drawMs: 10, frameMs: 20, inputMs: 50, drawDeltaMs: .5, frameDeltaMs: 2, inputDeltaMs: 5, slowFrameShareDelta: .01 },
-  definition: 'All samples retained. p95 draw callback, frame intervals and event to first canvas callback; DOM input to two frame boundaries. Paired medians compare p95; layout/task totals and measuring clones are reported.',
+  definition: 'Measurement details is the active disclosure; retired Cell counts is hidden. All samples retained. p95 draw callback, frame intervals and event to first canvas callback; DOM input to two frame boundaries. Paired medians compare p95; layout/task totals and measuring clones are reported.',
 };
 const cases = [
   { id: 'zoom-24h', hash: '#w=24h', action: 'navigate' },
@@ -82,7 +82,7 @@ async function trial(browser, build, definition) {
       const button=definition.action==='side'?'#ol-side-toggle':'#ol-sheet-toggle';
       for(let i=0;i<6;i++){await page.locator(button).click();await page.waitForTimeout(i%2?650:70);}
     } else if(definition.action==='details') {
-      const button=page.locator('#ol-context details > summary').filter({hasText:'Cell counts'});
+      const button=page.locator('#ol-context .ol-selection-card .ol-core-details > summary').first();
       for(let i=0;i<6;i++){await button.click();await page.waitForTimeout(i%2?650:70);}
     } else if(definition.action==='comparison') {
       const workspace=page.locator('#ol-comparisonWorkspace');
@@ -131,4 +131,8 @@ try {
   report.baseline={sha:builds[0].sha,indexSha256:builds[0].indexSha256};report.candidate={sha:builds[1].sha,indexSha256:builds[1].indexSha256};
   fs.mkdirSync('reports/motion',{recursive:true});fs.writeFileSync('reports/motion/performance.json',JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify({pass:report.pass,summary},null,2));if(!report.pass)process.exitCode=1;
-} finally { await browser?.close();for(const build of builds)await build.fake?.close(); }
+} finally {
+  fs.mkdirSync('reports/motion',{recursive:true});
+  fs.writeFileSync('reports/motion/raw-samples.json',JSON.stringify({baseline,candidate,protocol,samples},null,2)+'\n');
+  await browser?.close();for(const build of builds)await build.fake?.close();
+}
