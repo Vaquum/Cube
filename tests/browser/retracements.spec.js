@@ -97,7 +97,7 @@ test("every level keeps its tag: on its line in view, at the edge with an arrow 
   await expect.poll(tags).toEqual(expect.arrayContaining([0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].map((f) => `30D ${percent(f)}`)));
 });
 
-test("ticking Classic levels with no retracement on brings the 30-day one; an address keeps what it says", async ({ page, fakeFor, probe, pane }) => {
+test("ticking Classic levels or Extensions with no retracement on brings the 30-day one; an address keeps what it says", async ({ page, fakeFor, probe, pane }) => {
   const fake = await fakeFor({ trades: RAMP, cutoffIso: CUTOFF });
   const lines = () => page.evaluate(() => new URLSearchParams(decodeURIComponent(location.hash).slice(1)).get("lines") ?? "");
   // An address with only the level row opens as written: nothing is turned on for it.
@@ -120,6 +120,13 @@ test("ticking Classic levels with no retracement on brings the 30-day one; an ad
   await page.locator('input[data-line="fibext"]').check();
   await expect(page.locator("#ol-lines-status")).toHaveText("Extensions on");
   await expect.poll(lines).toBe("fib30,fibclassic,fibext");
+  // Extensions also brings the 30-day move when no retracement remains on.
+  await page.locator('input[data-line="fib30"]').uncheck();
+  await page.locator('input[data-line="fibext"]').uncheck();
+  await page.locator('input[data-line="fibext"]').check();
+  await expect(page.locator("#ol-lines-status")).toHaveText("Extensions on, with Retracements · 30 days");
+  await expect(page.locator('input[data-line="fib30"]')).toBeChecked();
+  await expect.poll(lines).toBe("fib30,fibclassic,fibext");
 });
 
 test("off-plot Classic and Extension tags count toward the budget and stay hidden when a key level is held back", async ({ page, fakeFor, probe, pane }) => {
@@ -127,7 +134,7 @@ test("off-plot Classic and Extension tags count toward the budget and stay hidde
   await page.setViewportSize({ width: 760, height: 520 });
   // Higher-priority period and session references crowd this narrow price crop. The three key levels are in view;
   // all six added levels are outside it, so their edge plates must not reserve space ahead of the key levels.
-  const busy = "1d,wk,7d,mo,30d,90d,yr,1y,3y,open,prev,wopen,mopen,fib30";
+  const busy = "1d,wk,7d,mo,30d,90d,yr,1y,3y,dopen,pdhlc,wopen,mopen,fib30";
   const read = async (extra) => {
     await page.goto(`${fake.url}/${VIEW}&p=12800~13700&lines=${busy}${extra}`);
     await probe.waitForReady();
