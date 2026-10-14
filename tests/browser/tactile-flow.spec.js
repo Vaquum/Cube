@@ -82,3 +82,16 @@ test("reference guidance can reopen during its inert visual exit",async({page,fa
   expect(await page.locator("#ol-reference").evaluate(node=>node.hidden||node.inert)).toBe(false);
   await second.close();
 });
+
+test("retained drawing actions use the current object and toggle destination",async({page,fakeFor})=>{
+  const D=require("./drawings-support.js");const fake=await fakeFor("mini");
+  await page.setViewportSize({width:1500,height:950});await D.open(page,fake);
+  const first=await D.drawing(page),second=await D.drawing(page,[.125,.25],[.375,.375]);
+  await D.choose(page,first.id);await D.command(page,"visible");
+  await D.lines(page);expect((await D.row(page,first.id)).visible).toBe(false);
+  await D.command(page,"visible");await D.lines(page);
+  expect((await D.row(page,first.id)).visible).toBe(true);
+  await D.choose(page,second.id);await D.command(page,"lock");await D.lines(page);
+  expect((await D.row(page,second.id)).locked).toBe(true);
+  expect((await D.row(page,first.id)).locked).toBe(false);
+});

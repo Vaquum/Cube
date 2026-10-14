@@ -529,8 +529,8 @@
   function actorKey(node, index) {
     if (node.nodeType !== 1) return `${node.nodeType}:${index}`;
     if (node.id) return `id:${node.id}`;
-    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep']) {
-      if (node.dataset[name] !== undefined) return `${node.tagName}:${name}:${node.dataset[name]}:${node.dataset.id ?? node.dataset.value ?? ''}`;
+    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'section', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep']) {
+      if (node.dataset[name] !== undefined) return `${node.tagName}:${name}:${node.dataset[name]}:${node.dataset.drawingId ?? node.dataset.id ?? node.dataset.value ?? ''}`;
     }
     return `${node.nodeType}:${node.nodeName}:${index}`;
   }
@@ -545,11 +545,11 @@
     const open = current instanceof HTMLDetailsElement ? current.open : null;
     const motionStyles = [...current.style].filter(name => name.startsWith('--flow-') || (current.hasAttribute('data-motion-running') && ['opacity', 'translate', 'height', 'overflow', 'padding-top', 'padding-bottom'].includes(name))).map(name => [name,current.style.getPropertyValue(name)]);
     for (const attr of [...current.attributes]) {
-      if (attr.name.startsWith('data-flow-') || attr.name === 'data-motion-running' || attr.name === 'open' && open !== null) continue;
+      if (attr.name.startsWith('data-flow-') || attr.name === 'data-motion-running' || attr.name === 'open' && open !== null || ['hidden','inert'].includes(attr.name) && current.hasAttribute('data-flow-disclosure')) continue;
       if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
     }
     for (const attr of next.attributes) {
-      if (attr.name === 'open' && open !== null) continue;
+      if (attr.name === 'open' && open !== null || ['hidden','inert'].includes(attr.name) && current.hasAttribute('data-flow-disclosure')) continue;
       if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
     }
     for (const [name,value] of motionStyles) current.style.setProperty(name,value);

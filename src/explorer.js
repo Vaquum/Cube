@@ -9362,6 +9362,7 @@
       radio = document.createElement("input"),
       name = document.createElement("span");
     row.className = "ol-line-row cursor-interaction";
+    row.dataset.flowKey = key;
     radio.type = "radio";
     radio.name = "ol-period";
     radio.dataset.period = key;
@@ -9374,7 +9375,7 @@
       keys = [...PERIODS, ...(isDay(S.period) ? [S.period] : [])];
     if (list.dataset.keys !== keys.join(",")) {
       list.dataset.keys = keys.join(",");
-      list.replaceChildren(...keys.map(periodRow));
+      Flow.replaceChildren(list, ...keys.map(periodRow));
     }
     for (const radio of qsa("#ol-period-list input[data-period]")) {
       const key = radio.dataset.period,
@@ -17639,6 +17640,7 @@
         button = document.createElement("button");
       button.type = "button";
       button.className = "cursor-interaction";
+      tr.dataset.flowKey = `${renderN()}:${c.c}`;
       button.dataset.caseAnchor = String((c.c + 1) * stepT());
       button.textContent = when((c.c + 1) * stepT());
       button.title = "Replay this case";
@@ -22463,11 +22465,12 @@
     button.textContent = text; button.dataset.drawingAction = action;
     if (id) button.dataset.drawingId = id;
     if (menu) button.setAttribute("role", "menuitem");
-    button.addEventListener("click", () => {
-      if (action === "new-exact") { drawingNewExact(button); return; }
-      if (action === "edit") { drawingEdit(id, button); return; }
+    button.onclick = (event) => {
+      const owner = event.currentTarget;
+      if (action === "new-exact") { drawingNewExact(owner); return; }
+      if (action === "edit") { drawingEdit(id, owner); return; }
       if (action === "move") { closePop(); setSheet(false); drawingActivate(id); canvas.focus({ preventScroll: true }); return; }
-      if (action === "delete-all") { drawingConfirmDelete(button); return; }
+      if (action === "delete-all") { drawingConfirmDelete(owner); return; }
       if (action === "recover") { drawingCloseChooser(); drawingUICmd(action, id); return; }
       if (menu) closePop();
       drawingUICmd(action, id, typeof value === "function" ? value() : value);
@@ -22475,7 +22478,7 @@
       if (action === "duplicate") el("drawing-edit").focus({ preventScroll: true });
       else if (action === "delete") el("drawing-more").focus({ preventScroll: true });
       else if (menu) canvas.focus({ preventScroll: true });
-    }); return button;
+    }; return button;
   }
   function drawingRestoreFocus(origin, id, index = 0) {
     if (origin?.menu) {
@@ -23657,6 +23660,7 @@
     Flow.watchPanel(el("controls"), () => !PHONE.matches || root.dataset.sheet === "open", 2, root, ["data-sheet"]);
     Flow.watchPanel(el("reference"), () => !el("reference").hidden, -1);
     Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
+    for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
     Flow.onMotionFrame(() => referenceGuide?.refresh());
     Flow.reveal(el("main"), { distance: 0 });
