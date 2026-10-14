@@ -134,6 +134,22 @@ test("native close preserves the visible body while logical state closes immedia
   expect(result.after).toBeGreaterThan(0);await settled(page);
   await expect(page.locator("#close-fixture > div")).toBeHidden();
 });
+test("successive same-width content changes retain height before settling",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await settled(page);
+  await page.evaluate(()=>{
+    const panel=document.createElement("div");panel.id="size-fixture";panel.style.width="200px";
+    const first=document.createElement("div");first.style.height="20px";panel.append(first);
+    document.querySelector("#origo-lens").append(panel);window.explorerMotion.observeSize(panel);
+    const second=document.createElement("div");second.style.height="30px";panel.append(second);
+  });await settled(page);
+  const result=await page.evaluate(async()=>{
+    const panel=document.querySelector("#size-fixture"),before=panel.getBoundingClientRect().height;
+    const next=document.createElement("div");next.style.height="40px";panel.append(next);
+    await Promise.resolve();return {before,after:panel.getBoundingClientRect().height};
+  });
+  expect(Math.abs(result.after-result.before)).toBeLessThan(1);await settled(page);
+  expect(await page.locator("#size-fixture").evaluate(node=>node.getBoundingClientRect().height)).toBeGreaterThan(result.before+30);
+});
 test("closed reset dialogs reject interaction throughout their exit",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe,"mini");await require("./drawings-support.js").drawing(page);await page.locator("#ol-reset-canvas").click();
   await expect(page.locator("#ol-reset-confirm")).toHaveJSProperty("open",true);

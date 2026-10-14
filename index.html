@@ -20593,9 +20593,13 @@
       if (!measurement) {
           measurement = { dirty: true, width: -1, height: 0 };
           measurements.set(element, measurement);
-          new MutationObserver(records => { if (contentChanged(records)) measurement.dirty = true; }).observe(element,
+          measurement.observer = new MutationObserver(records => { if (contentChanged(records)) measurement.dirty = true; });
+          measurement.observer.observe(element,
               { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'open', 'class'] });
       }
+      // Callers can run before the observer's invalidation callback. Drain its
+      // pending records before trusting a same-width intrinsic measurement.
+      if (contentChanged(measurement.observer.takeRecords())) measurement.dirty = true;
       const width = element.getBoundingClientRect().width;
       if (!measurement.dirty && Math.abs(measurement.width - width) < .1) return measurement.height;
       measurement.dirty = false;
