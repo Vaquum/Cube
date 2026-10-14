@@ -98,7 +98,7 @@ test("a delayed candle fit cannot overwrite a later manual price pan", async ({ 
   const fake = await fakeFor("uniform");
   await page.goto(`${fake.url}/#t=2026-09-23T12:00Z~2026-09-24T00:00Z&p=20000~30000&r=4,0&mode=candles&follow=free`);
   await probe.waitForReady();
-  const gate = fake.on({ route: "/cube/candles" }).gate();
+  const gate = fake.on({ route: "/cube/bars" }).gate();
   try {
     await page.locator("#ol-canvas").focus();
     await page.keyboard.press("Shift+ArrowRight");
