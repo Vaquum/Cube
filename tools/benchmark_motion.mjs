@@ -15,9 +15,10 @@ const { startFake } = require('../tests/support/cube-fake.js');
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 const baseline = process.argv[2] || 'f860aeb';
 const candidate = git('rev-parse', 'HEAD');
+const profile = process.argv.includes('--profile');
 if (git('status', '--porcelain', '--untracked-files=no')) throw new Error('Commit and publish before measuring.');
 const protocol = {
-  version: 2, pairs: 5, viewport: { width: 1500, height: 950 }, reducedMotion: 'no-preference',
+  version: 2, pairs: profile ? 1 : 5, viewport: { width: 1500, height: 950 }, reducedMotion: 'no-preference',
   budgets: { drawMs: 10, frameMs: 20, inputMs: 50, drawDeltaMs: .5, frameDeltaMs: 2, inputDeltaMs: 5, slowFrameShareDelta: .01 },
   definition: 'Measurement details is the active disclosure; retired Cell counts is hidden. All samples retained. p95 draw callback, frame intervals and navigation event to first canvas callback; click/change/level-key input to two frame boundaries. Paired medians compare p95; layout/task totals and measuring clones are reported.',
 };
@@ -33,6 +34,7 @@ const cases = [
   { id: 'disclosure', hash: '#w=24h&mode=path', action: 'details' },
   { id: 'phone-sheet', hash: '#w=24h', action: 'sheet', phone: true },
 ];
+if(profile) cases.splice(1); // A separately registered CPU diagnostic, never the UX guard.
 const p95 = xs => xs.length ? [...xs].sort((a,b)=>a-b)[Math.ceil(xs.length*.95)-1] : 0;
 const median = xs => { const a=[...xs].sort((a,b)=>a-b); return (a[Math.floor((a.length-1)/2)]+a[Math.floor(a.length/2)])/2; };
 const pause = async page => { await page.waitForTimeout(850); };
@@ -44,7 +46,7 @@ async function trial(browser, build, definition) {
     await context.addInitScript(({key, captures}) => {
       if (captures) sessionStorage.setItem(key, JSON.stringify(captures));
       const native = requestAnimationFrame;
-      window.__motionPerf = { callbacks: [], domInput: [], measuringClones: 0, recording: false };
+      window.__motionPerf = { callbacks: [], domInput: [], inputEvents: [], measuringClones: 0, recording: false };
       window.requestAnimationFrame = callback => native(timestamp => {
         const start=performance.now();
         try { return callback(timestamp); }
@@ -52,7 +54,15 @@ async function trial(browser, build, definition) {
       });
       for (const type of ['click','change','keydown']) addEventListener(type, event => {
         if (type === 'keydown' && !['[',']'].includes(event.key)) return;
-        if (window.__motionPerf.recording) native(()=>native(()=>window.__motionPerf.domInput.push(performance.now()-event.timeStamp)));
+        if (window.__motionPerf.recording) {
+          const actor=event.target.closest?.('[data-comparison-action],[data-comparison-control]');
+          const action=actor?.dataset.comparisonAction || actor?.dataset.comparisonControl || event.type;
+          native(()=>native(()=>{
+            const latency=performance.now()-event.timeStamp;
+            window.__motionPerf.domInput.push(latency);
+            window.__motionPerf.inputEvents.push({action,latency});
+          }));
+        }
       },{capture:true,passive:true});
       new MutationObserver(records => {
         if (window.__motionPerf.recording) for (const record of records) for (const node of record.addedNodes)
@@ -70,6 +80,7 @@ async function trial(browser, build, definition) {
     if(definition.action==='cells') await page.locator('#ol-tab-cells').click();
     await pause(page);
     const counters=async()=>Object.fromEntries((await session.send('Performance.getMetrics')).metrics.map(x=>[x.name,x.value]));
+    if(profile) { await session.send('Profiler.enable');await session.send('Profiler.setSamplingInterval',{interval:100});await session.send('Profiler.start'); }
     const before=await counters();
     await page.evaluate(()=>{__bench.begin();__motionPerf.recording=true;});
     const box=await page.locator('#ol-canvas').boundingBox(), x=box.x+box.width/2,y=box.y+box.height/2;
@@ -100,6 +111,10 @@ async function trial(browser, build, definition) {
     }
     await pause(page);
     const values=await page.evaluate(()=>{__motionPerf.recording=false;return {canvas:__bench.end(),...__motionPerf};});
+    if(profile) {
+      const cpu=(await session.send('Profiler.stop')).profile;
+      fs.mkdirSync('reports/motion',{recursive:true});fs.writeFileSync(`reports/motion/cpu-${build.sha}.json`,JSON.stringify(cpu)+'\n');
+    }
     const after=await counters();
     if(errors.length)throw new Error(errors.join('\n'));
     const input = inputSamples(definition.action, values.canvas.inputToPaint, values.domInput);
@@ -107,7 +122,7 @@ async function trial(browser, build, definition) {
       slowFrames:values.canvas.frameIntervals.filter(x=>x>33.3).length/values.canvas.frameIntervals.length,
       callbacks:p95(values.callbacks), measuringClones:values.measuringClones,
       layoutMs:(after.LayoutDuration-before.LayoutDuration)*1000, styleMs:(after.RecalcStyleDuration-before.RecalcStyleDuration)*1000,
-      taskMs:(after.TaskDuration-before.TaskDuration)*1000, samples:{draws:values.canvas.draws.length,frames:values.canvas.frameIntervals.length,input:input.length} };
+      taskMs:(after.TaskDuration-before.TaskDuration)*1000, events:values.inputEvents, samples:{draws:values.canvas.draws.length,frames:values.canvas.frameIntervals.length,input:input.length} };
   } finally { await context.close(); }
 }
 const builds = [materialise(baseline,'motion-baseline'),materialise(candidate,'motion-candidate')];
@@ -137,13 +152,13 @@ try {
     if(result.candidate.slowFrames>result.baseline.slowFrames+protocol.budgets.slowFrameShareDelta)result.pass=false;
     return result;
   });
-  const report={kind:'paired-local-motion-guard',baseline:builds[0],candidate:builds[1],protocol,cases,summary,samples,
-    environment:{os:os.platform(),cpu:os.cpus()[0].model,browser:browser.version(),node:process.version},pass:summary.every(s=>s.pass)};
+  const report={kind:profile ? 'cpu-diagnostic-not-budget-evidence' : 'paired-local-motion-guard',baseline:builds[0],candidate:builds[1],protocol,cases,summary,samples,
+    environment:{os:os.platform(),cpu:os.cpus()[0].model,browser:browser.version(),node:process.version},pass:profile || summary.every(s=>s.pass)};
   report.baseline={sha:builds[0].sha,indexSha256:builds[0].indexSha256};report.candidate={sha:builds[1].sha,indexSha256:builds[1].indexSha256};
-  fs.mkdirSync('reports/motion',{recursive:true});fs.writeFileSync('reports/motion/performance.json',JSON.stringify(report,null,2)+'\n');
+  fs.mkdirSync('reports/motion',{recursive:true});fs.writeFileSync(profile ? 'reports/motion/diagnostic-profile.json' : 'reports/motion/performance.json',JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify({pass:report.pass,summary},null,2));if(!report.pass)process.exitCode=1;
 } finally {
   fs.mkdirSync('reports/motion',{recursive:true});
-  fs.writeFileSync('reports/motion/raw-samples.json',JSON.stringify({baseline,candidate,protocol,samples},null,2)+'\n');
+  fs.writeFileSync(profile ? 'reports/motion/diagnostic-raw-samples.json' : 'reports/motion/raw-samples.json',JSON.stringify({baseline,candidate,protocol,samples},null,2)+'\n');
   await browser?.close();for(const build of builds)await build.fake?.close();
 }
