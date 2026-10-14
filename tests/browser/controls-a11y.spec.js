@@ -72,6 +72,11 @@ async function focusSetting(page, selector) {
   await page.focus(selector);
 }
 
+// Contrast snapshots use final authored inks, after finite presentation and feedback settle.
+async function presentationSettled(page) {
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive() || document.getAnimations().some(animation=>animation.playState==="running")),{timeout:15000}).toBe(false);
+}
+
 // What a text element looks like to the eye: its colour composited over the backdrop it really sits on (the chain of
 // computed backgrounds up to the first opaque one), its border colour, its size and its numerals. Runs in the page.
 function COLLECT({ selectors, boundaries, ring = false }) {
@@ -554,6 +559,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
       const seen = [];
       await showSettings(page);
       const floors = { selectors: ["#ol-legend", "#ol-rows-legend"], boundaries: ["#ol-legend", "#ol-rows-legend"] };
+      await presentationSettled(page);
       checkContrast(await page.evaluate(COLLECT, floors), `${scheme} chips`, problems, seen);
       // The focus ring of a chip reached with the keyboard: its outline colour against what it sits on.
       // The topic key adds an action before settings. Reach the actual chip via its keyboard order.
@@ -569,6 +575,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
         await focusSetting(page, chip);
         await page.keyboard.press("Enter");
         await expect(page.locator(pop)).toBeVisible();
+        await presentationSettled(page);
         checkContrast(await page.evaluate(COLLECT, { selectors: [pop], boundaries: [`${pop} .ol-action`, `${pop} .ol-legend-field input`, `${pop} .ol-legend-warning`, pop] }), `${scheme} ${pop}`, problems, seen);
         expect(await smallControls(page.locator(pop)), `${pop}: controls under 24 css px`).toEqual([]);
         await page.keyboard.press("Escape");
@@ -578,6 +585,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
       await page.keyboard.press("Enter");
       for (const step of ["dataset", "transform", "basis", "policy", "options"]) {
         await page.locator(`#ol-mode-menu [data-mode-step="${step}"]`).click();
+        await presentationSettled(page);
         checkContrast(await page.evaluate(COLLECT, { selectors: ['#ol-mode-menu'], boundaries: [] }), `${scheme} Cells ${step}`, problems, seen);
         expect(await smallControls(page.locator("#ol-mode-menu")), "Cells controls under 24 css px").toEqual([]);
       }
@@ -588,6 +596,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
         for (const step of steps) {
           const menu = `#ol-${id}-menu`;
           await page.locator(`${menu} [data-${id}-step="${step}"]`).click();
+          await presentationSettled(page);
           checkContrast(await page.evaluate(COLLECT, { selectors: [menu], boundaries: [`${menu} input`] }), `${scheme} ${id} ${step}`, problems, seen);
           expect(await smallControls(page.locator(menu)), `${id} controls under 24 css px`).toEqual([]);
         }
@@ -596,6 +605,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
       // The lens bar's toggle.
       await page.keyboard.press("l");
       await expect(page.locator("#ol-lensbar")).toBeVisible();
+      await presentationSettled(page);
       checkContrast(await page.evaluate(COLLECT, { selectors: ["#ol-lens-local-label"], boundaries: [] }), `${scheme} lens toggle`, problems, seen);
       expect(await smallControls(page.locator("#ol-lensbar")), "lens bar controls under 24 css px").toEqual([]);
       expect(seen.length, "the check looked at something").toBeGreaterThan(40);

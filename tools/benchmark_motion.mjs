@@ -13,7 +13,7 @@ const require = createRequire(import.meta.url);
 const { materialise } = require('../tests/support/builds.js');
 const { startFake } = require('../tests/support/cube-fake.js');
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
-const baseline = process.argv[2] || '912d812';
+const baseline = process.argv[2] || '14033eb';
 const candidate = git('rev-parse', 'HEAD');
 if (git('status', '--porcelain', '--untracked-files=no')) throw new Error('Commit and publish before measuring.');
 const protocol = {

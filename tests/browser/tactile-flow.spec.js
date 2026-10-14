@@ -42,18 +42,22 @@ test("panel resizing keeps a complete canvas frame between paints",async({page,f
 });
 test("sort retains a cell row, its focused action and authoritative values",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe,"micro:mixed");
-  await page.locator("#ol-tab-cells").click();await settled(page);
+  await page.locator("#ol-tab-cells").click();
+  await expect(page.locator("#ol-table-body tr").first()).toBeVisible();await settled(page);
+  const before=await page.locator("#ol-table-body tr").evaluateAll(rows=>rows.map(row=>row.dataset.cellKey));
   const observed=await page.evaluate(()=>{
     const row=document.querySelector("#ol-table-body tr"),button=row.querySelector('[data-cell-comparison-action="copy"]');
     window.__motionRow=row;window.__motionAction=button;button.focus();
     return {key:row.dataset.cellKey,text:row.textContent};
   });
-  await page.locator('[data-sort="price"]').click();await settled(page);
+  await page.locator('[data-sort="price"]').evaluate(button=>button.click());await settled(page);
+  await expect(page.locator('th[aria-sort="descending"] [data-sort="price"]')).toBeVisible();
+  expect(await page.locator("#ol-table-body tr").evaluateAll(rows=>rows.map(row=>row.dataset.cellKey))).not.toEqual(before);
   const actual=await page.evaluate(key=>{
     const row=[...document.querySelectorAll("#ol-table-body tr")].find(row=>row.dataset.cellKey===key);
-    return {retained:row===window.__motionRow,action:row?.querySelector('[data-cell-comparison-action="copy"]')===window.__motionAction,text:row?.textContent};
+    return {focused:document.activeElement===window.__motionAction,retained:row===window.__motionRow,action:row?.querySelector('[data-cell-comparison-action="copy"]')===window.__motionAction,text:row?.textContent};
   },observed.key);
-  expect(actual.retained).toBe(true);expect(actual.action).toBe(true);expect(actual.text).toBe(observed.text);
+  expect(actual.focused).toBe(true);expect(actual.retained).toBe(true);expect(actual.action).toBe(true);expect(actual.text).toBe(observed.text);
 });
 test("popover close is logical immediately and retains an inert exit",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe);await page.locator("#ol-window").click();await settled(page);
