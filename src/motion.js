@@ -27,6 +27,7 @@
       samples[samples.length - 1] = 1;
       return { duration: (samples.length - 1) * 8, easing: `linear(${samples.map(value => value.toFixed(5)).join(',')})` };
   }
+  const CALLBACKS = ['onclick','onchange','oninput','onsubmit','onkeydown','oncontextmenu'];
   const SPRING = Object.freeze(curve());
   const MOTION_CSS = `--flow-settle:${SPRING.duration}ms;--flow-spring:${SPRING.easing};--flow-feedback:${MOTION.feedback}ms;--flow-feedback-ease:ease-out;`;
   const channels = new WeakMap();
@@ -586,6 +587,9 @@
     // HTML fragments have delegated behavior. Equal static subtrees can retain
     // their native DOM without allocating a JavaScript patch tree every render.
     if (staticMarkup && current.isEqualNode(next)) return current;
+    // Equal leaves still receive fresh behavior; native editing retains its full patch path.
+    for (const event of CALLBACKS) if (current[event] || next[event]) current[event] = next[event];
+    if (!current.childElementCount && !next.childElementCount && !['INPUT','SELECT','TEXTAREA'].includes(current.nodeName) && current.isEqualNode(next)) return current;
     const active = current === document.activeElement;
     const open = current instanceof HTMLDetailsElement ? current.open : null;
     const motionStyles = [...current.style].filter(name => name.startsWith('--flow-') || (current.hasAttribute('data-motion-running') && ['opacity', 'translate', 'height', 'overflow', 'padding-top', 'padding-bottom'].includes(name))).map(name => [name,current.style.getPropertyValue(name)]);
@@ -604,7 +608,6 @@
       current.checked = next.checked;
     }
     if (current instanceof HTMLTextAreaElement && !active) current.value = next.value;
-    for (const event of ['onclick','onchange','oninput','onsubmit','onkeydown','oncontextmenu']) if (current[event] || next[event]) current[event] = next[event];
     if (current.hasAttribute('data-flow-collection')) reconcileChildren(current, [...next.childNodes], staticMarkup);
     else patchChildren(current, [...next.childNodes], staticMarkup);
     if (current instanceof HTMLSelectElement && !active) current.value = next.value;

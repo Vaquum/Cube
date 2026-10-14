@@ -1,3 +1,8 @@
+/* Actor offsets belong to their owner. Inheritance would invalidate every
+   descendant during each frame and compose a parent's offset into child entries. */
+@property --flow-layout-x { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --flow-layout-y { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --flow-enter-y { syntax: "<length>"; inherits: false; initial-value: 0px; }
 /* Tokens: every size, space, radius and colour below comes from these. */
 #origo-lens {
   /* Surfaces and text */

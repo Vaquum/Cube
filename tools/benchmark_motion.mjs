@@ -22,6 +22,8 @@ const protocol = {
   definition: 'Measurement details is the active disclosure; retired Cell counts is hidden. All samples retained. p95 draw callback, frame intervals and navigation event to first canvas callback; click/change/level-key input to two frame boundaries. Paired medians compare p95; layout/task totals and measuring clones are reported.',
 };
 const cases = [
+  { id: 'comparison-128', hash: '#w=24h&tab=compare', action: 'comparison', captures: 128 },
+  { id: 'cells-sort', hash: '#w=24h&tab=cells', action: 'cells' },
   { id: 'zoom-24h', hash: '#w=24h', action: 'navigate' },
   { id: 'zoom-all', hash: '#w=all', action: 'navigate' },
   { id: 'rows-lines', hash: '#w=30d&rows=volume&lines=1d,7d,30d,ema21,sma50,bb1d,svwap', action: 'navigate' },
@@ -29,8 +31,6 @@ const cases = [
   { id: 'level-reversal', hash: '#w=24h', action: 'levels' },
   { id: 'inspector', hash: '#w=24h', action: 'side' },
   { id: 'disclosure', hash: '#w=24h&mode=path', action: 'details' },
-  { id: 'comparison-128', hash: '#w=24h&tab=compare', action: 'comparison', captures: 128 },
-  { id: 'cells-sort', hash: '#w=24h&tab=cells', action: 'cells' },
   { id: 'phone-sheet', hash: '#w=24h', action: 'sheet', phone: true },
 ];
 const p95 = xs => xs.length ? [...xs].sort((a,b)=>a-b)[Math.ceil(xs.length*.95)-1] : 0;
@@ -119,6 +119,10 @@ try {
     const arms=pair%2?[1,0]:[0,1];
     for(const arm of arms) samples.push({case:definition.id,pair,arm:arm?'candidate':'baseline',...await trial(browser,builds[arm],definition)});
     process.stderr.write(`${definition.id} pair ${pair+1}/${protocol.pairs}\n`);
+    if(pair===protocol.pairs-1) {
+      const rows=samples.filter(sample=>sample.case===definition.id);
+      process.stderr.write(JSON.stringify({case:definition.id,baselineInput:median(rows.filter(sample=>sample.arm==='baseline').map(sample=>sample.input)),candidateInput:median(rows.filter(sample=>sample.arm==='candidate').map(sample=>sample.input))})+'\n');
+    }
   }
   const summary=cases.map(definition=>{
     const rows=samples.filter(s=>s.case===definition.id), a=rows.filter(s=>s.arm==='baseline'),b=rows.filter(s=>s.arm==='candidate');
