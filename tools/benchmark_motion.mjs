@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { chromium } from '@playwright/test';
 import { COMPARISON_KEY, comparisonFixture } from './benchmark/comparison.mjs';
+import { inputSamples } from './benchmark/motion-metrics.mjs';
 const require = createRequire(import.meta.url);
 const { materialise } = require('../tests/support/builds.js');
 const { startFake } = require('../tests/support/cube-fake.js');
@@ -16,7 +17,7 @@ const baseline = process.argv[2] || '6a17b7cefb2ee2447bb2deffb924a4aaf61a61ae';
 const candidate = git('rev-parse', 'HEAD');
 if (git('status', '--porcelain', '--untracked-files=no')) throw new Error('Commit and publish before measuring.');
 const protocol = {
-  version: 1, pairs: 5, viewport: { width: 1500, height: 950 }, reducedMotion: 'no-preference',
+  version: 2, pairs: 5, viewport: { width: 1500, height: 950 }, reducedMotion: 'no-preference',
   budgets: { drawMs: 10, frameMs: 20, inputMs: 50, drawDeltaMs: .5, frameDeltaMs: 2, inputDeltaMs: 5, slowFrameShareDelta: .01 },
   definition: 'Measurement details is the active disclosure; retired Cell counts is hidden. All samples retained. p95 draw callback, frame intervals and navigation event to first canvas callback; click/change/level-key input to two frame boundaries. Paired medians compare p95; layout/task totals and measuring clones are reported.',
 };
@@ -97,11 +98,12 @@ async function trial(browser, build, definition) {
     const values=await page.evaluate(()=>{__motionPerf.recording=false;return {canvas:__bench.end(),...__motionPerf};});
     const after=await counters();
     if(errors.length)throw new Error(errors.join('\n'));
-    return { draw:p95(values.canvas.draws), frame:p95(values.canvas.frameIntervals), input:p95([...values.canvas.inputToPaint,...values.domInput]),
+    const input = inputSamples(definition.action, values.canvas.inputToPaint, values.domInput);
+    return { draw:p95(values.canvas.draws), frame:p95(values.canvas.frameIntervals), input:p95(input),
       slowFrames:values.canvas.frameIntervals.filter(x=>x>33.3).length/values.canvas.frameIntervals.length,
       callbacks:p95(values.callbacks), measuringClones:values.measuringClones,
       layoutMs:(after.LayoutDuration-before.LayoutDuration)*1000, styleMs:(after.RecalcStyleDuration-before.RecalcStyleDuration)*1000,
-      taskMs:(after.TaskDuration-before.TaskDuration)*1000, samples:{draws:values.canvas.draws.length,frames:values.canvas.frameIntervals.length,input:values.canvas.inputToPaint.length+values.domInput.length} };
+      taskMs:(after.TaskDuration-before.TaskDuration)*1000, samples:{draws:values.canvas.draws.length,frames:values.canvas.frameIntervals.length,input:input.length} };
   } finally { await context.close(); }
 }
 const builds = [materialise(baseline,'motion-baseline'),materialise(candidate,'motion-candidate')];

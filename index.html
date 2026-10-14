@@ -20810,13 +20810,16 @@
     }
     return `${node.nodeType}:${node.nodeName}:${index}`;
   }
-  function patchNode(current, next) {
+  function patchNode(current, next, staticMarkup = false) {
     if (current === next) return current;
     if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName) return next;
     if (current.nodeType !== 1) {
       if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
       return current;
     }
+    // HTML fragments have delegated behavior. Equal static subtrees can retain
+    // their native DOM without allocating a JavaScript patch tree every render.
+    if (staticMarkup && current.isEqualNode(next)) return current;
     const active = current === document.activeElement;
     const open = current instanceof HTMLDetailsElement ? current.open : null;
     const motionStyles = [...current.style].filter(name => name.startsWith('--flow-') || (current.hasAttribute('data-motion-running') && ['opacity', 'translate', 'height', 'overflow', 'padding-top', 'padding-bottom'].includes(name))).map(name => [name,current.style.getPropertyValue(name)]);
@@ -20836,19 +20839,19 @@
     }
     if (current instanceof HTMLTextAreaElement && !active) current.value = next.value;
     for (const event of ['onclick','onchange','oninput','onsubmit','onkeydown','oncontextmenu']) if (current[event] || next[event]) current[event] = next[event];
-    if (current.hasAttribute('data-flow-collection')) replaceChildren(current, ...next.childNodes);
-    else patchChildren(current, [...next.childNodes]);
+    if (current.hasAttribute('data-flow-collection')) reconcileChildren(current, [...next.childNodes], staticMarkup);
+    else patchChildren(current, [...next.childNodes], staticMarkup);
     if (current instanceof HTMLSelectElement && !active) current.value = next.value;
     if (open !== null) current.open = open;
     return current;
   }
-  function patchChildren(host, nextNodes) {
+  function patchChildren(host, nextNodes, staticMarkup = false) {
     const old = [...host.childNodes], keyed = new Map(old.map((node,index) => [actorKey(node,index), node]));
     const used = new Set();
     let cursor = host.firstChild;
     nextNodes.forEach((next,index) => {
       const existing = keyed.get(actorKey(next,index));
-      const node = existing ? patchNode(existing,next) : next;
+      const node = existing ? patchNode(existing,next,staticMarkup) : next;
       if (existing && node !== existing) { if (existing instanceof HTMLElement) retire(existing); else existing.remove(); }
       used.add(node);
       if (node !== cursor) host.insertBefore(node,cursor?.parentNode === host ? cursor : null);
@@ -20860,15 +20863,18 @@
   }
   function replaceChildren(host, ...content) {
     const nodes = content.flatMap(node => node.nodeType === 11 ? [...node.childNodes] : [node]);
+    reconcileChildren(host, nodes);
+  }
+  function reconcileChildren(host, nodes, staticMarkup = false) {
     const before = [...host.childNodes].map(actorKey), after = nodes.map(actorKey);
     const structural = before.length !== after.length || before.some((key,index) => key !== after[index]);
     if (structural && host.getClientRects().length && !reducedMotion()) {
-      layout(host, () => patchChildren(host,nodes), ':scope > *', node => actorKey(node,[...host.children].indexOf(node)));
-    } else patchChildren(host,nodes);
+      layout(host, () => patchChildren(host,nodes,staticMarkup), ':scope > *', node => actorKey(node,[...host.children].indexOf(node)));
+    } else patchChildren(host,nodes,staticMarkup);
   }
   function html(host, content) {
     const template = document.createElement('template'); template.innerHTML = content;
-    replaceChildren(host,template.content);
+    reconcileChildren(host, [...template.content.childNodes], !template.content.querySelector('input,select,textarea'));
   }
   // Capture before logical state changes, then interpolate only presentation dimensions.
   function captureSize(element, animate = true, opened = () => !element.hidden) {
