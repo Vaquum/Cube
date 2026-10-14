@@ -20708,6 +20708,9 @@
       clone.dataset.flowMeasuring = '';
       clone.inert = true;
       clone.hidden = false;
+      // A checked measuring copy must not join and uncheck its live named group.
+      for (const radio of [clone, ...clone.querySelectorAll('input[type="radio"][name]')])
+          if (radio.matches('input[type="radio"][name]')) radio.removeAttribute('name');
       Object.assign(clone.style, { position: 'fixed', visibility: 'hidden', pointerEvents: 'none', width: `${width}px`, height: 'auto', translate: 'none', transform: 'none' });
       if (padding) {
           clone.style.paddingTop = `${padding.top}px`;

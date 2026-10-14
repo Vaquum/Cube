@@ -261,3 +261,22 @@ test("retirement freezes moving descendants, clears IDs and releases its inert c
   expect(state.ids).toBe(0);expect(state.inert).toBe(true);expect(state.aria).toBe('true');expect(state.original).toBe(false);
   await settled(page);expect(await page.locator('[data-flow-retiring]').count()).toBe(0);
 });
+
+
+for (const formOwner of [false,true]) test(`intrinsic measurement preserves live named radios (form owner: ${formOwner})`,async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await settled(page);
+  const state=await page.evaluate(formOwner=>{
+    const host=document.createElement(formOwner?'form':'div'),content=document.createElement('div');
+    host.id='motion-radio-owner';content.style.width='260px';
+    content.innerHTML='<label><input type="radio" name="motion-measure-radio">First</label><label><input type="radio" name="motion-measure-radio">Second</label>';
+    host.append(content);document.querySelector('#origo-lens').append(host);
+    const radios=[...content.querySelectorAll('input')];
+    if(formOwner) for(const radio of radios) radio.setAttribute('form',host.id);
+    radios[0].checked=true;
+    const before=radios.map(radio=>radio.checked),height=window.explorerMotion.intrinsicHeight(content);
+    const result={before,after:radios.map(radio=>radio.checked),height,copies:document.querySelectorAll('[data-flow-measuring]').length};
+    host.remove();return result;
+  },formOwner);
+  expect(state.before).toEqual([true,false]);expect(state.after).toEqual([true,false]);
+  expect(state.height).toBeGreaterThan(0);expect(state.copies).toBe(0);
+});
