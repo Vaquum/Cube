@@ -1880,6 +1880,7 @@
   }
 
   API.measure = Object.freeze({
+    developingPoc: msrDevelopingPoc,
     FORMULAS: msrFormulas,
     MODES: msrModes,
     ROWS: msrRows,
@@ -12001,6 +12002,41 @@
     });
   }
   API.drawings = Object.freeze({ LIMITS: drwLimits, INSTRUMENT: drwInstrument, empty: drwEmpty, normalizeCollection: drwNormalizeCollection, normalizeObject: drwNormalizeObject, newObject: drwNewObject, duplicate: drwDuplicate, point: drwPoint, translate: drwTranslate, parseTime: drwParseTime, parsePrice: drwParsePrice, formatTime: drwFormatTime, formatPrice: drwFormatPrice, clip: drwClip, distance: drwDistance, createStore: drwCreateStore });
+
+  // A UTC session's cumulative POC, observed at 15-minute column ends.
+  // Fine cells may supply the live partial endpoint; future cells never enter
+  // earlier prefixes. Quote volume uses compensated sums; lower rows win ties.
+  function msrDevelopingPoc(cells, { n, start, end, partial = false }) {
+    if (!Number.isInteger(n) || n < 0 || n > 4 || !Number.isFinite(start) || start < 0 || start % 1536 || !Number.isFinite(end) || end < start || end > start + 1536)
+      throw new RangeError("Developing POC requires one UTC day at 125 USDT rows and time level 0..4");
+    const buckets = new Map(), step = 2 ** n, rows = new Map(), total = { sum: 0, carry: 0 }, points = [];
+    const add = (acc, value) => {
+      const next = acc.sum + value;
+      acc.carry += Math.abs(acc.sum) >= Math.abs(value) ? acc.sum - next + value : value - next + acc.sum;
+      acc.sum = next;
+    };
+    for (const cell of cells) {
+      const t = cell.c * step;
+      if (t < start || t >= end || (!partial && t + step > end)) continue;
+      if (!Number.isInteger(cell.r) || cell.r < 0 || !Number.isFinite(cell.v) || cell.v < 0) throw new RangeError("Invalid developing POC cell");
+      const bin = Math.floor((t - start) / 16);
+      if (!buckets.has(bin)) buckets.set(bin, []);
+      buckets.get(bin).push(cell);
+    }
+    for (let bin = 0; bin < Math.ceil((end - start) / 16); bin++) {
+      for (const cell of buckets.get(bin) || []) {
+        if (!rows.has(cell.r)) rows.set(cell.r, { sum: 0, carry: 0 });
+        add(rows.get(cell.r), cell.v); add(total, cell.v);
+      }
+      let row = null, best = 0;
+      for (const [r, acc] of rows) {
+        const volume = acc.sum + acc.carry;
+        if (volume > best || (volume === best && volume > 0 && r < row)) { row = r; best = volume; }
+      }
+      if (row !== null) points.push([Math.min(start + (bin + 1) * 16, end), (row + 0.5) * 125, total.sum + total.carry, best]);
+    }
+    return points;
+  }
 
   // == §99-footer ==
   // @part 99-footer
