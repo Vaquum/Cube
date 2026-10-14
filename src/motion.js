@@ -222,18 +222,27 @@
       cache.set(parent, clip);
       return clip;
   }
+  function retirementOpacity(element, cache = new Map()) {
+      if (!element || element === document.body) return 1;
+      if (cache.has(element)) return cache.get(element);
+      const opacity = Number(getComputedStyle(element).opacity) * retirementOpacity(element.parentElement, cache);
+      cache.set(element, opacity);
+      return opacity;
+  }
   function layout(root, change, selector = ':scope > *', key = element => element) {
       const active = document.activeElement;
       const before = new Map([...root.querySelectorAll(selector)].map((element, index) => [key(element, index), { element, box: element.getBoundingClientRect() }]));
       // Departures share the same pre-mutation geometry as surviving layout actors.
       const previousGeometry = retirementGeometry;
       retirementGeometry = new Map(previousGeometry);
-      const clips = new Map(), beforeClip = retirementClip(root, clips);
+      const clips = new Map(), opacities = new Map(), beforeClip = retirementClip(root, clips);
       const visible = (box, clip) => box.width && box.height && box.right > clip.left && box.left < clip.right && box.bottom > clip.top && box.top < clip.bottom;
       for (const { element, box } of before.values())
           if (!retirementGeometry.has(element))
               retirementGeometry.set(element, {
-                  box, clip: retirementClip(element.parentElement, clips), cellWidths: element instanceof HTMLTableRowElement && visible(box, beforeClip) ? [...element.cells].map(cell => cell.getBoundingClientRect().width) : undefined,
+                  box, clip: retirementClip(element.parentElement, clips),
+                  opacity: visible(box, beforeClip) ? retirementOpacity(element, opacities) : 0,
+                  zIndex: visible(box, beforeClip) ? getComputedStyle(element).zIndex : 'auto', cellWidths: element instanceof HTMLTableRowElement && visible(box, beforeClip) ? [...element.cells].map(cell => cell.getBoundingClientRect().width) : undefined,
               });
       let result;
       try {
@@ -293,15 +302,16 @@
       const presentedGeometry = retirementGeometry.get(element);
       const box = presentedGeometry?.box ?? element.getBoundingClientRect();
       const clip = presentedGeometry?.clip ?? retirementClip(element.parentElement);
-      let opacity = Number(getComputedStyle(element).opacity);
-      // The body still composites the fixed visual; intermediate ancestors no longer do.
-      for (let parent = element.parentElement; parent && parent !== document.body; parent = parent.parentElement)
-          opacity *= Number(getComputedStyle(parent).opacity);
-      if (!box.width || !box.height || !opacity || clip.right <= clip.left || clip.bottom <= clip.top || box.right <= clip.left || box.left >= clip.right || box.bottom <= clip.top || box.top >= clip.bottom || reducedMotion()) {
+      // Reject clipped actors before any style read. Sibling removals must not
+      // force style recalculation for each offscreen departure.
+      if (!box.width || !box.height || clip.right <= clip.left || clip.bottom <= clip.top || box.right <= clip.left || box.left >= clip.right || box.bottom <= clip.top || box.top >= clip.bottom || reducedMotion()) {
           finishMotion(element);
           element.remove();
           return;
       }
+      const opacity = presentedGeometry?.opacity ?? retirementOpacity(element);
+      if (!opacity) { finishMotion(element); element.remove(); return; }
+      const zIndex = presentedGeometry?.zIndex ?? getComputedStyle(element).zIndex;
       let ghost = element.cloneNode(true);
       const descendants = [...element.querySelectorAll('*')];
       const copies = [...ghost.querySelectorAll('*')];
@@ -332,7 +342,7 @@
           node.removeAttribute('data-flow-enter');
       }
       ghost.dataset.flowRetiring = '';
-      Object.assign(ghost.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, margin: '0', pointerEvents: 'none', zIndex: getComputedStyle(element).zIndex === 'auto' ? '132' : getComputedStyle(element).zIndex, translate: 'none', transform: 'none' });
+      Object.assign(ghost.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, margin: '0', pointerEvents: 'none', zIndex: zIndex === 'auto' ? '132' : zIndex, translate: 'none', transform: 'none' });
       finishMotion(element, true);
       element.remove();
       rootElement.appendChild(ghost);
