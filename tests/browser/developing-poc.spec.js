@@ -48,7 +48,7 @@ test("default-off toggle sits below Daily POC, persists, and draws a causal gold
   await close(page); await page.screenshot({ path: info.outputPath("developing-daily-poc.png") });
 });
 test("equal-height sample boundaries preserve the volume already known at the cursor", async ({ page, fakeFor, probe, pane }) => {
-  const fake = await fakeFor({ ...profile, trades: [...trades, { t_ms: 61 * 60000, price: 2512500, qty: 100000000, takerBuy: true }] });
+  const fake = await fakeFor({ ...profile, trades: [...trades, { t_ms: 61 * 60000, price: 2512500, qty: 100000000, takerBuy: true }].sort((a, b) => a.t_ms - b.t_ms) });
   await page.goto(`${fake.url}/${view}&lines=devpoc`); await probe.waitForReady();
   await probe.waitForQuiet({ quietMs: 300 });
   const stroke = await trailStroke(pane), box = await page.locator("#ol-canvas").boundingBox();
