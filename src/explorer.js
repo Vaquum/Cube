@@ -4558,6 +4558,13 @@
     if (h.drawing || h.key === "level") return drawingReferencePresentation(tip, h);
     const l = h.item, t = Math.min(hover?.t ?? activeCutoff(), activeCutoff());
     if (!l) return;
+    if (l.kind === "developing-poc") {
+      const point = developingPocPoint(l, h.sampleTime ?? t), knownAt = point?.[0] ?? null;
+      return referenceCard(tip, { primary: referenceMetric("Developing daily POC", point?.[1], "price"),
+        companions: [referenceMetric("Accumulated session volume", point?.[2], "usdt"), referenceMetric("POC row volume", point?.[3], "usdt"), referenceMetric("Sample known at", knownAt, "base-time")],
+        time: [l.anchor, knownAt ?? l.anchor], knownAt, family: "developing-poc", status: point ? "Cumulative UTC session as of sample" : "No observed sample at this time",
+        construction: "Cumulative USDT volume since 00:00 UTC; 125 USDT rows; lower-row ties. Samples at 15-minute ends; live endpoint so far. Replay uses completed samples only. No later session volume enters earlier points." });
+    }
     if (l.kind === "average" || l.kind === "cross") return averageReferencePresentation(tip, l);
     let value = Number.isFinite(l.at) ? l.at * PR : null, knownAt = null, candidate = false, status = "As of effective edge", time = null, profile = null, construction = "";
     if (l.kind === "poc" || l.kind === "va") {
@@ -11143,6 +11150,7 @@
     TOGGLES = {
       va: { family: "profile", name: "Value area high and low", desc: "The top and bottom of each period's 70% value area" },
       dpoc: { family: "profile", name: "Daily POC and value area", desc: "Each UTC day's, across its day" },
+      devpoc: { family: "profile", name: "Developing daily POC", desc: "Cumulative UTC-session POC trail · 15-minute samples and live so far", live: true },
       udpoc: {
         family: "profile",
         name: "Untested daily POCs",
@@ -12101,6 +12109,8 @@
   }
   function daysWant() {
     if (!PACK.live) return null;
+    const developing = developingPocWant();
+    if (developing) return developing;
     const need = dayNeeds(),
       wanted = new Set(need),
       edge = cutEdge();
@@ -12138,6 +12148,68 @@
       };
     }
     return null;
+  }
+  const developingPocReads = new Map(), developingPocMemo = new Map();
+  function developingPocEnd(d) {
+    const cut = activeCutoff();
+    return Math.min((d + 1) * DAYS, S.replay ? Math.floor(cut / 16) * 16 : cut);
+  }
+  function developingPocDays() {
+    if (!PACK.live || !S.lines.includes("devpoc")) return [];
+    const end = Math.min(S.tB, activeCutoff()), last = Math.floor(Math.max(0, end - 1e-6) / DAYS), first = Math.max(0, Math.floor(S.tA / DAYS));
+    if (end <= S.tA) return [];
+    // Daily trails need room to be read. A wide overview shows its latest
+    // visible day; zooming in admits the earlier sessions without unbounded reads.
+    const from = !spaced(DAYS / 4) || last - first >= 32 ? last : first;
+    return Array.from({ length: last - from + 1 }, (_, i) => last - i);
+  }
+  const developingPocKey = (d) => ["developing-poc", live.generation, d, developingPocEnd(d)].join("|");
+  function developingPocDay(d) {
+    const start = d * DAYS, end = developingPocEnd(d);
+    if (end <= start) return { state: "none", points: [], end };
+    const src = exactSource([start, end, 0, 2 ** 32], 4, 0) || developingPocReads.get(developingPocKey(d));
+    if (!src) {
+      const error = cube.failed.get(developingPocKey(d));
+      return { state: error ? "failed" : "pending", error, points: [], end };
+    }
+    const key = `${d}|${end}|${src.n}`, hit = developingPocMemo.get(key);
+    if (hit?.cells === src.cells) return hit.out;
+    const step = 2 ** src.n, cells = src.cells.slice(bisectColumn(src.cells, start / step), bisectColumn(src.cells, Math.ceil(end / step)));
+    const out = { state: "ready", end, points: E.measure.developingPoc(cells, { n: src.n, start, end, partial: !S.replay && end === CUT }) };
+    developingPocMemo.set(key, { cells: src.cells, out });
+    while (developingPocMemo.size > 128) developingPocMemo.delete(developingPocMemo.keys().next().value);
+    return out;
+  }
+  function developingPocWant() {
+    for (const d of developingPocDays()) {
+      if (developingPocDay(d).state !== "pending") continue;
+      const a = d * DAYS, b = Math.ceil(developingPocEnd(d)), key = developingPocKey(d);
+      return { key, loading: "Reading developing daily POC", relevant: () => developingPocDays().includes(d) && developingPocKey(d) === key,
+        path: `/cube/tile?n=4&m=0&b0=${a}&b1=${b}`,
+        decode: async body => {
+          if (body.block?.n !== 4 || body.block?.m !== 0 || body.block?.b0 !== a || !Number.isFinite(body.block?.b1) || body.block.b1 < developingPocEnd(d)) throw Error("Developing POC answer does not cover its UTC session");
+          return unpack(body.block, key);
+        },
+        apply: block => { developingPocReads.set(key, block); while (developingPocReads.size > 64) developingPocReads.delete(developingPocReads.keys().next().value); },
+      };
+    }
+    return null;
+  }
+  function developingPocCurves(cut) {
+    const latest = Math.floor(Math.max(0, cut - 1e-6) / DAYS), curves = [];
+    for (const d of developingPocDays()) {
+      const r = developingPocDay(d);
+      if (r.state !== "ready" || !r.points.length) continue;
+      curves.push({ key: "devpoc", id: `devpoc|${d}`, kind: "developing-poc", name: "Developing daily POC", family: "poc", step: true,
+        anchor: d * DAYS, day: d, r, on: d === latest && S.tB >= cut, tag: d === latest && S.tB >= cut ? "Developing POC" : null });
+    }
+    return curves;
+  }
+  function developingPocPoint(curve, t) {
+    const points = curve.r.points;
+    let low = 0, high = points.length;
+    while (low < high) { const mid = (low + high) >> 1; if (points[mid][0] <= t) low = mid + 1; else high = mid; }
+    return points[low - 1] ?? null;
   }
   // Untested POCs (live): each whole day's POC among the last 30 sessions, and
   // separately each whole week's among the last 26 weeks, that no later trade
@@ -14243,11 +14315,12 @@
       items.fills = av.fills;
       items.crosses = av.crosses;
     }
+    if (on.has("devpoc")) items.curves.push(...developingPocCurves(cut));
     return items;
   }
   // The lines drawn from the days of the bars, and structure's rows.
   const STRUCTURE_ROWS = ["ath", "pch", "swing1d", "swing4h", "fib30", "fib90", "fibswing", "fibswing4h"],
-    DATED_LINES = new Set(["dpoc", "udpoc", "uwpoc", ...EIGHT_HOUR_LINES, ...STRUCTURE_LINES, ...FOUR_HOUR_LINES, ...AVERAGE_LINES]);
+    DATED_LINES = new Set(["dpoc", "devpoc", "udpoc", "uwpoc", ...EIGHT_HOUR_LINES, ...STRUCTURE_LINES, ...FOUR_HOUR_LINES, ...AVERAGE_LINES]);
   // A period's 70% value area, kept with its rows.
   const areaMemo = new WeakMap();
   function periodArea(r) {
@@ -14597,7 +14670,7 @@
   // the column. A column starts at the vertex that opens it, so points closer
   // together than a pixel share a column rather than chaining into one; its
   // latest point is found by bisection, so a dense curve costs a step a column.
-  function curveVertices(pts, right) {
+  function curveVertices(pts, right, stepped = false) {
     const xs = [],
       ys = [],
       vals = [];
@@ -14636,7 +14709,13 @@
       // One point past the edge, so the curve runs to it.
       if (past) break;
     }
-    return { xs, ys, vals };
+    if (!stepped) return { xs, ys, vals };
+    const sx = [], sy = [], sv = [];
+    for (let i = 0; i < xs.length; i++) {
+      if (i) { sx.push(xs[i]); sy.push(ys[i - 1]); sv.push(vals[i - 1]); }
+      sx.push(xs[i]); sy.push(ys[i]); sv.push(vals[i]);
+    }
+    return { xs: sx, ys: sy, vals: sv };
   }
   // The lines, their tags and the level line. Longer spans are drawn first,
   // so shorter ones lie on top; each line is haloed in the surface colour to
@@ -14718,7 +14797,7 @@
       }
       const style = lineStyle(c.family || "vwap"),
         hot = refHot(c.key, c.id),
-        { xs, ys, vals } = occlusion.vertices.get(c.id) ?? curveVertices(c.r.points, right);
+        { xs, ys, vals } = occlusion.vertices.get(c.id) ?? curveVertices(c.r.points, right, c.step);
       if (!xs.length) {
         refNote(c.key, !c.r.points.length || c.r.points[0][0] >= S.tB ? "warmup" : "offscreen");
         continue;
@@ -14978,7 +15057,7 @@
       candidates.push({ ...candidate, rects: [[xl, y - width / 2, xe, y + width / 2]] });
     }
     for (const c of items.curves || []) {
-      const { xs, ys, vals } = curveVertices(c.r.points, right);
+      const { xs, ys, vals } = curveVertices(c.r.points, right, c.step);
       vertices.set(c.id, { xs, ys, vals });
       if (!xs.length) continue;
       const style = lineStyle(c.family || "vwap"),
@@ -15535,10 +15614,18 @@
   // The line or tag under the pointer: a tag's box, or within 4 pixels of a
   // line where it is drawn.
   function lineAt(p) {
+    let sampleTime = null;
     const inside = (b) => p.x >= b[0] && p.x <= b[2] && p.y >= b[1] && p.y <= b[3],
       // A curve's height at the pointer, between its points, or on past its end.
-      onCurve = ({ curve: { xs, ys }, xb }) => {
+      onCurve = ({ curve: { xs, ys, points }, xb, item }) => {
         if (p.x < xs[0] - 2 || p.x > xb) return false;
+        if (item?.step) {
+          for (let j = 1; j < xs.length; j++) {
+            if (xs[j] !== xs[j - 1] || ys[j] === ys[j - 1] || Math.abs(p.x - xs[j]) > 4 || p.y < Math.min(ys[j], ys[j - 1]) - 4 || p.y > Math.max(ys[j], ys[j - 1]) + 4) continue;
+            sampleTime = points.find(point => Math.abs(G.X(point[0]) - xs[j]) < 1e-6)?.[0] ?? null;
+            return true;
+          }
+        }
         let i = 0;
         while (i < xs.length - 1 && xs[i + 1] < p.x) i++;
         const u = i < xs.length - 1 && xs[i + 1] > xs[i] ? clamp((p.x - xs[i]) / (xs[i + 1] - xs[i]), 0, 1) : 0,
@@ -15552,7 +15639,7 @@
           u = clamp(((p.x - x0) * dx + (p.y - y0) * dy) / Math.max(1e-9, dx * dx + dy * dy), 0, 1);
         return Math.hypot(p.x - (x0 + u * dx), p.y - (y0 + u * dy)) <= 4;
       };
-    return (
+    const hit = (
       lineHits.find((h) => h.tag && inside(h.tag)) ||
       lineHits.find((h) => h.mark && inside(h.mark)) ||
       lineHits.find((h) => h.y !== undefined && Math.abs(p.y - h.y) <= 4 && p.x >= h.xa - 2 && p.x <= h.xb) ||
@@ -15560,6 +15647,7 @@
       lineHits.find((h) => h.eq && nearSegment(h.eq)) ||
       null
     );
+    return hit && sampleTime !== null ? { ...hit, sampleTime } : hit;
   }
   const SIDE_NAMES = { VAH: "value area high", VAL: "value area low", POC: "POC" };
   function lineTip(tip, h) {
@@ -15580,6 +15668,13 @@
     }
     const l = h.item,
       usdtAt = (x) => `${price(x * PR)} USDT`;
+    if (l.kind === "developing-poc") {
+      const point = developingPocPoint(l, Math.min(h.sampleTime ?? hover?.t ?? l.r.end, activeCutoff()));
+      tipRows(tip, "Developing daily POC", point ? `${price(point[1])} USDT · as of ${when(point[0])} UTC` : "No observed sample at this time", [
+        ["Session", `${day(l.anchor)} 00:00 UTC`], ["Accumulated volume", point ? `${compact(point[2])} USDT` : "not measured"],
+      ], "Cumulative 125 USDT rows; 15-minute samples and live so far. Lower-row ties.");
+      return;
+    }
     if (l.kind === "range-vwap") {
       const r = l.r;
       tipRows(tip, `Visible range VWAP · ${price(r.price)} USDT`, "Visible time range · all prices", [
@@ -15887,6 +15982,11 @@
   function toggleValue(key) {
     if (!lineAvailable(key)) return { text: "Live cube only" };
     if (!S.lines.includes(key) || CLOCK[key]) return { text: "" };
+    if (key === "devpoc") {
+      const days = developingPocDays(), r = days.length ? developingPocDay(days[0]) : { state: "none", points: [] }, point = developingPocPoint({ r }, Math.min(S.tB, activeCutoff()));
+      return { text: r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "none" ? "no completed sample" : "…",
+        title: r.error || `Cumulative since 00:00 UTC${point ? "; as of " + when(point[0]) + " UTC" : ""}; 15-minute samples and live so far. Wide views show the latest visible day; zoom in for earlier daily trails.` };
+    }
     if (key === "vvwap") {
       const r = visibleVwapResult();
       return { text: r.state === "ready" ? r.price === null ? r.end <= r.span[0] ? "not measured" : "no trades" : price(r.price)
@@ -21856,6 +21956,8 @@
       barEdges.clear();
       dayReads.clear();
       dayMemo.clear();
+      developingPocReads.clear();
+      developingPocMemo.clear();
       weekMemo.clear();
       barsVersion++;
     }
