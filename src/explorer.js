@@ -21336,6 +21336,11 @@
           i = list.indexOf(S.rows) + (shift ? -1 : 1);
         setRows(list[(i + list.length) % list.length]);
       } else if (k === "x") toggleLevel();
+      else if (k === "j" && shift) {
+        const bar = el("view-keys");
+        bar.hidden = !bar.hidden;
+        if (bar.hidden && bar.contains(document.activeElement)) canvas.focus({ preventScroll: true });
+      }
       else if (k === "p" && shift) {
         S.poc = !S.poc;
         update();
@@ -23611,6 +23616,7 @@
     colourKey: guiReferenceColourKey,
     reveal: target => {
       const element = target.selector ? root.querySelector(target.selector) : canvas;
+      if (element?.closest("#ol-view-keys")) el("view-keys").hidden = false;
       if (PHONE.matches && element?.closest("#ol-controls")) setSheet(true);
       if (target.selector && element?.getClientRects().length) element.scrollIntoView({block:"nearest",inline:"nearest"});
       else if (PHONE.matches && target.region && canvas.getClientRects().length) canvas.scrollIntoView({block:"nearest",inline:"nearest"});

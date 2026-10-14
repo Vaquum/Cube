@@ -95,7 +95,15 @@ test("Candle Jump preserves an exact sub-base timestamp",async({page,fakeFor,pro
 });
 
 test("reference state keys retain the footer's painted glyphs",async({page,fakeFor,probe})=>{
-  await open(page,fakeFor,probe);await page.locator("#ol-key-guide").click();await probe.waitForReady();
+  await open(page,fakeFor,probe);
+  await expect(page.locator("#ol-view-keys")).toBeHidden();
+  await page.locator("#ol-canvas").focus();await page.keyboard.press("Shift+J");
+  await expect(page.locator("#ol-view-keys")).toBeVisible();
+  await page.locator("#ol-cell-key").focus();await page.keyboard.press("Shift+J");
+  await expect(page.locator("#ol-view-keys")).toBeHidden();
+  await expect(page.locator("#ol-canvas")).toBeFocused();
+  await page.keyboard.press("Shift+J");
+  await page.locator("#ol-key-guide").click();await probe.waitForReady();
   const painted=await page.evaluate(()=>{
     const originals=[...document.querySelectorAll(".ol-status > .ol-status-keys canvas")],copies=[...document.querySelectorAll("#ol-reference-colours .ol-status-keys canvas")];
     const bytes=c=>[...c.getContext("2d").getImageData(0,0,c.width,c.height).data];

@@ -1105,7 +1105,7 @@
           >
         </div>
         <span id="ol-candle-legend" class="ol-candle-legend" role="group" aria-label="Candle direction" hidden></span>
-        <div class="ol-view-keys" role="group" aria-label="Chart interpretation">
+        <div id="ol-view-keys" class="ol-view-keys" role="group" aria-label="Chart interpretation" aria-keyshortcuts="Shift+J" hidden>
           <button type="button" id="ol-cell-key" class="ol-action ol-s cursor-interaction" aria-label="Cell colour key"><canvas id="ol-cell-key-ramp" width="64" height="8" aria-hidden="true"></canvas><span id="ol-cell-key-text">Cell colour scale</span></button>
           <button type="button" id="ol-profile-settings" class="ol-action ol-s cursor-interaction">Profiles</button>
           <button type="button" id="ol-axis-settings" class="ol-action ol-s cursor-interaction">Axes</button>
@@ -2212,6 +2212,10 @@
             <div>
               <dt>Column POCs</dt>
               <dd><kbd>Shift</kbd> <kbd>P</kbd></dd>
+            </div>
+            <div>
+              <dt>Interpretation bar (hidden on load)</dt>
+              <dd><kbd>Shift</kbd> <kbd>J</kbd></dd>
             </div>
             <div>
               <dt>Measures or continuations</dt>
