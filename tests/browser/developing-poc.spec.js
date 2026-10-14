@@ -43,6 +43,8 @@ test("default-off toggle sits below Daily POC, persists, and draws a causal gold
 });
 test("replay withholds unfinished samples and the next UTC session resets accumulation", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor(profile);
+  await page.goto(`${fake.url}/${view.replace("02:00Z", "00:25Z")}&lines=devpoc`); await probe.waitForReady();
+  await menu(page); await expect.poll(() => quote(page)).toBe(25062.5);
   await page.goto(`${fake.url}/${view}&lines=devpoc&replay=1&at=2021-01-01T00:44Z`); await probe.waitForReady();
   await menu(page); await expect.poll(() => quote(page)).toBe(25187.5);
   await page.goto(`${fake.url}/${view}&lines=devpoc&replay=1&at=2021-01-01T00:05Z`); await probe.waitForReady();
