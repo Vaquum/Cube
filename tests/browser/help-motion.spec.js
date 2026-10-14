@@ -5,7 +5,7 @@
 //      lists, and E toggles Inspect on and off wherever the focus is except a text field;
 //   2. E inside a text field types an E and does nothing to the chart; E with a modifier is the browser's;
 //   3. reduced motion is honoured in the stylesheet and in the canvas, and when the preference changes during the session: with it off the canvas morphs a level
-//      change over several frames and the toggles' icons turn over 0.15 s; the moment it is turned on neither does.
+//      change over several frames and the toggles' icons turn over the shared spring duration; the moment it is turned on neither does.
 // Oracles (none is the code under test): the page's own markup (the dialog's text), the browser's media emulation, a counter of the canvas's own redraws (the
 // canvas's width is reset at each frame) and the computed style of a caret.
 const { test, expect } = require("./fixtures.js");
@@ -72,9 +72,9 @@ test.describe("B48 help, commands and reduced motion", () => {
     await page.goto(`${fake.url}/#w=24h&vis=2`);
     await S.atRest(page, fake, probe);
     await probe.waitForQuiet({ quietMs: 600, timeout: 30000 });
-    // the inspector toggle turns its icon over 0.15 s
+    // the inspector toggle turns its icon over the shared spring duration
     const duration = () => page.evaluate(() => getComputedStyle(document.querySelector("#ol-side-toggle .ol-icon")).transitionDuration);
-    expect(await duration(), "with motion allowed the toggle's icon turns over 0.15 s").toBe("0.15s");
+    expect(await duration(), "with motion allowed the toggle's icon turns over the shared spring duration").toBe(await page.evaluate(() => `${window.explorerMotion.SPRING.duration / 1000}s`));
     const frames = async (key) => {
       await page.evaluate(() => (window.__draws = 0));
       await page.keyboard.press(key);
@@ -91,7 +91,7 @@ test.describe("B48 help, commands and reduced motion", () => {
     expect(still, `a level change is one drawing when motion is off (${still} against ${morph})`).toBeLessThanOrEqual(3);
     // and back
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    await expect.poll(duration).toBe("0.15s");
+    await expect.poll(duration).toBe(await page.evaluate(() => `${window.explorerMotion.SPRING.duration / 1000}s`));
     expect(await frames("]"), "motion returns with the preference").toBeGreaterThanOrEqual(4);
   });
 });

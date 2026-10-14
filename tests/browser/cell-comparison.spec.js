@@ -47,7 +47,9 @@ test("duplicate opens the first owned snapshot",async({page,fakeFor,probe})=>{
     expect((await stored(page)).captures).toEqual([first]);
   } else {
     // A known-zero cell is absent from the occupied-only table. Its chart menu still opens its original.
-    await page.locator("#ol-canvas").press("t");p=await point(page);await menu(page,p);
+    await page.locator("#ol-canvas").press("t");
+    await probe.waitForQuiet({quietMs:300,timeout:60000});
+    p=await point(page);await menu(page,p);
     const existing=page.getByRole("menuitem",{name:"Open existing capture"});await expect(existing).toBeVisible();await existing.click();
   }
   await expect(page.locator("#ol-comparisonWorkspace")).toContainText("original values retained");

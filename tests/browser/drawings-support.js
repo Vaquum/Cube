@@ -42,7 +42,7 @@ async function rows(page) {
 }
 async function row(page, id) { return (await rows(page)).find((r) => r.id === id); }
 async function closeManager(page) {
-  if (await page.locator("#ol-lines-pop").isVisible() || await page.locator("#ol-drawing-actions").isVisible()) {
+  if (!(await page.locator("#ol-lines-pop").evaluate(node => node.hidden)) || !(await page.locator("#ol-drawing-actions").evaluate(node => node.hidden))) {
     const mode = await page.locator("#ol-trend").getAttribute("aria-pressed");
     await page.keyboard.press("Escape"); await expect(page.locator("#ol-trend")).toHaveAttribute("aria-pressed", mode);
   }
@@ -59,14 +59,14 @@ async function pan(page) {
 }
 async function lines(page) {
   if (await page.locator("#ol-lines").isHidden() && await page.locator("#ol-sheet-toggle").isVisible()) await page.locator("#ol-sheet-toggle").click();
-  if (await page.locator("#ol-lines-pop").isHidden()) await page.locator("#ol-lines").click();
+  if (await page.locator("#ol-lines-pop").evaluate(node => node.hidden)) await page.locator("#ol-lines").click();
   const section = page.locator("#ol-drawing-section"); await expect(section).toBeVisible();
   if (await page.locator("#ol-family-drawing-head").getAttribute("aria-expanded") !== "true") await page.locator("#ol-family-drawing-head").click();
 }
 async function manager(page) {
   await trend(page);
-  if (await page.locator("#ol-lines-pop").isVisible()) await closeManager(page);
-  if (await page.locator("#ol-drawing-actions").isHidden()) await page.locator("#ol-drawing-more").click();
+  if (!(await page.locator("#ol-lines-pop").evaluate(node => node.hidden))) await closeManager(page);
+  if (await page.locator("#ol-drawing-actions").evaluate(node => node.hidden)) await page.locator("#ol-drawing-more").click();
   await expect(page.locator("#ol-drawing-actions")).toBeVisible();
 }
 async function command(page, action) {

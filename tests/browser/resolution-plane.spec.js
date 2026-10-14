@@ -259,6 +259,7 @@ test.describe("B29 the glyphs are separate, neutral, and together", () => {
     await page.locator("#ol-res").click();
     const group = page.locator('#ol-res-pop .ol-steppers[role="group"]');
     await expect(group).toBeVisible();
+    await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
     for (const id of ["tminus", "tplus", "pminus", "pplus"]) {
       const box = await page.locator(`#ol-${id}`).boundingBox();
       expect(box.width, id).toBeGreaterThanOrEqual(44);

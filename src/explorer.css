@@ -1,3 +1,8 @@
+/* Actor offsets belong to their owner. Inheritance would invalidate every
+   descendant during each frame and compose a parent's offset into child entries. */
+@property --flow-layout-x { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --flow-layout-y { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --flow-enter-y { syntax: "<length>"; inherits: false; initial-value: 0px; }
 /* Tokens: every size, space, radius and colour below comes from these. */
 #origo-lens {
   /* Surfaces and text */
@@ -278,7 +283,7 @@
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform 0.15s;
+  transition: transform var(--flow-settle) var(--flow-spring);
 }
 #origo-lens details[open] > summary::before {
   transform: rotate(45deg);
@@ -1122,6 +1127,7 @@
 
 /* Workspace: the chart column, a resize grip and the inspector. */
 #origo-lens .ol-main {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 6px var(--side-w);
   min-height: 0;
@@ -1730,6 +1736,7 @@
   color: var(--ol-muted);
 }
 #origo-lens .ol-drawer-body {
+  position: relative;
   height: var(--drawer-h);
   overflow: auto;
   border-top: 1px solid var(--ol-line);
@@ -1986,7 +1993,7 @@
   border-bottom: 1px solid var(--ol-line);
 }
 #origo-lens #ol-side-toggle .ol-icon {
-  transition: transform 0.15s;
+  transition: transform var(--flow-settle) var(--flow-spring);
 }
 #origo-lens .ol-main[data-side="closed"] #ol-side-toggle .ol-icon {
   transform: rotate(180deg);
@@ -3523,3 +3530,50 @@
 #origo-lens .ol-reference-matrix { overflow-x: auto; margin-top: var(--sp-2); }
 #origo-lens .ol-reference-matrix table { width: 100%; border-collapse: collapse; font-size: var(--fs-s); }
 #origo-lens .ol-reference-matrix :is(th,td) { padding: var(--sp-1); border-bottom: 1px solid var(--ol-line); text-align: left; vertical-align: top; }
+
+/* Tactile flow composes actor offsets without replacing native positioning. */
+#origo-lens [data-flow-enter], #origo-lens [data-flow-layout] {
+  translate: calc(var(--flow-layout-x, 0px) + var(--flow-enter-x, 0px)) calc(var(--flow-layout-y, 0px) + var(--flow-enter-y, 0px));
+}
+#origo-lens [data-flow-retained][hidden], #origo-lens [data-flow-panel-retained] { display: var(--flow-display, block) !important; pointer-events: none; }
+#origo-lens [data-flow-retiring], #origo-lens [data-motion-running] { animation: none !important; transition: none !important; }
+#origo-lens details[data-flow-details] > [data-flow-disclosure]:not([hidden]) { display: var(--flow-display, block) !important; }
+#origo-lens details[data-flow-details]::details-content { content-visibility: visible; }
+#origo-lens :is(button, input, select, summary), #origo-lens input[type="checkbox"]::before {
+  transition: background-color var(--flow-feedback) ease-out, border-color var(--flow-feedback) ease-out, color var(--flow-feedback) ease-out;
+}
+#origo-lens summary::before, #origo-lens #ol-side-toggle .ol-icon { transition: transform var(--flow-settle) var(--flow-spring); }
+@supports (transition-behavior: allow-discrete) and (interactivity: inert) {
+  #origo-lens dialog { opacity: 0; translate: 0 20px; transition: opacity var(--flow-settle) var(--flow-spring), translate var(--flow-settle) var(--flow-spring), display var(--flow-settle) allow-discrete, overlay var(--flow-settle) allow-discrete; }
+  #origo-lens dialog:not([open]) { interactivity: inert; pointer-events: none; }
+  #origo-lens dialog[open] { opacity: 1; translate: 0 0; }
+  @starting-style { #origo-lens dialog[open] { opacity: 0; translate: 0 20px; } }
+}
+@media (prefers-reduced-motion: reduce), print {
+  #origo-lens, #origo-lens *, #origo-lens *::before, #origo-lens *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+/* Explicit tracks keep canvas coordinates native while side/reference widths settle. */
+@media (min-width: 761px) {
+  #origo-lens .ol-main[data-flow-grid] > .ol-reference { grid-column: 1; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-chart { grid-column: 2; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-side-grip { grid-column: 3; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-side { grid-column: 4; grid-row: 1; }
+}
+#origo-lens [data-flow-size] { display: block !important; }
+#origo-lens .ol-panel[hidden][data-flow-panel-retained] { position: absolute; inset: 0; }
+#origo-lens .ol-view-keys[hidden][data-flow-panel-retained] { position: absolute; }
+#origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-panel-retained]:not([data-flow-size]) { position: absolute; width: 100%; height: 0; overflow: hidden; }
+@media (min-width: 761px) {
+  #origo-lens .ol-main:not([data-flow-grid]) > .ol-reference[hidden][data-flow-panel-retained] { position: absolute; inset: 0 auto 0 0; width: var(--reference-w); }
+}
+
+/* Closed visuals cannot accept input; reopening restores interaction before observers run. */
+#origo-lens [hidden][data-flow-retained],
+#origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-retained],
+#origo-lens .ol-main[data-side="closed"] .ol-side-body[data-flow-retained] { interactivity: inert; pointer-events: none; }
+@media (max-width: 760px) {
+  #origo-lens:not([data-sheet="open"]) .ol-controls[data-flow-retained] { interactivity: inert; pointer-events: none; }
+}
+
+/* Retiring copies hold presentation without starting descendant feedback. */
+#origo-lens [data-flow-retiring], #origo-lens [data-flow-retiring] * { transition: none !important; animation: none !important; }

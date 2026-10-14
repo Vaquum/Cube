@@ -72,6 +72,7 @@ Contrast is WCAG contrast of the hex against `--ol-surface` (`#fff` / `#161f19`)
 | T-36 | Per-object authored RGB `--drawing-rgb` | src/explorer.css `.ol-drawing-swatch`; src/explorer.js `drawingRow`, `drawingSyncInventory`, `drawingSyncUI` | Exact normalized six-digit RGB, independent of theme; a filled hexagon swatch with structural border | `annotation.trend.rgb`: object identity; visible name and exact RGB accompany the swatch; no quantitative or market meaning | - | #66 | U92, B61 | keep |
 | T-37 | Reference/display colour variables `--key-colour`, `--ref-ink`; readable comparison properties `--fs-comparison-primary`, `--fs-comparison-value`, `--fs-comparison-label`, `--fs-comparison-card`, `--fs-comparison-support`, `--comparison-card-min`, `--comparison-track-height` | src/explorer.css comparison block; src/comparison-ui.js Focus/Cards/Matrix | 28/20/14 px focus, 18/12 px cards; 200 px card minimum, 6 px track | CHR; registered type/layout sizes; collection growth pages without shrinking text | - | #71 | B63 | keep |
 | T-38 | Viewport position property `--drawing-menu-top` | src/explorer.js `drawingPlaceActions`; src/explorer.css `.ol-drawing-actions` | Nonnegative viewport top in CSS px, measured while the desktop More menu is open; 120 px fallback. Menu height is the smaller of 70dvh and the remaining viewport height below that top, less 16 px; excess actions scroll inside the menu | CHR; layout only, keeps drawing actions reachable without shrinking text | - | #66 | U36, B61 | keep |
+| T-39 | Motion properties `--flow-settle`, `--flow-spring`, `--flow-feedback`, `--flow-feedback-ease`, `--flow-layout-x`, `--flow-layout-y`, `--flow-enter-x`, `--flow-enter-y`, `--flow-display` | src/motion.js shared presentation model; src/explorer.css Tactile flow block | 180 stiffness, 20 damping, 1 mass spring; 100 ms ease-out feedback; retained actor offsets and display ownership | CHR; presentation geometry and timing, no quantitative or market meaning | - | #136 | motion.test.js, tactile-flow.spec.js, B48 | keep |
 
 ### 3.2 Canvas consumers (C-)
 
@@ -800,13 +801,13 @@ Rendered from the Status column at S2's convergence: `done` is the work of S1 an
 
 | Prefix | Rows | keep | todo-S1 | todo-S2 | todo-S3 | done |
 |---|---|---|---|---|---|---|
-| T | 38 | 20 | 0 | 0 | 0 | 18 |
+| T | 39 | 21 | 0 | 0 | 0 | 18 |
 | C | 49 | 3 | 0 | 0 | 0 | 46 |
 | D | 22 | 8 | 0 | 0 | 0 | 14 |
 | F | 17 | 0 | 0 | 0 | 0 | 17 |
 | R | 15 | 0 | 0 | 0 | 0 | 15 |
 | N | 47 | 0 | 0 | 0 | 0 | 47 |
-| all | 188 | 31 | 0 | 0 | 0 | 157 |
+| all | 189 | 32 | 0 | 0 | 0 | 157 |
 
 ## 11. Contributor checklist
 

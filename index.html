@@ -15,7 +15,12 @@
       /* The app fills the window; its panels scroll, the page does not. Phones scroll. */
       @media (min-width: 761px) { body { overflow: hidden; } }
       .cursor-interaction:not(:disabled) { cursor: pointer; }
-      /* Tokens: every size, space, radius and colour below comes from these. */
+      /* Actor offsets belong to their owner. Inheritance would invalidate every
+   descendant during each frame and compose a parent's offset into child entries. */
+@property --flow-layout-x { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --flow-layout-y { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --flow-enter-y { syntax: "<length>"; inherits: false; initial-value: 0px; }
+/* Tokens: every size, space, radius and colour below comes from these. */
 #origo-lens {
   /* Surfaces and text */
   --ol-bg: light-dark(#f7f9f7, #101713);
@@ -295,7 +300,7 @@
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform 0.15s;
+  transition: transform var(--flow-settle) var(--flow-spring);
 }
 #origo-lens details[open] > summary::before {
   transform: rotate(45deg);
@@ -1139,6 +1144,7 @@
 
 /* Workspace: the chart column, a resize grip and the inspector. */
 #origo-lens .ol-main {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 6px var(--side-w);
   min-height: 0;
@@ -1747,6 +1753,7 @@
   color: var(--ol-muted);
 }
 #origo-lens .ol-drawer-body {
+  position: relative;
   height: var(--drawer-h);
   overflow: auto;
   border-top: 1px solid var(--ol-line);
@@ -2003,7 +2010,7 @@
   border-bottom: 1px solid var(--ol-line);
 }
 #origo-lens #ol-side-toggle .ol-icon {
-  transition: transform 0.15s;
+  transition: transform var(--flow-settle) var(--flow-spring);
 }
 #origo-lens .ol-main[data-side="closed"] #ol-side-toggle .ol-icon {
   transform: rotate(180deg);
@@ -3540,6 +3547,53 @@
 #origo-lens .ol-reference-matrix { overflow-x: auto; margin-top: var(--sp-2); }
 #origo-lens .ol-reference-matrix table { width: 100%; border-collapse: collapse; font-size: var(--fs-s); }
 #origo-lens .ol-reference-matrix :is(th,td) { padding: var(--sp-1); border-bottom: 1px solid var(--ol-line); text-align: left; vertical-align: top; }
+
+/* Tactile flow composes actor offsets without replacing native positioning. */
+#origo-lens [data-flow-enter], #origo-lens [data-flow-layout] {
+  translate: calc(var(--flow-layout-x, 0px) + var(--flow-enter-x, 0px)) calc(var(--flow-layout-y, 0px) + var(--flow-enter-y, 0px));
+}
+#origo-lens [data-flow-retained][hidden], #origo-lens [data-flow-panel-retained] { display: var(--flow-display, block) !important; pointer-events: none; }
+#origo-lens [data-flow-retiring], #origo-lens [data-motion-running] { animation: none !important; transition: none !important; }
+#origo-lens details[data-flow-details] > [data-flow-disclosure]:not([hidden]) { display: var(--flow-display, block) !important; }
+#origo-lens details[data-flow-details]::details-content { content-visibility: visible; }
+#origo-lens :is(button, input, select, summary), #origo-lens input[type="checkbox"]::before {
+  transition: background-color var(--flow-feedback) ease-out, border-color var(--flow-feedback) ease-out, color var(--flow-feedback) ease-out;
+}
+#origo-lens summary::before, #origo-lens #ol-side-toggle .ol-icon { transition: transform var(--flow-settle) var(--flow-spring); }
+@supports (transition-behavior: allow-discrete) and (interactivity: inert) {
+  #origo-lens dialog { opacity: 0; translate: 0 20px; transition: opacity var(--flow-settle) var(--flow-spring), translate var(--flow-settle) var(--flow-spring), display var(--flow-settle) allow-discrete, overlay var(--flow-settle) allow-discrete; }
+  #origo-lens dialog:not([open]) { interactivity: inert; pointer-events: none; }
+  #origo-lens dialog[open] { opacity: 1; translate: 0 0; }
+  @starting-style { #origo-lens dialog[open] { opacity: 0; translate: 0 20px; } }
+}
+@media (prefers-reduced-motion: reduce), print {
+  #origo-lens, #origo-lens *, #origo-lens *::before, #origo-lens *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+/* Explicit tracks keep canvas coordinates native while side/reference widths settle. */
+@media (min-width: 761px) {
+  #origo-lens .ol-main[data-flow-grid] > .ol-reference { grid-column: 1; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-chart { grid-column: 2; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-side-grip { grid-column: 3; grid-row: 1; }
+  #origo-lens .ol-main[data-flow-grid] > .ol-side { grid-column: 4; grid-row: 1; }
+}
+#origo-lens [data-flow-size] { display: block !important; }
+#origo-lens .ol-panel[hidden][data-flow-panel-retained] { position: absolute; inset: 0; }
+#origo-lens .ol-view-keys[hidden][data-flow-panel-retained] { position: absolute; }
+#origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-panel-retained]:not([data-flow-size]) { position: absolute; width: 100%; height: 0; overflow: hidden; }
+@media (min-width: 761px) {
+  #origo-lens .ol-main:not([data-flow-grid]) > .ol-reference[hidden][data-flow-panel-retained] { position: absolute; inset: 0 auto 0 0; width: var(--reference-w); }
+}
+
+/* Closed visuals cannot accept input; reopening restores interaction before observers run. */
+#origo-lens [hidden][data-flow-retained],
+#origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-retained],
+#origo-lens .ol-main[data-side="closed"] .ol-side-body[data-flow-retained] { interactivity: inert; pointer-events: none; }
+@media (max-width: 760px) {
+  #origo-lens:not([data-sheet="open"]) .ol-controls[data-flow-retained] { interactivity: inert; pointer-events: none; }
+}
+
+/* Retiring copies hold presentation without starting descendant feedback. */
+#origo-lens [data-flow-retiring], #origo-lens [data-flow-retiring] * { transition: none !important; animation: none !important; }
 
     </style>
   </head>
@@ -19278,10 +19332,10 @@
     }
     function renderCards(captures, analysis) {
       const cardMetrics = compactMetrics(analysis);
-      return `<div class="ol-comparison-grid">${captures.map((capture) => `<article class="ol-comparison-card" data-capture-id="${escape(capture.id)}" data-focused="${capture.id === state.focus}" data-reference="${capture.id === state.reference}"><div class="ol-comparison-card-head"><button type="button" class="ol-comparison-card-focus cursor-interaction" data-comparison-action="focus" data-id="${escape(capture.id)}" data-focus-key="cell:${escape(capture.id)}"${capture.id === state.focus ? ' aria-current="true"' : ""}><span>${escape(timeRange(capture, true))}</span><strong>${escape(band(capture))}</strong>${capture.id === state.reference ? '<span class="ol-comparison-reference-label">Reference</span>' : ""}</button><button type="button" class="ol-action cursor-interaction" data-comparison-action="remove" data-id="${escape(capture.id)}" data-focus-key="remove:${escape(capture.id)}" aria-label="Remove ${escape(captureName(capture))}">Remove</button></div><div class="ol-comparison-card-metrics">${cardMetrics.map((metric) => metricBlock(metric, capture, true, analysis)).join("")}</div></article>`).join("")}</div>`;
+      return `<div class="ol-comparison-grid" data-flow-key="comparison-cards" data-flow-collection>${captures.map((capture) => `<article class="ol-comparison-card" data-capture-id="${escape(capture.id)}" data-focused="${capture.id === state.focus}" data-reference="${capture.id === state.reference}"><div class="ol-comparison-card-head"><button type="button" class="ol-comparison-card-focus cursor-interaction" data-comparison-action="focus" data-id="${escape(capture.id)}" data-focus-key="cell:${escape(capture.id)}"${capture.id === state.focus ? ' aria-current="true"' : ""}><span>${escape(timeRange(capture, true))}</span><strong>${escape(band(capture))}</strong>${capture.id === state.reference ? '<span class="ol-comparison-reference-label">Reference</span>' : ""}</button><button type="button" class="ol-action cursor-interaction" data-comparison-action="remove" data-id="${escape(capture.id)}" data-focus-key="remove:${escape(capture.id)}" aria-label="Remove ${escape(captureName(capture))}">Remove</button></div><div class="ol-comparison-card-metrics">${cardMetrics.map((metric) => metricBlock(metric, capture, true, analysis)).join("")}</div></article>`).join("")}</div>`;
     }
     function renderMatrix(captures, analysis) {
-      return `<div class="ol-comparison-matrix-scroll"><table class="ol-comparison-matrix"><caption class="ol-sr">Captured cells with comparison metrics; focus, reference and sorting match Cards.</caption><thead><tr><th scope="col">Cell · UTC / USDT</th>${orderedMetrics(analysis).map((metric) => `<th scope="col">${escape(metric.label)}</th>`).join("")}<th scope="col">Actions</th></tr></thead><tbody>${captures.map((capture) => `<tr data-capture-id="${escape(capture.id)}" data-focused="${capture.id === state.focus}" data-reference="${capture.id === state.reference}"><th scope="row"><button type="button" class="ol-comparison-matrix-focus cursor-interaction" data-comparison-action="focus" data-id="${escape(capture.id)}" data-focus-key="cell:${escape(capture.id)}"${capture.id === state.focus ? ' aria-current="true"' : ""}><span>${escape(timeRange(capture, true))}</span><strong>${escape(band(capture))}</strong>${capture.id === state.reference ? '<span class="ol-comparison-reference-label">Reference</span>' : ""}</button></th>${orderedMetrics(analysis).map((metric) => `<td>${metricBlock(metric, capture, true, analysis)}</td>`).join("")}<td><button type="button" class="ol-action cursor-interaction" data-comparison-action="remove" data-id="${escape(capture.id)}" data-focus-key="remove:${escape(capture.id)}" aria-label="Remove ${escape(captureName(capture))}">Remove</button></td></tr>`).join("")}</tbody></table></div>`;
+      return `<div class="ol-comparison-matrix-scroll" data-flow-key="comparison-matrix"><table class="ol-comparison-matrix"><caption class="ol-sr">Captured cells with comparison metrics; focus, reference and sorting match Cards.</caption><thead><tr><th scope="col">Cell · UTC / USDT</th>${orderedMetrics(analysis).map((metric) => `<th scope="col">${escape(metric.label)}</th>`).join("")}<th scope="col">Actions</th></tr></thead><tbody data-flow-collection>${captures.map((capture) => `<tr data-capture-id="${escape(capture.id)}" data-focused="${capture.id === state.focus}" data-reference="${capture.id === state.reference}"><th scope="row"><button type="button" class="ol-comparison-matrix-focus cursor-interaction" data-comparison-action="focus" data-id="${escape(capture.id)}" data-focus-key="cell:${escape(capture.id)}"${capture.id === state.focus ? ' aria-current="true"' : ""}><span>${escape(timeRange(capture, true))}</span><strong>${escape(band(capture))}</strong>${capture.id === state.reference ? '<span class="ol-comparison-reference-label">Reference</span>' : ""}</button></th>${orderedMetrics(analysis).map((metric) => `<td>${metricBlock(metric, capture, true, analysis)}</td>`).join("")}<td><button type="button" class="ol-action cursor-interaction" data-comparison-action="remove" data-id="${escape(capture.id)}" data-focus-key="remove:${escape(capture.id)}" aria-label="Remove ${escape(captureName(capture))}">Remove</button></td></tr>`).join("")}</tbody></table></div>`;
     }
     function render(model, analysis, nextOptions = {}) {
       if (copyText !== null && options.edge !== nextOptions.edge) clearCopyFallback();
@@ -19329,8 +19383,8 @@
       for (const button of root.querySelectorAll('[data-comparison-action="view"]')) button.setAttribute("aria-pressed", String(button.dataset.value === (model.view || "grid")));
       q(".ol-comparison-empty").hidden = !!captures.length;
       q(".ol-comparison-panes").hidden = !captures.length;
-      focusPane.innerHTML = renderFocus(selected, analysis);
-      q(".ol-comparison-entries").innerHTML = model.view === "matrix" ? renderMatrix(entries, analysis) : renderCards(entries, analysis);
+      window.explorerMotion.html(focusPane, renderFocus(selected, analysis));
+      window.explorerMotion.html(q(".ol-comparison-entries"), model.view === "matrix" ? renderMatrix(entries, analysis) : renderCards(entries, analysis));
       q(".ol-comparison-collection").hidden = captures.length === 1 && model.view !== "matrix";
       q('[data-comparison-position]').textContent = ordered.length ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, ordered.length)} of ${ordered.length} · Page ${page + 1} of ${pages}` : "0 cells";
       q('[data-value="previous"]').disabled = page === 0;
@@ -19919,7 +19973,7 @@
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0 ? { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height, overReference: element.closest("#ol-controls") && root.dataset.sheet === "open" } : null;
     }
-    function refresh() {
+    function refresh(currentFrame = false) {
       if (pane.hidden) return;
       if (innerWidth > 760) delete main.dataset.referenceReveal;
       const list = matches(), at = list.indexOf(current);
@@ -19927,7 +19981,10 @@
       el("next").disabled = at < 0 || at >= list.length - 1;
       colourKey?.(el("colours"), current);
       back.hidden = innerWidth > 760 || (!active && !main.dataset.referenceReveal && main.scrollLeft < 40);
-      if (active) schedule();
+      if (active) {
+        if (currentFrame) { if (scheduled) cancelAnimationFrame(scheduled); paint(); }
+        else schedule();
+      }
     }
     function clearSpotlight(restore = true) {
       const returning = restore && Boolean(main.dataset.referenceReveal);
@@ -19979,37 +20036,42 @@
       article.append(list);
       const actions = node("div", "", "ol-reference-targets");
       for (const [i, target] of current.targets.entries()) {
-        const button = node("button", target.label, "ol-action cursor-interaction"); button.type = "button"; button.dataset.referenceTarget = i; button.setAttribute("aria-pressed", "false");
-        button.addEventListener("click", () => {
+        const button = node("button", target.label, "ol-action cursor-interaction"); button.type = "button"; button.dataset.referenceTarget = i; button.dataset.flowKey = target.selector || target.region; button.setAttribute("aria-pressed", "false");
+        button.onclick = event => {
           if (active === target) { clearSpotlight(); return; }
           clearSpotlight(); active = target; reveal?.(target);
-          if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; main.scrollLeft = 0; }
-          button.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
-        });
+          if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; window.explorerMotion.scrollAxis(main, 0, "x"); }
+          event.currentTarget.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
+        };
         actions.append(button);
       }
-      el("targets").replaceChildren(...actions.children);
-      el("article").replaceChildren(article);
+      window.explorerMotion.replaceChildren(el("targets"), ...actions.children);
+      article.dataset.flowKey = current.id;
+      window.explorerMotion.replaceChildren(el("article"), article);
       const settings = current.settings || current.id;
       for (const section of pane.querySelectorAll("[data-reference-settings]")) section.hidden = section.dataset.referenceSettings !== settings;
       el("colours").replaceChildren(); delete el("colours").dataset.key; colourKey?.(el("colours"), current);
       el("position").textContent = `${Math.max(0,index + 1)} / ${available.length}${el("search").value ? " matches" : ""}`;
       el("prev").disabled = index === 0; el("next").disabled = index === topics.length - 1;
-      el("body").scrollTop = 0;
+      window.explorerMotion.scrollAxis(el("body"), 0);
       refresh();
     }
     function open(id, origin = document.activeElement) {
+      const finishGrid = window.explorerMotion.captureGrid(main);
       if (pane.hidden) returnFocus = origin;
       beforeOpen(); pane.hidden = false; main.dataset.reference = "open"; el("toggle").setAttribute("aria-expanded", "true"); el("toggle").setAttribute("aria-pressed", "true");
       if (id) { el("search").value = ""; for (const option of select.options) option.hidden = false; render(id); } else refresh();
       select.focus({ preventScroll: true });
+      finishGrid();
     }
     function close() {
+      const finishGrid = window.explorerMotion.captureGrid(main);
       beforeChange();
       clearSpotlight(); pane.hidden = true; delete main.dataset.reference; el("toggle").setAttribute("aria-expanded", "false"); el("toggle").setAttribute("aria-pressed", "false");
-      back.hidden = true; main.scrollLeft = 0;
+      back.hidden = true; window.explorerMotion.scrollAxis(main, 0, "x");
       const destination = returnFocus?.isConnected && returnFocus.getClientRects().length && !returnFocus.closest("[hidden]") ? returnFocus : el("toggle");
       destination.focus({ preventScroll: true });
+      finishGrid();
     }
     el("toggle").addEventListener("click", () => pane.hidden ? open(null, el("toggle")) : close());
     el("close").addEventListener("click", close);
@@ -20023,7 +20085,7 @@
       if (list.length) render(ids.has(current.id) ? current.id : list[0].id);
       else { clearSpotlight(); el("position").textContent = "0 / 0 matches"; el("status").textContent = "No matching topics. Clear the search to see all topics."; refresh(); }
     });
-    back.addEventListener("click", () => { clearSpotlight(); beforeChange(); main.scrollLeft = 0; back.hidden = true; select.focus({ preventScroll: true }); });
+    back.addEventListener("click", () => { clearSpotlight(); beforeChange(); window.explorerMotion.scrollAxis(main, 0, "x"); back.hidden = true; select.focus({ preventScroll: true }); });
     pane.addEventListener("keydown", event => {
       if (event.key === "Escape" && closeTransient()) event.preventDefault();
       event.stopPropagation();
@@ -20107,8 +20169,8 @@
     }
     function renderInspector() {
       const host = el("inspector"), focusedDetails = host.contains(document.activeElement) && document.activeElement?.dataset.rallyAction === "details";
-      host.replaceChildren(); host.hidden = !selectedId;
-      if (!selectedId) return;
+      host.hidden = !selectedId;
+      if (!selectedId) { window.explorerMotion.replaceChildren(host); return; }
       const title = document.createElement("div"), actions = document.createElement("div"), box = document.createElement("div");
       title.className = "ol-section-heading"; title.textContent = "Selected rally · native members";
       actions.className = "ol-legend-actions"; box.id = "ol-rally-details"; box.hidden = !inspectorExpanded;
@@ -20118,12 +20180,11 @@
         actions.append(button);
       }
       const contextNote = document.createElement("p"); contextNote.className = "ol-muted"; contextNote.textContent = "Rally members only. Continuations uses its own column anchor.";
-      host.append(title, actions, contextNote, box);
-      if (focusedDetails) actions.querySelector('[data-rally-action="details"]').focus({preventScroll:true});
+      const commit = () => { window.explorerMotion.replaceChildren(host,title,actions,contextNote,box); if (focusedDetails) host.querySelector('[data-rally-action="details"]').focus({preventScroll:true}); };
       const event = current()?.selected;
       if (!event) {
         box.append(row("State", stale ? "Source changed · refresh discovery" : errorMessage || (inFlight ? "Reading membership…" : "Hidden by replay or time-to-target filter")));
-        return;
+        commit(); return;
       }
       const {normalized_definition: d, analysis} = result.metadata;
       box.append(row("Retained definition", definitionText(d)), row("Analysis · UTC", `${analysis.start} → ${analysis.end}`),
@@ -20145,6 +20206,7 @@
       const note = document.createElement("p"); note.className = "ol-muted";
       note.textContent = "Outlines mark cells containing members; other trades may share them. Profile and totals use members only. Event path, dwell and indicators are unavailable. Surrounding auction context remains in the regular inspector.";
       box.append(note);
+      commit();
       host.dataset.rallyId = event.rally_id;
     }
     function render() {
@@ -20152,18 +20214,19 @@
       const definition = el("definition"); definition.hidden = !result;
       definition.textContent = result ? `Retained discovery · ${definitionText(result.metadata.normalized_definition)}. Analysis · UTC: ${result.metadata.analysis.start} → ${result.metadata.analysis.end}. Retained until Refresh discovery; form edits apply only to the next discovery.` : "";
       const events = shown(), pages = Math.max(1, Math.ceil(events.length / PAGE)); page = Math.min(page, pages - 1);
-      const body = el("rows"); body.replaceChildren();
+      const body = el("rows"), fragment = document.createDocumentFragment();
       for (const e of events.slice(page * PAGE, (page + 1) * PAGE)) {
         const tr = document.createElement("tr"), td = document.createElement("td"), button = document.createElement("button");
         button.type = "button"; button.className = "ol-action ol-s cursor-interaction";
         button.textContent = time(e.start_at_us); button.setAttribute("aria-pressed", String(e.rally_id === selectedId));
         button.title = e.rally_id; button.dataset.rallyId = e.rally_id;
-        button.onclick = () => select(e.rally_id); td.append(button); tr.append(td);
+        button.onclick = () => select(e.rally_id); td.append(button); tr.append(td); tr.dataset.flowKey = e.rally_id;
         for (const value of [time(e.confirmed_at_us), fmt(e.return_bps) + " bps", fmt(e.duration_seconds) + " s", fmt(e.volume), fmt(e.trade_count, 0)]) {
           const cell = document.createElement("td"); cell.textContent = value; tr.append(cell);
         }
-        body.append(tr);
+        fragment.append(tr);
       }
+      window.explorerMotion.replaceChildren(body,fragment);
       el("page").textContent = `${events.length} confirmed · ${page + 1}/${pages}`;
       el("previous").disabled = page === 0; el("next").disabled = page + 1 >= pages;
       if (!context().live) status("Discovery requires the live Origo cube. The recorded page has no native rally endpoint.");
@@ -20254,6 +20317,755 @@
   if (typeof module !== "undefined") module.exports = scope.explorerRallies;
 })(typeof window === "undefined" ? globalThis : window);
 </script>
+    <script>/* Tactile flow: the 180/20/1 model and lifecycle from Poise at 47c903c.
+ * Presentation channels retain position/velocity; authoritative data stays immediate. */
+(function (scope) {
+  "use strict";
+  /** Pure presentation model shared by the gateway renderer and browser client. */
+  const MOTION = Object.freeze({ stiffness: 180, damping: 20, mass: 1, travel: 20, information: 8, feedback: 100 });
+  function integrate(position, velocity, target, seconds) {
+      if (![position, velocity, target, seconds].every(Number.isFinite) || seconds < 0)
+          throw new Error('Motion requires finite positions and a non-negative time step.');
+      const steps = Math.max(1, Math.ceil(seconds / .008));
+      const dt = seconds / steps;
+      for (let step = 0; step < steps; step++) {
+          velocity += (-MOTION.stiffness * (position - target) - MOTION.damping * velocity) / MOTION.mass * dt;
+          position += velocity * dt;
+      }
+      return { position, velocity };
+  }
+  function curve() {
+      const samples = [0];
+      let position = 0, velocity = 0;
+      do {
+          const next = integrate(position, velocity, 1, .008);
+          position = next.position;
+          velocity = next.velocity;
+          samples.push(position);
+      } while (Math.abs(position - 1) > .0008 || Math.abs(velocity) > .008);
+      samples[samples.length - 1] = 1;
+      return { duration: (samples.length - 1) * 8, easing: `linear(${samples.map(value => value.toFixed(5)).join(',')})` };
+  }
+  const CALLBACKS = ['onclick','onchange','oninput','onsubmit','onkeydown','oncontextmenu'];
+  const SPRING = Object.freeze(curve());
+  const MOTION_CSS = `--flow-settle:${SPRING.duration}ms;--flow-spring:${SPRING.easing};--flow-feedback:${MOTION.feedback}ms;--flow-feedback-ease:ease-out;`;
+  const channels = new WeakMap();
+  const moving = new Set();
+  const listeners = new Set();
+  const disclosurePadding = new WeakMap();
+  const nativeDetails = new WeakSet();
+  const measurements = new WeakMap();
+  let retirementGeometry = new Map();
+  let rootElement;
+  let presentationHeld = false;
+  let preference;
+  let frame = 0, previousTime = 0;
+  const bounded = (value) => Math.max(0, Math.min(1, value));
+  function reducedMotion() { return (preference ?? window.matchMedia('(prefers-reduced-motion: reduce)')).matches; }
+  function motionActive() { return moving.size > 0; }
+  function motionValue(owner, name) {
+      const channel = channels.get(owner)?.get(name);
+      return channel?.active ? { ...channel.value } : null;
+  }
+  function mark(owner) {
+      owner.toggleAttribute('data-motion-running', [...(channels.get(owner)?.values() ?? [])].some(channel => channel.active));
+  }
+  function target(channel) {
+      const next = typeof channel.options.to === 'function' ? channel.options.to() : channel.options.to;
+      for (const key of Object.keys(next)) {
+          if (!Number.isFinite(next[key]) || !Number.isFinite(channel.value[key]))
+              throw new Error(`Motion received non-finite ${channel.name}.${key}.`);
+          channel.range[key] = Math.max(channel.range[key] ?? 1, Math.abs(next[key] - channel.value[key]), 1);
+      }
+      channel.target = { ...next };
+  }
+  function complete(channel) {
+      const generation = channel.generation;
+      channel.active = false;
+      moving.delete(channel);
+      channel.value = { ...channel.target };
+      for (const key of Object.keys(channel.velocity))
+          channel.velocity[key] = 0;
+      channel.options.write({ ...channel.value });
+      mark(channel.owner);
+      if (channel.generation === generation)
+          channel.options.complete?.();
+  }
+  function tick(now) {
+      const elapsed = Math.min(Math.max(0, (now - previousTime) / 1000), .032);
+      previousTime = now;
+      // Read destinations before any channel writes; avoid alternating style/layout flushes.
+      const active = [...moving];
+      for (const channel of active) {
+          if (!channel.active)
+              continue;
+          if (channel.options.valid && !channel.options.valid()) {
+              cancelMotion(channel.owner, channel.name);
+              continue;
+          }
+          if (!channel.owner.isConnected || !channel.owner.getClientRects().length) {
+              if (channel.name === 'scroll')
+                  cancelMotion(channel.owner, channel.name);
+              else
+                  complete(channel);
+              continue;
+          }
+          if (now < channel.start)
+              continue;
+          target(channel);
+      }
+      for (const channel of active) {
+          if (!channel.active || now < channel.start) continue;
+          let resting = true;
+          for (const key of Object.keys(channel.target)) {
+              const next = integrate(channel.value[key], channel.velocity[key], channel.target[key], elapsed);
+              channel.value[key] = next.position;
+              channel.velocity[key] = next.velocity;
+              if (Math.abs(next.position - channel.target[key]) > channel.range[key] * .0008 || Math.abs(next.velocity) > channel.range[key] * .008)
+                  resting = false;
+          }
+          if (resting && (channel.options.canComplete?.() ?? true))
+              complete(channel);
+          else
+              channel.options.write({ ...channel.value });
+      }
+      for (const listener of listeners)
+          listener();
+      frame = moving.size ? requestAnimationFrame(tick) : 0;
+  }
+  function spring(owner, name, options) {
+      let own = channels.get(owner);
+      if (!own) {
+          own = new Map();
+          channels.set(owner, own);
+      }
+      let channel = own.get(name);
+      if (!channel) {
+          channel = { owner, name, value: { ...options.from }, velocity: {}, range: {}, target: {}, options, active: false, generation: 0, start: 0 };
+          own.set(name, channel);
+      }
+      else if (!channel.active) {
+          channel.value = { ...options.from };
+          channel.velocity = {};
+      }
+      else if (options.rebase)
+          channel.value = { ...options.from };
+      channel.options = options;
+      channel.generation++;
+      target(channel);
+      for (const key of Object.keys(channel.target))
+          channel.velocity[key] ??= 0;
+      channel.start = performance.now() + (options.delay ?? 0);
+      channel.active = true;
+      if (reducedMotion() || presentationHeld || document.hidden) {
+          complete(channel);
+          return;
+      }
+      moving.add(channel);
+      mark(owner);
+      options.write({ ...channel.value });
+      if (!frame) {
+          previousTime = performance.now();
+          frame = requestAnimationFrame(tick);
+      }
+  }
+  function cancelMotion(owner, name) {
+      const channel = channels.get(owner)?.get(name);
+      if (!channel)
+          return;
+      channel.active = false;
+      channel.generation++;
+      moving.delete(channel);
+      channels.get(owner).delete(name);
+      mark(owner);
+  }
+  function finishMotion(root, cancelScroll = document.hidden) {
+      // Scroll targets depend on the final geometry of panels and disclosures.
+      const ordered = [...moving].sort((a, b) => Number(a.name === 'scroll') - Number(b.name === 'scroll') || (a.owner.contains(b.owner) ? 1 : b.owner.contains(a.owner) ? -1 : 0));
+      for (const channel of ordered) {
+          if (!channel.active)
+              continue;
+          if (root && channel.owner !== root && !root.contains(channel.owner))
+              continue;
+          if (channel.options.valid && !channel.options.valid()) {
+              cancelMotion(channel.owner, channel.name);
+              continue;
+          }
+          if (channel.name === 'scroll' && (cancelScroll || !channel.owner.getClientRects().length)) {
+              cancelMotion(channel.owner, channel.name);
+              continue;
+          }
+          if (channel.owner.getClientRects().length)
+              target(channel);
+          complete(channel);
+      }
+  }
+  function onMotionFrame(listener) { listeners.add(listener); return () => listeners.delete(listener); }
+  function reveal(element, { distance = MOTION.travel, delay = 0 } = {}) {
+      spring(element, 'entry', { from: { opacity: 0, y: distance }, to: { opacity: 1, y: 0 }, delay,
+          write: ({ opacity, y }) => {
+              element.style.opacity = String(bounded(opacity));
+              if (distance) {
+                  element.dataset.flowEnter = '';
+                  element.style.setProperty('--flow-enter-y', `${y}px`);
+              }
+          }, complete: () => {
+              element.style.opacity = '';
+              element.style.removeProperty('--flow-enter-y');
+              delete element.dataset.flowEnter;
+              cancelMotion(element, 'entry');
+          } });
+  }
+  function retirementClip(parent, cache = new Map()) {
+      if (!parent || parent === document.body || parent === document.documentElement)
+          return { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+      const cached = cache.get(parent);
+      if (cached)
+          return cached;
+      const clip = { ...retirementClip(parent.parentElement, cache) };
+      if (parent.getClientRects().length) {
+          const style = getComputedStyle(parent), box = parent.getBoundingClientRect();
+          const scaleX = parent instanceof HTMLElement && parent.offsetWidth ? box.width / parent.offsetWidth : 1;
+          const scaleY = parent instanceof HTMLElement && parent.offsetHeight ? box.height / parent.offsetHeight : 1;
+          if (/^(auto|scroll|hidden|clip)$/.test(style.overflowX)) {
+              const left = box.left + parent.clientLeft * scaleX;
+              clip.left = Math.max(clip.left, left);
+              clip.right = Math.min(clip.right, left + parent.clientWidth * scaleX);
+          }
+          if (/^(auto|scroll|hidden|clip)$/.test(style.overflowY)) {
+              const top = box.top + parent.clientTop * scaleY;
+              clip.top = Math.max(clip.top, top);
+              clip.bottom = Math.min(clip.bottom, top + parent.clientHeight * scaleY);
+          }
+      }
+      cache.set(parent, clip);
+      return clip;
+  }
+  function retirementOpacity(element, cache = new Map()) {
+      if (!element || element === document.body) return 1;
+      if (cache.has(element)) return cache.get(element);
+      const opacity = Number(getComputedStyle(element).opacity) * retirementOpacity(element.parentElement, cache);
+      cache.set(element, opacity);
+      return opacity;
+  }
+  function layout(root, change, selector = ':scope > *', key = element => element) {
+      const active = document.activeElement;
+      const before = new Map([...root.querySelectorAll(selector)].map((element, index) => [key(element, index), { element, box: element.getBoundingClientRect() }]));
+      // Departures share the same pre-mutation geometry as surviving layout actors.
+      const previousGeometry = retirementGeometry;
+      retirementGeometry = new Map(previousGeometry);
+      const clips = new Map(), opacities = new Map(), beforeClip = retirementClip(root, clips);
+      const visible = (box, clip) => box.width && box.height && box.right > clip.left && box.left < clip.right && box.bottom > clip.top && box.top < clip.bottom;
+      for (const { element, box } of before.values())
+          if (!retirementGeometry.has(element))
+              retirementGeometry.set(element, {
+                  box, clip: retirementClip(element.parentElement, clips),
+                  opacity: visible(box, beforeClip) ? retirementOpacity(element, opacities) : 0,
+                  zIndex: visible(box, beforeClip) ? getComputedStyle(element).zIndex : 'auto', cellWidths: element instanceof HTMLTableRowElement && visible(box, beforeClip) ? [...element.cells].map(cell => cell.getBoundingClientRect().width) : undefined,
+              });
+      let result;
+      try {
+          result = change();
+      }
+      finally {
+          retirementGeometry = previousGeometry;
+      }
+      if (active instanceof HTMLElement && active.isConnected && root.contains(active) && document.activeElement !== active)
+          active.focus({ preventScroll: true });
+      const after = [...root.querySelectorAll(selector)];
+      // Remove all old layout offsets before measuring any new destination.
+      for (const element of after) {
+          element.style.removeProperty('--flow-layout-x');
+          element.style.removeProperty('--flow-layout-y');
+      }
+      // Collect every destination before spring() performs its initial style write.
+      // Dense tables otherwise force one style/layout flush per actor.
+      const afterClip = retirementClip(root);
+      const destinations = after.map((element, index) => ({ element, previous: before.get(key(element, index)), next: element.getBoundingClientRect() }));
+      for (const { element, previous, next } of destinations) {
+          if (!previous) {
+              if (visible(next, afterClip)) reveal(element, { distance: MOTION.information });
+              continue;
+          }
+          if (!previous.box.width || !previous.box.height)
+              continue;
+          if (previous.element !== element)
+              throw new Error('Motion layout requires retained semantic actor identity.');
+          // Actors outside both clipped viewports need no presentation work.
+          if (!visible(previous.box, beforeClip) && !visible(next, afterClip)) {
+              cancelMotion(element, 'layout');
+              delete element.dataset.flowLayout;
+              continue;
+          }
+          if (!next.width || !next.height)
+              continue;
+          const x = previous.box.left - next.left, y = previous.box.top - next.top;
+          if (Math.abs(x) < .5 && Math.abs(y) < .5 && !motionValue(element, 'layout'))
+              continue;
+          spring(element, 'layout', { from: { x, y }, to: { x: 0, y: 0 }, rebase: true,
+              write: ({ x, y }) => {
+                  element.dataset.flowLayout = '';
+                  element.style.setProperty('--flow-layout-x', `${x}px`);
+                  element.style.setProperty('--flow-layout-y', `${y}px`);
+              }, complete: () => {
+                  delete element.dataset.flowLayout;
+                  element.style.removeProperty('--flow-layout-x');
+                  element.style.removeProperty('--flow-layout-y');
+                  cancelMotion(element, 'layout');
+              } });
+      }
+      return result;
+  }
+  /** Logical removal is immediate; the inert visual has no IDs or live controls. */
+  function retire(element) {
+      const presentedGeometry = retirementGeometry.get(element);
+      const box = presentedGeometry?.box ?? element.getBoundingClientRect();
+      const clip = presentedGeometry?.clip ?? retirementClip(element.parentElement);
+      // Reject clipped actors before any style read. Sibling removals must not
+      // force style recalculation for each offscreen departure.
+      if (!box.width || !box.height || clip.right <= clip.left || clip.bottom <= clip.top || box.right <= clip.left || box.left >= clip.right || box.bottom <= clip.top || box.top >= clip.bottom || reducedMotion()) {
+          finishMotion(element);
+          element.remove();
+          return;
+      }
+      const opacity = presentedGeometry?.opacity ?? retirementOpacity(element);
+      if (!opacity) { finishMotion(element); element.remove(); return; }
+      const zIndex = presentedGeometry?.zIndex ?? getComputedStyle(element).zIndex;
+      let ghost = element.cloneNode(true);
+      const descendants = [...element.querySelectorAll('*')];
+      const copies = [...ghost.querySelectorAll('*')];
+      // Static descendants already carry their authored classes and inline styles.
+      // Freeze only running presentation; dense matrix exits need no per-cell styles.
+      const animated = new Set(element.querySelectorAll('[data-motion-running],[data-flow-layout],[data-flow-enter]'));
+      for (const animation of element.getAnimations?.({ subtree: true }) ?? []) {
+          const actor = animation.effect?.target;
+          if (actor instanceof Element && actor !== element && element.contains(actor)) animated.add(actor);
+      }
+      for (const node of animated) {
+          const index = descendants.indexOf(node);
+          if (index < 0) continue;
+          const presented = getComputedStyle(node);
+          Object.assign(copies[index].style, { translate: presented.translate, transform: presented.transform, opacity: presented.opacity });
+      }
+      ghost.style.translate = 'none';
+      ghost.style.transform = 'none';
+      if (element instanceof HTMLTableRowElement) {
+          const row = ghost;
+          row.style.opacity = '1';
+          [...row.cells].forEach((cell, index) => {
+              cell.style.boxSizing = 'border-box';
+              cell.style.width = `${presentedGeometry?.cellWidths?.[index] ?? element.cells[index].getBoundingClientRect().width}px`;
+          });
+          ghost = element.closest('table').cloneNode(false);
+          const body = document.createElement('tbody');
+          body.append(row);
+          ghost.append(body);
+      }
+      ghost.inert = true;
+      ghost.setAttribute('aria-hidden', 'true');
+      for (const node of [ghost, ...ghost.querySelectorAll('[id],[data-motion-running],[data-flow-layout],[data-flow-enter]')]) {
+          node.removeAttribute('id');
+          node.removeAttribute('data-motion-running');
+          node.removeAttribute('data-flow-layout');
+          node.removeAttribute('data-flow-enter');
+      }
+      ghost.dataset.flowRetiring = '';
+      Object.assign(ghost.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, margin: '0', pointerEvents: 'none', zIndex: zIndex === 'auto' ? '132' : zIndex, translate: 'none', transform: 'none' });
+      finishMotion(element, true);
+      element.remove();
+      rootElement.appendChild(ghost);
+      spring(ghost, 'retirement', { from: { opacity, y: 0 }, to: { opacity: 0, y: -MOTION.information },
+          write: ({ opacity, y }) => {
+              ghost.style.opacity = String(bounded(opacity));
+              ghost.style.translate = `0 ${y}px`;
+              ghost.style.clipPath = `inset(${Math.max(0, clip.top - box.top - y)}px ${Math.max(0, box.right - clip.right)}px ${Math.max(0, box.bottom + y - clip.bottom)}px ${Math.max(0, clip.left - box.left)}px)`;
+          },
+          complete: () => { ghost.remove(); cancelMotion(ghost, 'retirement'); } });
+  }
+  function contentChanged(records) {
+      return records.some(record => !record.target.closest?.('[data-flow-measuring]') &&
+          (record.type === 'childList' ? [...record.addedNodes, ...record.removedNodes].some(node => !node.matches?.('[data-flow-measuring]')) :
+          record.type === 'characterData' || ['hidden', 'open', 'class'].includes(record.attributeName)));
+  }
+  /** Fixed measurements never shrink the live document's native scroll bounds. */
+  function intrinsicHeight(element, padding) {
+      let measurement = measurements.get(element);
+      if (!measurement) {
+          measurement = { dirty: true, width: -1, height: 0 };
+          measurements.set(element, measurement);
+          measurement.observer = new MutationObserver(records => { if (contentChanged(records)) measurement.dirty = true; });
+          measurement.observer.observe(element,
+              { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'open', 'class'] });
+      }
+      // Callers can run before the observer's invalidation callback. Drain its
+      // pending records before trusting a same-width intrinsic measurement.
+      if (contentChanged(measurement.observer.takeRecords())) measurement.dirty = true;
+      const width = element.getBoundingClientRect().width;
+      if (!measurement.dirty && Math.abs(measurement.width - width) < .1) return measurement.height;
+      measurement.dirty = false;
+      measurement.width = width;
+      const clone = element.cloneNode(true);
+      clone.dataset.flowMeasuring = '';
+      clone.inert = true;
+      clone.hidden = false;
+      // A checked measuring copy must not join and uncheck its live named group.
+      for (const radio of [clone, ...clone.querySelectorAll('input[type="radio"][name]')])
+          if (radio.matches('input[type="radio"][name]')) radio.removeAttribute('name');
+      Object.assign(clone.style, { position: 'fixed', visibility: 'hidden', pointerEvents: 'none', width: `${width}px`, height: 'auto', translate: 'none', transform: 'none' });
+      if (padding) {
+          clone.style.paddingTop = `${padding.top}px`;
+          clone.style.paddingBottom = `${padding.bottom}px`;
+      }
+      element.parentElement.appendChild(clone);
+      try {
+          return measurement.height = clone.getBoundingClientRect().height;
+      }
+      finally {
+          clone.remove();
+      }
+  }
+  /** An intrinsic block keeps its logical hidden state while its old words retire. */
+  function disclosure(element, opened, done, presentedHeight = element.getBoundingClientRect().height, native = false) {
+      const height = presentedHeight;
+      const computed = getComputedStyle(element);
+      const display = computed.display;
+      const opacity = Number(computed.opacity);
+      const padding = disclosurePadding.get(element) ?? { top: parseFloat(computed.paddingTop), bottom: parseFloat(computed.paddingBottom) };
+      disclosurePadding.set(element, padding);
+      if (!native) element.hidden = !opened;
+      element.inert = !opened;
+      element.style.setProperty('--flow-display', opened ? getComputedStyle(element).display : display);
+      element.dataset.flowDisclosure = '';
+      if (!opened)
+          element.dataset.flowRetained = '';
+      else
+          delete element.dataset.flowRetained;
+      element.style.overflow = 'hidden';
+      spring(element, 'disclosure', { from: { height, opacity: opened && !height ? 0 : opacity, top: opened && !height ? 0 : parseFloat(computed.paddingTop), bottom: opened && !height ? 0 : parseFloat(computed.paddingBottom) },
+          to: () => ({ height: opened && !element.hidden ? intrinsicHeight(element, padding) : 0, opacity: opened && !element.hidden ? 1 : 0, top: opened ? padding.top : 0, bottom: opened ? padding.bottom : 0 }),
+          write: ({ height, opacity, top, bottom }) => { element.style.height = `${Math.max(0, height)}px`; element.style.opacity = String(bounded(opacity)); element.style.paddingTop = `${Math.max(0, top)}px`; element.style.paddingBottom = `${Math.max(0, bottom)}px`; },
+          complete: () => {
+              element.style.height = '';
+              element.style.opacity = '';
+              element.style.overflow = '';
+              element.style.paddingTop = '';
+              element.style.paddingBottom = '';
+              element.style.removeProperty('--flow-display');
+              delete element.dataset.flowDisclosure;
+              delete element.dataset.flowRetained;
+              cancelMotion(element, 'disclosure');
+              done?.();
+          } });
+  }
+  /** Changed information settles in place; typing and streaming never call this. */
+  function resizeContent(element, change) {
+      const height = element.getBoundingClientRect().height;
+      const result = change();
+      if (!height || !element.getClientRects().length)
+          return result;
+      element.style.overflow = 'hidden';
+      spring(element, 'content-size', { from: { height }, to: () => ({ height: intrinsicHeight(element) }),
+          write: ({ height }) => { element.style.height = `${Math.max(0, height)}px`; },
+          complete: () => { element.style.height = ''; element.style.overflow = ''; cancelMotion(element, 'content-size'); } });
+      return result;
+  }
+  /** Fixed owners opt in explicitly; descendants and text mutations are ignored. */
+  function watchPanel(element, opened, slide = 0, owner = element, attributes = ['class', 'hidden']) {
+      let previous = opened();
+      let display = getComputedStyle(element).display;
+      const update = () => {
+          const next = opened();
+          if (previous === next)
+              return;
+          previous = next;
+          // CSS inertness follows logical state synchronously, including immediate focus on reopen.
+          element.inert = false;
+          if (!next && !CSS.supports('interactivity', 'inert')) {
+              finishMotion(element);
+              delete element.dataset.flowRetained;
+              delete element.dataset.flowPanelRetained;
+              element.style.removeProperty('--flow-display');
+              return;
+          }
+          if (next) {
+              delete element.dataset.flowRetained;
+              delete element.dataset.flowPanelRetained;
+              element.style.removeProperty('--flow-display');
+              display = getComputedStyle(element).display;
+          }
+          else {
+              element.style.setProperty('--flow-display', display);
+              element.dataset.flowRetained = '';
+              element.dataset.flowPanelRetained = '';
+          }
+          spring(element, 'panel', { from: { progress: next ? 0 : 1 }, to: { progress: next ? 1 : 0 },
+              write: ({ progress }) => {
+                  element.style.opacity = String(bounded(progress));
+                  if (slide === 2)
+                      element.style.transform = `translateY(${(1 - progress) * 100}%)`;
+                  else if (slide === -1 || slide === 1)
+                      element.style.transform = `translateX(${slide * (1 - progress) * 100}%)`;
+                  else if (slide !== 3)
+                      element.style.translate = `0 ${(1 - progress) * MOTION.travel}px`;
+              }, complete: () => {
+                  element.style.opacity = '';
+                  element.style.translate = '';
+                  if (slide)
+                      element.style.transform = '';
+                  delete element.dataset.flowRetained;
+                  delete element.dataset.flowPanelRetained;
+                  element.style.removeProperty('--flow-display');
+                  cancelMotion(element, 'panel');
+              } });
+      };
+      new MutationObserver(update).observe(owner, { attributes: true, attributeFilter: attributes });
+      window.addEventListener('resize', update);
+  }
+  /** Bounded scrolling follows live geometry and yields immediately to direct input. */
+  function scroll(element, destination, actor) {
+      if (document.hidden || !element.getClientRects().length || actor && (!actor.isConnected || !actor.getClientRects().length)) {
+          cancelMotion(element, 'scroll');
+          return;
+      }
+      spring(element, 'scroll', { from: { x: element.scrollLeft, y: element.scrollTop }, to: () => ({ x: element.scrollLeft, y: Math.max(0, Math.min(element.scrollHeight - element.clientHeight, destination())) }),
+          valid: () => !actor || actor.isConnected && !!actor.getClientRects().length,
+          write: ({ x, y }) => { element.scrollLeft = x; element.scrollTop = y; }, complete: () => cancelMotion(element, 'scroll') });
+  }
+  function scrollToActor(actor, block = 'nearest') {
+      let container = actor.parentElement;
+      while (container && container !== document.body && !/(auto|scroll)/.test(getComputedStyle(container).overflowY))
+          container = container.parentElement;
+      const owner = container && container !== document.body ? container : document.documentElement;
+      scroll(owner, () => {
+          const box = actor.getBoundingClientRect(), top = owner === document.documentElement ? 0 : owner.getBoundingClientRect().top + owner.clientTop;
+          const height = owner === document.documentElement ? innerHeight : owner.clientHeight;
+          const parent = { top, height, bottom: top + height };
+          if (block === 'center')
+              return owner.scrollTop + box.top - parent.top - (parent.height - box.height) / 2;
+          const above = box.top < parent.top, below = box.bottom > parent.bottom;
+          if (above && below)
+              return owner.scrollTop;
+          const tall = box.height > parent.height;
+          if (above)
+              return owner.scrollTop + (tall ? box.bottom - parent.bottom : box.top - parent.top);
+          if (below)
+              return owner.scrollTop + (tall ? box.top - parent.top : box.bottom - parent.bottom);
+          return owner.scrollTop;
+      }, actor);
+  }
+  function initMotion(root) {
+      rootElement = root;
+      if (preference)
+          return;
+      preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+      for (const declaration of MOTION_CSS.split(';').filter(Boolean)) {
+          const at = declaration.indexOf(':');
+          rootElement.style.setProperty(declaration.slice(0, at), declaration.slice(at + 1));
+      }
+      preference.addEventListener('change', () => { if (preference?.matches)
+          finishMotion(); });
+      window.addEventListener('resize', () => { presentationHeld = true; finishMotion(); requestAnimationFrame(() => { presentationHeld = false; }); });
+      window.addEventListener('beforeprint', () => { presentationHeld = true; finishMotion(); });
+      window.addEventListener('afterprint', () => { presentationHeld = false; });
+      document.addEventListener('visibilitychange', () => { if (document.hidden)
+          finishMotion(); });
+      window.addEventListener('pagehide', () => finishMotion(undefined, true));
+      for (const event of ['wheel', 'touchstart', 'pointerdown', 'keydown'])
+          document.addEventListener(event, () => {
+              for (const channel of [...moving])
+                  if (channel.name === 'scroll')
+                      cancelMotion(channel.owner, 'scroll');
+          }, { capture: true, passive: true });
+      rootElement.addEventListener('click', event => {
+          const summary = event.target.closest('summary');
+          const details = summary?.parentElement;
+          if (!(details instanceof HTMLDetailsElement) || summary !== details.querySelector(':scope > summary') || event.defaultPrevented)
+              return;
+          if (event.target.closest('a, button, input, select, textarea'))
+              return;
+          const bodies = [...details.children].filter((child) => child instanceof HTMLElement && child !== summary
+              && !child.matches('datalist, script, style, template, input[type="hidden"], [hidden]:not([data-flow-retained])'));
+          if (!bodies.length)
+              return;
+          if (!nativeDetails.has(details)) {
+              nativeDetails.add(details);
+              details.addEventListener('toggle', () => {
+                  if (details.hasAttribute('data-flow-details'))
+                      return;
+                  for (const body of bodies) {
+                      body.inert = false;
+                  }
+              });
+          }
+          event.preventDefault();
+          const opened = !details.open;
+          const heights = bodies.map(body => body.getBoundingClientRect().height);
+          details.dataset.flowDetails = '';
+          details.open = opened;
+          let remaining = bodies.length;
+          bodies.forEach((body, index) => disclosure(body, opened, () => { body.inert = false; if (!--remaining)
+              delete details.dataset.flowDetails; }, heights[index], true));
+      });
+  }
+  
+
+  // Keys describe semantic actors; transient motion attributes never define identity.
+  function actorKey(node, index) {
+    if (node.nodeType !== 1) return `${node.nodeType}:${index}`;
+    if (node.id) return `id:${node.id}`;
+    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'section', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep', 'modeNav', 'paneNav', 'rowsNav', 'scaleItem', 'mode', 'pane', 'rows', 'period', 'timeframe']) {
+      if (node.dataset[name] !== undefined) return `${node.tagName}:${name}:${node.dataset[name]}:${node.dataset.drawingId ?? node.dataset.id ?? node.dataset.value ?? ''}`;
+    }
+    return `${node.nodeType}:${node.nodeName}:${index}`;
+  }
+  function patchNode(current, next, staticMarkup = false) {
+    if (current === next) return current;
+    if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName) return next;
+    if (current.nodeType !== 1) {
+      if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+      return current;
+    }
+    // HTML fragments have delegated behavior. Equal static subtrees can retain
+    // their native DOM without allocating a JavaScript patch tree every render.
+    if (staticMarkup && current.isEqualNode(next)) return current;
+    // Equal leaves still receive fresh behavior; native editing retains its full patch path.
+    for (const event of CALLBACKS) if (current[event] || next[event]) current[event] = next[event];
+    if (!current.childElementCount && !next.childElementCount && !['INPUT','SELECT','TEXTAREA'].includes(current.nodeName) && current.isEqualNode(next)) return current;
+    const active = current === document.activeElement;
+    const open = current instanceof HTMLDetailsElement ? current.open : null;
+    const motionStyles = [...current.style].filter(name => name.startsWith('--flow-') || (current.hasAttribute('data-motion-running') && ['opacity', 'translate', 'height', 'overflow', 'padding-top', 'padding-bottom'].includes(name))).map(name => [name,current.style.getPropertyValue(name)]);
+    for (const attr of [...current.attributes]) {
+      if (attr.name.startsWith('data-flow-') || attr.name === 'data-motion-running' || attr.name === 'open' && open !== null || ['hidden','inert'].includes(attr.name) && current.hasAttribute('data-flow-disclosure')) continue;
+      if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
+    }
+    for (const attr of next.attributes) {
+      if (attr.name === 'open' && open !== null || ['hidden','inert'].includes(attr.name) && current.hasAttribute('data-flow-disclosure')) continue;
+      if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
+    }
+    for (const [name,value] of motionStyles) current.style.setProperty(name,value);
+    // Native editing keeps its draft, selection and IME ownership. Non-editable values update directly.
+    if (current instanceof HTMLInputElement) {
+      if (!active && current.value !== next.value) current.value = next.value;
+      current.checked = next.checked;
+    }
+    if (current instanceof HTMLTextAreaElement && !active) current.value = next.value;
+    if (current.hasAttribute('data-flow-collection')) reconcileChildren(current, [...next.childNodes], staticMarkup);
+    else patchChildren(current, [...next.childNodes], staticMarkup);
+    if (current instanceof HTMLSelectElement && !active) current.value = next.value;
+    if (open !== null) current.open = open;
+    return current;
+  }
+  function patchChildren(host, nextNodes, staticMarkup = false) {
+    const old = [...host.childNodes], keyed = new Map(old.map((node,index) => [actorKey(node,index), node]));
+    const used = new Set();
+    let cursor = host.firstChild;
+    nextNodes.forEach((next,index) => {
+      const existing = keyed.get(actorKey(next,index));
+      const node = existing ? patchNode(existing,next,staticMarkup) : next;
+      if (existing && node !== existing) { if (existing instanceof HTMLElement) retire(existing); else existing.remove(); }
+      used.add(node);
+      if (node !== cursor) host.insertBefore(node,cursor?.parentNode === host ? cursor : null);
+      cursor = node.nextSibling;
+    });
+    for (const node of old) if (!used.has(node) && node.parentNode === host) {
+      if (node instanceof HTMLElement) retire(node); else node.remove();
+    }
+  }
+  function replaceChildren(host, ...content) {
+    const nodes = content.flatMap(node => node.nodeType === 11 ? [...node.childNodes] : [node]);
+    reconcileChildren(host, nodes);
+  }
+  function reconcileChildren(host, nodes, staticMarkup = false) {
+    const before = [...host.childNodes].map(actorKey), after = nodes.map(actorKey);
+    const structural = before.length !== after.length || before.some((key,index) => key !== after[index]);
+    if (structural && host.getClientRects().length && !reducedMotion()) {
+      layout(host, () => patchChildren(host,nodes,staticMarkup), ':scope > *', (node, index) => actorKey(node, index));
+    } else patchChildren(host,nodes,staticMarkup);
+  }
+  function html(host, content) {
+    const template = document.createElement('template'); template.innerHTML = content;
+    reconcileChildren(host, [...template.content.childNodes], !template.content.querySelector('input,select,textarea'));
+  }
+  // Capture before logical state changes, then interpolate only presentation dimensions.
+  function captureSize(element, animate = true, opened = () => !element.hidden) {
+    const before = element.getBoundingClientRect().height;
+    return () => {
+      const oldHeight = element.style.height, oldOverflow = element.style.overflow;
+      element.style.height = ''; element.style.overflow = '';
+      const after = opened() ? element.getBoundingClientRect().height : 0;
+      if (!animate || reducedMotion() || Math.abs(before-after) < .5 && !motionValue(element,'size')) {
+        cancelMotion(element,'size'); delete element.dataset.flowSize; return;
+      }
+      element.style.height = oldHeight; element.style.overflow = oldOverflow;
+      element.dataset.flowSize = '';
+      spring(element,'size',{from:{height:before},to:{height:after},write:({height})=>{
+        element.style.height = `${Math.max(0,height)}px`; element.style.overflow = 'hidden';
+      },complete:()=>{
+        element.style.height = ''; element.style.overflow = ''; delete element.dataset.flowSize;
+        cancelMotion(element,'size');
+      }});
+    };
+  }
+  function captureGrid(main, animate = true) {
+    const elements = [...main.children];
+    const live = motionValue(main,"grid");
+    const before = elements.map((element,index) => live ? live["c"+index] : element.getClientRects().length ? element.getBoundingClientRect().width : 0);
+    return () => {
+      main.style.gridTemplateColumns = ''; delete main.dataset.flowGrid;
+      const retained = elements.filter(element => element.hidden && element.hasAttribute("data-flow-panel-retained"));
+      for (const element of retained) { delete element.dataset.flowRetained; delete element.dataset.flowPanelRetained; }
+      const after = elements.map(element => !element.hidden && element.getClientRects().length ? element.getBoundingClientRect().width : 0);
+      for (const element of retained) { element.dataset.flowRetained=""; element.dataset.flowPanelRetained=""; }
+      if (!animate || innerWidth <= 760 || reducedMotion() || before.every((value,index)=>Math.abs(value-after[index])<.5) && !motionValue(main,'grid')) {
+        cancelMotion(main,'grid'); return;
+      }
+      // Each explicit column keeps its native canvas geometry throughout the resize.
+      const from=Object.fromEntries(before.map((value,index)=>['c'+index,value]));
+      const to=Object.fromEntries(after.map((value,index)=>['c'+index,value]));
+      main.dataset.flowGrid = '';
+      spring(main,'grid',{from,to,write:values=>{
+        main.style.gridTemplateColumns=elements.map((_,index)=>`${Math.max(0,values['c'+index])}px`).join(' ');
+      },complete:()=>{
+        main.style.gridTemplateColumns=''; delete main.dataset.flowGrid; cancelMotion(main,'grid');
+      }});
+    };
+  }
+  function observeSize(element) {
+    let height=element.getBoundingClientRect().height;
+    // Nested springs change native height through style writes, not content
+    // mutations. Remember that presented size without starting another spring.
+    new ResizeObserver(() => {
+      if (!element.hidden && !motionValue(element,'content-size') && element.getClientRects().length)
+        height=element.getBoundingClientRect().height;
+    }).observe(element);
+    new MutationObserver(records=>{
+      if (!contentChanged(records)) return;
+      if (!element.getClientRects().length || reducedMotion()) { height=element.getBoundingClientRect().height; return; }
+      const natural=intrinsicHeight(element);
+      if (Math.abs(natural-height)<.5 && !motionValue(element,'content-size')) return;
+      element.style.overflow='hidden';
+      spring(element,'content-size',{from:{height},to:()=>({height:intrinsicHeight(element)}),write:value=>{
+        height=value.height; element.style.height=`${Math.max(0,height)}px`;
+      },complete:()=>{
+        element.style.height='';element.style.overflow='';height=element.getBoundingClientRect().height;cancelMotion(element,'content-size');
+      }});
+    }).observe(element,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','open']});
+  }
+  function scrollAxis(element, destination, axis = 'y') {
+    const property=axis==='x'?'scrollLeft':'scrollTop', size=axis==='x'?'scrollWidth':'scrollHeight', client=axis==='x'?'clientWidth':'clientHeight';
+    if (document.hidden) return;
+    const coordinate = axis === 'x' ? 'x' : 'y', other = axis === 'x' ? 'y' : 'x';
+    spring(element,'scroll',{from:{x:element.scrollLeft,y:element.scrollTop},to:()=>({
+      [coordinate]:Math.max(0,Math.min(element[size]-element[client],typeof destination==='function'?destination():destination)),
+      [other]: axis === 'x' ? element.scrollTop : element.scrollLeft}),
+      write:({x,y})=>{element.scrollLeft=x;element.scrollTop=y;},complete:()=>cancelMotion(element,'scroll')});
+  }
+
+  const api = Object.freeze({ stationary: () => presentationHeld || reducedMotion() || document.hidden, replaceChildren, html, captureSize, captureGrid, observeSize, scrollAxis, MOTION, SPRING, MOTION_CSS, integrate, reducedMotion, motionActive, motionValue, spring, cancelMotion, finishMotion, onMotionFrame, reveal, layout, retire, intrinsicHeight, disclosure, resizeContent, watchPanel, scroll, scrollToActor, initMotion });
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else scope.explorerMotion = api;
+})(typeof window === "undefined" ? globalThis : window);
+</script>
     <script>(async () => {
   "use strict";
   const root = document.getElementById("origo-lens"),
@@ -20265,6 +21077,9 @@
   // a value comes from it, so a page that lacks it says so in its own loading line and stops, where a
   // missing module would otherwise surface as an error nobody sees. `E.text` cannot be used here: E is
   // what is missing.
+  const Flow = window.explorerMotion;
+  if (!Flow) throw new Error("explorerMotion is missing");
+  Flow.initMotion(root);
   const E = window.explorerEncoding;
   const Agent = window.explorerAgent;
   const initialAnalysisHash = new URLSearchParams(location.hash.slice(1)).has("analysis") ? location.hash : null;
@@ -21086,6 +21901,32 @@
     probe.remove();
     themeChanged();
   }
+  function beginLevelMorph() {
+    if (Flow.stationary() || S.mode === "candles") { Flow.cancelMotion(canvas, "cells"); transition = null; return; }
+    const previous = transition ? { ...transition } : null;
+    const actor = { n: renderN(), m: renderM(), previous, progress: 0 };
+    transition = actor;
+    Flow.spring(canvas, "cells", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
+      write: ({ progress }) => { if (transition === actor) { actor.progress = progress; requestDraw(); } },
+      complete: () => { if (transition === actor) { transition = null; requestDraw(); } Flow.cancelMotion(canvas, "cells"); } });
+  }
+  const MORPH_BOUNDS = { start: 0, end: 0, low: 0, high: 0 };
+  function morphBounds(start, end, low, high, actor = transition) {
+    if (!actor) {
+      MORPH_BOUNDS.start = start; MORPH_BOUNDS.end = end;
+      MORPH_BOUNDS.low = low; MORPH_BOUNDS.high = high;
+      return MORPH_BOUNDS;
+    }
+    const time = 2 ** actor.n, priceStep = 2 ** actor.m;
+    const a = Math.floor(start / time) * time, p = Math.floor(low / priceStep) * priceStep;
+    morphBounds(a, a + time, p, p + priceStep, actor.previous);
+    const progress = clamp(actor.progress, 0, 1);
+    MORPH_BOUNDS.start += (start - MORPH_BOUNDS.start) * progress;
+    MORPH_BOUNDS.end += (end - MORPH_BOUNDS.end) * progress;
+    MORPH_BOUNDS.low += (low - MORPH_BOUNDS.low) * progress;
+    MORPH_BOUNDS.high += (high - MORPH_BOUNDS.high) * progress;
+    return MORPH_BOUNDS;
+  }
   function requestDraw() {
     if (!raf)
       raf = requestAnimationFrame(() => {
@@ -21102,15 +21943,17 @@
   function layoutNow(width, height) {
     return layout(width, height, eventKinds().length, S.rows !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen);
   }
-  function geometry() {
+  function geometry(paint = true) {
     if (comparisonModel.expanded) return;
     const rect = canvas.getBoundingClientRect(),
       width = rect.width,
       height = rect.height,
       dpr = devicePixelRatio || 1;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (paint) {
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     // the canvas's width as the layout has it, read here, where the draw starts and nothing has been written yet: a read later in the draw would make the browser lay out the page for it
     G = { width, height, client: canvas.clientWidth, ...layoutNow(width, height) };
     G.X = d3
@@ -22293,7 +23136,7 @@
         continue;
       }
       if (held?.key === cur.warnKey) continue;
-      if (transition && performance.now() - transition.start < 170) {
+      if (transition) {
         wait = 60;
         continue;
       }
@@ -22502,7 +23345,7 @@
     refTally.clear();
     const { src, cut, moving, sum, full, meas, b, query, shown, mv, ts, ps } = viewParts(),
       u = transition
-        ? clamp((performance.now() - transition.start) / 170, 0, 1)
+        ? clamp(transition.progress, 0, 1)
         : 1;
     // The scale frame: one resolved mapping per colour channel. A fault in it is not the chart's: it leaves
     // an occupancy-only chart and the legacy legend, and says so once (see scaleFault).
@@ -22801,10 +23644,7 @@
     selectionPresentation(meas, mv, selectionContext.seasonal, selectionContext.response);
     comparisonRefresh();
     rallyController.sync();
-    if (transition) {
-      if (u >= 1) transition = null;
-      else requestDraw();
-    }
+    // The shared spring owns frame scheduling and completion, including reversals.
     // The tooltip and the legend marker follow a mapping, theme or pack that changed under them.
     try {
       refreshTip();
@@ -24291,7 +25131,7 @@
       cellRows = new Map();
       cellRowsLevel = null;
       hoverRow = null;
-      el("table-body").replaceChildren();
+      Flow.replaceChildren(el("table-body"), );
       // pending, failed and unavailable are three states, each with its own words (the inspection navigator reads any position the table lacks)
       const why = last?.meas?.state === "failed" ? "failed" : last?.meas?.state === "pending" || !last ? "pending" : "unavailable";
       el("table-caption").dataset.state = why;
@@ -24463,7 +25303,13 @@
       heldAction = active?.dataset.cellComparisonAction;
     cellsFocusRestoring = true;
     try {
-      el("table-body").replaceChildren(frag);
+      Flow.replaceChildren(el("table-body"), frag);
+      const retainedRows = new Map([...el("table-body").children].map(row => [row.dataset.cellKey, row]));
+      for (const entry of cellRows.values()) {
+        const retained = retainedRows.get(entry.tr.dataset.cellKey);
+        if (!retained) throw new Error("Cell row reconciliation lost its actor");
+        entry.tr = retained;
+      }
       if (held != null) {
         const exact = [...el("table-body").children].find((r) => r.dataset.cellKey === held), same = exact ?? el("table-body").firstElementChild;
         if (same) {
@@ -27386,9 +28232,7 @@
     if (mode === "diagonal") {
       if (S.auto) autoLevel();
       else if (S.m !== diagonalM(S.n)) {
-        transition = reduce
-          ? null
-          : { n: renderN(), m: renderM(), start: performance.now() };
+        beginLevelMorph();
         S.m = diagonalM(S.n);
       }
     }
@@ -27449,7 +28293,13 @@
       return Math.max(120, part(".ol-chart") - used - 220);
     };
   // Inspector and drawer: open state and sizes, from S, within the window.
+  let panelGeometryKey = '';
   function applyPanels() {
+    const key = [S.sideOpen, inspect.on, S.sideWidth, S.drawerOpen, S.drawerHeight, comparisonModel.expanded, el("reference").hidden, innerWidth, innerHeight].join(':');
+    const changed = key !== panelGeometryKey;
+    panelGeometryKey = key;
+    const finishGrid = changed ? Flow.captureGrid(el("main"), ready && !root.querySelector(".ol-grip[data-active=true]")) : () => {},
+      finishDrawer = changed ? Flow.captureSize(root.querySelector(".ol-drawer-body"), ready && !root.querySelector(".ol-grip[data-active=true]"), () => S.drawerOpen) : () => {};
     const main = el("main"),
       drawer = el("drawer"),
       side = el("side-toggle"),
@@ -27486,7 +28336,8 @@
       tab.tabIndex = 0;
       el("panel-" + tab.dataset.drawer).hidden = !on;
     }
-
+    finishGrid();
+    finishDrawer();
   }
   function openDrawer(tab, open = true) {
     if (comparisonModel.expanded && (tab !== "compare" || !open)) comparisonExpand(false);
@@ -27499,6 +28350,8 @@
   // Drag, or arrow keys on a focused grip, resize the inspector and the drawer.
   function bindGrip(grip, begin, onMove, onKey) {
     grip.addEventListener("pointerdown", (e) => {
+      Flow.cancelMotion(el("main"), "grid");
+      Flow.cancelMotion(root.querySelector(".ol-drawer-body"), "size");
       grip.setPointerCapture(e.pointerId);
       grip.dataset.active = "true";
       const start = { x: e.clientX, y: e.clientY };
@@ -27511,11 +28364,16 @@
         save();
       };
       begin();
+      // Direct manipulation owns the presented dimensions from pointerdown,
+      // including a press released without any movement.
+      panelGeometryKey = '';
+      onMove(0, 0);
       grip.addEventListener("pointermove", move);
       grip.addEventListener("pointerup", end);
       grip.addEventListener("pointercancel", end);
     });
     grip.addEventListener("keydown", (e) => {
+      Flow.finishMotion(el("main"));
       if (onKey(e.key)) {
         e.preventDefault();
         e.stopPropagation();
@@ -27529,7 +28387,7 @@
       height0 = 0;
     bindGrip(
       el("side-grip"),
-      () => (width0 = clamp(S.sideWidth, 260, sideMax())),
+      () => (width0 = clamp(el("side").getBoundingClientRect().width, 260, sideMax())),
       (dx) => {
         S.sideWidth = clamp(width0 - dx, 260, sideMax());
         applyPanels();
@@ -27546,7 +28404,7 @@
     );
     bindGrip(
       el("drawer-grip"),
-      () => (height0 = clamp(S.drawerHeight, 120, drawerMax())),
+      () => (height0 = clamp(root.querySelector(".ol-drawer-body").getBoundingClientRect().height, 120, drawerMax())),
       (dx, dy) => {
         S.drawerHeight = clamp(height0 - dy, 120, drawerMax());
         applyPanels();
@@ -28822,7 +29680,7 @@
     summaryRt.timer = 0;
     if (!(S.drawerOpen && S.drawer === "query") || !el("summary-body")) return;
     summaryRt.sections = summarySections();
-    el("summary-body").replaceChildren(
+    Flow.replaceChildren(el("summary-body"), 
       ...summaryRt.sections.map((s) => {
         const box = uiEl("section", "ol-summary-section"),
           list = uiEl("dl", "ol-legend-details");
@@ -29145,7 +30003,7 @@
     if (scaleRt.fault) uiFault();
     if (!cur) {
       box.hidden = true;
-      el("notice-text").replaceChildren();
+      Flow.replaceChildren(el("notice-text"), );
     } else {
       // Every notice still waiting is in the banner's DOM (so the observation surface and a reader of the page
       // find each one with its count and its lines), and only the current one shows: the rest are hidden until
@@ -29174,7 +30032,7 @@
         });
       // TEXT(S1): the count of the notices that wait behind the one shown
       if (waiting.length > 1) items.push(uiEl("span", "ol-notice-queued", ` +${waiting.length - 1} more`));
-      el("notice-text").replaceChildren(...items);
+      Flow.replaceChildren(el("notice-text"), ...items);
       box.dataset.level = cur.level;
       if (scaleUi.noticeOpen !== cur.id) scaleUi.noticeOpen = "";
       const more = el("notice-more");
@@ -29243,7 +30101,7 @@
     el("notice-more").addEventListener("click", () => {
       const list = document.getElementById("ol-note-details"),
         open = Boolean(list?.hidden);
-      if (list) list.hidden = !open;
+      if (list) Flow.disclosure(list, open);
       scaleUi.noticeOpen = open ? el("notice").dataset.noticeId : "";
       el("notice-more").setAttribute("aria-expanded", String(open));
     });
@@ -29255,10 +30113,10 @@
     b.className = "ol-item cursor-interaction";
     b.setAttribute("role", role);
     b.append(...children);
-    b.addEventListener("click", () => {
+    b.onclick = () => {
       if (close) closePop(true);
       onChoose();
-    });
+    };
     return b;
   }
   // A key shown beside a name; the name's element states it to assistive
@@ -29397,11 +30255,11 @@
       if (finish) closePop(true);
       else flowAdvance(id);
     }, b = menuItem(role, children, () => choose(false), false);
-    b.addEventListener("contextmenu", event => {
+    b.oncontextmenu = event => {
       event.preventDefault();
       event.stopPropagation();
       choose(true);
-    });
+    };
     return b;
   }
   function flowDatasetItem(id, key, info, selected, available, onChoose) {
@@ -29489,13 +30347,14 @@
     error.setAttribute("role", "status");
     error.hidden = true;
     const apply = flowChoiceItem("rows", "menuitem", ["Since this day"], () => {
-      const key = input.value, start = dayStart(key);
+      const liveInput = el("rows-period-date"), liveError = el("rows-period-error"),
+        key = liveInput.value, start = dayStart(key);
       if (!isDay(key) || start < 0 || start >= activeCutoff()) {
-        error.textContent = `Choose a day from 1 Jan 2021 to ${day(Math.max(0, activeCutoff() - 1e-6))}.`;
-        error.hidden = false;
-        input.setAttribute("aria-invalid", "true");
-        input.setAttribute("aria-describedby", error.id);
-        input.focus();
+        liveError.textContent = `Choose a day from 1 Jan 2021 to ${day(Math.max(0, activeCutoff() - 1e-6))}.`;
+        liveError.hidden = false;
+        liveInput.setAttribute("aria-invalid", "true");
+        liveInput.setAttribute("aria-describedby", liveError.id);
+        liveInput.focus();
         return false;
       }
       menuFlows.rows.day = key;
@@ -29522,6 +30381,7 @@
       progress = uiEl("div", "ol-flow-progress"), body = uiEl("div", "ol-flow-body"),
       footer = uiEl("div", "ol-flow-footer");
     panel.dataset.step = step.id;
+    body.dataset.flowKey = `${id}:${step.id}`;
     panel.setAttribute("aria-label", `${name}: ${step.name}, step ${at + 1} of ${steps.length}`);
     progress.setAttribute("role", "group");
     progress.setAttribute("aria-label", "Configuration steps");
@@ -29564,7 +30424,7 @@
     next.className = "ol-action ol-flow-next cursor-interaction";
     next.dataset[`${id}Nav`] = "next";
     footer.append(next);
-    panel.replaceChildren(header, body, footer);
+    Flow.replaceChildren(panel, header, body, footer);
     uiPopPlace(panel, el(id), "start");
   }
   const buildModeMenu = () => buildFlowMenu("mode"),
@@ -29598,6 +30458,7 @@
       radio = document.createElement("input"),
       name = document.createElement("span");
     row.className = "ol-line-row cursor-interaction";
+    row.dataset.flowKey = key;
     radio.type = "radio";
     radio.name = "ol-period";
     radio.dataset.period = key;
@@ -29610,7 +30471,7 @@
       keys = [...PERIODS, ...(isDay(S.period) ? [S.period] : [])];
     if (list.dataset.keys !== keys.join(",")) {
       list.dataset.keys = keys.join(",");
-      list.replaceChildren(...keys.map(periodRow));
+      Flow.replaceChildren(list, ...keys.map(periodRow));
     }
     for (const radio of qsa("#ol-period-list input[data-period]")) {
       const key = radio.dataset.period,
@@ -29693,6 +30554,7 @@
       hint.box.className = "ol-hint";
       hint.box.setAttribute("aria-hidden", "true");
       root.append(hint.box);
+      Flow.watchPanel(hint.box, () => !hint.box.hidden, 3);
     }
     const box = hint.box,
       head = document.createElement("div"),
@@ -30280,14 +31142,8 @@
       ya = G.Y((z.r + 1) * ps),
       yb = G.Y(z.r * ps);
     if (transition && u < 1) {
-      const ot = 2 ** transition.n,
-        op = 2 ** transition.m,
-        oa = Math.floor((z.c * ts) / ot) * ot,
-        ob = Math.floor((z.r * ps) / op) * op;
-      xa = G.X(oa) + (xa - G.X(oa)) * u;
-      xb = G.X(oa + ot) + (xb - G.X(oa + ot)) * u;
-      ya = G.Y(ob + op) + (ya - G.Y(ob + op)) * u;
-      yb = G.Y(ob) + (yb - G.Y(ob)) * u;
+      const bounds = morphBounds(z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps);
+      xa = G.X(bounds.start); xb = G.X(bounds.end); ya = G.Y(bounds.high); yb = G.Y(bounds.low);
     }
     if (xb < G.x || xa > G.x + G.w || yb < G.y || ya > G.y + G.h) return;
     cellPass(frame);
@@ -36409,15 +37265,15 @@
       fdays = S.lines.filter(isFibDay);
     if (el("lines-vdays").dataset.keys !== vdays.join(",")) {
       el("lines-vdays").dataset.keys = vdays.join(",");
-      el("lines-vdays").replaceChildren(...vdays.map((key) => lineRow(key, true)));
+      Flow.replaceChildren(el("lines-vdays"), ...vdays.map((key) => lineRow(key, true)));
     }
     if (el("lines-fdays").dataset.keys !== fdays.join(",")) {
       el("lines-fdays").dataset.keys = fdays.join(",");
-      el("lines-fdays").replaceChildren(...fdays.map((key) => lineRow(key, true)));
+      Flow.replaceChildren(el("lines-fdays"), ...fdays.map((key) => lineRow(key, true)));
     }
     if (el("lines-days").dataset.keys !== days.join(",")) {
       el("lines-days").dataset.keys = days.join(",");
-      el("lines-days").replaceChildren(...days.map((key) => lineRow(key, true)));
+      Flow.replaceChildren(el("lines-days"), ...days.map((key) => lineRow(key, true)));
     }
     for (const box of qsa("#ol-lines-pop input[data-line]")) {
       const key = box.dataset.line,
@@ -37973,6 +38829,7 @@
         button = document.createElement("button");
       button.type = "button";
       button.className = "cursor-interaction";
+      tr.dataset.flowKey = `${renderN()}:${c.c}`;
       button.dataset.caseAnchor = String((c.c + 1) * stepT());
       button.textContent = when((c.c + 1) * stepT());
       button.title = "Replay this case";
@@ -38015,7 +38872,7 @@
       tr.append(td);
       fragment.append(tr);
     }
-    list.replaceChildren(fragment);
+    Flow.replaceChildren(list, fragment);
     el("case-page").textContent = rows.length
       ? `${S.casePage + 1} / ${pages} · ${integer(rows.length)}`
       : "0 cases";
@@ -38302,9 +39159,7 @@
       m = S.diagonal ? diagonalM(n) : pixelLevel(S.m, S.pB - S.pA, g.h, M_MAX),
       changed = n !== S.n || m !== S.m;
     if (changed) {
-      transition = reduce
-        ? null
-        : { n: renderN(), m: renderM(), start: performance.now() };
+      beginLevelMorph();
       S.n = n;
       S.m = m;
     }
@@ -39052,14 +39907,8 @@
       ya = G.Y((z.r + 1) * ps),
       yb = G.Y(z.r * ps);
     if (transition && u < 1) {
-      const ot = 2 ** transition.n,
-        op = 2 ** transition.m,
-        oa = Math.floor((z.c * ts) / ot) * ot,
-        ob = Math.floor((z.r * ps) / op) * op;
-      xa = G.X(oa) + (xa - G.X(oa)) * u;
-      xb = G.X(oa + ot) + (xb - G.X(oa + ot)) * u;
-      ya = G.Y(ob + op) + (ya - G.Y(ob + op)) * u;
-      yb = G.Y(ob) + (yb - G.Y(ob)) * u;
+      const bounds = morphBounds(z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps);
+      xa = G.X(bounds.start); xb = G.X(bounds.end); ya = G.Y(bounds.high); yb = G.Y(bounds.low);
     }
     if (xb < G.x || xa > G.x + G.w || yb < G.y || ya > G.y + G.h) return false;
     BOX.xa = xa;
@@ -39344,9 +40193,7 @@
       else if ((n !== S.n || m !== S.m) && m !== diagonalM(n))
         S.diagonal = false;
     }
-    transition = reduce
-      ? null
-      : { n: renderN(), m: renderM(), start: performance.now() };
+    beginLevelMorph();
     S.auto = false;
     S.n = n;
     S.m = m;
@@ -39558,6 +40405,7 @@
       const x = hist.entries[i],
         b = document.createElement("button");
       b.type = "button";
+      b.dataset.flowKey = x.id;
       b.className = "ol-entry cursor-interaction";
       b.setAttribute("aria-current", i === hist.index ? "step" : "false");
       b.append(
@@ -39569,11 +40417,12 @@
       );
       b.addEventListener("click", () => {
         closePop();
-        if (i !== hist.index) history.go(i - hist.index);
+        const index = hist.entries.findIndex(entry => entry.id === x.id);
+        if (index !== hist.index) history.go(index - hist.index);
       });
       frag.append(b);
     }
-    el("breadcrumbs").replaceChildren(frag);
+    Flow.replaceChildren(el("breadcrumbs"), frag);
   }
   // Back and Forward return to a place and leave how it is shown alone; an
   // address edited by hand is taken whole. "How it is shown" is every field of the codec's table (the
@@ -39589,9 +40438,7 @@
       if (i < 0) reportRefused(address);
       return;
     }
-    transition = reduce
-      ? null
-      : { n: renderN(), m: renderM(), start: performance.now() };
+    beginLevelMorph();
     applyView(i < 0 ? view : { ...view, ...visualOf(), records: undefined, axes: [], appearance: null });
     if (i < 0) reportView(view);
     // The step after Back or Forward is new, whatever its kind.
@@ -39736,7 +40583,7 @@
     try {
       const apply = () => {
         const priorTransition = transition;
-        transition = reduce ? null : { n: renderN(), m: renderM(), start: performance.now() };
+        beginLevelMorph();
         try { applyView(view); } catch (error) { transition = priorTransition; throw error; }
       };
       if (view.drawings) { if (!await drawingReplace(view.drawings, apply)) return; }
@@ -40386,6 +41233,7 @@
         open = document.createElement("button"),
         remove = document.createElement("button");
       row.className = "ol-saved-row";
+      row.dataset.flowKey = x.name;
       open.type = remove.type = "button";
       open.className = "ol-entry cursor-interaction";
       open.title = x.window || x.live
@@ -40394,7 +41242,7 @@
       open.append(rowText(x.name, "ol-entry-main"), rowText(viewDetail(x), "ol-entry-sub"));
       open.addEventListener("click", () => {
         closePop();
-        openView(x);
+        openView(views.list.find(view => view.name === x.name));
       });
       remove.className = "ol-icon-button ol-s cursor-interaction";
       remove.setAttribute("aria-label", `Delete “${x.name}”`);
@@ -40412,7 +41260,7 @@
           "ol-muted ol-empty",
         ),
       );
-    el("saved").replaceChildren(frag);
+    Flow.replaceChildren(el("saved"), frag);
   }
   // Open the views popover; to save, with the name field ready to type.
   function openViews(naming = false) {
@@ -40972,9 +41820,7 @@
     // The tile is the chart's now: it stops being lens-only before confine() chooses the block to show.
     f.src.lens = false;
     if (PACK.blocks[f.src.id]) PACK.blocks[f.src.id].lens = false;
-    transition = reduce || S.mode === "candles"
-      ? null
-      : { n: renderN(), m: renderM(), start: performance.now() };
+    beginLevelMorph();
     S.tA = f.ta;
     S.tB = f.tbRaw;
     S.pA = Math.max(0, f.pa);
@@ -41808,7 +42654,7 @@
     nav.pointers.clear();
     clearTimeout(nav.zoomTimer);
     gestureAt = 0;
-    tableHover = hover = transition = null;
+    tableHover = hover = transition = null; Flow.finishMotion(root);
     scaleRt.ctl.cancel();
     clearTimeout(scaleRt.timer);
     scaleRt.timer = 0;
@@ -41843,7 +42689,7 @@
     drawingCancelOperation(); drawingKeyContext = false;
     if (!modes().includes(mode)) return;
     if (mode === "candles" && S.mode !== "candles") candlePrevious = S.mode;
-    if (mode === "candles" || S.mode === "candles") transition = null;
+    if (mode === "candles" || S.mode === "candles") { transition = null; Flow.cancelMotion(canvas, "cells"); }
     S.mode = mode;
     update();
     save();
@@ -42860,11 +43706,12 @@
     button.textContent = text; button.dataset.drawingAction = action;
     if (id) button.dataset.drawingId = id;
     if (menu) button.setAttribute("role", "menuitem");
-    button.addEventListener("click", () => {
-      if (action === "new-exact") { drawingNewExact(button); return; }
-      if (action === "edit") { drawingEdit(id, button); return; }
+    button.onclick = (event) => {
+      const owner = event.currentTarget;
+      if (action === "new-exact") { drawingNewExact(owner); return; }
+      if (action === "edit") { drawingEdit(id, owner); return; }
       if (action === "move") { closePop(); setSheet(false); drawingActivate(id); canvas.focus({ preventScroll: true }); return; }
-      if (action === "delete-all") { drawingConfirmDelete(button); return; }
+      if (action === "delete-all") { drawingConfirmDelete(owner); return; }
       if (action === "recover") { drawingCloseChooser(); drawingUICmd(action, id); return; }
       if (menu) closePop();
       drawingUICmd(action, id, typeof value === "function" ? value() : value);
@@ -42872,7 +43719,7 @@
       if (action === "duplicate") el("drawing-edit").focus({ preventScroll: true });
       else if (action === "delete") el("drawing-more").focus({ preventScroll: true });
       else if (menu) canvas.focus({ preventScroll: true });
-    }); return button;
+    }; return button;
   }
   function drawingRestoreFocus(origin, id, index = 0) {
     if (origin?.menu) {
@@ -43007,7 +43854,7 @@
       visibility.className = "ol-line-row cursor-interaction"; box.type = "checkbox"; box.id = "ol-drawing-group-visible"; swatch.className = "ol-line-swatch"; swatch.setAttribute("aria-hidden", "true"); name.className = "ol-line-name"; name.textContent = "Show drawings";
       box.addEventListener("change", () => drawingUICmd("group-visible", null, box.checked)); visibility.append(box, swatch, name); body.prepend(visibility);
       familiesOpen(); const open = Boolean(familyOpen.drawing); head.setAttribute("aria-expanded", String(open)); body.hidden = !open;
-      head.addEventListener("click", () => { const open = head.getAttribute("aria-expanded") !== "true"; setFamilyOpen("drawing", open); head.setAttribute("aria-expanded", String(open)); body.hidden = !open; });
+      head.addEventListener("click", () => { const open = head.getAttribute("aria-expanded") !== "true"; setFamilyOpen("drawing", open); head.setAttribute("aria-expanded", String(open)); Flow.disclosure(body, open); });
       parent.insertBefore(section, parent.querySelector(".ol-family"));
     }
     drawingSyncInventory(); return section;
@@ -43036,8 +43883,11 @@
     const collection = drawingCollection(), objects = collection.objects, list = el("drawing-list"), key = objects.map((o) => o.id).join(",");
     if (key !== drawingRowsKey) {
       const existing = new Map([...list.querySelectorAll("[data-drawing-row]")].map((r) => [r.dataset.drawingRow, r]));
-      for (const [id, row] of existing) if (!objects.some((o) => o.id === id)) row.remove();
-      for (const object of objects) list.append(existing.get(object.id) || drawingRow(object)); drawingRowsKey = key;
+      Flow.layout(list, () => {
+        for (const [id, row] of existing) if (!objects.some((o) => o.id === id)) Flow.retire(row);
+        for (const object of objects) list.append(existing.get(object.id) || drawingRow(object));
+      }, ":scope > [data-drawing-row]", row => row.dataset.drawingRow);
+      drawingRowsKey = key;
     }
     for (const row of list.querySelectorAll("[data-drawing-row]")) {
       const object = drawingById(row.dataset.drawingRow), state = drawingStatus(object.id), name = drawingDisplayName(object), box = row.querySelector('[data-drawing-action="visible"]'), remove = row.querySelector('[data-drawing-action="delete"]');
@@ -43096,7 +43946,7 @@
     retry.hidden = !drawingUnsaved; recover.hidden = !drawingRecoveries.length; status.id = "ol-drawing-storage-status"; status.className = "ol-drawing-summary";
     status.textContent = drawingUnsaved ? `Unsaved drawings${drawingStorageReason ? ": " + drawingStorageReason : ""}` : ""; status.hidden = !drawingUnsaved;
     buttons.push(undo, redo, remove, exported, retry, recover, status);
-    panel.replaceChildren(...buttons); if (focused) panel.querySelector(`[data-drawing-action="${focused}"]`)?.focus({ preventScroll: true });
+    Flow.replaceChildren(panel, ...buttons); if (focused) panel.querySelector(`[data-drawing-action="${focused}"]`)?.focus({ preventScroll: true });
   }
   function drawingPlaceActions() {
     const panel = el("drawing-actions"), group = el("drawing-more").parentElement; let sheet = el("drawing-sheet-group");
@@ -43111,7 +43961,7 @@
   }
   function drawingCloseContext(focus = false) {
     if (!drawingContext) return false;
-    drawingContext.node.remove(); drawingContext = null;
+    Flow.retire(drawingContext.node); drawingContext = null;
     if (focus) canvas.focus({ preventScroll: true });
     return true;
   }
@@ -43143,7 +43993,7 @@
       }); node.append(button);
     }
     root.append(node); node.style.left = clamp(position.x, 8, Math.max(8, innerWidth - node.offsetWidth - 8)) + "px";
-    node.style.top = clamp(position.y, 8, Math.max(8, innerHeight - node.offsetHeight - 8)) + "px"; node.firstElementChild.focus({ preventScroll: true });
+    node.style.top = clamp(position.y, 8, Math.max(8, innerHeight - node.offsetHeight - 8)) + "px"; node.firstElementChild.focus({ preventScroll: true });Flow.reveal(node,{distance:Flow.MOTION.information});
   }
   function drawingContextOwnsKey(event) {
     if (!drawingContext) return false;
@@ -43454,7 +44304,7 @@
     const next={...comparisonModel,expanded,restoreLayout:expanded?layout:null};
     if(!comparisonCommit(next))return;
     if(!expanded&&layout)Object.assign(S,layout);
-    else if(expanded) {S.drawer="compare";S.drawerOpen=true;transition=null;clearTimeout(scaleRt.timer);scaleRt.timer=0;clearTimeout(cube.timer);clearTimeout(motion.timer);comparisonUI.focusControl("expand");}
+    else if(expanded) {S.drawer="compare";S.drawerOpen=true;transition=null;Flow.cancelMotion(canvas,"cells");clearTimeout(scaleRt.timer);scaleRt.timer=0;clearTimeout(cube.timer);clearTimeout(motion.timer);comparisonUI.focusControl("expand");}
     applyPanels();comparisonUI.focusControl("expand");
     if(!expanded){geometry();update();scheduleCube();scaleArm();}
   }
@@ -43673,7 +44523,7 @@
     }
   }
   function comparisonCloseMenu(focus=false) {
-    if(!comparisonMenu)return false;const state=comparisonMenu;comparisonMenu=null;state.node.remove();
+    if(!comparisonMenu)return false;const state=comparisonMenu;comparisonMenu=null;Flow.retire(state.node);
     if(focus&&state.owner?.isConnected)state.owner.focus({preventScroll:true});return true;
   }
   function comparisonOpenMenu(event,target) {
@@ -43692,7 +44542,7 @@
         comparisonCloseMenu(type==="copy");if(type==="copy")comparisonCopy(state.capture);else comparisonAdd(state.capture,type==="update");
       });node.append(b);
     }
-    root.append(node);node.style.position="fixed";node.style.left=Math.min(event.clientX,innerWidth-node.offsetWidth-8)+"px";node.style.top=Math.min(event.clientY,innerHeight-node.offsetHeight-8)+"px";node.firstElementChild.focus();
+    root.append(node);node.style.position="fixed";node.style.left=Math.min(event.clientX,innerWidth-node.offsetWidth-8)+"px";node.style.top=Math.min(event.clientY,innerHeight-node.offsetHeight-8)+"px";node.firstElementChild.focus();Flow.reveal(node,{distance:Flow.MOTION.information});
   }
   function comparisonOwnsKey(event,target) {
     if(target?.closest(".ol-comparison-confirm"))return true;
@@ -43979,8 +44829,8 @@
       if (element?.closest("#ol-view-keys")) el("view-keys").hidden = false;
       if (PHONE.matches && element?.closest("#ol-controls")) setSheet(true);
       if (element?.closest("#ol-lines-pop") && el("lines-pop").hidden) el("lines").click();
-      if (target.selector && element?.getClientRects().length) element.scrollIntoView({block:"nearest",inline:"nearest"});
-      else if (PHONE.matches && target.region && canvas.getClientRects().length) canvas.scrollIntoView({block:"nearest",inline:"nearest"});
+      if (target.selector && element?.getClientRects().length) Flow.scrollToActor(element,"nearest");
+      else if (PHONE.matches && target.region && canvas.getClientRects().length) Flow.scrollToActor(canvas,"nearest");
     },
     closeTransient: () => closePop(true),
     openKeys,
@@ -44044,6 +44894,20 @@
     // The restored comparison owns control availability after the global startup lock is released.
     comparisonLoad();
     transition = null;
+    for (const panel of qsa(".ol-pop, .ol-inspect-detail, .ol-inspect-chooser, #ol-import")) {
+      Flow.watchPanel(panel, () => !panel.hidden);
+      if (panel.matches(".ol-pop:not(.ol-cell-menu)")) Flow.observeSize(panel);
+    }
+    Flow.watchPanel(root.querySelector(".ol-drawer-body"), () => el("drawer").dataset.open === "true", 0, el("drawer"), ["data-open"]);
+    Flow.watchPanel(root.querySelector(".ol-side-body"), () => el("main").dataset.side === "open", 0, el("main"), ["data-side"]);
+    Flow.watchPanel(el("controls"), () => !PHONE.matches || root.dataset.sheet === "open", 2, root, ["data-sheet"]);
+    Flow.watchPanel(el("reference"), () => !el("reference").hidden, 3);
+    Flow.watchPanel(el("view-keys"), () => !el("view-keys").hidden, 3);
+    Flow.watchPanel(el("tip"), () => !el("tip").hidden, 3);
+    for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
+    for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
+    Flow.onMotionFrame(() => referenceGuide?.refresh(true));
+    Flow.reveal(el("main"), { distance: 0 });
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();
     scaleArm();
@@ -44051,10 +44915,11 @@
     new ResizeObserver(() => {
       if (ready && !comparisonModel.expanded && canvas.getBoundingClientRect().height > 0) {
         if (drawingDrag) drawingCancelOperation();
-        geometry();
+        geometry(false);
         if (S.auto) autoLevel();
         update();
         noteGesture();
+        requestDraw();
       }
     }).observe(canvas);
     matchMedia("(prefers-color-scheme: dark)").addEventListener(

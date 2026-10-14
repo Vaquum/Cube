@@ -158,7 +158,9 @@ async function popoverAction(page, surface, name, channel = "cells") {
 }
 // A digest of the pixels of the chart canvas at its own resolution (the harness runs at DPR 1), for "the same mapping draws the same".
 function canvasHash(page) {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
+    while (window.explorerMotion?.motionActive()) await new Promise(requestAnimationFrame);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const c = document.getElementById("ol-canvas");
     const d = c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data;
     let h = 2166136261;
@@ -172,7 +174,7 @@ function clipboardText(page) {
 }
 // The views popover, open.
 async function openViews(page) {
-  if (await page.locator("#ol-hist-pop").isHidden()) await page.locator("#ol-hist").click();
+  if (await page.locator("#ol-hist-pop").evaluate(node => node.hidden)) await page.locator("#ol-hist").click();
   await page.locator("#ol-hist-pop").waitFor({ state: "visible" });
 }
 

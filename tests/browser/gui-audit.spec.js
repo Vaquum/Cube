@@ -90,6 +90,7 @@ test("phone Show reveals the control above the reference and Back restores the a
   await page.locator("#ol-reference-toggle").click(); await page.locator("#ol-reference-topic").selectOption("columns");
   await page.getByRole("button",{name:"Show Columns menu",exact:true}).click();
   await expect(page.locator("#ol-pane")).toBeVisible();
+  await expect(page.locator("#ol-pane")).toBeInViewport({ratio:1});
   expect(await page.locator("#ol-pane").evaluate(el=>{const r=el.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest("#ol-pane")===el;})).toBe(true);
   await page.locator("#ol-reference-back").click(); await expect(page.locator("#ol-reference")).toBeVisible();
   await expect(page.locator("#ol-reference-topic")).toHaveValue("columns");

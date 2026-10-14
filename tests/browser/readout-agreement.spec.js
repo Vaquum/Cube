@@ -31,6 +31,8 @@
 // What this does NOT prove: anything at device pixel ratio other than 1, the tooltip in a dark theme, touch taps, keyboard inspection
 // (not in the baseline and owned by #48), the exact Intensity numbers without the basis control.
 const { test, expect } = require("./fixtures.js");
+// Pixel/record agreement is a settled-view contract; motion has separate geometry regressions.
+test.use({ reducedMotion: "reduce" });
 const { addRecorder, lastDraw, rectOf, boxOf: projectedBoxOf } = require("./cells-support.js");
 
 const VIEW = "#t=2021-01-01T00:00Z~2021-01-01T00:06Z&p=24800~25500";
