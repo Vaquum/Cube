@@ -122,6 +122,29 @@ test("ticking Classic levels with no retracement on brings the 30-day one; an ad
   await expect.poll(lines).toBe("fib30,fibclassic,fibext");
 });
 
+test("off-plot Classic and Extension tags count toward the budget and stay hidden when a key level is held back", async ({ page, fakeFor, probe, pane }) => {
+  const fake = await fakeFor({ trades: RAMP, cutoffIso: CUTOFF });
+  await page.setViewportSize({ width: 760, height: 520 });
+  // Higher-priority period and session references crowd this narrow price crop. The three key levels are in view;
+  // all six added levels are outside it, so their edge plates must not reserve space ahead of the key levels.
+  const busy = "1d,wk,7d,mo,30d,90d,yr,1y,3y,open,prev,wopen,mopen,fib30";
+  const read = async (extra) => {
+    await page.goto(`${fake.url}/${VIEW}&p=12800~13700&lines=${busy}${extra}`);
+    await probe.waitForReady();
+    await probe.waitForQuiet({ quietMs: 800 });
+    const count = await page.locator("#ol-canvas").evaluate((el) => el.dataset.occlusion ?? "");
+    expect(count, "the chart reports budget suppression").toMatch(/^\d+\/\d+!?$/);
+    const [shown, eligible] = count.replace("!", "").split("/").map(Number);
+    return { shown, eligible, tags: paneCanvas.textsOf(await pane.last()).filter((x) => x.startsWith("30D")).sort() };
+  };
+  const keys = await read("");
+  expect(keys.tags.length, "at least one of the three key levels is held back").toBeLessThan(3);
+  const added = await read(",fibclassic,fibext");
+  expect(added.eligible - keys.eligible, "all six off-plot levels are budget candidates").toBe(6);
+  expect(added.tags, "added edge tags neither displace key levels nor survive their suppression").toEqual(keys.tags);
+  expect(added.shown).toBe(keys.shown);
+});
+
 test("a chosen UTC day adds a removable retracement since that day, kept in the address", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor({ trades: RAMP, cutoffIso: CUTOFF });
   await page.goto(`${fake.url}/${VIEW}&p=9000~15500&lines=fibclassic`);

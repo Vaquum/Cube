@@ -14950,7 +14950,8 @@
     if (!G.w || !G.h) return;
     // A candidate is the marks of one reference (`rects`) and, where it has one, its tag (`tag`: the line's own y and the words): the tag's plate is
     // placed by the same layout the tags are drawn in, among the tags that are shown. The tags of lines off the plot are drawn at its edge whatever the
-    // budget says, so they are `fixed`: they take their place first and are not counted as references.
+    // budget says, so they are `fixed`: they take their place first and are not counted as references. Added retracement
+    // levels remain candidates even off the plot: their edge plates are budgeted last and depend on their key levels.
     const right = G.x + G.w,
       candidates = [],
       fixed = [];
@@ -14964,13 +14965,17 @@
         xe = l.on ? right : clamp(G.X(l.to), G.x - 2, right),
         xl = l.lead === undefined ? clamp(G.X(l.from), G.x - 2, right) : clamp(G.X(l.lead), G.x - 2, right),
         raw = G.Y(l.at),
-        arrow = raw < G.y ? " ↑" : raw > G.y + G.h ? " ↓" : "";
+        arrow = raw < G.y ? " ↑" : raw > G.y + G.h ? " ↓" : "",
+        candidate = { id: l.id, hot, rank: (OCC_PRIORITY[familyOf(l.key)] ?? 6) + (l.minor ? 0.5 : 0), move: l.kind === "fib" ? l.move : undefined, minor: Boolean(l.minor), tag: l.tag ? { y: raw, w: tagPlateWidth(l.tag.name + arrow, l.tag.value) } : null };
       if (y < G.y - 4 || y > G.y + G.h + 4 || xe <= G.x) {
-        if (l.tag) fixed.push({ id: l.id, y: raw, w: tagPlateWidth(l.tag.name + arrow, l.tag.value) });
+        if (candidate.tag) {
+          if (l.minor) candidates.push({ ...candidate, rects: [] });
+          else fixed.push({ id: l.id, ...candidate.tag });
+        }
         continue;
       }
       // A retracement's added levels are planned after every other mark of its family (and below, drawn only with its key levels).
-      candidates.push({ id: l.id, hot, rank: (OCC_PRIORITY[familyOf(l.key)] ?? 6) + (l.minor ? 0.5 : 0), move: l.kind === "fib" ? l.move : undefined, minor: Boolean(l.minor), rects: [[xl, y - width / 2, xe, y + width / 2]], tag: l.tag ? { y: raw, w: tagPlateWidth(l.tag.name + arrow, l.tag.value) } : null });
+      candidates.push({ ...candidate, rects: [[xl, y - width / 2, xe, y + width / 2]] });
     }
     for (const c of items.curves || []) {
       const { xs, ys, vals } = curveVertices(c.r.points, right);
