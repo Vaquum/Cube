@@ -73,7 +73,9 @@
           channel.options.complete?.();
   }
   function tick(now) {
-      const elapsed = Math.min(Math.max(0, (now - previousTime) / 1000), .032);
+      // Keep wall-clock timing on slow frames. Integration already uses bounded
+      // 8 ms steps; a 32 ms frame cap stretched a spring into seconds.
+      const elapsed = Math.min(Math.max(0, (now - previousTime) / 1000), 1);
       previousTime = now;
       // Read destinations before any channel writes; avoid alternating style/layout flushes.
       const active = [...moving];
