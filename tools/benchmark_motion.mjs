@@ -18,7 +18,7 @@ if (git('status', '--porcelain', '--untracked-files=no')) throw new Error('Commi
 const protocol = {
   version: 1, pairs: 5, viewport: { width: 1500, height: 950 }, reducedMotion: 'no-preference',
   budgets: { drawMs: 10, frameMs: 20, inputMs: 50, drawDeltaMs: .5, frameDeltaMs: 2, inputDeltaMs: 5, slowFrameShareDelta: .01 },
-  definition: 'Measurement details is the active disclosure; retired Cell counts is hidden. All samples retained. p95 draw callback, frame intervals and event to first canvas callback; DOM input to two frame boundaries. Paired medians compare p95; layout/task totals and measuring clones are reported.',
+  definition: 'Measurement details is the active disclosure; retired Cell counts is hidden. All samples retained. p95 draw callback, frame intervals and navigation event to first canvas callback; click/change/level-key input to two frame boundaries. Paired medians compare p95; layout/task totals and measuring clones are reported.',
 };
 const cases = [
   { id: 'zoom-24h', hash: '#w=24h', action: 'navigate' },
@@ -48,7 +48,8 @@ async function trial(browser, build, definition) {
         try { return callback(timestamp); }
         finally { if (window.__motionPerf.recording) window.__motionPerf.callbacks.push(performance.now()-start); }
       });
-      addEventListener('click', event => {
+      for (const type of ['click','change','keydown']) addEventListener(type, event => {
+        if (type === 'keydown' && !['[',']'].includes(event.key)) return;
         if (window.__motionPerf.recording) native(()=>native(()=>window.__motionPerf.domInput.push(performance.now()-event.timeStamp)));
       },{capture:true,passive:true});
       new MutationObserver(records => {
