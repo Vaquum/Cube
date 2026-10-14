@@ -184,6 +184,7 @@ test.describe("B47 Inspect and touch", () => {
     await open(page, fake, probe, "#w=7d&vis=2&lines=7d,30d&rows=volume&level=25500");
     await page.keyboard.press("e");
     await expect(page.locator("#ol-inspect")).toBeVisible();
+    await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
     const small = await page.evaluate(() => {
       const out = [];
       for (const n of document.querySelectorAll("#origo-lens button, #origo-lens select, #origo-lens input, #origo-lens [role=tab], #origo-lens summary, #origo-lens a")) {
@@ -201,6 +202,7 @@ test.describe("B47 Inspect and touch", () => {
     expect(small, small.join("\n")).toEqual([]);
     // the large-target routes of the dense visuals exist and are among those measured: the level's steppers, the navigator's steppers and chooser
     await page.locator("#ol-res").click();
+    await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
     for (const sel of ["#ol-tminus", "#ol-tplus", "#ol-pminus", "#ol-pplus", '#ol-inspect [data-step="left"]', '#ol-inspect [data-step="up"]', "#ol-inspect-reference"]) {
       const b = await page.locator(sel).boundingBox();
       expect(b, `${sel} is on the page`).not.toBeNull();

@@ -60,7 +60,7 @@ oracles. Build parity and required CI validate the committed standalone page.
 
 ## UX performance gate
 
-Canvas cell morphing reuses one bounds record; no arrays or closures are allocated per cell. Intrinsic panel measurements cache by content and width, exclude measurement clones from mutation handling, and share a read phase before animation writes. Repeated state updates retain active panel targets without measuring unchanged geometry.
+Canvas cell morphing reuses one bounds record; no arrays or closures are allocated per cell. Intrinsic panel measurements cache by content and width, exclude measurement clones from mutation handling, and share a read phase before animation writes. Repeated state updates retain active panel targets without measuring unchanged geometry. Collection layout reads every destination before its first style write and animates only actors intersecting the old or new clipped viewport. Table actor lookup is linear.
 
 `node tools/benchmark_motion.mjs` compares committed baseline `f860aeb` with the published head using five alternating pairs per case, motion enabled, the same synthetic market seed, desktop and phone layouts. The baseline includes the integrated Shift+arrow, chart-header and developing POC trail features from main. It measures navigation, dense Rows/Lines, Candles, rapid level reversal, inspector resizing, native disclosures, 128 captured cells, dense Cells sorting and phone sheets. Chart inputs use their canvas callback; controls and level keys use two native frame boundaries. Predeclared frame/draw/input budgets are in the runner; all samples and layout/task totals are saved to `reports/motion/performance.json`. This local guard does not certify every device or real network latency.
 

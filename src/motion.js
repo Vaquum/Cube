@@ -223,15 +223,16 @@
   }
   function layout(root, change, selector = ':scope > *', key = element => element) {
       const active = document.activeElement;
-      const before = new Map([...root.querySelectorAll(selector)].map(element => [key(element), { element, box: element.getBoundingClientRect() }]));
+      const before = new Map([...root.querySelectorAll(selector)].map((element, index) => [key(element, index), { element, box: element.getBoundingClientRect() }]));
       // Departures share the same pre-mutation geometry as surviving layout actors.
       const previousGeometry = retirementGeometry;
       retirementGeometry = new Map(previousGeometry);
-      const clips = new Map();
+      const clips = new Map(), beforeClip = retirementClip(root, clips);
+      const visible = (box, clip) => box.width && box.height && box.right > clip.left && box.left < clip.right && box.bottom > clip.top && box.top < clip.bottom;
       for (const { element, box } of before.values())
           if (!retirementGeometry.has(element))
               retirementGeometry.set(element, {
-                  box, clip: retirementClip(element.parentElement, clips), cellWidths: element instanceof HTMLTableRowElement ? [...element.cells].map(cell => cell.getBoundingClientRect().width) : undefined,
+                  box, clip: retirementClip(element.parentElement, clips), cellWidths: element instanceof HTMLTableRowElement && visible(box, beforeClip) ? [...element.cells].map(cell => cell.getBoundingClientRect().width) : undefined,
               });
       let result;
       try {
@@ -248,17 +249,25 @@
           element.style.removeProperty('--flow-layout-x');
           element.style.removeProperty('--flow-layout-y');
       }
-      for (const element of after) {
-          const previous = before.get(key(element));
+      // Collect every destination before spring() performs its initial style write.
+      // Dense tables otherwise force one style/layout flush per actor.
+      const afterClip = retirementClip(root);
+      const destinations = after.map((element, index) => ({ element, previous: before.get(key(element, index)), next: element.getBoundingClientRect() }));
+      for (const { element, previous, next } of destinations) {
           if (!previous) {
-              reveal(element, { distance: MOTION.information });
+              if (visible(next, afterClip)) reveal(element, { distance: MOTION.information });
               continue;
           }
           if (!previous.box.width || !previous.box.height)
               continue;
           if (previous.element !== element)
               throw new Error('Motion layout requires retained semantic actor identity.');
-          const next = element.getBoundingClientRect();
+          // Actors outside both clipped viewports need no presentation work.
+          if (!visible(previous.box, beforeClip) && !visible(next, afterClip)) {
+              cancelMotion(element, 'layout');
+              delete element.dataset.flowLayout;
+              continue;
+          }
           if (!next.width || !next.height)
               continue;
           const x = previous.box.left - next.left, y = previous.box.top - next.top;
@@ -626,7 +635,7 @@
     const before = [...host.childNodes].map(actorKey), after = nodes.map(actorKey);
     const structural = before.length !== after.length || before.some((key,index) => key !== after[index]);
     if (structural && host.getClientRects().length && !reducedMotion()) {
-      layout(host, () => patchChildren(host,nodes,staticMarkup), ':scope > *', node => actorKey(node,[...host.children].indexOf(node)));
+      layout(host, () => patchChildren(host,nodes,staticMarkup), ':scope > *', (node, index) => actorKey(node, index));
     } else patchChildren(host,nodes,staticMarkup);
   }
   function html(host, content) {

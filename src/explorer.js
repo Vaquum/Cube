@@ -4236,8 +4236,9 @@
     cellsFocusRestoring = true;
     try {
       Flow.replaceChildren(el("table-body"), frag);
+      const retainedRows = new Map([...el("table-body").children].map(row => [row.dataset.cellKey, row]));
       for (const entry of cellRows.values()) {
-        const retained = [...el("table-body").children].find(row => row.dataset.cellKey === entry.tr.dataset.cellKey);
+        const retained = retainedRows.get(entry.tr.dataset.cellKey);
         if (!retained) throw new Error("Cell row reconciliation lost its actor");
         entry.tr = retained;
       }
