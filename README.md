@@ -12,6 +12,10 @@ Open [localhost:8080](http://localhost:8080). The app ships with its snapshot an
 
 ## Explore
 
+The chart interpretation bar (colour key, Profiles, Axes, Bounds, Key and model disclosure) starts hidden on every load. **Shift+J** toggles it outside text fields and modal dialogs; **?** lists the shortcut. Reference-guide Show actions reveal the bar when locating one of its controls.
+
+**Lines (P) → Column overlays** holds **Column POCs**, **70% area** and **Untested in view**. **Shift+P** still toggles Column POCs directly.
+
 Start with **Volume** to locate activity, the **profile** to see its distribution by price, and **Delta** to read the aggressive side of the trades. These are observations from one Binance spot market: they do not identify participant intent, derivatives positioning or forced flow. Reference levels and historical comparisons give context for hypotheses; they do not establish forecast odds.
 
 The ⓘ icon, separated from the **Rallies**, **Cells**, **Cases**, **Query** and **Compare** icon toggles by a divider, opens **System reference** as a wide left pane that pushes the canvas right. Twenty-two topics cover the chart, measures, tools, evidence and saved views, each with **Purpose**, **Read** and **Use**. Colour-scale details and controls live in **Colour scales & comparison**, profile comparison in **Profile tracks**, and axis details in **Columns & indicators**. **Show** highlights the named control or chart region while dimming the rest; Escape or a click in the dimmed area stops the highlight. Escape inside the reference closes the pane after any highlight is dismissed. Hidden features are explained without changing the view. On narrow screens the workspace scrolls horizontally with the chart beside the reference.

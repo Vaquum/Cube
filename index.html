@@ -1194,6 +1194,11 @@
   color: var(--ol-muted);
   cursor: default;
 }
+#origo-lens #ol-lines-pop .ol-marks {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
 #origo-lens .ol-legend {
   margin-left: auto;
   display: flex;
@@ -3778,7 +3783,7 @@
           aria-label="Lines"
           aria-keyshortcuts="P"
           data-keys="P"
-          data-hint="Your drawings, calculated reference lines, session levels and the clock"
+          data-hint="Column overlays, your drawings, calculated reference lines, session levels and the clock"
         >
           <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M1.5 4.5h13M1.5 8h9M1.5 11.5h11" />
@@ -3819,6 +3824,18 @@
             >
           </div>
           <p class="ol-lines-summary" id="ol-lines-summary" role="status"></p>
+          <section aria-labelledby="ol-column-overlays-title">
+            <div class="ol-list-head" id="ol-column-overlays-title">Column overlays</div>
+            <div class="ol-marks" role="group" aria-labelledby="ol-column-overlays-title">
+              <label title="Each column's point of control, and the profile's (P and B) · Shift+P"
+                ><input type="checkbox" id="ol-poc" />Column POCs</label
+              ><label title="Each column's value area: the rows around its POC that hold 70% of its volume"
+                ><input type="checkbox" id="ol-area" />70% area</label
+              ><label title="Column POCs that no later column in view has traded at"
+                ><input type="checkbox" id="ol-untested" />Untested in view</label
+              >
+            </div>
+          </section>
           <section class="ol-family" data-family="profile">
             <button
               type="button"
@@ -4637,17 +4654,8 @@
             <span id="ol-focus-chip-text"></span>
           </button>
         </div>
-        <div class="ol-marks" role="group" aria-label="Overlays">
-          <label title="Each column's point of control, and the profile's (P and B) · Shift+P"
-            ><input type="checkbox" id="ol-poc" />Column POCs</label
-          ><label title="Each column's value area: the rows around its POC that hold 70% of its volume"
-            ><input type="checkbox" id="ol-area" />70% area</label
-          ><label title="Column POCs that no later column in view has traded at"
-            ><input type="checkbox" id="ol-untested" />Untested in view</label
-          >
-        </div>
         <span id="ol-candle-legend" class="ol-candle-legend" role="group" aria-label="Candle direction" hidden></span>
-        <div class="ol-view-keys" role="group" aria-label="Chart interpretation">
+        <div id="ol-view-keys" class="ol-view-keys" role="group" aria-label="Chart interpretation" aria-keyshortcuts="Shift+J" hidden>
           <button type="button" id="ol-cell-key" class="ol-action ol-s cursor-interaction" aria-label="Cell colour key"><canvas id="ol-cell-key-ramp" width="64" height="8" aria-hidden="true"></canvas><span id="ol-cell-key-text">Cell colour scale</span></button>
           <button type="button" id="ol-profile-settings" class="ol-action ol-s cursor-interaction">Profiles</button>
           <button type="button" id="ol-axis-settings" class="ol-action ol-s cursor-interaction">Axes</button>
@@ -5748,12 +5756,16 @@
               <dd><kbd>X</kbd></dd>
             </div>
             <div>
-              <dt>Lines: POC lines, session levels and the clock</dt>
+              <dt>Lines: column overlays, POC lines, session levels and the clock</dt>
               <dd><kbd>P</kbd></dd>
             </div>
             <div>
               <dt>Column POCs</dt>
               <dd><kbd>Shift</kbd> <kbd>P</kbd></dd>
+            </div>
+            <div>
+              <dt>Interpretation bar (hidden on load)</dt>
+              <dd><kbd>Shift</kbd> <kbd>J</kbd></dd>
             </div>
             <div>
               <dt>Measures or continuations</dt>
@@ -19688,7 +19700,7 @@
     { id: "poc-value", group: "Read the market", title: "POC & value area",
       purpose: "Read the profile's reported price landmarks.",
       read: "POC is the centre of its highest-volume row; equal maxima choose the lower row. Buy POC uses taker-buy volume and is unavailable without it. Value area starts at POC and grows contiguously toward the larger neighbouring volume, lower on a tie, until whole rows hold at least 70%. Row width and measured period affect each landmark.",
-      use: "Distinguish Column POCs, the current profile and period references. Turn on 70% area or choose period landmarks in Lines; inspect their support.",
+      use: "Distinguish Column POCs, the current profile and period references. In Lines, use Column overlays for Column POCs and 70% area, or choose period landmarks; inspect their support.",
       targets: [{"label":"Show POC overlay","selector":"#ol-poc"},{"label":"Show 70% area","selector":"#ol-area"},{"label":"Show Lines","selector":"#ol-lines"}], colour: "references" },
     { id: "cascade", group: "Read the market", title: "Cascade & its parent",
       purpose: "Read concentration without treating it as a liquidation detector.",
@@ -41671,7 +41683,14 @@
           i = list.indexOf(S.rows) + (shift ? -1 : 1);
         setRows(list[(i + list.length) % list.length]);
       } else if (k === "x") toggleLevel();
-      else if (k === "p" && shift) {
+      else if (k === "j" && shift) {
+        const bar = el("view-keys"), returnFocus = !bar.hidden && bar.contains(document.activeElement);
+        bar.hidden = !bar.hidden;
+        if (returnFocus) {
+          if (comparisonModel.expanded) comparisonUI.focusControl("expand");
+          else canvas.focus({ preventScroll: true });
+        }
+      } else if (k === "p" && shift) {
         S.poc = !S.poc;
         update();
         save();
@@ -43948,7 +43967,9 @@
     colourKey: guiReferenceColourKey,
     reveal: target => {
       const element = target.selector ? root.querySelector(target.selector) : canvas;
+      if (element?.closest("#ol-view-keys")) el("view-keys").hidden = false;
       if (PHONE.matches && element?.closest("#ol-controls")) setSheet(true);
+      if (element?.closest("#ol-lines-pop") && el("lines-pop").hidden) el("lines").click();
       if (target.selector && element?.getClientRects().length) element.scrollIntoView({block:"nearest",inline:"nearest"});
       else if (PHONE.matches && target.region && canvas.getClientRects().length) canvas.scrollIntoView({block:"nearest",inline:"nearest"});
     },
