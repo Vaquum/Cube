@@ -121,6 +121,19 @@ test("authored visibility survives a native disclosure animation",async({page,fa
   });await settled(page);
   await expect(page.locator("#visibility-fixture > div")).toHaveJSProperty("hidden",true);
 });
+test("native close preserves the visible body while logical state closes immediately",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await settled(page);
+  const result=await page.evaluate(()=>{
+    const details=document.createElement("details"),summary=document.createElement("summary"),body=document.createElement("div");
+    details.id="close-fixture";summary.textContent="Disclosure";body.textContent="Retiring words";body.style.minHeight="100px";
+    details.append(summary,body);document.querySelector("#origo-lens").append(details);details.open=true;
+    const before=body.getBoundingClientRect().height;summary.click();
+    return {before,after:body.getBoundingClientRect().height,open:details.open,inert:body.inert};
+  });
+  expect(result.open).toBe(false);expect(result.inert).toBe(true);expect(result.before).toBeGreaterThan(0);
+  expect(result.after).toBeGreaterThan(0);await settled(page);
+  await expect(page.locator("#close-fixture > div")).toBeHidden();
+});
 test("closed reset dialogs reject interaction throughout their exit",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe,"mini");await require("./drawings-support.js").drawing(page);await page.locator("#ol-reset-canvas").click();
   await expect(page.locator("#ol-reset-confirm")).toHaveJSProperty("open",true);

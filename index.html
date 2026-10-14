@@ -3543,6 +3543,7 @@
 #origo-lens [data-flow-retained][hidden], #origo-lens [data-flow-panel-retained] { display: var(--flow-display, block) !important; pointer-events: none; }
 #origo-lens [data-flow-retiring], #origo-lens [data-motion-running] { animation: none !important; transition: none !important; }
 #origo-lens details[data-flow-details] > [data-flow-disclosure]:not([hidden]) { display: var(--flow-display, block) !important; }
+#origo-lens details[data-flow-details]::details-content { content-visibility: visible; }
 #origo-lens :is(button, input, select, summary), #origo-lens input[type="checkbox"]::before {
   transition: background-color var(--flow-feedback) ease-out, border-color var(--flow-feedback) ease-out, color var(--flow-feedback) ease-out;
 }
