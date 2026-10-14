@@ -111,7 +111,7 @@ test.describe("B53 the view summary", () => {
     expect(copied).toContain("original vintages are not recorded");
   });
 
-  test("the summary follows the view: another measure changes its Cells section, and a live view says it is live", async ({ page, probe, fakeFor }) => {
+  test("the summary follows the view: another measure changes its Cells section, and replay off is explicit", async ({ page, probe, fakeFor }) => {
     const fake = await fakeFor("standard");
     await page.setViewportSize({ width: 1500, height: 950 });
     await page.goto(`${fake.url}/#w=7d&vis=2&mode=volume`);
@@ -124,7 +124,7 @@ test.describe("B53 the view summary", () => {
     await expect.poll(async () => (await read()).measure?.text, { timeout: 30000 }).toContain("Volume");
     const volume = await read();
     const view = await fieldsOf(page.locator('#ol-summary [data-section="view"]'));
-    expect(view.replay.text, "a live view is live").toBe("Live");
+    expect(view.replay.text, "replay is off; source identity is separate").toBe("Off");
     await page.keyboard.press("m");
     await page.waitForFunction(() => document.getElementById("ol-mode-text")?.textContent !== "Volume");
     await probe.waitForQuiet({ quietMs: 800, timeout: 60000 });

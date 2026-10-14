@@ -78,6 +78,10 @@
         <div class="ol-comparison-heading"><strong>Cell comparison</strong><span class="ol-comparison-summary"></span>
           <button type="button" class="ol-action cursor-interaction" data-comparison-action="expand" data-focus-key="expand">Expand</button>
           <button type="button" class="ol-action cursor-interaction" data-comparison-action="clear" data-focus-key="clear">Clear</button>
+          <button type="button" class="ol-action cursor-interaction" data-comparison-action="undo" data-focus-key="undo">Undo</button>
+          <button type="button" class="ol-action cursor-interaction" data-comparison-action="export" data-focus-key="export">Export collection</button>
+          <button type="button" class="ol-action cursor-interaction" data-comparison-action="import" data-focus-key="import">Import collection</button>
+          <input type="file" accept="application/json,.json" aria-label="Import comparison collection" data-comparison-import hidden>
         </div>
         <div class="ol-comparison-controls">
           <label>Metric <select data-comparison-control="selectedMetric" data-focus-key="selectedMetric" aria-label="Selected comparison metric"></select></label>
@@ -159,7 +163,7 @@
         const lines = values.map((value, i) => value === null ? "" : `<circle cx="${4 + i * 10}" cy="${hi === lo ? 20 : 36 - 32 * (value-lo)/(hi-lo)}" r="2"/>`).join("");
         return `<div class="ol-comparison-frozen-history" data-history="${escape(history.id)}"><strong>${escape(label)} · frozen</strong>${finiteValues.length ? `<svg viewBox="0 0 120 40" width="120" height="40" role="img" aria-label="${escape(label)} captured history; own scale" fill="currentColor">${lines}</svg>` : ""}<span>${escape(history.reason || `${history.formula} · ${history.unit}`)}</span><ol>${history.slots.map((slot) => `<li data-canonical="${slot.result.tag === "finite" ? escape(slot.result.value) : escape(slot.result.tag)}">${escape(slot.result.tag === "finite" ? number(slot.result.value, 8) + " " + unitText(history.unit) : slot.result.reason || slot.result.tag)}</li>`).join("")}</ol></div>`;
       }).join("");
-      return `<div><dt>Original captured reading</dt><dd>${escape(originText)}</dd></div><div><dt>Signed POC distance / captured prior daily ATR</dt><dd>${escape(pocText)}</dd></div><div><dt>POC reference timing</dt><dd>${escape(normalized.tag === "hidden" ? normalized.reason : normalized.causal || "Causal timing unknown")}</dd></div><div><dt>Frozen context origin</dt><dd>${escape(capture.contextOrigin || "legacy-structural")}</dd></div></dl>${histories}<dl>`;
+      return `<div><dt>Original captured reading</dt><dd>${escape(originText)}</dd></div><div><dt>Signed POC distance / captured prior daily ATR</dt><dd>${escape(pocText)}</dd></div><div><dt>POC reference timing</dt><dd>${escape(normalized.tag === "hidden" ? normalized.reason : normalized.causal || "Causal timing unknown")}</dd></div><div><dt>Frozen context origin</dt><dd>${capture.contextOrigin === "frame-v2" ? "Captured chart frame" : "Legacy structural record"}</dd></div></dl>${histories}<dl>`;
     }
     function captureName(capture) { return `${timeRange(capture, true)} · ${band(capture)}`; }
     function renderFocus(capture, analysis) {
@@ -186,7 +190,7 @@
       const compact = compactMetrics(analysis), selected = new Set(compact.map((metric) => metric.key));
       const blocks = compact.map((metric) => metricBlock(metric, capture, false, analysis)).join("");
       const remaining = orderedMetrics(analysis).filter((metric) => !selected.has(metric.key)).map((metric) => metricBlock(metric,capture,false,analysis)).join("");
-      return `<div class="ol-comparison-focus-head"><span class="ol-comparison-eyebrow">Focused cell${reference ? " · Reference" : ""}</span><h2>${escape(timeRange(capture, true))}</h2><p class="ol-comparison-band">${escape(band(capture))}</p>${completeness ? `<p class="ol-comparison-completeness">${escape(completeness)}${capture.shortExposure ? " · Short exposure" : ""}</p>` : ""}<div class="ol-comparison-capture-stamp"><span>Captured ${escape(utc(capture.capturedAt))}</span><span>Measured through ${escape(utc(capture.measuredThrough))}</span><span>${escape(sourceLabel)}</span></div><div class="ol-comparison-focus-actions"><button type="button" class="ol-action cursor-interaction" data-comparison-action="reference" data-id="${escape(reference ? "" : capture.id)}" data-focus-key="pin">${reference ? "Use set median" : "Use as reference"}</button><button type="button" class="ol-action cursor-interaction" data-comparison-action="copy" data-id="${escape(capture.id)}" data-focus-key="copy">Copy cell</button><button type="button" class="ol-action cursor-interaction" data-comparison-action="remove" data-id="${escape(capture.id)}" data-focus-key="remove-focus">Remove</button></div></div><div class="ol-comparison-metrics">${blocks}</div><details class="ol-comparison-other"><summary>Other comparison measures</summary><div class="ol-comparison-metrics">${remaining}</div></details><details class="ol-comparison-details" ><summary data-focus-key="details">Capture details</summary><dl>${contextDetails(capture)}${metadata.map((detail) => `<div><dt>${escape(detail.label)}</dt><dd>${escape(typeof detail.value === "number" ? number(detail.value, 8) : detail.value ?? "Unavailable")}${detail.unit ? " " + escape(unitText(detail.unit)) : ""}${detail.tag ? ` <span>${escape(detail.tag)}</span>` : ""}</dd></div>`).join("")}</dl><p>Original chart scale; not a comparison scale.</p></details>`;
+      return `<div class="ol-comparison-focus-head"><span class="ol-comparison-eyebrow">Focused cell${reference ? " · Reference" : ""}</span><h2>${escape(timeRange(capture, true))}</h2><p class="ol-comparison-band">${escape(band(capture))}</p>${completeness ? `<p class="ol-comparison-completeness">${escape(completeness)}${capture.shortExposure ? " · Short exposure" : ""}</p>` : ""}<div class="ol-comparison-capture-stamp"><span>Captured ${escape(utc(capture.capturedAt))}</span><span>Measured through ${escape(utc(capture.measuredThrough))}</span><span>${escape(sourceLabel)}</span></div><div class="ol-comparison-focus-actions"><button type="button" class="ol-action cursor-interaction" data-comparison-action="reference" data-id="${escape(reference ? "" : capture.id)}" data-focus-key="pin">${reference ? "Use set median" : "Use as reference"}</button><button type="button" class="ol-action cursor-interaction" data-comparison-action="copy" data-id="${escape(capture.id)}" data-focus-key="copy">Copy cell</button><button type="button" class="ol-action cursor-interaction" data-comparison-action="remove" data-id="${escape(capture.id)}" data-focus-key="remove-focus">Remove</button></div></div><div class="ol-comparison-metrics">${blocks}</div><details class="ol-comparison-other"><summary>Other comparison measures</summary><div class="ol-comparison-metrics">${remaining}</div></details><details class="ol-comparison-details" ><summary data-focus-key="details">Capture details</summary><dl>${contextDetails(capture)}${metadata.map((detail) => `<div><dt>${escape(detail.label)}</dt><dd>${escape(typeof detail.value === "number" ? number(detail.value, 8) : detail.value ?? "Unavailable")}${detail.unit ? " " + escape(unitText(detail.unit)) : ""}${detail.tag && detail.tag !== "finite" ? ` <span>${escape(detail.tag)}</span>` : ""}</dd></div>`).join("")}</dl><p>Original chart scale; not a comparison scale.</p></details>`;
     }
     function renderCards(captures, analysis) {
       const cardMetrics = compactMetrics(analysis);
@@ -214,6 +218,8 @@
       q('[data-comparison-action="expand"]').textContent = model.expanded ? "Restore chart" : "Expand";
       q('[data-comparison-action="expand"]').setAttribute("aria-expanded", String(!!model.expanded));
       q('[data-comparison-action="clear"]').disabled = !captures.length;
+      q('[data-comparison-action="export"]').disabled = !captures.length;
+      q('[data-comparison-action="undo"]').disabled = !options.canUndo;
       q('[data-comparison-control="basis"]').value = model.basis || "auto";
       setOptions("selectedMetric", metrics(analysis).map((metric) => ({ value: metric.key, label: metric.label })), model.selectedMetric || "volume");
       setOptions("reference", [{ value: "", label: "Set median" }, ...captures.map((capture) => ({ value: capture.id, label: captureName(capture) }))], model.reference);
@@ -230,7 +236,7 @@
       else if (model.poc && !pocs.some((poc) => poc.value === model.poc.id)) pocs.push({ value: model.poc.id, label: model.poc.label || "Captured POC reference" });
       setOptions("poc", pocs, hiddenPoc ? "unavailable-in-replay" : model.poc?.id);
       q(".ol-comparison-basis-note").textContent = `${model.basis === "auto" || !model.basis ? "Auto → " : ""}${usedBasis === "intensity" ? "Intensity" : "Amount"}${analysis?.geometryDiffers ? " · Geometry differs" : ""}`;
-      q(".ol-comparison-poc-note").textContent = hiddenPoc ? "Unavailable in replay" : !loadedPocs.length && !model.poc ? "Enable a POC in Lines first" : model.poc?.label || "";
+      q(".ol-comparison-poc-note").textContent = hiddenPoc ? "Unavailable in replay" : !loadedPocs.length && !model.poc ? options.pocState || "No eligible period POC; check Lines and coverage" : model.poc?.label || "";
       const status = options.status || "";
       q('[data-comparison-status]').textContent = options.unsaved && !status.startsWith("Unsaved comparison")
         ? `Unsaved comparison${status ? " · " + status : ""}` : status;
@@ -256,6 +262,7 @@
       if (!control || !root.contains(control) || control.disabled) return;
       const type = control.dataset.comparisonAction;
       if (type === "close-copy") { clearCopyFallback(); return; }
+      if (type === "import") { q("[data-comparison-import]").click(); return; }
       if (type === "direction") dispatch({ type: "sort", key: state.sort?.key || "time", direction: state.sort?.direction === "desc" ? "asc" : "desc" });
       else if (type === "page") dispatch({ type, value: Math.max(0, (state.page || 0) + (control.dataset.value === "previous" ? -1 : 1)) });
       else if (type === "reference") dispatch({ type, id: control.dataset.id || null });
@@ -263,6 +270,11 @@
       else dispatch({ type, ...(control.dataset.id ? { id: control.dataset.id } : {}) });
     }
     function onChange(event) {
+      if (event.target.hasAttribute("data-comparison-import")) {
+        const file = event.target.files?.[0]; event.target.value = "";
+        if (file) dispatch({ type: "import", file });
+        return;
+      }
       const type = event.target.dataset.comparisonControl;
       if (type === "sort") dispatch({ type, key: event.target.value, direction: ["time", "added", "poc"].includes(event.target.value) ? "asc" : "desc" });
       else if (type === "reference" || type === "poc") dispatch({ type, id: event.target.value || null });

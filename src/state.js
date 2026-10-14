@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+  const host = typeof window === "undefined" ? { explorerEncoding: require("./encoding.js"), localStorage: { length: 0, getItem: () => null }, sessionStorage: { length: 0, getItem: () => null } } : window;
   // Browser storage for the explorer. This browser keeps the workspace, the last view and the
   // named views for every tab; each tab keeps its own history. Storage can be unavailable
   // (private windows, blocked site data): reads then come back empty and writes throw.
@@ -15,7 +16,7 @@
   // loaded, before anything here wrote one. A browser without any has nothing a version change altered.
   const returning = (() => {
     try {
-      const area = window.localStorage;
+      const area = host.localStorage;
       for (let i = 0; i < area.length; i++) if (String(area.key(i)).startsWith(prefix)) return true;
     } catch {
       /* storage that cannot be read holds nothing from before */
@@ -35,7 +36,7 @@
   // The text in a storage slot, or why it could not be read (the storage object itself may throw).
   const fetchText = (area, key) => {
     try {
-      return { ok: true, text: window[area].getItem(prefix + key) };
+      return { ok: true, text: host[area].getItem(prefix + key) };
     } catch (error) {
       return { ok: false, error };
     }
@@ -105,7 +106,7 @@
     const had = fetchText(area, "backup:" + key);
     if (had.ok && had.text !== null) return { ok: true, copied: false, reason: "a backup already exists" };
     try {
-      window[area].setItem(prefix + "backup:" + key, got.text);
+      host[area].setItem(prefix + "backup:" + key, got.text);
       return { ok: true, copied: true, reason: null };
     } catch (error) {
       return { ok: false, copied: false, reason: describe(error) };
@@ -128,7 +129,7 @@
         if (!copy.ok) throw new Error("the saved " + key + " could not be kept before it was replaced: " + copy.reason);
       }
     }
-    window[area].setItem(prefix + key, text);
+    host[area].setItem(prefix + key, text);
     known.set(key, text);
   };
   // What the baseline's read returned: the parsed value, or null for anything unusable (warning once per
@@ -194,7 +195,7 @@
   let drawingWriter = null, drawingSequence = 0, namedBaseline = null, namedReadFailure = null;
   const protectedUuid = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
   const protectedId = () => {
-    const crypto = window.crypto || globalThis.crypto;
+    const crypto = host.crypto || globalThis.crypto;
     if (typeof crypto?.randomUUID === "function") return crypto.randomUUID();
     if (typeof crypto?.getRandomValues !== "function") throw new Error("secure drawing storage identities are unavailable");
     const bytes = crypto.getRandomValues(new Uint8Array(16)); bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
@@ -210,11 +211,11 @@
     catch { return { status: "unreadable", value: null, raw: got.text, reason: "saved authored data is not valid JSON" }; }
   };
   const verifiedWrite = (area, key, value) => {
-    const text = JSON.stringify(value); window[area].setItem(prefix + key, text);
-    if (window[area].getItem(prefix + key) !== text) throw new Error("authored storage write could not be verified");
+    const text = JSON.stringify(value); host[area].setItem(prefix + key, text);
+    if (host[area].getItem(prefix + key) !== text) throw new Error("authored storage write could not be verified");
   };
   const protectedKeys = (root) => {
-    const area = window.localStorage, keys = [];
+    const area = host.localStorage, keys = [];
     for (let i = 0; i < area.length; i++) { const key = area.key(i); if (typeof key === "string" && key.startsWith(prefix + root + "record:")) keys.push(key.slice(prefix.length)); }
     return keys;
   };
@@ -230,7 +231,7 @@
     if (!isObject(r) || r.storageVersion !== 1) return { ...got, status: "unknown-version", value: null, collection: null, reason: "unsupported authored recovery version" };
     if (!protectedUuid(id) || r.id !== id || !protectedUuid(r.writer) || !Number.isSafeInteger(r.sequence) || r.sequence < 0 || !Number.isSafeInteger(r.revision) || r.revision < 0 || typeof r.pinned !== "boolean" || (r.createdAt !== undefined && (!Number.isSafeInteger(r.createdAt) || r.createdAt < 0))) return { ...got, status: "unreadable", value: null, collection: null, reason: "invalid authored recovery record" };
     try {
-      const collection = freezeProtected(window.explorerEncoding.drawings.normalizeCollection(r.collection)), validated = freezeProtected({ ...got, value: { ...r, collection }, collection });
+      const collection = freezeProtected(host.explorerEncoding.drawings.normalizeCollection(r.collection)), validated = freezeProtected({ ...got, value: { ...r, collection }, collection });
       drawingRecordCache.set(id, validated);
       if (drawingRecordCache.size > 64) drawingRecordCache.delete(drawingRecordCache.keys().next().value);
       return validated;
@@ -255,7 +256,7 @@
     if (value.storageVersion === 2) {
       try {
         if (!protectedUuid(value.id) || !protectedUuid(value.writer) || !Number.isSafeInteger(value.revision) || value.revision < 0) throw new Error("invalid complete drawing session");
-        return { ...session, collection: window.explorerEncoding.drawings.normalizeCollection(value.collection), recoveries };
+        return { ...session, collection: host.explorerEncoding.drawings.normalizeCollection(value.collection), recoveries };
       } catch (error) { return { status: /unsupported drawing schema/.test(error.message) ? "unknown-version" : "unreadable", collection: null, raw: session.raw, reason: error.message, recoveries }; }
     }
     if (!protectedUuid(value.id)) return { status: "unreadable", collection: null, raw: session.raw, reason: "invalid drawing session identity", recoveries };
@@ -270,14 +271,14 @@
   };
   const drawingWrite = (collection, revision, pinned) => {
     try {
-      const normalized = window.explorerEncoding.drawings.normalizeCollection(collection);
+      const normalized = host.explorerEncoding.drawings.normalizeCollection(collection);
       if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("invalid drawing revision");
       if (!pinned) {
         const previous = drawingLoad([]);
         if (!["ok", "absent"].includes(previous.status)) {
           if (previous.raw === null) throw new Error(previous.reason);
           // Deduplicate a verified byte-for-byte copy before replacing an unreadable tab snapshot.
-          const digest = window.explorerEncoding.hash.hex(window.explorerEncoding.hash.sha256(window.explorerEncoding.hash.utf8(JSON.stringify(previous.raw)))),
+          const digest = host.explorerEncoding.hash.hex(host.explorerEncoding.hash.sha256(host.explorerEncoding.hash.utf8(JSON.stringify(previous.raw)))),
             key = drawingRoot + "unreadable-session:" + digest, backup = protectedRead("localStorage", key);
           if (backup.status === "absent") verifiedWrite("localStorage", key, { storageVersion: 1, raw: previous.raw });
           else if (backup.status !== "ok" || backup.value?.storageVersion !== 1 || backup.value.raw !== previous.raw)
@@ -298,7 +299,7 @@
       if (!pinned) verifiedWrite("sessionStorage", drawingSessionKey, { storageVersion: 2, writer, id, revision, collection: normalized });
       let expired = 0;
       for (const r of records) if (!retained.has(r.id)) {
-        try { window.localStorage.removeItem(prefix + drawingRoot + "record:" + r.id); expired++; } catch { /* an extra recovery is safe */ }
+        try { host.localStorage.removeItem(prefix + drawingRoot + "record:" + r.id); expired++; } catch { /* an extra recovery is safe */ }
       }
       return { ok: true, id, expired };
     } catch (error) { return { ok: false, reason: describe(error) }; }
@@ -312,8 +313,8 @@
       throw new Error("named view " + entry.name + " needs boolean live/auto metadata");
     if (entry.visualVersion === 3) {
       if (!isObject(entry.payload) || entry.payload.visualVersion !== 3) throw new Error("named view needs its complete version-3 payload");
-      if (window.explorerEncoding.hash.utf8(window.explorerEncoding.hash.canonical(entry.payload)).length > window.explorerEncoding.LIMITS.PAYLOAD_MAX_BYTES) throw new Error("named view exceeds the complete payload byte limit");
-      const checked = window.explorerEncoding.codec.validatePortable(entry.payload, {});
+      if (host.explorerEncoding.hash.utf8(host.explorerEncoding.hash.canonical(entry.payload)).length > host.explorerEncoding.LIMITS.PAYLOAD_MAX_BYTES) throw new Error("named view exceeds the complete payload byte limit");
+      const checked = host.explorerEncoding.codec.validatePortable(entry.payload, {});
       if (!checked.ok) throw new Error("named view " + entry.name + ": " + checked.reasons.join("; "));
     } else {
       if (entry.visualVersion !== undefined && entry.visualVersion !== VISUAL_VERSION) throw new Error("unsupported named-view visual version");
@@ -430,13 +431,13 @@
         });
       });
       if (!covered) { keep.add(record.id); continue; }
-      try { window.localStorage.removeItem(prefix + namedMergedRoot + "record:" + record.id); } catch { /* retaining an extra registry snapshot is safe */ }
+      try { host.localStorage.removeItem(prefix + namedMergedRoot + "record:" + record.id); } catch { /* retaining an extra registry snapshot is safe */ }
     }
     const legacy = legacyProtectedNamedRead();
     if (legacy.status === "ok") for (const key of protectedKeys(namedRoot)) {
       const old = protectedRead("localStorage", key);
       if (old.status !== "ok" || old.value?.storageVersion !== 1 || old.value?.id === legacy.value.id) continue;
-      try { validateNamedList(old.value.entries); window.localStorage.removeItem(prefix + key); } catch { /* unsupported or unreadable originals remain preserved */ }
+      try { validateNamedList(old.value.entries); host.localStorage.removeItem(prefix + key); } catch { /* unsupported or unreadable originals remain preserved */ }
     }
   };
   const protectedSaveNamedViews = (list) => {
@@ -637,7 +638,7 @@
   const comparisonRead = (instrument) => {
     if (instrument !== "BTC/USDT") return { ...comparisonFailure("unreadable", "unsupported comparison instrument"), value: null, raw: null };
     try {
-      const area = window.sessionStorage;
+      const area = host.sessionStorage;
       for (let i = 0; i < area.length; i++) {
         const key = area.key(i), match = key?.match(/comparison:v(\d+):BTC\/USDT$/);
         if (key?.startsWith(prefix) && match && Number(match[1]) > 2) {
@@ -739,7 +740,7 @@
       ? "saved comparison was not loaded; reload to restore it or discard that stored record before replacing it"
       : "saved comparison was rejected; discard that stored record before replacing it"), raw: rejected.raw, rejectedStatus: rejected.status };
     try {
-      const area = window.sessionStorage, key = prefix + comparisonRoot + instrument;
+      const area = host.sessionStorage, key = prefix + comparisonRoot + instrument;
       area.setItem(key, serialized.raw);
       if (area.getItem(key) !== serialized.raw) return comparisonFailure("unsaved", "comparison storage write could not be verified");
       comparisonUnread.delete(instrument); comparisonVerifiedRaw.set(instrument, serialized.raw);
@@ -759,7 +760,7 @@
   const comparisonDiscard = (instrument) => {
     if (instrument !== "BTC/USDT") return comparisonFailure("unreadable", "unsupported comparison instrument");
     try {
-      const area = window.sessionStorage, key = prefix + comparisonRoot + instrument;
+      const area = host.sessionStorage, key = prefix + comparisonRoot + instrument;
       const legacy = comparisonLegacy.get(instrument), rejected = comparisonRejected.get(instrument);
       if (rejected?.key) { if (area.getItem(rejected.key) !== rejected.raw) return comparisonFailure("retained", "newer record changed; reopen before discarding"); area.removeItem(rejected.key); if (area.getItem(rejected.key) !== null) return comparisonFailure("unsaved", "newer stored comparison could not be discarded"); }
       if (rejected?.raw && area.getItem(prefix + comparisonLegacyRoot + instrument) === rejected.raw && area.getItem(key) === null) area.removeItem(prefix + comparisonLegacyRoot + instrument);
@@ -769,9 +770,11 @@
       return { ok: true, status: "ok", reason: null };
     } catch (error) { return comparisonFailure("unsaved", "stored comparison could not be discarded (" + describe(error) + ")"); }
   };
-  const comparison = Object.freeze({ read: comparisonRead, validate: comparisonValidate, measure: comparisonMeasure, serialize: comparisonSerialize, write: comparisonWrite, discard: comparisonDiscard });
+  const comparison = Object.freeze({ read: comparisonRead, validate: comparisonValidate, measure: comparisonMeasure, serialize: comparisonSerialize, write: comparisonWrite, discard: comparisonDiscard,
+    decode: (raw, instrument) => { const parsed = comparisonParse(raw, instrument); return parsed.ok && parsed.value.comparisonVersion === 1 ? { ...parsed, value: comparisonUpgrade(parsed.value) } : parsed; },
+  });
 
-  window.explorerState = {
+  const api = {
     comparison,
     drawings: protectedDrawings,
     namedViews: protectedNamedViews,
@@ -795,4 +798,6 @@
     saveNotice,
     returning: () => returning,
   };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  if (typeof window !== "undefined") window.explorerState = api;
 })();

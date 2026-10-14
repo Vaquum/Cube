@@ -244,7 +244,7 @@ test.describe("B40 the reference language: one hue and one stroke for a family, 
       );
     expect(await key("va", 2, 5), "the value area's key line is the gold").toBe(c.poc);
     await expect(page.locator("#ol-key-area")).toContainText("VAH and VAL");
-    await expect(page.locator("#ol-ray-count")).toContainText("untested levels");
+    await expect(page.locator("#ol-ray-count")).toContainText(/untested levels?/);
     expect(await page.locator('[data-stroke-role="untested"] canvas').count(), "the untested key is painted").toBe(1);
   });
 

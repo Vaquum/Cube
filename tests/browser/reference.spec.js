@@ -20,7 +20,7 @@ test("one drawer entry opens a wide docked reference; settings live in their top
   await expect(page.locator('header #ol-reference-toggle')).toHaveCount(0);
   await expect(page.locator('.ol-chart #ol-legend, .ol-chart #ol-rows-legend, .ol-chart #ol-profile-chip, .ol-chart #ol-axis-chip')).toHaveCount(0);
   const options = await page.locator("#ol-reference-topic option").evaluateAll(elements => elements.map(element => element.value));
-  expect(options).toEqual(["grid", "window", "resolution", "measures", "candles", "movement", "scales", "rows", "profiles", "columns", "states", "selection", "inspect", "lens", "references", "drawings", "evidence", "rallies", "replay", "tables", "compare", "views"]);
+  expect(options).toEqual(["grid","window","resolution","measures","candles","movement","scales","rows","profiles","columns","states","coordinates","exposure","transforms","row-comparisons","poc-value","cascade","motion-support","session-levels","structure-rules","retracements","average-rules","vwap-rules","clock-rules","untested-rules","indicator-rules","state-glossary","selection","inspect","lens","references","drawings","reference-visibility","history-reading","lens-rules","drawing-rules","mobile","evidence","rallies","replay","tables","compare","views","matching","outcomes","intervals","case-records","rally-rules","replay-objects","comparison-math","capture-content","retention"]);
   for (const topic of options) {
     await page.locator("#ol-reference-topic").selectOption(topic);
     await expect(page.locator("#ol-reference-article dt")).toHaveText(["Purpose", "Read", "Use"]);
@@ -226,7 +226,7 @@ test("canvas spotlights follow resized layout and hidden features give a truthfu
   await open(page, fakeFor, probe);
   await page.locator("#ol-reference-topic").selectOption("rows");
   await page.getByRole("button", { name: "Show row strip", exact: true }).click();
-  await expect(page.locator("#ol-reference-status")).toContainText("not visible");
+  await expect(page.locator("#ol-reference-status")).toContainText("Rows is off");
   await expect(page.locator("#ol-reference-spotlight")).toBeHidden();
   await page.locator("#ol-reference-topic").selectOption("grid");
   await page.getByRole("button", { name: "Show grid", exact: true }).click();
@@ -256,8 +256,8 @@ test("reference works on a phone and topic keys do not navigate the chart", asyn
   await page.getByRole("button", { name: "Show time window", exact: true }).click();
   await expect(page.locator("#ol-reference-spotlight")).toBeVisible();
   await page.screenshot({ path: "reports/reference-phone.png" });
-  await expect(page.locator("#ol-reference-close")).toBeInViewport();
-  await expect(page.locator("#ol-reference-topic")).toBeInViewport();
+  await expect(page.locator("#ol-reference-back")).toBeInViewport();
+  await expect(page.locator("#ol-reference")).toBeHidden();
   await page.keyboard.press("Escape");
   await expect(page.locator("#ol-reference")).toBeVisible();
   await page.keyboard.press("Escape");

@@ -77,27 +77,62 @@ async function productShot(page, name) {
   fs.mkdirSync(dir, { recursive: true }); await page.screenshot({ path: path.join(dir, name + ".png") });
 }
 
-test("label is optional; preview, Cancel and two-stage Undo preserve committed name and geometry", async ({ page, fakeFor }) => {
+test("custom Name is the blank-Label fallback; preview, Cancel and two-stage Undo preserve name and geometry", async ({ page, fakeFor }) => {
   await observeText(page); const fake = await fakeFor("mini"); await D.open(page, fake);
   const { id } = await D.drawing(page), original = await object(page, id), before = await revision(page);
   expect(original).not.toHaveProperty("label"); await D.edit(page, id);
   await expect(page.locator("#ol-drawing-label")).toHaveValue("");
   await page.locator("#ol-drawing-name").fill(TAG + "inventory_only"); await page.locator("#ol-drawing-apply").click(); await D.closeManager(page);
-  await expect.poll(() => texts(page)).toEqual([]);
+  await expect.poll(async () => (await texts(page)).map((text) => text.text)).toEqual([TAG + "inventory_only"]);
   const named = await object(page, id), namedRevision = await revision(page);
   await D.edit(page, id); await page.locator("#ol-drawing-label").fill(TAG + "preview");
   await expect.poll(async () => (await texts(page)).some((t) => t.text === TAG + "preview" && t.alpha < 1)).toBe(true);
   expect(await object(page, id)).toEqual(named); expect(await revision(page)).toBe(namedRevision);
-  await page.locator("#ol-drawing-cancel").click(); await D.closeManager(page); await expect.poll(() => texts(page)).toEqual([]);
+  await page.locator("#ol-drawing-cancel").click(); await D.closeManager(page); await expect.poll(async () => (await texts(page)).map((text) => text.text)).toEqual([TAG + "inventory_only"]);
   await setLabel(page, id, TAG + "committed"); expect(await object(page, id)).toMatchObject({ ...named, label: TAG + "committed" });
   await D.edit(page, id); await page.locator("#ol-drawing-label").fill(TAG + "dirty"); await page.locator("#ol-drawing-editor-undo").click();
   await expect(page.locator("#ol-drawing-editor")).toBeHidden(); expect((await object(page, id)).label).toBe(TAG + "committed");
   await D.command(page, "undo"); expect(await object(page, id)).toEqual(named);
+  await expect.poll(async () => (await texts(page)).map((text) => text.text)).toEqual([TAG + "inventory_only"]);
   await D.command(page, "redo"); expect((await object(page, id)).label).toBe(TAG + "committed");
-  await D.closeManager(page); await setLabel(page, id, "   "); await expect.poll(() => texts(page)).toEqual([]);
+  await D.closeManager(page); await setLabel(page, id, "   "); await expect.poll(async () => (await texts(page)).map((text) => text.text)).toEqual([TAG + "inventory_only"]);
   expect((await object(page, id)).label || "").toBe("");
   expect((await object(page, id)).a).toEqual(original.a); expect((await object(page, id)).b).toEqual(original.b);
   expect(await revision(page)).toBeGreaterThan(before);
+});
+
+for (const label of ["", TAG + "default_duplicate"]) test(`duplicating a generated line ${label ? "retains its optional Label identity" : "keeps both lines without a canvas name"}`, async ({ page, fakeFor }) => {
+  await observeText(page); const fake = await fakeFor("mini"); await D.open(page, fake);
+  const { id } = await D.drawing(page);
+  if (label) await setLabel(page, id, label);
+  await D.action(page, id, "duplicate");
+  const duplicate = await D.active(page), original = await object(page, id), copy = await object(page, duplicate);
+  expect(copy.id).not.toBe(id); expect(copy.a).toEqual(original.a); expect(copy.b).toEqual(original.b);
+  expect(copy.name).toBe(`Trend line ${copy.ordinal + 1}`);
+  await D.lines(page);
+  for (const line of [original, copy]) await expect(page.locator(`[data-drawing-row="${line.id}"] .ol-line-name`)).toHaveText(label || line.name);
+  await D.closeManager(page);
+  if (label) {
+    expect(copy.label).toBe(label);
+    await expect.poll(async () => (await texts(page)).map((text) => text.text)).toEqual([label, label]);
+  } else {
+    expect(copy).not.toHaveProperty("label");
+    await expect.poll(async () => (await allTexts(page)).filter((text) => [original.name, copy.name].includes(text.text))).toEqual([]);
+  }
+});
+
+test("a custom default-shaped Name survives duplication as a named copy on both canvas and menu", async ({ page, fakeFor }) => {
+  await observeText(page); const fake = await fakeFor("mini"); await D.open(page, fake);
+  const { id } = await D.drawing(page), name = "Trend line 99";
+  await D.edit(page, id); await page.locator("#ol-drawing-name").fill(name);
+  await page.locator("#ol-drawing-apply").click(); await D.closeManager(page);
+  await D.action(page, id, "duplicate");
+  const duplicate = await D.active(page), copy = await object(page, duplicate);
+  expect(copy.name).toBe(name + " copy 1"); expect(copy).not.toHaveProperty("label");
+  await D.lines(page);
+  await expect(page.locator(`[data-drawing-row="${duplicate}"] .ol-line-name`)).toHaveText(copy.name);
+  await D.closeManager(page);
+  await expect.poll(async () => (await allTexts(page)).filter((text) => text.text === copy.name).length).toBe(1);
 });
 
 test("label literal text survives duplicate, hide, delete and Undo without becoming markup", async ({ page, fakeFor }) => {
@@ -132,10 +167,10 @@ test("label reload, complete code and named View restore the exact optional text
 
 for (const colorScheme of ["light", "dark"]) test.describe(`label geometry ${colorScheme}`, () => {
   test.use({ colorScheme });
-  test("plain label stays above, parallel and upright for horizontal, rising, falling and reversed anchors", async ({ page, fakeFor }, testInfo) => {
+  test("plain label starts at the left end and stays above, parallel and upright for horizontal, rising, falling and reversed anchors", async ({ page, fakeFor }, testInfo) => {
     await observeText(page); const pane = paneRecorder.forPage(page), fake = await fakeFor("mini"); await D.open(page, fake);
     const { id } = await D.drawing(page);
-    for (const [name, a, b, color] of [["horizontal", [.25, .5], [.75, .5], "#ff0000"], ["rising", [.25, .75], [.75, .25], "#00ff00"], ["falling", [.25, .25], [.75, .75], "#0000ff"], ["reversed", [.75, .25], [.25, .75], "#a87823"], ["vertical", [.5, .25], [.5, .75], "#dfb967"]]) {
+    for (const [name, a, b, color] of [["horizontal", [.25, .5], [.75, .5], "#ff0000"], ["rising", [.25, .75], [.75, .25], "#00ff00"], ["falling", [.25, .25], [.75, .75], "#0000ff"], ["reversed", [.75, .25], [.25, .75], "#a87823"], ["vertical", [.5, .25], [.5, .75], "#dfb967"], ["clipped", [-.25, .5], [.75, .5], "#ff0000"], ["clipped-reversed", [.75, .5], [-.25, .5], "#00ff00"]]) {
       await D.edit(page, id); await page.locator("#ol-drawing-label").fill(TAG + name); await page.locator("#ol-drawing-color").fill(color);
       for (const [key, pair] of [["a", a], ["b", b]]) { const value = D.expected(...pair); await page.locator(`#ol-drawing-${key}-time`).fill(new Date(value.timeMs).toISOString()); await page.locator(`#ol-drawing-${key}-price`).fill((value.priceCents / 100).toFixed(2)); }
       await page.locator("#ol-drawing-apply").click(); await D.closeManager(page);
@@ -149,6 +184,10 @@ for (const colorScheme of ["light", "dark"]) test.describe(`label geometry ${col
       expect(text.font).toMatch(/^11px /); expect(text.font).toContain("sans-serif");
       const midpoint = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], gap = Math.sin(text.angle) * (text.at[0] - midpoint[0]) - Math.cos(text.angle) * (text.at[1] - midpoint[1]);
       expect(gap - text.descent, "ink bottom sits six CSS pixels above the line").toBeCloseTo(6, 3); expect(text.width).toBeLessThanOrEqual(length - 16);
+      const along = (point) => Math.cos(text.angle) * point[0] + Math.sin(text.angle) * point[1];
+      const start = Math.min(along(A), along(B));
+      expect(text.align, "the label aligns its leading edge instead of its center").toBe("left");
+      expect(along(text.at) - start - text.left - .5, "label casing starts eight CSS pixels inside the upright line's left end").toBeCloseTo(8, 3);
       expect(text.clip).toBeTruthy(); const [x, y, w, h] = await page.locator("#ol-canvas").getAttribute("data-layout").then((s) => s.split(",").map(Number));
       expect(text.clip).toEqual([x, y, x + w, y + h]);
       const [ma, mb, mc, md] = text.matrix, d = Math.hypot(ma, mb);

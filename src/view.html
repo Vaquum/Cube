@@ -587,7 +587,7 @@
             aria-label="Pan"
             aria-keyshortcuts="V"
             data-keys="V"
-            data-hint="Drag to navigate; click a column to anchor; G edits drawings"
+            data-hint="Drag to navigate; Replay/Continuations/Cases: click sets the anchor; G edits drawings"
           >
             <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
               <path
@@ -786,11 +786,15 @@
     <aside id="ol-reference" class="ol-reference" aria-labelledby="ol-reference-title" hidden>
       <div class="ol-reference-head"><h2 id="ol-reference-title">System reference</h2><button type="button" id="ol-reference-close" class="ol-icon-button cursor-interaction" aria-label="Close reference"><svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg></button></div>
       <p class="ol-reference-intro">Read the market, work with the view, then compare the evidence. Highlight any part to locate it.</p>
+      <p class="ol-reference-mobile-note ol-muted">Close for the chart. Show reveals a control or scrolls to a target; Back to reference returns here.</p>
+      <button type="button" id="ol-reference-back" class="ol-action cursor-interaction" hidden>Back to reference</button>
       <label class="ol-reference-topic-label" for="ol-reference-topic">Topic</label>
+      <input type="search" id="ol-reference-search" aria-label="Search reference" placeholder="Find a topic">
       <select id="ol-reference-topic" aria-label="Reference topic"></select>
       <div class="ol-reference-sequence"><button type="button" id="ol-reference-prev" class="ol-action cursor-interaction">Previous</button><span id="ol-reference-position" class="ol-muted"></span><button type="button" id="ol-reference-next" class="ol-action cursor-interaction">Next</button></div>
       <div id="ol-reference-body" class="ol-reference-body">
         <div id="ol-reference-article"></div>
+        <section id="ol-reference-colours" class="ol-reference-colours" aria-label="Colour and mark key"></section>
         <section class="ol-reference-settings" data-reference-settings="scales" aria-label="Current colour scales" hidden>
           <button
           type="button"
@@ -1101,6 +1105,15 @@
           >
         </div>
         <span id="ol-candle-legend" class="ol-candle-legend" role="group" aria-label="Candle direction" hidden></span>
+        <div class="ol-view-keys" role="group" aria-label="Chart interpretation">
+          <button type="button" id="ol-cell-key" class="ol-action ol-s cursor-interaction" aria-label="Cell colour key"><canvas id="ol-cell-key-ramp" width="64" height="8" aria-hidden="true"></canvas><span id="ol-cell-key-text">Cell colour scale</span></button>
+          <button type="button" id="ol-profile-settings" class="ol-action ol-s cursor-interaction">Profiles</button>
+          <button type="button" id="ol-axis-settings" class="ol-action ol-s cursor-interaction">Axes</button>
+          <button type="button" id="ol-bounds-settings" class="ol-action ol-s cursor-interaction">Bounds</button>
+          <button type="button" id="ol-key-guide" class="ol-action ol-s cursor-interaction">Key</button>
+          <span id="ol-indicator-key" class="ol-indicator-key" role="group" aria-label="Indicator series" hidden><span><i style="--key-colour:var(--ol-ink)"></i>MACD</span><span><i style="--key-colour:var(--ol-line-average)"></i>Signal</span><span><i style="--key-colour:var(--ol-positive)"></i>Histogram +</span><span><i style="--key-colour:var(--ol-negative)"></i>Histogram −</span></span>
+          <span id="ol-model-disclosure" class="ol-muted" role="note" hidden></span>
+        </div>
 
 
         <span id="ol-chart-focus" class="ol-chart-focus" aria-hidden="true">Chart focused</span>
@@ -1182,7 +1195,7 @@
             <option value="1" selected>1×</option>
             <option value="2">2×</option>
             <option value="4">4×</option></select
-          ><span id="ol-replay-at" class="ol-num"></span
+          ><span id="ol-replay-at" class="ol-num"></span><form id="ol-replay-jump" class="ol-exact-form"><label>Edge · UTC<input type="datetime-local" id="ol-replay-edge" step="0.001" required></label><button type="submit" class="ol-action ol-s cursor-interaction">Jump</button><span id="ol-replay-jump-status" role="status"></span></form
           ><button
             type="button"
             id="ol-replay-now"
@@ -1302,7 +1315,7 @@
         <div class="ol-drawer-body" id="ol-drawer-body">
           <section class="ol-panel ol-rally-panel" id="ol-panel-rallies" aria-labelledby="ol-tab-rallies" hidden>
             <form id="ol-rally-form" class="ol-rally-form">
-              <label>Mode<select id="ol-rally-mode"><option value="first_hit">First hit</option><option value="controlled_advance">Controlled advance</option><option value="swing">Swing</option></select></label>
+              <label>Mode<select id="ol-rally-mode"><option value="first_hit">First passage</option><option value="controlled_advance">Controlled advance</option><option value="swing">Swing</option></select></label>
               <label>Scale<select id="ol-rally-scale"><option value="bps">Basis points</option><option value="atr">ATR</option></select></label>
               <label>Target<input id="ol-rally-target" type="number" min="0.001" max="10000" step="any" value="30" required></label>
               <label id="ol-rally-pullback-label" hidden>Max pullback<input id="ol-rally-pullback" type="number" min="0.001" max="10000" step="any" value="10" required></label>
@@ -1312,13 +1325,14 @@
               <label>Analysis end · UTC<input id="ol-rally-end" type="datetime-local" step="1" required></label>
               <button id="ol-rally-window" type="button" class="ol-action cursor-interaction">Use visible time · max 24h</button>
               <button id="ol-rally-discover" type="submit" class="ol-action cursor-interaction">Discover</button>
+              <button id="ol-rally-cancel" type="button" class="ol-action cursor-interaction" hidden>Stop waiting</button>
             </form>
             <p class="ol-muted" id="ol-rally-scale-note">Thresholds in basis points of the frozen reference price.</p>
             <p class="ol-muted" id="ol-rally-definition" hidden></p>
             <p class="ol-muted">A rally is an observed upward move. Thresholds are your operational definition. Confirmation does not predict reversal, durability or future gains. Spot data cannot establish short covering or derivatives leadership.</p>
             <div class="ol-panel-head">
               <label id="ol-rally-deadline-label">Time to target · minutes, exclusive<input id="ol-rally-deadline" type="number" min="0.001" max="240" step="any" value="240" aria-describedby="ol-rally-deadline-note"></label>
-              <span id="ol-rally-deadline-note" class="ol-muted">Local filter · at most 240 minutes. Swing ends on a reversal. Grid, replay and filters reuse the discovery.</span>
+              <span id="ol-rally-deadline-note" class="ol-muted">Local filter · under 240 minutes. Swing ends on a reversal. Grid, replay and filters reuse the discovery.</span>
               <button id="ol-rally-clear" type="button" class="ol-action ol-s cursor-interaction">Clear rally</button>
               <div class="ol-pager"><button id="ol-rally-previous" type="button" class="ol-action ol-s cursor-interaction">Previous</button><span id="ol-rally-page">0 confirmed · 1/1</span><button id="ol-rally-next" type="button" class="ol-action ol-s cursor-interaction">Next</button></div>
             </div>
@@ -1420,7 +1434,7 @@
               <tbody id="ol-table-body"></tbody>
             </table>
             <table class="ol-table" id="ol-candle-table" aria-label="Candles in view: exact prices in USDT" hidden>
-              <thead><tr><th>Interval · UTC</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Direction</th><th>Status</th></tr></thead>
+              <thead><tr><th scope="col">Interval · UTC</th><th scope="col">Open · USDT</th><th scope="col">High · USDT</th><th scope="col">Low · USDT</th><th scope="col">Close · USDT</th><th scope="col">Net move · USDT</th><th scope="col">High−low · USDT</th><th scope="col">Net move / daily ATR</th><th scope="col">High−low / daily ATR</th><th scope="col">Direction</th><th scope="col">Status</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -1507,6 +1521,13 @@
             aria-labelledby="ol-tab-query"
             hidden
           >
+            <form id="ol-bounds-form" class="ol-exact-form">
+              <label>Start · UTC<input type="datetime-local" id="ol-bounds-start" step="0.001" required></label>
+              <label>End · UTC<input type="datetime-local" id="ol-bounds-end" step="0.001" required></label>
+              <label>Low · USDT<input type="number" id="ol-bounds-low" min="0" step="any" required></label>
+              <label>High · USDT<input type="number" id="ol-bounds-high" min="0" step="any" required></label>
+              <button type="submit" class="ol-action cursor-interaction">Apply bounds</button><span id="ol-bounds-status" role="status"></span>
+            </form>
             <p class="ol-muted">Cell size<span id="ol-query-mini" class="ol-num ol-query-mini"></span></p>
             <label for="ol-query-text"
               >Six parameters · requested base-cell bounds</label
@@ -1540,7 +1561,16 @@
                 Restore view</button
               ><span id="ol-copy-status" role="status"></span>
             </div>
+            <div class="ol-query-actions" aria-label="Human and agent exchange">
+              <button type="button" id="ol-copy-selection" class="ol-action cursor-interaction">Copy selection</button>
+              <button type="button" id="ol-copy-comparison" class="ol-action cursor-interaction">Copy comparison</button>
+              <button type="button" id="ol-share-investigation" class="ol-action cursor-interaction">Share investigation</button>
+              <button type="button" id="ol-refresh-investigation" class="ol-action cursor-interaction">Refresh current source</button>
+              <button type="button" id="ol-previous-investigation" class="ol-action cursor-interaction" title="Return to the captured values before the last refresh">Restore previous capture</button>
+            </div>
+            <p id="ol-analysis-status" class="ol-muted" role="status"></p>
             <div id="ol-import" hidden>
+              <p class="ol-muted">Paste the six-parameter JSON above, or a code starting with origo-cube:. A query sets bounds and cell size; a view code also restores settings and calibration. Export comparison collections separately.</p>
               <label for="ol-import-text">Paste a cube query or view code</label
               ><textarea id="ol-import-text" rows="3"></textarea
               ><button
@@ -1625,7 +1655,7 @@
           ><span id="ol-keys-ref" class="ol-keys-scale ol-keys-ref" aria-label="References"></span>
         </div>
         <span class="ol-gesture" id="ol-gesture"
-          >Drag to pan · wheel to zoom · click to anchor</span
+          >Drag to pan · wheel to zoom · Replay/Continuations/Cases: click anchors</span
         >
         <div class="ol-status-meta ol-num">
           <span id="ol-pixel-state"></span><span id="ol-scope"
@@ -1656,6 +1686,7 @@
         >
           <div class="ol-inspect-head">
             <span class="ol-inspect-title">Inspect</span>
+            <button type="button" id="ol-inspect-open-detail" class="ol-action cursor-interaction">Open details</button>
             <button type="button" id="ol-inspect-exit" class="ol-icon-button cursor-interaction" aria-label="Close inspector" title="Close inspector (Escape)">
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
             </button>
@@ -1681,7 +1712,7 @@
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 10 5-5 5 5" /></svg></button
             ><button type="button" data-step="down" class="ol-icon-button cursor-interaction" aria-label="Next lower price row" title="Next lower price row (Down)">
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg></button
-            ><select id="ol-inspect-reference" aria-label="Reference" title="Choose a reference"></select>
+            ><input type="search" id="ol-inspect-reference-search" aria-label="Find a reference" placeholder="Find a reference"><select id="ol-inspect-reference" aria-label="Reference" title="Choose a reference"></select>
           </div>
           <span class="ol-sr" id="ol-inspect-live" role="status" aria-live="polite"></span>
           <div class="ol-inspect-chooser" id="ol-inspect-chooser" role="dialog" aria-label="References at the tap" hidden></div>
@@ -1968,7 +1999,7 @@
         <label class="ol-drawing-field" for="ol-drawing-b-price">Price · USDT<input id="ol-drawing-b-price" type="text" inputmode="decimal" autocomplete="off" aria-describedby="ol-drawing-b-price-error" /><span id="ol-drawing-b-price-error" class="ol-drawing-error"></span></label>
       </fieldset>
       <p id="ol-drawing-editor-error" class="ol-drawing-error" role="status" aria-live="polite"></p>
-      <div class="ol-drawing-dialog-actions"><button type="button" id="ol-drawing-editor-undo" class="ol-action cursor-interaction">Undo drawing</button><span class="ol-drawing-spacer"></span><button type="button" id="ol-drawing-cancel" class="ol-action cursor-interaction">Cancel</button><button type="submit" id="ol-drawing-apply" class="ol-action ol-solid cursor-interaction">Apply</button></div>
+      <div class="ol-drawing-dialog-actions"><button type="button" id="ol-drawing-editor-undo" class="ol-action cursor-interaction">Undo drawing</button><button type="button" id="ol-drawing-editor-delete" class="ol-action cursor-interaction" hidden>Delete line</button><span class="ol-drawing-spacer"></span><button type="button" id="ol-drawing-cancel" class="ol-action cursor-interaction">Cancel</button><button type="submit" id="ol-drawing-apply" class="ol-action ol-solid cursor-interaction">Apply</button></div>
     </form>
   </dialog>
   <dialog id="ol-drawing-chooser" class="ol-keys ol-drawing-dialog ol-drawing-choice-dialog" data-temporary="modal" data-drawing-ui aria-labelledby="ol-drawing-chooser-title">
@@ -2004,7 +2035,7 @@
         </button>
       </div>
       <p class="ol-keys-note">
-        Keys work anywhere on the page except in text fields.
+        Keys work outside text fields and lists. Focused controls and the reference pane use their own keys.
       </p>
       <div class="ol-keys-grid">
         <section aria-labelledby="ol-keys-move">
@@ -2020,7 +2051,7 @@
             </div>
             <div>
               <dt>Zoom price</dt>
-              <dd><kbd>Shift</kbd> with <kbd>=</kbd> <kbd>-</kbd> or the wheel, or on the price axis the wheel or a drag</dd>
+              <dd><kbd>Shift</kbd> with <kbd>=</kbd> <kbd>-</kbd> or the chart wheel, or on the price axis the wheel or a drag. Time-axis wheel still zooms time; Coupled changes both.</dd>
             </div>
             <div>
               <dt>Zoom in on a point</dt>
@@ -2237,7 +2268,7 @@
       </div>
       <p class="ol-keys-note">
         On a touch screen: drag to pan, pinch to zoom, hold to see finer cells,
-        and tap a column to anchor it.
+        and tap a completed column with Pan while Replay, Continuations or Cases is active to anchor it.
       </p>
       <p class="ol-keys-note">
         Compare: right-click a cell to Copy cell or Add to comparison, or use

@@ -9235,7 +9235,9 @@
     const ex = c.excluded ? c.excluded : null;
     let excluded = 0;
     if (ex !== null) for (const key of Object.keys(ex)) if (typeof ex[key] === "number") excluded += ex[key];
-    return legFill(legT().note.calibratedOn, { support: typeof c.calibratedOn === "string" ? c.calibratedOn : "", n: typeof c.n === "number" ? c.n : 0, excluded });
+    const n = typeof c.n === "number" ? c.n : 0;
+    if (typeof c.calibratedOn !== "string" || !c.calibratedOn.trim()) return `Calibration support not recorded (${n} observations, ${excluded} excluded)`;
+    return legFill(legT().note.calibratedOn, { support: c.calibratedOn, n, excluded });
   }
 
   // The "top" of the scale as the chip shows it (the U of a Value scale, the range of a fixed one).
@@ -11907,12 +11909,14 @@
   function drwDuplicate(collection, id) {
     const c = drwNormalizeCollection(collection), original = c.objects.find((o) => o.id === id);
     if (!original) drwFail("line no longer exists");
+    const options = { a: original.a, b: original.b, color: original.color, label: original.label, visible: true, locked: false };
+    if (original.name === "Trend line " + (original.ordinal + 1)) return drwNewObject(collection, options);
     const used = new Set(c.objects.map((o) => o.name)); let name;
     for (let n = 1; ; n++) {
       const suffix = " copy " + n; name = Array.from(original.name).slice(0, 80 - suffix.length).join("") + suffix;
       if (!used.has(name)) break;
     }
-    return drwNewObject(collection, { name, a: original.a, b: original.b, color: original.color, label: original.label, visible: true, locked: false });
+    return drwNewObject(collection, { ...options, name });
   }
   function drwPoint(timeMs, priceUSDT) {
     if (!Number.isFinite(timeMs) || !Number.isFinite(priceUSDT)) drwFail("coordinates must be finite");
