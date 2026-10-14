@@ -143,3 +143,19 @@ test("guided scroll APIs retain compatible coordinates on retarget",async({page,
     flow.scrollAxis(body,body.scrollHeight);flow.scrollToActor(actor);flow.scrollAxis(body,0);
   });await settled(page);
 });
+
+test("comparison sorting preserves presented position, identity and focus",async({page,fakeFor,probe})=>{
+  const {COMPARISON_KEY,comparisonFixture}=await import("../../tools/benchmark/comparison.mjs");
+  await page.addInitScript(({key,model})=>sessionStorage.setItem(key,JSON.stringify(model)),{key:COMPARISON_KEY,model:comparisonFixture(4)});
+  await open(page,fakeFor,probe,"mini");await page.locator("#ol-tab-compare").click();await settled(page);
+  const result=await page.evaluate(()=>{
+    const card=document.querySelector(".ol-comparison-card"),button=card.querySelector('[data-comparison-action="focus"]');
+    button.focus();const before=card.getBoundingClientRect();
+    document.querySelector('[data-comparison-action="direction"]').click();
+    const after=card.getBoundingClientRect(),first=document.querySelector(".ol-comparison-card");
+    return {key:card.dataset.captureId,first:first.dataset.captureId,retained:card.isConnected,focused:document.activeElement===button,
+      difference:Math.hypot(before.x-after.x,before.y-after.y),moving:card.hasAttribute("data-flow-layout")};
+  });
+  expect(result.first).not.toBe(result.key);expect(result.retained).toBe(true);expect(result.focused).toBe(true);
+  expect(result.difference).toBeLessThan(1);expect(result.moving).toBe(true);await settled(page);
+});
