@@ -3542,13 +3542,14 @@
 }
 #origo-lens [data-flow-retained][hidden], #origo-lens [data-flow-panel-retained] { display: var(--flow-display, block) !important; pointer-events: none; }
 #origo-lens [data-flow-retiring], #origo-lens [data-motion-running] { animation: none !important; transition: none !important; }
-#origo-lens details[data-flow-details] > [data-flow-disclosure] { display: var(--flow-display, block) !important; }
+#origo-lens details[data-flow-details] > [data-flow-disclosure]:not([hidden]) { display: var(--flow-display, block) !important; }
 #origo-lens :is(button, input, select, summary), #origo-lens input[type="checkbox"]::before {
   transition: background-color var(--flow-feedback) ease-out, border-color var(--flow-feedback) ease-out, color var(--flow-feedback) ease-out;
 }
 #origo-lens summary::before, #origo-lens #ol-side-toggle .ol-icon { transition: transform var(--flow-settle) var(--flow-spring); }
-@supports (transition-behavior: allow-discrete) {
+@supports (transition-behavior: allow-discrete) and (interactivity: inert) {
   #origo-lens dialog { opacity: 0; translate: 0 20px; transition: opacity var(--flow-settle) var(--flow-spring), translate var(--flow-settle) var(--flow-spring), display var(--flow-settle) allow-discrete, overlay var(--flow-settle) allow-discrete; }
+  #origo-lens dialog:not([open]) { interactivity: inert; pointer-events: none; }
   #origo-lens dialog[open] { opacity: 1; translate: 0 0; }
   @starting-style { #origo-lens dialog[open] { opacity: 0; translate: 0 20px; } }
 }
@@ -3563,6 +3564,14 @@
   #origo-lens .ol-main[data-flow-grid] > .ol-side { grid-column: 4; grid-row: 1; }
 }
 #origo-lens [data-flow-size] { display: block !important; }
+
+/* Closed visuals cannot accept input; reopening restores interaction before observers run. */
+#origo-lens [hidden][data-flow-retained],
+#origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-retained],
+#origo-lens .ol-main[data-side="closed"] .ol-side-body[data-flow-retained] { interactivity: inert; pointer-events: none; }
+@media (max-width: 760px) {
+  #origo-lens:not([data-sheet="open"]) .ol-controls[data-flow-retained] { interactivity: inert; pointer-events: none; }
+}
 
     </style>
   </head>
@@ -20272,6 +20281,7 @@
   const listeners = new Set();
   const disclosurePadding = new WeakMap();
   const nativeDetails = new WeakSet();
+  const measurements = new WeakMap();
   let retirementGeometry = new Map();
   let rootElement;
   let presentationHeld = false;
@@ -20311,7 +20321,9 @@
   function tick(now) {
       const elapsed = Math.min(Math.max(0, (now - previousTime) / 1000), .032);
       previousTime = now;
-      for (const channel of [...moving]) {
+      // Read destinations before any channel writes; avoid alternating style/layout flushes.
+      const active = [...moving];
+      for (const channel of active) {
           if (!channel.active)
               continue;
           if (channel.options.valid && !channel.options.valid()) {
@@ -20328,6 +20340,9 @@
           if (now < channel.start)
               continue;
           target(channel);
+      }
+      for (const channel of active) {
+          if (!channel.active || now < channel.start) continue;
           let resting = true;
           for (const key of Object.keys(channel.target)) {
               const next = integrate(channel.value[key], channel.velocity[key], channel.target[key], elapsed);
@@ -20566,34 +20581,50 @@
           },
           complete: () => { ghost.remove(); cancelMotion(ghost, 'retirement'); } });
   }
+  function contentChanged(records) {
+      return records.some(record => !record.target.closest?.('[data-flow-measuring]') &&
+          (record.type === 'childList' ? [...record.addedNodes, ...record.removedNodes].some(node => !node.matches?.('[data-flow-measuring]')) :
+          record.type === 'characterData' || ['hidden', 'open', 'class'].includes(record.attributeName)));
+  }
   /** Fixed measurements never shrink the live document's native scroll bounds. */
   function intrinsicHeight(element, padding) {
+      let measurement = measurements.get(element);
+      if (!measurement) {
+          measurement = { dirty: true, width: -1, height: 0 };
+          measurements.set(element, measurement);
+          new MutationObserver(records => { if (contentChanged(records)) measurement.dirty = true; }).observe(element,
+              { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'open', 'class'] });
+      }
+      const width = element.getBoundingClientRect().width;
+      if (!measurement.dirty && Math.abs(measurement.width - width) < .1) return measurement.height;
+      measurement.dirty = false;
+      measurement.width = width;
       const clone = element.cloneNode(true);
       clone.dataset.flowMeasuring = '';
       clone.inert = true;
       clone.hidden = false;
-      Object.assign(clone.style, { position: 'fixed', visibility: 'hidden', pointerEvents: 'none', width: `${element.getBoundingClientRect().width}px`, height: 'auto', translate: 'none', transform: 'none' });
+      Object.assign(clone.style, { position: 'fixed', visibility: 'hidden', pointerEvents: 'none', width: `${width}px`, height: 'auto', translate: 'none', transform: 'none' });
       if (padding) {
           clone.style.paddingTop = `${padding.top}px`;
           clone.style.paddingBottom = `${padding.bottom}px`;
       }
       element.parentElement.appendChild(clone);
       try {
-          return clone.getBoundingClientRect().height;
+          return measurement.height = clone.getBoundingClientRect().height;
       }
       finally {
           clone.remove();
       }
   }
   /** An intrinsic block keeps its logical hidden state while its old words retire. */
-  function disclosure(element, opened, done, presentedHeight = element.getBoundingClientRect().height) {
+  function disclosure(element, opened, done, presentedHeight = element.getBoundingClientRect().height, native = false) {
       const height = presentedHeight;
       const computed = getComputedStyle(element);
       const display = computed.display;
       const opacity = Number(computed.opacity);
       const padding = disclosurePadding.get(element) ?? { top: parseFloat(computed.paddingTop), bottom: parseFloat(computed.paddingBottom) };
       disclosurePadding.set(element, padding);
-      element.hidden = !opened;
+      if (!native) element.hidden = !opened;
       element.inert = !opened;
       element.style.setProperty('--flow-display', opened ? getComputedStyle(element).display : display);
       element.dataset.flowDisclosure = '';
@@ -20603,7 +20634,7 @@
           delete element.dataset.flowRetained;
       element.style.overflow = 'hidden';
       spring(element, 'disclosure', { from: { height, opacity: opened && !height ? 0 : opacity, top: opened && !height ? 0 : parseFloat(computed.paddingTop), bottom: opened && !height ? 0 : parseFloat(computed.paddingBottom) },
-          to: () => ({ height: opened ? intrinsicHeight(element, padding) : 0, opacity: opened ? 1 : 0, top: opened ? padding.top : 0, bottom: opened ? padding.bottom : 0 }),
+          to: () => ({ height: opened && !element.hidden ? intrinsicHeight(element, padding) : 0, opacity: opened && !element.hidden ? 1 : 0, top: opened ? padding.top : 0, bottom: opened ? padding.bottom : 0 }),
           write: ({ height, opacity, top, bottom }) => { element.style.height = `${Math.max(0, height)}px`; element.style.opacity = String(bounded(opacity)); element.style.paddingTop = `${Math.max(0, top)}px`; element.style.paddingBottom = `${Math.max(0, bottom)}px`; },
           complete: () => {
               element.style.height = '';
@@ -20639,7 +20670,15 @@
           if (previous === next)
               return;
           previous = next;
-          element.inert = !next;
+          // CSS inertness follows logical state synchronously, including immediate focus on reopen.
+          element.inert = false;
+          if (!next && !CSS.supports('interactivity', 'inert')) {
+              finishMotion(element);
+              delete element.dataset.flowRetained;
+              delete element.dataset.flowPanelRetained;
+              element.style.removeProperty('--flow-display');
+              return;
+          }
           if (next) {
               delete element.dataset.flowRetained;
               delete element.dataset.flowPanelRetained;
@@ -20656,7 +20695,7 @@
                   element.style.opacity = String(bounded(progress));
                   if (slide === 2)
                       element.style.transform = `translateY(${(1 - progress) * 100}%)`;
-                  else if (slide)
+                  else if (slide === -1 || slide === 1)
                       element.style.transform = `translateX(${slide * (1 - progress) * 100}%)`;
                   else if (slide !== 3)
                       element.style.translate = `0 ${(1 - progress) * MOTION.travel}px`;
@@ -20680,9 +20719,9 @@
           cancelMotion(element, 'scroll');
           return;
       }
-      spring(element, 'scroll', { from: { y: element.scrollTop }, to: () => ({ y: Math.max(0, Math.min(element.scrollHeight - element.clientHeight, destination())) }),
+      spring(element, 'scroll', { from: { x: element.scrollLeft, y: element.scrollTop }, to: () => ({ x: element.scrollLeft, y: Math.max(0, Math.min(element.scrollHeight - element.clientHeight, destination())) }),
           valid: () => !actor || actor.isConnected && !!actor.getClientRects().length,
-          write: ({ y }) => { element.scrollTop = y; }, complete: () => cancelMotion(element, 'scroll') });
+          write: ({ x, y }) => { element.scrollLeft = x; element.scrollTop = y; }, complete: () => cancelMotion(element, 'scroll') });
   }
   function scrollToActor(actor, block = 'nearest') {
       let container = actor.parentElement;
@@ -20746,8 +20785,7 @@
                   if (details.hasAttribute('data-flow-details'))
                       return;
                   for (const body of bodies) {
-                      body.hidden = false;
-                      body.inert = !details.open;
+                      body.inert = false;
                   }
               });
           }
@@ -20757,8 +20795,8 @@
           details.dataset.flowDetails = '';
           details.open = opened;
           let remaining = bodies.length;
-          bodies.forEach((body, index) => disclosure(body, opened, () => { body.hidden = false; body.inert = !details.open; if (!--remaining)
-              delete details.dataset.flowDetails; }, heights[index]));
+          bodies.forEach((body, index) => disclosure(body, opened, () => { body.inert = false; if (!--remaining)
+              delete details.dataset.flowDetails; }, heights[index], true));
       });
   }
   
@@ -20878,7 +20916,7 @@
   function observeSize(element) {
     let height=element.getBoundingClientRect().height;
     new MutationObserver(records=>{
-      if (!records.some(record=>record.type==='childList' || record.type==='characterData' || record.type==='attributes' && ['hidden','open'].includes(record.attributeName))) return;
+      if (!contentChanged(records)) return;
       if (!element.getClientRects().length || reducedMotion()) { height=element.getBoundingClientRect().height; return; }
       const natural=intrinsicHeight(element);
       if (Math.abs(natural-height)<.5 && !motionValue(element,'content-size')) return;
@@ -20893,8 +20931,11 @@
   function scrollAxis(element, destination, axis = 'y') {
     const property=axis==='x'?'scrollLeft':'scrollTop', size=axis==='x'?'scrollWidth':'scrollHeight', client=axis==='x'?'clientWidth':'clientHeight';
     if (document.hidden) return;
-    spring(element,'scroll',{from:{value:element[property]},to:()=>({value:Math.max(0,Math.min(element[size]-element[client],typeof destination==='function'?destination():destination))}),
-      write:({value})=>{element[property]=value;},complete:()=>cancelMotion(element,'scroll')});
+    const coordinate = axis === 'x' ? 'x' : 'y', other = axis === 'x' ? 'y' : 'x';
+    spring(element,'scroll',{from:{x:element.scrollLeft,y:element.scrollTop},to:()=>({
+      [coordinate]:Math.max(0,Math.min(element[size]-element[client],typeof destination==='function'?destination():destination)),
+      [other]: axis === 'x' ? element.scrollTop : element.scrollLeft}),
+      write:({x,y})=>{element.scrollLeft=x;element.scrollTop=y;},complete:()=>cancelMotion(element,'scroll')});
   }
 
   const api = Object.freeze({ stationary: () => presentationHeld || reducedMotion() || document.hidden, replaceChildren, html, captureSize, captureGrid, observeSize, scrollAxis, MOTION, SPRING, MOTION_CSS, integrate, reducedMotion, motionActive, motionValue, spring, cancelMotion, finishMotion, onMotionFrame, reveal, layout, retire, intrinsicHeight, disclosure, resizeContent, watchPanel, scroll, scrollToActor, initMotion });
@@ -21746,13 +21787,22 @@
       write: ({ progress }) => { if (transition === actor) { actor.progress = progress; requestDraw(); } },
       complete: () => { if (transition === actor) { transition = null; requestDraw(); } Flow.cancelMotion(canvas, "cells"); } });
   }
-  function morphBounds(bounds, actor = transition) {
-    if (!actor) return bounds;
+  const MORPH_BOUNDS = { start: 0, end: 0, low: 0, high: 0 };
+  function morphBounds(start, end, low, high, actor = transition) {
+    if (!actor) {
+      MORPH_BOUNDS.start = start; MORPH_BOUNDS.end = end;
+      MORPH_BOUNDS.low = low; MORPH_BOUNDS.high = high;
+      return MORPH_BOUNDS;
+    }
     const time = 2 ** actor.n, priceStep = 2 ** actor.m;
-    const a = Math.floor(bounds[0] / time) * time, low = Math.floor(bounds[2] / priceStep) * priceStep;
-    const previous = morphBounds([a, a + time, low, low + priceStep], actor.previous);
+    const a = Math.floor(start / time) * time, p = Math.floor(low / priceStep) * priceStep;
+    morphBounds(a, a + time, p, p + priceStep, actor.previous);
     const progress = clamp(actor.progress, 0, 1);
-    return bounds.map((value,index) => previous[index] + (value - previous[index]) * progress);
+    MORPH_BOUNDS.start += (start - MORPH_BOUNDS.start) * progress;
+    MORPH_BOUNDS.end += (end - MORPH_BOUNDS.end) * progress;
+    MORPH_BOUNDS.low += (low - MORPH_BOUNDS.low) * progress;
+    MORPH_BOUNDS.high += (high - MORPH_BOUNDS.high) * progress;
+    return MORPH_BOUNDS;
   }
   function requestDraw() {
     if (!raf)
@@ -28110,9 +28160,13 @@
       return Math.max(120, part(".ol-chart") - used - 220);
     };
   // Inspector and drawer: open state and sizes, from S, within the window.
+  let panelGeometryKey = '';
   function applyPanels() {
-    const finishGrid = Flow.captureGrid(el("main"), ready && !root.querySelector(".ol-grip[data-active=true]")),
-      finishDrawer = Flow.captureSize(root.querySelector(".ol-drawer-body"), ready && !root.querySelector(".ol-grip[data-active=true]"), () => S.drawerOpen);
+    const key = [S.sideOpen, inspect.on, S.sideWidth, S.drawerOpen, S.drawerHeight, comparisonModel.expanded, el("reference").hidden, innerWidth, innerHeight].join(':');
+    const changed = key !== panelGeometryKey;
+    panelGeometryKey = key;
+    const finishGrid = changed ? Flow.captureGrid(el("main"), ready && !root.querySelector(".ol-grip[data-active=true]")) : () => {},
+      finishDrawer = changed ? Flow.captureSize(root.querySelector(".ol-drawer-body"), ready && !root.querySelector(".ol-grip[data-active=true]"), () => S.drawerOpen) : () => {};
     const main = el("main"),
       drawer = el("drawer"),
       side = el("side-toggle"),
@@ -30950,8 +31004,8 @@
       ya = G.Y((z.r + 1) * ps),
       yb = G.Y(z.r * ps);
     if (transition && u < 1) {
-      const bounds = morphBounds([z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps]);
-      xa = G.X(bounds[0]); xb = G.X(bounds[1]); ya = G.Y(bounds[3]); yb = G.Y(bounds[2]);
+      const bounds = morphBounds(z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps);
+      xa = G.X(bounds.start); xb = G.X(bounds.end); ya = G.Y(bounds.high); yb = G.Y(bounds.low);
     }
     if (xb < G.x || xa > G.x + G.w || yb < G.y || ya > G.y + G.h) return;
     cellPass(frame);
@@ -39612,8 +39666,8 @@
       ya = G.Y((z.r + 1) * ps),
       yb = G.Y(z.r * ps);
     if (transition && u < 1) {
-      const bounds = morphBounds([z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps]);
-      xa = G.X(bounds[0]); xb = G.X(bounds[1]); ya = G.Y(bounds[3]); yb = G.Y(bounds[2]);
+      const bounds = morphBounds(z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps);
+      xa = G.X(bounds.start); xb = G.X(bounds.end); ya = G.Y(bounds.high); yb = G.Y(bounds.low);
     }
     if (xb < G.x || xa > G.x + G.w || yb < G.y || ya > G.y + G.h) return false;
     BOX.xa = xa;

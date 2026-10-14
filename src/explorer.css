@@ -3525,13 +3525,14 @@
 }
 #origo-lens [data-flow-retained][hidden], #origo-lens [data-flow-panel-retained] { display: var(--flow-display, block) !important; pointer-events: none; }
 #origo-lens [data-flow-retiring], #origo-lens [data-motion-running] { animation: none !important; transition: none !important; }
-#origo-lens details[data-flow-details] > [data-flow-disclosure] { display: var(--flow-display, block) !important; }
+#origo-lens details[data-flow-details] > [data-flow-disclosure]:not([hidden]) { display: var(--flow-display, block) !important; }
 #origo-lens :is(button, input, select, summary), #origo-lens input[type="checkbox"]::before {
   transition: background-color var(--flow-feedback) ease-out, border-color var(--flow-feedback) ease-out, color var(--flow-feedback) ease-out;
 }
 #origo-lens summary::before, #origo-lens #ol-side-toggle .ol-icon { transition: transform var(--flow-settle) var(--flow-spring); }
-@supports (transition-behavior: allow-discrete) {
+@supports (transition-behavior: allow-discrete) and (interactivity: inert) {
   #origo-lens dialog { opacity: 0; translate: 0 20px; transition: opacity var(--flow-settle) var(--flow-spring), translate var(--flow-settle) var(--flow-spring), display var(--flow-settle) allow-discrete, overlay var(--flow-settle) allow-discrete; }
+  #origo-lens dialog:not([open]) { interactivity: inert; pointer-events: none; }
   #origo-lens dialog[open] { opacity: 1; translate: 0 0; }
   @starting-style { #origo-lens dialog[open] { opacity: 0; translate: 0 20px; } }
 }
@@ -3546,3 +3547,11 @@
   #origo-lens .ol-main[data-flow-grid] > .ol-side { grid-column: 4; grid-row: 1; }
 }
 #origo-lens [data-flow-size] { display: block !important; }
+
+/* Closed visuals cannot accept input; reopening restores interaction before observers run. */
+#origo-lens [hidden][data-flow-retained],
+#origo-lens .ol-drawer:not([data-open="true"]) .ol-drawer-body[data-flow-retained],
+#origo-lens .ol-main[data-side="closed"] .ol-side-body[data-flow-retained] { interactivity: inert; pointer-events: none; }
+@media (max-width: 760px) {
+  #origo-lens:not([data-sheet="open"]) .ol-controls[data-flow-retained] { interactivity: inert; pointer-events: none; }
+}

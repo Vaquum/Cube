@@ -44,7 +44,7 @@ test("sort retains a cell row, its focused action and authoritative values",asyn
 test("popover close is logical immediately and retains an inert exit",async({page,fakeFor,probe})=>{
   await open(page,fakeFor,probe);await page.locator("#ol-window").click();await settled(page);
   await page.locator("#ol-window").click();
-  const state=await page.locator("#ol-window-menu").evaluate(node=>({hidden:node.hidden,inert:node.inert,retained:node.hasAttribute("data-flow-retained")}));
+  const state=await page.locator("#ol-window-menu").evaluate(node=>({hidden:node.hidden,inert:getComputedStyle(node).interactivity==="inert",retained:node.hasAttribute("data-flow-retained")}));
   expect(state.hidden).toBe(true);expect(state.inert).toBe(true);expect(state.retained).toBe(true);
   await settled(page);await expect(page.locator("#ol-window-menu")).toBeHidden();
 });
@@ -94,4 +94,47 @@ test("retained drawing actions use the current object and toggle destination",as
   await D.choose(page,second.id);await D.command(page,"lock");await D.lines(page);
   expect((await D.row(page,second.id)).locked).toBe(true);
   expect((await D.row(page,first.id)).locked).toBe(false);
+});
+
+test("reopened panels accept synchronous focus during an exit",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await settled(page);
+  await page.locator("#ol-window").click();await settled(page);
+  await page.locator("#ol-window").click();
+  const focused=await page.evaluate(()=>{
+    const button=document.querySelector("#ol-window");button.click();
+    const choice=document.querySelector("#ol-window-menu button:not(:disabled)");choice.focus();
+    return document.activeElement===choice;
+  });
+  expect(focused).toBe(true);
+});
+test("mode visibility survives a native disclosure animation",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);
+  await page.evaluate(()=>{location.hash="#w=24h&mode=path";});await S.atRest(page,null,probe);
+  const summary=page.locator("#ol-context details > summary").filter({hasText:"Cell counts"});
+  await summary.click();
+  await page.evaluate(()=>{location.hash="#w=24h&mode=volume";});await settled(page);
+  await expect(page.locator("#ol-moved-row")).toHaveJSProperty("hidden",true);
+});
+test("closed reset dialogs reject interaction throughout their exit",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe,"mini");await require("./drawings-support.js").drawing(page);await page.locator("#ol-reset-canvas").click();
+  await expect(page.locator("#ol-reset-confirm")).toHaveJSProperty("open",true);
+  await page.keyboard.press("Escape");
+  const closed=await page.locator("#ol-reset-confirm").evaluate(node=>({open:node.open,interactive:getComputedStyle(node).interactivity,pointer:getComputedStyle(node).pointerEvents}));
+  expect(closed.open).toBe(false);expect(closed.pointer).toBe("none");expect(closed.interactive).toBe("inert");
+});
+test("tooltips retain their anchored position while fading",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);
+  const result=await page.evaluate(async()=>{
+    const tip=document.querySelector("#ol-tip");tip.hidden=false;
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+    return {transform:tip.style.transform,translate:tip.style.translate};
+  });
+  expect(result.transform).toBe("");expect(result.translate).toBe("");
+});
+test("guided scroll APIs retain compatible coordinates on retarget",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe);await page.locator("#ol-reference-toggle").click();await settled(page);
+  await page.evaluate(()=>{
+    const body=document.querySelector("#ol-reference-body"),actor=body.querySelector("article"),flow=window.explorerMotion;
+    flow.scrollAxis(body,body.scrollHeight);flow.scrollToActor(actor);flow.scrollAxis(body,0);
+  });await settled(page);
 });

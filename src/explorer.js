@@ -842,13 +842,22 @@
       write: ({ progress }) => { if (transition === actor) { actor.progress = progress; requestDraw(); } },
       complete: () => { if (transition === actor) { transition = null; requestDraw(); } Flow.cancelMotion(canvas, "cells"); } });
   }
-  function morphBounds(bounds, actor = transition) {
-    if (!actor) return bounds;
+  const MORPH_BOUNDS = { start: 0, end: 0, low: 0, high: 0 };
+  function morphBounds(start, end, low, high, actor = transition) {
+    if (!actor) {
+      MORPH_BOUNDS.start = start; MORPH_BOUNDS.end = end;
+      MORPH_BOUNDS.low = low; MORPH_BOUNDS.high = high;
+      return MORPH_BOUNDS;
+    }
     const time = 2 ** actor.n, priceStep = 2 ** actor.m;
-    const a = Math.floor(bounds[0] / time) * time, low = Math.floor(bounds[2] / priceStep) * priceStep;
-    const previous = morphBounds([a, a + time, low, low + priceStep], actor.previous);
+    const a = Math.floor(start / time) * time, p = Math.floor(low / priceStep) * priceStep;
+    morphBounds(a, a + time, p, p + priceStep, actor.previous);
     const progress = clamp(actor.progress, 0, 1);
-    return bounds.map((value,index) => previous[index] + (value - previous[index]) * progress);
+    MORPH_BOUNDS.start += (start - MORPH_BOUNDS.start) * progress;
+    MORPH_BOUNDS.end += (end - MORPH_BOUNDS.end) * progress;
+    MORPH_BOUNDS.low += (low - MORPH_BOUNDS.low) * progress;
+    MORPH_BOUNDS.high += (high - MORPH_BOUNDS.high) * progress;
+    return MORPH_BOUNDS;
   }
   function requestDraw() {
     if (!raf)
@@ -7206,9 +7215,13 @@
       return Math.max(120, part(".ol-chart") - used - 220);
     };
   // Inspector and drawer: open state and sizes, from S, within the window.
+  let panelGeometryKey = '';
   function applyPanels() {
-    const finishGrid = Flow.captureGrid(el("main"), ready && !root.querySelector(".ol-grip[data-active=true]")),
-      finishDrawer = Flow.captureSize(root.querySelector(".ol-drawer-body"), ready && !root.querySelector(".ol-grip[data-active=true]"), () => S.drawerOpen);
+    const key = [S.sideOpen, inspect.on, S.sideWidth, S.drawerOpen, S.drawerHeight, comparisonModel.expanded, el("reference").hidden, innerWidth, innerHeight].join(':');
+    const changed = key !== panelGeometryKey;
+    panelGeometryKey = key;
+    const finishGrid = changed ? Flow.captureGrid(el("main"), ready && !root.querySelector(".ol-grip[data-active=true]")) : () => {},
+      finishDrawer = changed ? Flow.captureSize(root.querySelector(".ol-drawer-body"), ready && !root.querySelector(".ol-grip[data-active=true]"), () => S.drawerOpen) : () => {};
     const main = el("main"),
       drawer = el("drawer"),
       side = el("side-toggle"),
@@ -10046,8 +10059,8 @@
       ya = G.Y((z.r + 1) * ps),
       yb = G.Y(z.r * ps);
     if (transition && u < 1) {
-      const bounds = morphBounds([z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps]);
-      xa = G.X(bounds[0]); xb = G.X(bounds[1]); ya = G.Y(bounds[3]); yb = G.Y(bounds[2]);
+      const bounds = morphBounds(z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps);
+      xa = G.X(bounds.start); xb = G.X(bounds.end); ya = G.Y(bounds.high); yb = G.Y(bounds.low);
     }
     if (xb < G.x || xa > G.x + G.w || yb < G.y || ya > G.y + G.h) return;
     cellPass(frame);
@@ -18708,8 +18721,8 @@
       ya = G.Y((z.r + 1) * ps),
       yb = G.Y(z.r * ps);
     if (transition && u < 1) {
-      const bounds = morphBounds([z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps]);
-      xa = G.X(bounds[0]); xb = G.X(bounds[1]); ya = G.Y(bounds[3]); yb = G.Y(bounds[2]);
+      const bounds = morphBounds(z.c * ts, Math.min((z.c + 1) * ts, cut), z.r * ps, (z.r + 1) * ps);
+      xa = G.X(bounds.start); xb = G.X(bounds.end); ya = G.Y(bounds.high); yb = G.Y(bounds.low);
     }
     if (xb < G.x || xa > G.x + G.w || yb < G.y || ya > G.y + G.h) return false;
     BOX.xa = xa;
