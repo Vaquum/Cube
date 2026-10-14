@@ -21522,7 +21522,7 @@
     save();
   }
   let pendingWindowPriceFit = null;
-  const windowPriceFitContext = () => [S.tA, S.tB, S.pA, S.pB, S.n, S.m, S.auto, S.mode, S.replay, S.anchor, live.generation, PACK.state_token].join("|");
+  const windowPriceFitContext = () => [S.tA, S.tB, S.pA, S.pB, S.n, S.m, S.auto, S.mode, S.replay, S.anchor].join("|");
   const windowPriceFitPending = () => S.mode === "candles"
     ? candleRange(renderN(), S.tA, S.tB).state === "pending"
     : PACK.live && Boolean(viewTileSpec());
@@ -21553,6 +21553,11 @@
     update();
     syncURL(true);
     save();
+    // Fitting can make auto resolution request a finer tile. Keep the same
+    // operation through that read, using the camera this fit just produced.
+    if (windowPriceFitPending()) {
+      pendingWindowPriceFit = { ...pending, context: windowPriceFitContext() };
+    }
   }
   // Replay only hides the trades after its anchor: the price range, the
   // selection and the inspector stay as they were.

@@ -110,3 +110,78 @@ test("a delayed candle fit cannot overwrite a later manual price pan", async ({ 
     expect(await camera(page)).toEqual(manual);
   } finally { gate.open(); }
 });
+
+// The overview's 64-hour columns include wide prices outside the destination;
+// its exact 12-hour tile contains only 25,000 and 25,150 USDT.
+const historicalProfile = {
+  name: "window-step-refinement", cutoffIso: "2026-09-24T12:02Z",
+  trades: [
+    ["2026-08-10T13:00Z", 10000], ["2026-08-10T14:00Z", 40000],
+    ["2026-08-11T01:00Z", 25000], ["2026-08-11T02:00Z", 25150],
+    ["2026-08-11T13:00Z", 10000], ["2026-08-11T14:00Z", 40000],
+  ].map(([time, price]) => ({ t_ms: Date.parse(time) - EPOCH_MS, price: price * 100, qty: 100000000, takerBuy: true })),
+};
+const historicalTime = "2026-08-10T12:00Z~2026-08-11T00:00Z";
+const destination = [Date.parse("2026-08-11T00:00Z"), Date.parse("2026-08-11T12:00Z")];
+
+for (const mode of ["volume", "candles"]) {
+  for (const refresh of ["delta", "pack"]) {
+    test(`pending ${mode} window fit survives a live ${refresh} refresh`, async ({ page, fakeFor, probe, allowConsole }) => {
+      const fake = await fakeFor(historicalProfile, { next: 3 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto(`${fake.url}/#t=${historicalTime}&p=10000~40000&r=4,0&mode=${mode}&follow=free`);
+      await probe.waitForReady();
+      const before = await camera(page), oldToken = fake.info().packToken;
+      const gate = fake.on({ route: mode === "candles" ? "/cube/bars" : "/cube/tile" }).gate();
+      try {
+        await page.locator("#ol-canvas").focus();
+        await page.keyboard.press("Shift+ArrowRight");
+        await gate.arrived();
+        fake.clearLog();
+        if (refresh === "pack") {
+          allowConsole(/Failed to load resource.*409/);
+          fake.holdPacks(1);
+          fake.advance({ minutes: 2, trades: [] });
+        } else fake.rebuild();
+        const newToken = fake.info().packToken;
+        expect(newToken).not.toBe(oldToken);
+        await expect.poll(() => fake.log().some(r => r.path === "/cube/pack" && r.answer === refresh), { timeout: 10000 }).toBe(true);
+        // A subsequent poll with the new token proves the page applied it
+        // before the held destination read is released.
+        await expect.poll(() => fake.log().some(r => r.path === "/cube/pack" && r.query.since === newToken), { timeout: 10000 }).toBe(true);
+        gate.open();
+        const expected = mode === "candles" ? [24992.5, 25157.5] : [24987.5, 25262.5];
+        await expect.poll(() => camera(page), { timeout: 15000 }).toEqual({ time: destination, price: expected });
+        await probe.waitForReady();
+        const box = await page.locator("#ol-canvas").boundingBox();
+        await page.mouse.dblclick(box.x + 20, box.y + 100);
+        expect(await camera(page)).toEqual({ time: destination, price: expected });
+        await page.goBack();
+        await probe.waitForReady();
+        expect(await camera(page)).toEqual(before);
+      } finally { gate.open(); }
+    });
+  }
+}
+
+test("auto resolution refits every finer destination tile in one history entry", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor(historicalProfile);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${fake.url}/#t=${historicalTime}&p=10000~40000&mode=volume&follow=free`);
+  await probe.waitForReady();
+  const before = await camera(page);
+  fake.clearLog();
+  await page.locator("#ol-canvas").focus();
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect.poll(() => camera(page), { timeout: 15000 }).toEqual({ time: destination, price: [24987.5, 25262.5] });
+  await probe.waitForReady();
+  const levels = fake.log().filter(r => r.path === "/cube/tile").map(r => Number(r.query.m));
+  expect(levels.length, "the scenario fetched multiple progressively finer tiles").toBeGreaterThan(1);
+  expect(levels[levels.length - 1]).toBeLessThan(levels[0]);
+  const fitted = await camera(page), box = await page.locator("#ol-canvas").boundingBox();
+  await page.mouse.dblclick(box.x + 20, box.y + 100);
+  expect(await camera(page)).toEqual(fitted);
+  await page.goBack();
+  await probe.waitForReady();
+  expect(await camera(page)).toEqual(before);
+});
