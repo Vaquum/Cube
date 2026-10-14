@@ -58,10 +58,10 @@ test("equal-height sample boundaries preserve the volume already known at the cu
   await page.mouse.move(box.x + point[0] - 2, box.y + point[1]);
   await expect(tip).toHaveAttribute("data-reference-family", "developing-poc");
   await expect(tip).toHaveAttribute("data-reference-known-at", "64");
-  await expect(tip).toContainText("125,625");
+  await expect(tip.locator('[data-field="Accumulated session volume"]')).toHaveAttribute("data-canonical", "125625");
   await page.mouse.move(box.x + point[0] + 2, box.y + point[1]);
   await expect(tip).toHaveAttribute("data-reference-known-at", "80");
-  await expect(tip).toContainText("150,750");
+  await expect(tip.locator('[data-field="Accumulated session volume"]')).toHaveAttribute("data-canonical", "150750");
 });
 test("replay withholds unfinished samples and the next UTC session resets accumulation", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor(profile);
