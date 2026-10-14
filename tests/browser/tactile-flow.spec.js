@@ -73,3 +73,12 @@ test("guided scrolling yields to direct input",async({page,fakeFor,probe})=>{
   await settled(page);
   expect(await page.evaluate(()=>window.explorerMotion.motionValue(document.querySelector("#ol-reference-body"),"scroll"))).toBeNull();
 });
+
+test("reference guidance can reopen during its inert visual exit",async({page,fakeFor,probe,surface})=>{
+  await open(page,fakeFor,probe);
+  const first=await surface.openLegendDetails("cells");await first.close();
+  const second=await surface.openLegendDetails("cells");
+  await expect(second.popover).toBeVisible();
+  expect(await page.locator("#ol-reference").evaluate(node=>node.hidden||node.inert)).toBe(false);
+  await second.close();
+});
