@@ -192,3 +192,13 @@ test("comparison sorting preserves presented position, identity and focus",async
   expect(result.first).not.toBe(result.key);expect(result.retained).toBe(true);expect(result.focused).toBe(true);
   expect(result.difference).toBeLessThan(1);expect(result.moving).toBe(true);await settled(page);
 });
+test("revisiting the Rows period step keeps the current date draft authoritative",async({page,fakeFor,probe})=>{
+  await open(page,fakeFor,probe,"mini");await page.locator("#ol-rows").click();
+  const menu=page.locator("#ol-rows-menu");await menu.locator('[data-rows="volume"]').click();
+  await menu.locator('[data-rows-step="period"]').click();
+  await page.locator("#ol-rows-period-date").fill("2026-09-01");
+  await menu.locator('[data-rows-step="period"]').click();
+  await page.locator("#ol-rows-period-date").fill("2026-09-03");
+  await menu.locator(".ol-flow-date button").click();
+  await expect.poll(()=>page.url()).toContain("2026-09-03");
+});

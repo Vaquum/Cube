@@ -9269,13 +9269,14 @@
     error.setAttribute("role", "status");
     error.hidden = true;
     const apply = flowChoiceItem("rows", "menuitem", ["Since this day"], () => {
-      const key = input.value, start = dayStart(key);
+      const liveInput = el("rows-period-date"), liveError = el("rows-period-error"),
+        key = liveInput.value, start = dayStart(key);
       if (!isDay(key) || start < 0 || start >= activeCutoff()) {
-        error.textContent = `Choose a day from 1 Jan 2021 to ${day(Math.max(0, activeCutoff() - 1e-6))}.`;
-        error.hidden = false;
-        input.setAttribute("aria-invalid", "true");
-        input.setAttribute("aria-describedby", error.id);
-        input.focus();
+        liveError.textContent = `Choose a day from 1 Jan 2021 to ${day(Math.max(0, activeCutoff() - 1e-6))}.`;
+        liveError.hidden = false;
+        liveInput.setAttribute("aria-invalid", "true");
+        liveInput.setAttribute("aria-describedby", liveError.id);
+        liveInput.focus();
         return false;
       }
       menuFlows.rows.day = key;
