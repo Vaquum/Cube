@@ -20,7 +20,7 @@ const browser=await chromium.launch();
 const report=[];
 try {
  for(const hash of ['#w=7d&pane=volume','#t=2025-10-15T20:42:27.803Z~2026-10-17T22:15:52.478Z&p=51000~123000&vis=2&ap=slate2-8f7890f7&mode=flowtrades&pane=volume&rows=delta&sc=r:e:G122938837.33704054,9514161.291727602:delta.roll-90.0.e.l:1791633420000,206,0:wUJ6BmrNhSHPpisc']) for(const ref of [baseline,'HEAD']) {
-  const id=(hash.startsWith('#w')?'week':'year')+'-'+ref, requests=[];
+  const id=(hash.startsWith('#w')?'week':'year')+'-'+ref.replace(/[^a-zA-Z0-9_-]/g,'_'), requests=[];
   const build=materialise(execFileSync('git',['rev-parse',ref],{encoding:'utf8'}).trim(),`startup-${ref}`);
   const html=fs.readFileSync(path.join(build.dir,'index.html'),'utf8').replace(/(<script type="application\/json" id="origo-lens-data">)[\s\S]*?(<\/script>)/,(_,open,close)=>open+pack+close);
   const server=http.createServer((req,res)=>{

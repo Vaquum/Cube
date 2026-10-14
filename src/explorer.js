@@ -16896,7 +16896,7 @@
     if (paneAxisBasis !== basis) {
       // A different aggregation has different bar magnitudes. A frozen
       // comparison domain is intentional and remains authoritative.
-      if (scaleRt.axes.get(id, scaleWorkspace())?.policy === "auto")
+      if (!heldCount() && scaleRt.axes.get(id, scaleWorkspace())?.policy === "auto")
         scaleRt.axes.drop(id, scaleWorkspace());
       paneAxisBasis = basis;
     }
