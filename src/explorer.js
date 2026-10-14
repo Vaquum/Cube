@@ -7286,6 +7286,10 @@
         save();
       };
       begin();
+      // Direct manipulation owns the presented dimensions from pointerdown,
+      // including a press released without any movement.
+      panelGeometryKey = '';
+      onMove(0, 0);
       grip.addEventListener("pointermove", move);
       grip.addEventListener("pointerup", end);
       grip.addEventListener("pointercancel", end);

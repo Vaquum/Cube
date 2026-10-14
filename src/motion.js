@@ -589,7 +589,8 @@
     }
     if (current instanceof HTMLTextAreaElement && !active) current.value = next.value;
     for (const event of ['onclick','onchange','oninput','onsubmit','onkeydown']) if (next[event]) current[event] = next[event];
-    patchChildren(current, [...next.childNodes]);
+    if (current.hasAttribute('data-flow-collection')) replaceChildren(current, ...next.childNodes);
+    else patchChildren(current, [...next.childNodes]);
     if (current instanceof HTMLSelectElement && !active) current.value = next.value;
     if (open !== null) current.open = open;
     return current;
