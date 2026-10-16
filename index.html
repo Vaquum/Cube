@@ -20430,17 +20430,18 @@
     const s = String(v);
     return /^[A-Za-z_][A-Za-z0-9_./-]*$/.test(s) && !/^(true|false|null|yes|no|on|off|y|n)$/i.test(s) ? s : JSON.stringify(s);
   }
+  // A collection after its key or dash: a nested block, or an inline empty one. Keys are quoted by the scalar rule.
   function yaml(value, indent) {
     const pad = " ".repeat(indent);
     if (Array.isArray(value)) {
       if (!value.length) return " []";
-      return value.map(item => item && typeof item === "object" && !Array.isArray(item)
-        ? "\n" + pad + "- " + yaml(item, indent + 2).replace(/^\n\s*/, "")
+      return value.map(item => item && typeof item === "object"
+        ? "\n" + pad + "-" + (Object.keys(item).length ? yaml(item, indent + 2).replace(/^\n\s*/, " ") : yaml(item, indent + 2))
         : "\n" + pad + "- " + yamlScalar(item)).join("");
     }
     const keys = Object.keys(value);
     if (!keys.length) return " {}";
-    return keys.map(k => value[k] && typeof value[k] === "object" ? "\n" + pad + k + ":" + yaml(value[k], indent + 2) : "\n" + pad + k + ": " + yamlScalar(value[k])).join("");
+    return keys.map(k => "\n" + pad + yamlScalar(k) + ":" + (value[k] && typeof value[k] === "object" ? yaml(value[k], indent + 2) : " " + yamlScalar(value[k]))).join("");
   }
   function manifestYaml(manifest) { return yaml(manifest, 0).replace(/^\n/, "") + "\n"; }
 

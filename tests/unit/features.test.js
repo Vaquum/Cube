@@ -58,6 +58,8 @@ test("a fitted rule copies as the YAML that reads back as Mill's manifest", () =
 test("YAML scalars keep their types: exponent floats, quoted look-alikes, plain names and empty collections", () => {
   assert.equal(api.manifestYaml({a: 1e-7, b: 1e21, c: 2.5, d: "yes", e: "2024-01-01", f: "plain_name", g: null, h: true, i: [], j: {}, k: "{threshold}"}),
     'a: 1.0e-7\nb: 1.0e+21\nc: 2.5\nd: "yes"\ne: "2024-01-01"\nf: plain_name\ng: null\nh: true\ni: []\nj: {}\nk: "{threshold}"\n');
+  // Keys follow the scalar rule, and a list or map inside a list is a nested block.
+  assert.equal(api.manifestYaml({on: [[1, 2], [], {x: 1, y: [3]}, {}]}), '"on":\n  - - 1\n    - 2\n  - []\n  - x: 1\n    "y":\n      - 3\n  - {}\n');
 });
 
 // The controller, on a minimal DOM: the panel's elements by id, Mill as a stubbed fetch that answers when told to, and the recorded
