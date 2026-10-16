@@ -1,0 +1,9 @@
+{
+  "kind": "recorded",
+  "expectationSource": "published-table",
+  "generator": null,
+  "seed": null,
+  "source": "Mill POST /discover (Vaquum/Mill#34) on Binance BTCUSDT spot 1-hour time bars from its Limen bar store",
+  "extractedOn": "2026-10-16",
+  "notes": "Recorded directly from a local Mill at commit 7d7bd6c with the catalog pool. events.json: the 40 largest non-overlapping 4-hour up-moves of 2025, lead mode with 4 bars, context 2025-01-01 to 2026-01-01, display 2025-03-01 to 2025-03-08, top 2, max_points 100. description.json: one window, 2025-03-03 00:00 to 12:00 UTC, context and display 2025-03-01 to 2025-03-08, top 2, max_points 100. manifest.yaml is src/features.js's YAML of the first manifest in events.json; when it was recorded, PyYAML's safe_load read it back as exactly that manifest and limen.yaml.validate (limen 3.15.2) accepted it, so the test pins verified text, not the emitter's own output."
+}
