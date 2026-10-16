@@ -102,9 +102,10 @@ for (const key of ["ema1h", "ema4h"]) {
       price: (10000 + 10 * i) * 100, qty: 100000000, takerBuy: true }));
     const stamp = (offset) => new Date(epoch + offset).toISOString().slice(0, 16) + "Z";
     const fake = await fakeFor({ trades, cutoffIso: stamp(2100 * day) }, { next: 300 });
-    await page.goto(`${fake.url}/#t=${stamp(edge)}~${stamp(edge + day)}&replay=1&at=${stamp(edge)}&rows=off&marks=none&lines=${key}`);
+    await page.goto(`${fake.url}/#t=${stamp(edge)}~${stamp(edge + day)}&p=9000~14000&replay=1&at=${stamp(edge)}&rows=off&marks=none&lines=${key}`);
     await probe.waitForReady(); await fake.idle();
     await page.locator("#ol-lines").click();
+    await expect(page.locator(`[data-line="${key}"]`)).toBeChecked();
     await expect(page.locator(`[data-line-value="${key}"]`)).toHaveText("12,305 · 11,555");
   });
 }
