@@ -42,7 +42,8 @@ for (const reason of ["expired", "invalidated"]) {
   });
 }
 
-test("a failed initial refresh describes the snapshot and retry rather than claiming the cube stalled", async ({ page, fakeFor }) => {
+test("a failed initial refresh describes the snapshot and retry rather than claiming the cube stalled", async ({ page, fakeFor, allowConsole }) => {
+  allowConsole(/Failed to load resource: the server responded with a status of 503/);
   await page.clock.install({ time: new Date("2026-10-16T12:00:00Z") });
   const fake = await fakeFor("mini", { next: 300, quiet: 400 });
   fake.currentPack(); fake.rebuild();
