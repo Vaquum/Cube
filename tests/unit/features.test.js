@@ -5,31 +5,35 @@
 const {test} = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path");
 const api = require("../../src/features.js");
 const events = require("../fixtures/features/events.json"), description = require("../fixtures/features/description.json");
-const research = api.researchSpan({data_window: {start: "2024-01-01", end: "2026-05-15"}});
+const data = api.dataSpan({data_window: {start: "2024-01-01", end: "2026-05-15"}});
 const at = (s) => Date.parse(s), w = (a, b) => ({startMs: at(a), endMs: at(b)});
 
-test("Mill's research window is half open and includes its last day", () => {
-  assert.deepEqual(research, [at("2024-01-01T00:00:00Z"), at("2026-05-16T00:00:00Z")]);
-  assert.equal(api.researchSpan(null), null);
+test("the bars Mill has are a half-open span that includes their last day", () => {
+  assert.deepEqual(data, [at("2024-01-01T00:00:00Z"), at("2026-05-16T00:00:00Z")]);
+  assert.equal(api.dataSpan(null), null);
 });
 
-test("a request never reaches outside Mill's research window or past the chart's cutoff", () => {
-  const base = {bar: "1h_time_bars", mode: "inside", lead: 4, pool: {kind: "catalog"}, research};
+test("a request never reaches outside the bars Mill has or past the chart's cutoff", () => {
+  const base = {bar: "1h_time_bars", mode: "inside", lead: 4, pool: {kind: "catalog"}, data};
   const edge = at("2025-06-01T00:00:00Z"), view = [at("2025-05-20T00:00:00Z"), at("2025-06-10T00:00:00Z")];
   const marked = [w("2025-05-25T00:00:00Z", "2025-05-25T12:00:00Z")];
-  assert.match(api.request({...base, windows: [w("2026-06-01T00:00:00Z", "2026-06-02T00:00:00Z")], against: "research", view, edge: Infinity}).error,
-    /outside Mill's research window, 2024-01-01 to 2026-05-15/);
-  // Against the whole window, the compared span ends at the cutoff; the returned series covers the view inside it.
-  const whole = api.request({...base, windows: marked, against: "research", view, edge}).body;
+  assert.match(api.request({...base, windows: [w("2023-06-01T00:00:00Z", "2023-06-02T00:00:00Z")], against: "all", view, edge}).error,
+    /starts before the bars Mill has, which begin 2024-01-01/);
+  // Against all of Mill's data, the compared span ends at the cutoff; the returned series covers the view inside it.
+  const whole = api.request({...base, windows: marked, against: "all", view, edge}).body;
   assert.deepEqual(whole.context, {start: "2024-01-01T00:00:00Z", end: "2025-06-01T00:00:00Z"});
   assert.deepEqual(whole.display, {start: "2025-05-20T00:00:00Z", end: "2025-06-01T00:00:00Z"});
   assert.deepEqual(whole.windows, [{start: "2025-05-25T00:00:00Z", end: "2025-05-25T12:00:00Z"}]);
   assert.deepEqual(api.request({...base, windows: marked, against: "view", view, edge}).body.context, {start: "2025-05-20T00:00:00Z", end: "2025-06-01T00:00:00Z"});
   // A window wholly after the cutoff has no bar to mark, and no window is no request.
-  assert.match(api.request({...base, windows: [w("2025-06-05T00:00:00Z", "2025-06-06T00:00:00Z")], against: "research", view, edge}).error, /No marked window lies inside/);
-  assert.match(api.request({...base, windows: [], against: "research", view, edge}).error, /Add at least one window/);
-  assert.match(api.request({...base, windows: marked, against: "view", view: [at("2026-07-01T00:00:00Z"), at("2026-08-01T00:00:00Z")], edge: Infinity}).error,
-    /The visible time lies outside Mill's research window/);
+  assert.match(api.request({...base, windows: [w("2025-06-05T00:00:00Z", "2025-06-06T00:00:00Z")], against: "all", view, edge}).error, /No marked window lies inside/);
+  assert.match(api.request({...base, windows: [], against: "all", view, edge}).error, /Add at least one window/);
+  assert.match(api.request({...base, windows: marked, against: "view", view: [at("2023-07-01T00:00:00Z"), at("2023-08-01T00:00:00Z")], edge}).error,
+    /The visible time lies outside the bars Mill has/);
+  // The end Mill last reported does not bound anything: Mill compares the bars it has up to the cutoff.
+  const later = api.request({...base, windows: [w("2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z")], against: "all", view,
+    edge: at("2026-10-17T00:00:00Z")}).body;
+  assert.deepEqual(later.context, {start: "2024-01-01T00:00:00Z", end: "2026-10-17T00:00:00Z"});
 });
 
 test("a leader's points sit at their buckets' ends, and a partial last bucket at the display's end", () => {
@@ -81,7 +85,7 @@ function panel() {
   const root = new Element("div"), form = new Element("form", "ol-features-form");
   const field = (tag, name, value = "") => Object.assign(new Element(tag, "ol-features-" + name), {value});
   form.append(field("select", "bar", "1h_time_bars"), field("select", "mode", "inside"), field("label", "lead-label"), field("input", "lead", "4"),
-    field("select", "against", "research"), field("select", "pool", "catalog"), field("button", "add"), field("button", "find"), field("button", "cancel"));
+    field("select", "against", "all"), field("select", "pool", "catalog"), field("button", "add"), field("button", "find"), field("button", "cancel"));
   root.append(form);
   for (const name of ["status", "results", "summary", "chance", "rows", "detail", "detail-text", "similar", "copy", "unpreview", "yaml", "count", "clear-windows", "windows"]) root.append(field(name === "rows" ? "tbody" : "div", name));
   return root;
@@ -173,7 +177,7 @@ test("an answer that arrives after the cutoff moved before what it compared is n
   // The discovery is asked with the cutoff of that moment; replay then moves it into 2025 before Mill answers.
   edge = at("2025-06-01T00:00:00Z");
   await stub.next(); await done;
-  assert.equal(stub.calls[1].body.context.end, "2026-05-16T00:00:00Z");
+  assert.equal(stub.calls[1].body.context.end, "2026-09-24T00:00:00Z");
   assert.equal(byId(root, "results").hidden, true);
   assert.equal(byId(root, "status").textContent, "The cutoff moved before the end of what Mill compared against, so its answer used later bars. Find again.");
 });
@@ -192,4 +196,26 @@ test("a copy the clipboard refuses after another leader is selected shows no man
   assert.equal(yaml.hidden, true);
   assert.equal(yaml.textContent, "");
   assert.equal(byId(root, "status").textContent, `The clipboard refused to copy ${events.candidates[0].column}'s rule; select it and copy again.`);
+});
+
+test("a rule without a manifest, from data too short to split, cannot be copied and says why", async () => {
+  const root = panel(), short = structuredClone(events);
+  short.candidates[0].rule.manifest = null;
+  const stub = mill({"/mill/discover": JSON.stringify(short)});
+  controller(root);
+  byId(root, "add").onclick();
+  const done = submit(root); await stub.answer(); await done;
+  assert.equal(byId(root, "copy").disabled, true);
+  assert.match(byId(root, "detail-text").textContent, /too few days to split for a Limen manifest\.$/);
+});
+
+test("a search compares through the chart's cutoff whatever end Mill last reported, asking Mill once", async () => {
+  const root = panel();
+  // Mill last reported bars through 2026-05-15; the chart's cutoff is 2026-09-24.
+  const stub = mill();
+  controller(root);
+  byId(root, "add").onclick();
+  const first = submit(root); await stub.answer(); await first;
+  assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/discover"]);
+  assert.equal(stub.calls[1].body.context.end, "2026-09-24T00:00:00Z");
 });

@@ -4986,7 +4986,7 @@
               <label>Bars<select id="ol-features-bar"><option value="15m_time_bars">15 minutes</option><option value="30m_time_bars">30 minutes</option><option value="1h_time_bars" selected>1 hour</option><option value="2h_time_bars">2 hours</option><option value="4h_time_bars">4 hours</option></select></label>
               <label>Mark<select id="ol-features-mode"><option value="inside">Bars inside each window</option><option value="lead">Bars before each window</option></select></label>
               <label id="ol-features-lead-label" hidden>Bars before<input id="ol-features-lead" type="number" min="1" max="96" step="1" value="4" required></label>
-              <label>Compare against<select id="ol-features-against"><option value="research">Mill's research window</option><option value="view">Visible time</option></select></label>
+              <label>Compare against<select id="ol-features-against"><option value="all">All of Mill's data</option><option value="view">Visible time</option></select></label>
               <label>Pool<select id="ol-features-pool"><option value="catalog">Every factory · defaults</option></select></label>
               <button id="ol-features-add" type="button" class="ol-action cursor-interaction">Add selection</button>
               <button id="ol-features-find" type="submit" class="ol-action cursor-interaction">Find features</button>
@@ -19945,7 +19945,7 @@
       targets: [{"label":"Show Rallies panel","selector":"#ol-tab-rallies"}], colour: "rallies" },
     { id: "features", group: "Evaluate & retain", title: "Find features: what describes marked windows",
       purpose: "Ask Mill which of its features separate the windows you mark from the rest, and whether that beats chance. Offered where the page is served with Mill.",
-      read: "AUC is the chance that a marked bar's value lies above an unmarked one's: 0.5 separates nothing, and the direction says whether marked bars sit higher or lower. Beyond chance means an adjusted p of at most 0.05 against the best column of the whole pool, with the same windows shifted in time. One window describes and cannot test, because a slow level separates any contiguous window. Intervals need 30 windows. Rules are thresholds fitted in sample. Mill computes on its own bars, 2024-01-01 to 2026-05-15, never after the chart's cutoff.",
+      read: "AUC is the chance that a marked bar's value lies above an unmarked one's: 0.5 separates nothing, and the direction says whether marked bars sit higher or lower. Beyond chance means an adjusted p of at most 0.05 against the best column of the whole pool, with the same windows shifted in time. One window describes and cannot test, because a slow level separates any contiguous window. Intervals need 30 windows. Rules are thresholds fitted in sample. Mill computes on its own bars, through its latest, never after the chart's cutoff.",
       use: "Select a rectangle and Add selection for each window, choose the bars, what to mark and what to compare against, then Find features. Select a leader to preview it in the Columns pane, its rule's hits as a strip lane; End preview restores the pane. Copy rule as Limen manifest gives a Furnace experiment. Nothing is saved.",
       targets: [{"label":"Show Find features panel","selector":"#ol-tab-features"}], colour: "none" },
     { id: "replay", group: "Evaluate & retain", title: "Replay & model timing",
@@ -20407,8 +20407,9 @@
   function fixed(v, digits = 3) { return v === null || v === undefined ? "—" : Number(v).toFixed(digits); }
   // A p-value to two significant digits, so the smallest one a null of many shifts allows still reads as itself.
   function pValue(p) { return String(+Number(p).toPrecision(2)); }
-  // Mill's research window as half-open milliseconds, from the inclusive days of its data window.
-  function researchSpan(config) {
+  // The bars Mill has, as half-open milliseconds, from the inclusive days of its data window: its first bar's day
+  // through its latest bar's.
+  function dataSpan(config) {
     const w = config && config.data_window;
     return w ? [Date.parse(w.start + "T00:00:00Z"), Date.parse(w.end + "T00:00:00Z") + DAY] : null;
   }
@@ -20416,17 +20417,18 @@
     const a = Math.max(span[0], bounds[0]), b = Math.min(span[1], bounds[1]);
     return a < b ? [a, b] : null;
   }
-  // The body of Mill's POST /discover, or why it cannot be asked. Nothing reaches Mill from outside its research
-  // window or after the chart's cutoff: the compared span and the returned series both end there.
-  function request({windows, bar, mode, lead, against, pool, view, edge, research}) {
-    if (!research) return {error: "Mill's research window is not known yet."};
+  // The body of Mill's POST /discover, or why it cannot be asked. Mill's bars run from its first through its latest, and
+  // only the first stays put, so a span starts no earlier than Mill's first bar and ends at the chart's cutoff: the
+  // compared span and the returned series end there, and Mill compares the bars it has up to it.
+  function request({windows, bar, mode, lead, against, pool, view, edge, data}) {
+    if (!data) return {error: "The span of Mill's bars is not known yet."};
     if (!windows.length) return {error: "Add at least one window: select a rectangle on the chart, then Add selection."};
-    const outside = windows.find(w => w.startMs < research[0] || w.endMs > research[1]);
-    if (outside) return {error: `The window ${stamp(outside.startMs)} → ${stamp(outside.endMs)} UTC lies outside Mill's research window, ${iso(research[0]).slice(0, 10)} to ${iso(research[1] - DAY).slice(0, 10)}.`};
-    const bound = [research[0], Math.min(research[1], edge)];
-    if (bound[0] >= bound[1]) return {error: "The chart's cutoff is before Mill's research window starts."};
+    const early = windows.find(w => w.startMs < data[0]);
+    if (early) return {error: `The window ${stamp(early.startMs)} → ${stamp(early.endMs)} UTC starts before the bars Mill has, which begin ${iso(data[0]).slice(0, 10)}.`};
+    const bound = [data[0], edge];
+    if (bound[0] >= bound[1]) return {error: "The chart's cutoff is before Mill's first bar."};
     const context = against === "view" ? clip(view, bound) : bound;
-    if (!context) return {error: "The visible time lies outside Mill's research window. Move the view inside it, or compare against the whole research window."};
+    if (!context) return {error: "The visible time lies outside the bars Mill has. Move the view inside them, or compare against all of Mill's data."};
     if (!windows.some(w => clip([w.startMs, w.endMs], context))) return {error: "No marked window lies inside what it is compared against, before the cutoff."};
     const display = clip(view, bound) || context, span = ([a, b]) => ({start: iso(a), end: iso(b)});
     return {body: {bar, mode, ...(mode === "lead" ? {lead_bars: lead} : {}), pool, top: 5, max_points: 2000,
@@ -20540,7 +20542,7 @@
         const c = context(), poolValue = el("pool").value;
         const ask = request({windows, bar: el("bar").value, mode: el("mode").value, lead: Number(el("lead").value),
           against: el("against").value, pool: poolValue === "catalog" ? {kind: "catalog"} : {kind: "view", name: poolValue.slice(5)},
-          view: c.viewMs, edge: c.edgeMs, research: researchSpan(config)});
+          view: c.viewMs, edge: c.edgeMs, data: dataSpan(config)});
         if (ask.error) { message = ask.error; return; }
         result = null; selected = -1; render(); changed();
         status(poolValue === "catalog" ? "Ranking every factory at its default parameters. A timeframe's first search builds its pool once: about 4 s on 1 hour, 16 s on 15 minutes." : "Ranking the view's columns…");
@@ -20555,7 +20557,7 @@
     // The copy names the leader it was made from: the clipboard may answer after another leader is selected, and a manifest shown
     // by hand is only ever the selected leader's.
     async function copyRule() {
-      const candidate = current(); if (!candidate?.rule) return;
+      const candidate = current(); if (!candidate?.rule?.manifest) return;
       const text = manifestYaml(candidate.rule.manifest), shown = el("yaml");
       try {
         await navigator.clipboard.writeText(text);
@@ -20628,8 +20630,9 @@
       el("detail-text").textContent = r
         ? `Rule: ${r.text}. In sample it flags ${fixed(100 * r.tpr, 1)}% of the marked bars and ${fixed(100 * r.fpr, 1)}% of the others; precision ${r.precision === null ? "—" : fixed(100 * r.precision, 1) + "%"}; it hits ${fixed(100 * r.events_hit, 0)}% of the windows.`
         : "No threshold separates these bars, so there is no rule to copy.";
+      if (r && !r.manifest) el("detail-text").textContent += " Mill's data spans too few days to split for a Limen manifest.";
       el("similar").textContent = candidate.similar.length ? `Moves with it (|ρ| > 0.9): ${candidate.similar.join(", ")}.` : "No other ranked column moves with it.";
-      el("copy").disabled = !r;
+      el("copy").disabled = !r?.manifest;
     }
     function render() {
       controls(); renderWindows(); renderResult();
@@ -20637,7 +20640,7 @@
       if (message) status(message);
       else if (configState === "loading") status("Connecting to Mill…");
       else if (result) status(current() ? `Previewing ${current().column} in the Columns pane; its rule's hits are a lane under the chart. Nothing is saved.` : "Select a leader to preview it.");
-      else if (configState === "ready") status(`Mill reads bars from ${config.data_window.start} to ${config.data_window.end}. Mark windows inside it, then Find features.`);
+      else if (configState === "ready") status(`Mill has bars from ${config.data_window.start} through its latest. Mark windows, then Find features.`);
       else status("Select a rectangle on the chart, then Add selection. Mill is asked when you press Find features.");
     }
     function sync() {
@@ -20720,7 +20723,7 @@
         return {windows: windows.map(w => [w.startMs, w.endMs]), hits: rule ? rule.hits : null, rule: rule ? rule.text : "", stepMs: result ? result.step_ms : 0};
       }};
   }
-  scope.explorerFeatures = {create, request, researchSpan, points, chanceText, manifestYaml, clip, iso};
+  scope.explorerFeatures = {create, request, dataSpan, points, chanceText, manifestYaml, clip, iso};
   if (typeof module !== "undefined") module.exports = scope.explorerFeatures;
 })(typeof window === "undefined" ? globalThis : window);
 </script>

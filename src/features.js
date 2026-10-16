@@ -12,8 +12,9 @@
   function fixed(v, digits = 3) { return v === null || v === undefined ? "—" : Number(v).toFixed(digits); }
   // A p-value to two significant digits, so the smallest one a null of many shifts allows still reads as itself.
   function pValue(p) { return String(+Number(p).toPrecision(2)); }
-  // Mill's research window as half-open milliseconds, from the inclusive days of its data window.
-  function researchSpan(config) {
+  // The bars Mill has, as half-open milliseconds, from the inclusive days of its data window: its first bar's day
+  // through its latest bar's.
+  function dataSpan(config) {
     const w = config && config.data_window;
     return w ? [Date.parse(w.start + "T00:00:00Z"), Date.parse(w.end + "T00:00:00Z") + DAY] : null;
   }
@@ -21,17 +22,18 @@
     const a = Math.max(span[0], bounds[0]), b = Math.min(span[1], bounds[1]);
     return a < b ? [a, b] : null;
   }
-  // The body of Mill's POST /discover, or why it cannot be asked. Nothing reaches Mill from outside its research
-  // window or after the chart's cutoff: the compared span and the returned series both end there.
-  function request({windows, bar, mode, lead, against, pool, view, edge, research}) {
-    if (!research) return {error: "Mill's research window is not known yet."};
+  // The body of Mill's POST /discover, or why it cannot be asked. Mill's bars run from its first through its latest, and
+  // only the first stays put, so a span starts no earlier than Mill's first bar and ends at the chart's cutoff: the
+  // compared span and the returned series end there, and Mill compares the bars it has up to it.
+  function request({windows, bar, mode, lead, against, pool, view, edge, data}) {
+    if (!data) return {error: "The span of Mill's bars is not known yet."};
     if (!windows.length) return {error: "Add at least one window: select a rectangle on the chart, then Add selection."};
-    const outside = windows.find(w => w.startMs < research[0] || w.endMs > research[1]);
-    if (outside) return {error: `The window ${stamp(outside.startMs)} → ${stamp(outside.endMs)} UTC lies outside Mill's research window, ${iso(research[0]).slice(0, 10)} to ${iso(research[1] - DAY).slice(0, 10)}.`};
-    const bound = [research[0], Math.min(research[1], edge)];
-    if (bound[0] >= bound[1]) return {error: "The chart's cutoff is before Mill's research window starts."};
+    const early = windows.find(w => w.startMs < data[0]);
+    if (early) return {error: `The window ${stamp(early.startMs)} → ${stamp(early.endMs)} UTC starts before the bars Mill has, which begin ${iso(data[0]).slice(0, 10)}.`};
+    const bound = [data[0], edge];
+    if (bound[0] >= bound[1]) return {error: "The chart's cutoff is before Mill's first bar."};
     const context = against === "view" ? clip(view, bound) : bound;
-    if (!context) return {error: "The visible time lies outside Mill's research window. Move the view inside it, or compare against the whole research window."};
+    if (!context) return {error: "The visible time lies outside the bars Mill has. Move the view inside them, or compare against all of Mill's data."};
     if (!windows.some(w => clip([w.startMs, w.endMs], context))) return {error: "No marked window lies inside what it is compared against, before the cutoff."};
     const display = clip(view, bound) || context, span = ([a, b]) => ({start: iso(a), end: iso(b)});
     return {body: {bar, mode, ...(mode === "lead" ? {lead_bars: lead} : {}), pool, top: 5, max_points: 2000,
@@ -145,7 +147,7 @@
         const c = context(), poolValue = el("pool").value;
         const ask = request({windows, bar: el("bar").value, mode: el("mode").value, lead: Number(el("lead").value),
           against: el("against").value, pool: poolValue === "catalog" ? {kind: "catalog"} : {kind: "view", name: poolValue.slice(5)},
-          view: c.viewMs, edge: c.edgeMs, research: researchSpan(config)});
+          view: c.viewMs, edge: c.edgeMs, data: dataSpan(config)});
         if (ask.error) { message = ask.error; return; }
         result = null; selected = -1; render(); changed();
         status(poolValue === "catalog" ? "Ranking every factory at its default parameters. A timeframe's first search builds its pool once: about 4 s on 1 hour, 16 s on 15 minutes." : "Ranking the view's columns…");
@@ -160,7 +162,7 @@
     // The copy names the leader it was made from: the clipboard may answer after another leader is selected, and a manifest shown
     // by hand is only ever the selected leader's.
     async function copyRule() {
-      const candidate = current(); if (!candidate?.rule) return;
+      const candidate = current(); if (!candidate?.rule?.manifest) return;
       const text = manifestYaml(candidate.rule.manifest), shown = el("yaml");
       try {
         await navigator.clipboard.writeText(text);
@@ -233,8 +235,9 @@
       el("detail-text").textContent = r
         ? `Rule: ${r.text}. In sample it flags ${fixed(100 * r.tpr, 1)}% of the marked bars and ${fixed(100 * r.fpr, 1)}% of the others; precision ${r.precision === null ? "—" : fixed(100 * r.precision, 1) + "%"}; it hits ${fixed(100 * r.events_hit, 0)}% of the windows.`
         : "No threshold separates these bars, so there is no rule to copy.";
+      if (r && !r.manifest) el("detail-text").textContent += " Mill's data spans too few days to split for a Limen manifest.";
       el("similar").textContent = candidate.similar.length ? `Moves with it (|ρ| > 0.9): ${candidate.similar.join(", ")}.` : "No other ranked column moves with it.";
-      el("copy").disabled = !r;
+      el("copy").disabled = !r?.manifest;
     }
     function render() {
       controls(); renderWindows(); renderResult();
@@ -242,7 +245,7 @@
       if (message) status(message);
       else if (configState === "loading") status("Connecting to Mill…");
       else if (result) status(current() ? `Previewing ${current().column} in the Columns pane; its rule's hits are a lane under the chart. Nothing is saved.` : "Select a leader to preview it.");
-      else if (configState === "ready") status(`Mill reads bars from ${config.data_window.start} to ${config.data_window.end}. Mark windows inside it, then Find features.`);
+      else if (configState === "ready") status(`Mill has bars from ${config.data_window.start} through its latest. Mark windows, then Find features.`);
       else status("Select a rectangle on the chart, then Add selection. Mill is asked when you press Find features.");
     }
     function sync() {
@@ -325,6 +328,6 @@
         return {windows: windows.map(w => [w.startMs, w.endMs]), hits: rule ? rule.hits : null, rule: rule ? rule.text : "", stepMs: result ? result.step_ms : 0};
       }};
   }
-  scope.explorerFeatures = {create, request, researchSpan, points, chanceText, manifestYaml, clip, iso};
+  scope.explorerFeatures = {create, request, dataSpan, points, chanceText, manifestYaml, clip, iso};
   if (typeof module !== "undefined") module.exports = scope.explorerFeatures;
 })(typeof window === "undefined" ? globalThis : window);
