@@ -11549,6 +11549,8 @@
     S.lines = normalizeLines(next);
     update();
     save();
+    pumpCube();
+    pumpMotion();
   }
 
   // Candles are an alternative price surface, not a scalar cell measurement.
@@ -11825,8 +11827,8 @@
       S.pane === "macd1d" || inspect.on || Boolean(el("context").querySelector(".ol-core-details[open]")) || S.mode === "candles"
     )
       out.push(9);
-    if (on([...FOUR_HOUR_LINES, ...averageTf("4h")]) || S.pane === "rsi4h") out.push(8);
-    if (on(["cme", ...averageTf("1h")])) out.push(6);
+    if (on(FOUR_HOUR_LINES) || S.pane === "rsi4h") out.push(8);
+    if (on(["cme"])) out.push(6);
     return out;
   }
   function barChunkWant(n, j) {
@@ -11909,6 +11911,18 @@
       if (tail && !motion.failed.has(tail.key)) return tail;
     }
     return null;
+  }
+  function menuBarsWant() {
+    if (!PACK.live || el("lines-pop").hidden) return null;
+    const open = familiesOpen();
+    if (!open.average && !open.session && !open.structure) return null;
+    const span = BAR_CHUNK * 2 ** 9, edge = barCutoff();
+    for (let j = Math.floor((Math.ceil(edge) - 1) / span); j >= 0; j--) {
+      const want = barChunkWant(9, j);
+      if (want && !motion.failed.has(want.key)) return want;
+    }
+    const tail = barEdgeWant(9);
+    return tail && !motion.failed.has(tail.key) ? tail : null;
   }
   // Why a timeframe's bars couldn't be read, when they couldn't.
   function barsIssue(n) {
@@ -12968,7 +12982,7 @@
       edge = barCutoff();
     // Menu values refer to the cutoff day even when viewing older history.
     if (regionalVwapsOn()) out.push([6, Math.floor(Math.max(0, activeCutoff() - 1e-6) / DAYS) * DAYS, edge]);
-    for (const tf of ["15m", "3m"])
+    for (const tf of ["1h", "4h", "15m", "3m"])
       if (averageTf(tf).some((k) => S.lines.includes(k))) {
         const n = AVERAGE_STEPS[tf],
           span = averageSpan(n);
@@ -12978,13 +12992,14 @@
   }
   // The bars an average is computed on, each with its close and the time its
   // value is drawn at: its bar's end, or where the bars end. The days and
-  // weeks come from the 8-hour bars, and the 4-hour and hourly bars are read
-  // over the whole history. The history's first week, from a Friday, is left
+  // weeks come from the 8-hour bars. The history's first week, from a Friday, is left
   // out. At 15 and 3.75 minutes they are the view's chunks of bars and the
   // chunk before, from its start: after its 4,096 bars an EMA is as it would
   // be from the history's start, to within 10⁻¹⁸ of itself. Those draw only
   // while their bars are at least a quarter pixel wide. Kept per read, each
-  // indicator computed once on it.
+  // indicator computed once on it. Hourly and 4-hour averages use the view
+  // through the cutoff with at least 8,192 preceding traded bars (or all
+  // available history), making even the 200 EMA seed negligible.
   const AVERAGE_STEPS = { "3m": 2, "15m": 4, "1h": 6, "4h": 8 },
     AVERAGE_MIN_PX = 0.25,
     TF_NAMES = { "3m": "3.75 minutes", "15m": "15 minutes", "1h": "1 hour", "4h": "4 hours", "1d": "1 day", "1w": "1 week" },
@@ -13008,13 +13023,26 @@
   function averageSpan(n) {
     const step = 2 ** n,
       span = BAR_CHUNK * step;
+    if (n === 6 || n === 8) {
+      const first = Math.max(0, Math.min(S.tA, activeCutoff())),
+        chunk = Math.max(0, Math.min(Math.floor(first / span), Math.ceil(activeCutoff() / span) - 1));
+      let j = Math.max(0, chunk - 2), count = 0;
+      // Sparse feeds need more time chunks to supply the same warm-up.
+      for (let k = chunk; k >= j; k--) {
+        const held = barChunks.get(n + "|" + k);
+        if (!held) break;
+        count += bisectColumn(held.bars, Math.ceil(first / step));
+        if (k === j && count < 8192 && j > 0) j--;
+      }
+      return { from: j * span, to: activeCutoff() };
+    }
     if ((G.w * step) / Math.max(1e-9, S.tB - S.tA) < AVERAGE_MIN_PX) return null;
     return {
       from: Math.max(0, (Math.floor(Math.max(0, S.tA) / span) - 1) * span),
       to: Math.min(activeCutoff(), Math.ceil(S.tB / span) * span),
     };
   }
-  function averageFrame(tf) {
+  function averageFrame(tf, fullHistory = false) {
     if (tf === "1d" || tf === "1w") {
       const s9 = barSeries(9);
       if (s9.state !== "ready") return s9;
@@ -13035,12 +13063,13 @@
     }
     const n = AVERAGE_STEPS[tf],
       step = 2 ** n;
-    if (tf === "1h" || tf === "4h") {
-      const s = barSeries(n);
-      if (s.state !== "ready") return s;
-      let hit = frameMemo.get(s);
-      if (!hit) frameMemo.set(s, (hit = makeFrame(s.bars.map(withStart(step)), (x) => (x.c + 1) * step, s.end, tf)));
-      return hit;
+    // RSI divergences index the full-history swings, so retain their frame.
+    if (fullHistory && tf === "4h") {
+      const series = barSeries(n);
+      if (series.state !== "ready") return series;
+      let frame = frameMemo.get(series);
+      if (!frame) frameMemo.set(series, (frame = makeFrame(series.bars.map(withStart(step)), (x) => (x.c + 1) * step, series.end, tf)));
+      return frame;
     }
     const span = averageSpan(n);
     if (!span) return { state: "wide" };
@@ -13386,7 +13415,7 @@
   // crosses. Computed once per frame.
   const OSCILLATORS = ["rsi1d", "rsi4h", "macd1d"];
   function oscillatorOf(key) {
-    const frame = averageFrame(key === "rsi4h" ? "4h" : "1d");
+    const frame = averageFrame(key === "rsi4h" ? "4h" : "1d", true);
     if (frame.state !== "ready") return frame;
     let hit = frame.memo.get(key);
     if (!hit) {
@@ -16522,6 +16551,21 @@
     }
     renderReferenceStatus();
   }
+  function referencePending(key) {
+    let reads = [];
+    if (AVERAGE_SPECS[key]) reads = [averageFrame(AVERAGE_SPECS[key].tf)];
+    else if (isPeriod(key)) reads = [lineShown(key)];
+    else if (key === "vvwap") reads = [visibleVwapResult()];
+    else if (key === "cme") reads = [barSeries(6)];
+    else if (FOUR_HOUR_LINES.includes(key)) reads = [barSeries(8), ...(key === "fibswing4h" ? [barSeries(9)] : [])];
+    else if (RETRACEMENT_MORE[key] && retracementsOn()) reads = [barSeries(9), ...(S.lines.includes("fibswing4h") ? [barSeries(8)] : [])];
+    else if (isSessionVwap(key) || key === "avwaph" || key === "avwapl" || isVwapDay(key)) {
+      const need = vwapBarNeed();
+      reads = [barSeries(9), ...(need ? [barsBetween(...need)] : [])];
+    } else if (EIGHT_HOUR_LINES.includes(key) || STRUCTURE_LINES.includes(key) || isFibDay(key)) reads = [barSeries(9)];
+    // A failed dependency must not be disguised by another read still pending.
+    return reads.some((r) => r.state === "pending") && !reads.some((r) => r.state === "failed");
+  }
   function renderReferenceStatus() {
     if (el("lines-pop").hidden) return;
     const text = inventorySummary(refInventory);
@@ -16530,7 +16574,7 @@
     for (const r of E.role.REASONS) for (const id of refInventory.byReason[r.id]) state.set(id, r);
     for (const row of qsa("#ol-lines-pop .ol-line-row[data-ref-key]")) {
       const r = state.get(row.dataset.refKey),
-        word = r && r.id !== "shown" ? r.short : "",
+        word = r?.id === "missing" && referencePending(row.dataset.refKey) ? "Loading…" : r && r.id !== "shown" ? r.short : "",
         node = row.querySelector(".ol-line-reason");
       if (r) {
         if (row.dataset.refState !== r.id) row.dataset.refState = r.id;
@@ -16634,6 +16678,7 @@
       hideHint();
       linesStatus("");
       renderLines();
+      pumpMotion();
       // Into the list: the first line on in an open family, or else the first
       // family's head.
       (root.querySelector("#ol-lines-pop .ol-family-body:not([hidden]) input:checked") ||
@@ -16670,6 +16715,7 @@
       el(`family-${f.id}-head`).addEventListener("click", () => {
         setFamilyOpen(f.id, !familiesOpen()[f.id]);
         renderLines();
+        pumpMotion();
       });
     el("lines-days").addEventListener("click", (e) => {
       const key = e.target.closest("[data-line-remove]")?.dataset.lineRemove;
@@ -18743,7 +18789,7 @@
   // to be read.
   function motionWant() {
     const viewing = movementOn();
-    if (!(coreBarTarget() || coreContextTarget() || viewing || (PACK.live && (S.rows === "time" || S.lines.includes("vvwap"))) || barLevels().length || viewBarNeeds().length || candleNeeds().length) || cube.stale) return null;
+    if (!(coreBarTarget() || coreContextTarget() || viewing || (PACK.live && (S.rows === "time" || S.lines.includes("vvwap"))) || barLevels().length || viewBarNeeds().length || candleNeeds().length || menuBarsWant()) || cube.stale) return null;
     if (["measure", "tile", "lens"].includes(cube.busy?.kind)) return null;
     for (const want of [measureWant(), tileWant(), lensWant()])
       if (want && !cube.failed.has(want.key)) return null;
@@ -18759,6 +18805,7 @@
         underlayDwellWant(),
         visibleVwapWant(),
         barsWant(),
+        menuBarsWant(),
       ].find((want) => want && !motion.failed.has(want.key)) || null
     );
   }
