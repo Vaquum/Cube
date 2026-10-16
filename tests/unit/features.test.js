@@ -93,13 +93,14 @@ function mill(answers = {}) {
     const text = answers[path] ?? JSON.stringify(path.endsWith("/app-config") ? {data_window: {start: "2024-01-01", end: "2026-05-15"}, views: []} : events);
     waiting.push(() => resolve({ok: true, status: 200, text: async () => text}));
   });
-  return {calls, answer: async () => { while (waiting.length) { waiting.shift()(); await new Promise((r) => setTimeout(r, 0)); } }};
+  const next = async () => { waiting.shift()(); await new Promise((r) => setTimeout(r, 0)); };
+  return {calls, next, answer: async () => { while (waiting.length) await next(); }};
 }
-function controller(root) {
+function controller(root, edgeMs = () => at("2026-09-24T00:00:00Z")) {
   globalThis.document = {createElement: (tag) => new Element(tag), createDocumentFragment: () => Object.assign(new Element("#fragment"), {fragment: true})};
   globalThis.window = {explorerMotion: {replaceChildren: (host, ...content) => { host.children = []; host.append(...content); }}};
   return api.create({root, changed: () => {}, context: () => ({ready: true, selectionMs: [at("2025-03-03T00:00:00Z"), at("2025-03-03T12:00:00Z")],
-    viewMs: [at("2025-03-01T00:00:00Z"), at("2025-03-08T00:00:00Z")], edgeMs: at("2026-09-24T00:00:00Z")})});
+    viewMs: [at("2025-03-01T00:00:00Z"), at("2025-03-08T00:00:00Z")], edgeMs: edgeMs()})});
 }
 const byId = (root, name) => root.querySelector("#ol-features-" + name);
 const submit = (root) => byId(root, "form").listeners.submit[0]({preventDefault() {}});
@@ -157,4 +158,19 @@ test("an answer that is not Mill's is reported, keeps no result and is asked aga
   assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/discover"]);
   assert.equal(byId(root, "status").textContent, "Mill's /discover answered with JSON that is not its answer.");
   assert.equal(byId(root, "results").hidden, true);
+});
+
+test("an answer that arrives after the cutoff moved before what it compared is not kept", async () => {
+  const root = panel(), stub = mill();
+  let edge = at("2026-09-24T00:00:00Z");
+  controller(root, () => edge);
+  byId(root, "add").onclick();
+  const done = submit(root);
+  await stub.next();
+  // The discovery is asked with the cutoff of that moment; replay then moves it into 2025 before Mill answers.
+  edge = at("2025-06-01T00:00:00Z");
+  await stub.next(); await done;
+  assert.equal(stub.calls[1].body.context.end, "2026-05-16T00:00:00Z");
+  assert.equal(byId(root, "results").hidden, true);
+  assert.equal(byId(root, "status").textContent, "The cutoff moved before the end of what Mill compared against, so its answer used later bars. Find again.");
 });

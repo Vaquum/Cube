@@ -20371,6 +20371,7 @@
   const BAR_NAMES = {"15m_time_bars": "15 minutes", "30m_time_bars": "30 minutes", "1h_time_bars": "1 hour", "2h_time_bars": "2 hours", "4h_time_bars": "4 hours"};
   // Within the minute any wait is allowed: a timeframe's first search builds its pool, at most about 16 s, then answers in under a second.
   const DISCOVER_TIMEOUT = 55000, CONFIG_TIMEOUT = 20000;
+  const AFTER_CUTOFF = "The cutoff moved before the end of what Mill compared against, so its answer used later bars. Find again.";
   function iso(ms) { return new Date(ms).toISOString().replace(".000Z", "Z"); }
   function stamp(ms) { return iso(ms).slice(0, 16).replace("T", " "); }
   function fixed(v, digits = 3) { return v === null || v === undefined ? "—" : Number(v).toFixed(digits); }
@@ -20513,7 +20514,10 @@
         if (ask.error) { message = ask.error; return; }
         result = null; selected = -1; render(); changed();
         status(poolValue === "catalog" ? "Ranking every factory at its default parameters. A timeframe's first search builds its pool once: about 4 s on 1 hour, 16 s on 15 minutes." : "Ranking the view's columns…");
-        result = await call("/mill/discover", {body: ask.body, timeout: DISCOVER_TIMEOUT, shaped: (r) => Array.isArray(r?.candidates) && Boolean(r.target && r.context && r.chance && r.pool)}); asked = ask.body; selected = result.candidates.length ? 0 : -1;
+        const reply = await call("/mill/discover", {body: ask.body, timeout: DISCOVER_TIMEOUT, shaped: (r) => Array.isArray(r?.candidates) && Boolean(r.target && r.context && r.chance && r.pool)});
+        // The cutoff may have moved while Mill searched: an answer that compared bars after it is not kept.
+        if (context().edgeMs < Date.parse(ask.body.context.end)) { message = AFTER_CUTOFF; return; }
+        result = reply; asked = ask.body; selected = result.candidates.length ? 0 : -1;
       } catch (error) { message = error.message; }
       finally { busy = false; render(); changed(); }
     }
@@ -20599,8 +20603,7 @@
       const c = context(); if (!c.ready) return;
       // An answer is kept only while the chart's cutoff lies at or after the end of what Mill compared against.
       if (result && c.edgeMs < Date.parse(asked.context.end)) {
-        result = null; selected = -1;
-        message = "The cutoff moved before the end of what Mill compared against, so its answer used later bars. Find again.";
+        result = null; selected = -1; message = AFTER_CUTOFF;
         render(); changed();
         return;
       }
