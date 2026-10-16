@@ -70,7 +70,9 @@ with tempfile.TemporaryDirectory() as directory:
     assert not failure,failure
     assert e.pack['state_token']=='new' and e.holding('old')['pins']=={'day':'old'}
     assert payload(e)['state_token']=='new'
-    update=e.update('old')
+    # A client without a held token receives the new complete snapshot.
+    # Numerical tail calculation is covered separately with its array runtime.
+    update=e.update('not-held')
     assert update['status']=='pack' and update['pack']['state_token']=='new'
 
     # An empty server must build real data once; no invented empty snapshot.
