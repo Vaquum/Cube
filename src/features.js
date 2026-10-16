@@ -33,7 +33,7 @@
     if (!context) return {error: "The visible time lies outside Mill's research window. Move the view inside it, or compare against the whole research window."};
     if (!windows.some(w => clip([w.startMs, w.endMs], context))) return {error: "No marked window lies inside what it is compared against, before the cutoff."};
     const display = clip(view, bound) || context, span = ([a, b]) => ({start: iso(a), end: iso(b)});
-    return {body: {bar, mode, lead_bars: lead, pool, top: 5, max_points: 2000,
+    return {body: {bar, mode, ...(mode === "lead" ? {lead_bars: lead} : {}), pool, top: 5, max_points: 2000,
       windows: windows.map(w => span([w.startMs, w.endMs])), context: span(context), display: span(display)}};
   }
   // A leader's values as points, each at the end of its bucket of bars, when its last bar has closed. The last bucket
@@ -82,7 +82,7 @@
   function create({root, context, changed}) {
     const el = id => root.querySelector("#ol-features-" + id);
     let config = null, configState = "idle", loading = null, windows = [], result = null, asked = null, selected = -1, busy = false,
-      active = null, message = "", serial = 0, synced = "", cache = {candidate: null, list: []};
+      active = null, message = "", serial = 0, synced = "", cache = {candidate: null, list: []}, fallbackFor = null;
     async function call(path, {body = null, timeout}) {
       const controller = new AbortController(), timer = setTimeout(() => controller.abort("timeout"), timeout);
       active = controller;
@@ -95,7 +95,11 @@
         if (!response.ok) { const error = new Error(reply.detail || reply.error || `${response.status} ${response.statusText}`); error.status = response.status; throw error; }
         return reply;
       } catch (error) {
-        if (controller.signal.aborted) throw new Error(controller.signal.reason === "user" ? "Stopped waiting. Mill may still finish the search." : "Mill did not answer within the minute.");
+        if (controller.signal.aborted) {
+          const stopped = new Error(controller.signal.reason === "user" ? "Stopped waiting. Mill may still finish what it was asked." : "Mill did not answer within the minute.");
+          stopped.aborted = true;
+          throw stopped;
+        }
         throw error;
       } finally { clearTimeout(timer); if (active === controller) active = null; }
     }
@@ -112,7 +116,7 @@
         pool.querySelector("optgroup")?.remove(); pool.append(group);
       } catch (error) {
         configState = "failed";
-        message = error.status === 404 || error.status === undefined
+        message = error.aborted ? error.message : error.status === 404 || error.status === undefined
           ? "Find features needs Mill, served to this page at /mill/. Locally, open the page through python3 tools/features_dev.py."
           : `Mill: ${error.message}`;
       }
@@ -129,24 +133,27 @@
     async function find(event) {
       event.preventDefault();
       if (busy) return;
-      if (configState !== "ready") { await connect(); if (configState !== "ready") return; }
-      const c = context(), poolValue = el("pool").value;
-      const ask = request({windows, bar: el("bar").value, mode: el("mode").value, lead: Number(el("lead").value),
-        against: el("against").value, pool: poolValue === "catalog" ? {kind: "catalog"} : {kind: "view", name: poolValue.slice(5)},
-        view: c.viewMs, edge: c.edgeMs, research: researchSpan(config)});
-      if (ask.error) { message = ask.error; render(); return; }
-      busy = true; result = null; selected = -1; message = ""; render(); changed();
-      status(poolValue === "catalog" ? "Ranking every factory at its default parameters. A timeframe's first search builds its pool once: about 4 s on 1 hour, 16 s on 15 minutes." : "Ranking the view's columns…");
-      try { result = await call("/mill/discover", {body: ask.body, timeout: DISCOVER_TIMEOUT}); asked = ask.body; selected = result.candidates.length ? 0 : -1; }
-      catch (error) { message = `${error.status ?? "Network"}: ${error.message}`; }
+      busy = true; message = ""; render();
+      try {
+        if (configState !== "ready") { status("Connecting to Mill…"); await connect(); }
+        if (configState !== "ready") return;
+        const c = context(), poolValue = el("pool").value;
+        const ask = request({windows, bar: el("bar").value, mode: el("mode").value, lead: Number(el("lead").value),
+          against: el("against").value, pool: poolValue === "catalog" ? {kind: "catalog"} : {kind: "view", name: poolValue.slice(5)},
+          view: c.viewMs, edge: c.edgeMs, research: researchSpan(config)});
+        if (ask.error) { message = ask.error; return; }
+        result = null; selected = -1; render(); changed();
+        status(poolValue === "catalog" ? "Ranking every factory at its default parameters. A timeframe's first search builds its pool once: about 4 s on 1 hour, 16 s on 15 minutes." : "Ranking the view's columns…");
+        result = await call("/mill/discover", {body: ask.body, timeout: DISCOVER_TIMEOUT}); asked = ask.body; selected = result.candidates.length ? 0 : -1;
+      } catch (error) { message = error.aborted ? error.message : `${error.status ?? "Network"}: ${error.message}`; }
       finally { busy = false; render(); changed(); }
     }
     function select(i) { selected = selected === i ? -1 : i; render(); changed(); }
     async function copyRule() {
       const candidate = current(); if (!candidate?.rule) return;
       const text = manifestYaml(candidate.rule.manifest), shown = el("yaml");
-      try { await navigator.clipboard.writeText(text); shown.hidden = true; status("Copied the rule as a Limen manifest. Its threshold was fitted in sample; run it in Furnace to test it."); }
-      catch (error) { shown.hidden = false; shown.textContent = text; status("The clipboard refused the copy; the manifest is shown below to select by hand."); }
+      try { await navigator.clipboard.writeText(text); fallbackFor = null; shown.hidden = true; shown.textContent = ""; status("Copied the rule as a Limen manifest. Its threshold was fitted in sample; run it in Furnace to test it."); }
+      catch (error) { fallbackFor = candidate; shown.hidden = false; shown.textContent = text; status("The clipboard refused the copy; the manifest is shown below to select by hand."); }
     }
     function status(words) { el("status").textContent = words; }
     function current() { return result && selected >= 0 ? result.candidates[selected] : null; }
@@ -164,6 +171,7 @@
       el("find").textContent = busy ? "Finding…" : result ? "Find again" : "Find features";
       el("cancel").hidden = !busy;
       for (const node of el("form").querySelectorAll("select, input")) node.disabled = busy;
+      el("lead").disabled = busy || el("mode").value !== "lead";
     }
     function cell(text) { const td = document.createElement("td"); td.textContent = text; return td; }
     function renderWindows() {
@@ -182,7 +190,7 @@
     function renderResult() {
       const body = el("rows"), fragment = document.createDocumentFragment(), mode = asked?.mode;
       el("results").hidden = !result;
-      if (!result) { window.explorerMotion.replaceChildren(body); el("detail").hidden = true; return; }
+      if (!result) { window.explorerMotion.replaceChildren(body); el("detail").hidden = true; fallbackFor = null; el("yaml").hidden = true; el("yaml").textContent = ""; return; }
       const t = result.target, x = result.context, pool = result.pool;
       el("summary").textContent = `${t.marked_bars} marked bars in ${t.events} window${t.events > 1 ? "s" : ""} · ${x.unmarked_bars} compared · ${result.screened} of ${pool.columns} columns ranked · ${BAR_NAMES[result.bar]} bars · ${Math.round(result.timing_ms.total)} ms` +
         (pool.cached ? "" : ` · pool built in ${(pool.built_ms / 1000).toFixed(1)} s`) + (pool.skipped.length ? ` · ${pool.skipped.length} factories need inputs the bars lack` : "");
@@ -199,8 +207,9 @@
       });
       window.explorerMotion.replaceChildren(body, fragment);
       const candidate = current();
+      if (fallbackFor !== candidate) { fallbackFor = null; el("yaml").hidden = true; el("yaml").textContent = ""; }
       el("detail").hidden = !candidate;
-      if (!candidate) { el("yaml").hidden = true; return; }
+      if (!candidate) return;
       const r = candidate.rule;
       el("detail-text").textContent = r
         ? `Rule: ${r.text}. In sample it flags ${fixed(100 * r.tpr, 1)}% of the marked bars and ${fixed(100 * r.fpr, 1)}% of the others; precision ${r.precision === null ? "—" : fixed(100 * r.precision, 1) + "%"}; it hits ${fixed(100 * r.events_hit, 0)}% of the windows.`

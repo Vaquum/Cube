@@ -59,3 +59,84 @@ test("YAML scalars keep their types: exponent floats, quoted look-alikes, plain 
   assert.equal(api.manifestYaml({a: 1e-7, b: 1e21, c: 2.5, d: "yes", e: "2024-01-01", f: "plain_name", g: null, h: true, i: [], j: {}, k: "{threshold}"}),
     'a: 1.0e-7\nb: 1.0e+21\nc: 2.5\nd: "yes"\ne: "2024-01-01"\nf: plain_name\ng: null\nh: true\ni: []\nj: {}\nk: "{threshold}"\n');
 });
+
+// The controller, on a minimal DOM: the panel's elements by id, Mill as a stubbed fetch that answers when told to, and the recorded
+// answer above. Oracles: the requests the controller sends and the state it leaves on the panel's elements.
+class Element {
+  constructor(tag, id = "") { Object.assign(this, {tagName: tag.toUpperCase(), id, children: [], parent: null, dataset: {}, attributes: {}, listeners: {}, hidden: false, disabled: false, textContent: "", value: ""}); }
+  append(...nodes) { for (const node of nodes) for (const child of node.fragment ? node.children : [node]) { child.parent = this; this.children.push(child); } }
+  remove() { if (this.parent) this.parent.children = this.parent.children.filter((c) => c !== this); }
+  setAttribute(name, value) { this.attributes[name] = String(value); }
+  addEventListener(type, listener) { (this.listeners[type] ||= []).push(listener); }
+  all() { return this.children.flatMap((c) => [c, ...c.all()]); }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+  querySelectorAll(selector) {
+    const ids = selector.startsWith("#") ? [selector.slice(1)] : null, tags = selector.split(",").map((s) => s.trim().toUpperCase());
+    return this.all().filter((e) => ids ? e.id === ids[0] : tags.includes(e.tagName));
+  }
+}
+function panel() {
+  const root = new Element("div"), form = new Element("form", "ol-features-form");
+  const field = (tag, name, value = "") => Object.assign(new Element(tag, "ol-features-" + name), {value});
+  form.append(field("select", "bar", "1h_time_bars"), field("select", "mode", "inside"), field("label", "lead-label"), field("input", "lead", "4"),
+    field("select", "against", "research"), field("select", "pool", "catalog"), field("button", "add"), field("button", "find"), field("button", "cancel"));
+  root.append(form);
+  for (const name of ["status", "results", "summary", "chance", "rows", "detail", "detail-text", "similar", "copy", "unpreview", "yaml", "count", "clear-windows", "windows"]) root.append(field(name === "rows" ? "tbody" : "div", name));
+  return root;
+}
+function mill() {
+  const calls = [], waiting = [];
+  globalThis.fetch = (path, options) => new Promise((resolve) => {
+    calls.push({path, body: options.body ? JSON.parse(options.body) : null});
+    const answer = path.endsWith("/app-config") ? {data_window: {start: "2024-01-01", end: "2026-05-15"}, views: []} : events;
+    waiting.push(() => resolve({ok: true, status: 200, text: async () => JSON.stringify(answer)}));
+  });
+  return {calls, answer: async () => { while (waiting.length) { waiting.shift()(); await new Promise((r) => setTimeout(r, 0)); } }};
+}
+function controller(root) {
+  globalThis.document = {createElement: (tag) => new Element(tag), createDocumentFragment: () => Object.assign(new Element("#fragment"), {fragment: true})};
+  globalThis.window = {explorerMotion: {replaceChildren: (host, ...content) => { host.children = []; host.append(...content); }}};
+  return api.create({root, changed: () => {}, context: () => ({ready: true, selectionMs: [at("2025-03-03T00:00:00Z"), at("2025-03-03T12:00:00Z")],
+    viewMs: [at("2025-03-01T00:00:00Z"), at("2025-03-08T00:00:00Z")], edgeMs: at("2026-09-24T00:00:00Z")})});
+}
+const byId = (root, name) => root.querySelector("#ol-features-" + name);
+const submit = (root) => byId(root, "form").listeners.submit[0]({preventDefault() {}});
+
+test("a second Find while Mill is still connecting starts no second search", async () => {
+  const root = panel(), stub = mill();
+  controller(root);
+  byId(root, "add").onclick();
+  const first = submit(root), second = submit(root);
+  assert.equal(byId(root, "find").disabled, true);
+  await stub.answer(); await first; await second;
+  assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/discover"]);
+  assert.equal(byId(root, "results").hidden, false);
+});
+
+test("a field the chosen mode does not use is disabled and left out of the request", async () => {
+  const root = panel(), stub = mill();
+  const lead = byId(root, "lead"), mode = byId(root, "mode");
+  controller(root);
+  byId(root, "add").onclick();
+  mode.value = "lead"; mode.listeners.change[0]();
+  assert.equal(lead.disabled, false);
+  lead.value = ""; mode.value = "inside"; mode.listeners.change[0]();
+  assert.equal(lead.disabled, true, "a disabled field takes no part in the form's validation");
+  const done = submit(root); await stub.answer(); await done;
+  assert.equal("lead_bars" in stub.calls[1].body, false);
+});
+
+test("a manifest shown by hand after a refused copy goes with its leader", async () => {
+  const root = panel(), stub = mill();
+  Object.defineProperty(globalThis, "navigator", {value: {clipboard: {writeText: async () => { throw new Error("denied"); }}}, configurable: true});
+  controller(root);
+  byId(root, "add").onclick();
+  const done = submit(root); await stub.answer(); await done;
+  await byId(root, "copy").onclick();
+  const yaml = byId(root, "yaml");
+  assert.equal(yaml.hidden, false);
+  assert.equal(yaml.textContent, api.manifestYaml(events.candidates[0].rule.manifest));
+  byId(root, "rows").all().filter((e) => e.tagName === "BUTTON")[1].onclick();
+  assert.equal(yaml.hidden, true);
+  assert.equal(yaml.textContent, "");
+});
