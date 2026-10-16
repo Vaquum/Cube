@@ -27,9 +27,9 @@ test("browsing averages prepares shared daily bars; toggles reuse them without r
   expect(bars(fake, 9)).toHaveLength(before);
 });
 
-for (const [key, n] of [["ema1h", 6], ["ema4h", 8]]) {
-  test(`${key}: cold recent view skips unrelated history and retains full-history EMA values`, async ({ page, fakeFor, probe, baselinePage }) => {
-    const hash = VIEW.replace("lines=", `lines=${key}`);
+for (const [key, n, replay = ""] of [["ema1h", 6], ["ema4h", 8], ["ema1h", 6, "&replay=1&at=2026-09-23T12:30Z"]]) {
+  test(`${key}${replay}: cold recent view skips unrelated history and retains full-history EMA values`, async ({ page, fakeFor, probe, baselinePage }) => {
+    const hash = VIEW.replace("lines=", `lines=${key}`) + replay;
     const fake = await fakeFor("deep", { next: 300 });
     await page.goto(fake.url + "/" + hash);
     await probe.waitForReady(); await fake.idle();
@@ -47,3 +47,18 @@ for (const [key, n] of [["ema1h", 6], ["ema4h", 8]]) {
     await expect(original.page.locator(`[data-line-value="${key}"]`)).toHaveText(actual);
   });
 }
+
+
+test("sparse hourly inputs extend warm-up through all available history", async ({ page, fakeFor, probe }) => {
+  const day = 86400000, days = 2100;
+  // One traded hourly bar per day: calendar chunks cannot stand in for enough closes.
+  const trades = Array.from({ length: days }, (_, d) => ({ t_ms: d * day + 60000,
+    price: (10000 + d) * 100, qty: 100000000, takerBuy: true }));
+  const fake = await fakeFor({ trades, cutoffIso: new Date(Date.UTC(2021, 0, 1) + days * day).toISOString() }, { next: 300 });
+  await page.goto(fake.url + "/" + VIEW.replace("lines=", "lines=ema1h"));
+  await probe.waitForReady(); await fake.idle();
+  expect(Math.min(...bars(fake, 6).map((r) => Number(r.query.b0)))).toBe(0);
+  await page.locator("#ol-lines").click();
+  // A unit ramp seeded by its first N closes has EMA = last − (N−1)/2 exactly.
+  await expect(page.locator('[data-line-value="ema1h"]')).toHaveText("12,075 · 12,000");
+});
