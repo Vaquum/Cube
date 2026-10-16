@@ -37622,9 +37622,19 @@
     renderReferenceStatus();
   }
   function referencePending(key) {
-    if (AVERAGE_SPECS[key]) return averageFrame(AVERAGE_SPECS[key].tf).state === "pending";
-    if (isPeriod(key)) return lineShown(key).state === "pending";
-    return false;
+    let reads = [];
+    if (AVERAGE_SPECS[key]) reads = [averageFrame(AVERAGE_SPECS[key].tf)];
+    else if (isPeriod(key)) reads = [lineShown(key)];
+    else if (key === "vvwap") reads = [visibleVwapResult()];
+    else if (key === "cme") reads = [barSeries(6)];
+    else if (FOUR_HOUR_LINES.includes(key)) reads = [barSeries(8), ...(key === "fibswing4h" ? [barSeries(9)] : [])];
+    else if (RETRACEMENT_MORE[key] && retracementsOn()) reads = [barSeries(9), ...(S.lines.includes("fibswing4h") ? [barSeries(8)] : [])];
+    else if (isSessionVwap(key) || key === "avwaph" || key === "avwapl" || isVwapDay(key)) {
+      const need = vwapBarNeed();
+      reads = [barSeries(9), ...(need ? [barsBetween(...need)] : [])];
+    } else if (EIGHT_HOUR_LINES.includes(key) || STRUCTURE_LINES.includes(key) || isFibDay(key)) reads = [barSeries(9)];
+    // A failed dependency must not be disguised by another read still pending.
+    return reads.some((r) => r.state === "pending") && !reads.some((r) => r.state === "failed");
   }
   function renderReferenceStatus() {
     if (el("lines-pop").hidden) return;

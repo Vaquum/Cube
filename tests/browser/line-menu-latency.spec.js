@@ -64,7 +64,7 @@ test("sparse hourly inputs extend warm-up through all available history", async 
 });
 
 
-for (const key of ["fib:2026-09-01", "vwap:2026-09-01"]) {
+for (const key of ["dopen", "pdhlc", "swing1d", "swing4h", "fib:2026-09-01", "vwap:2026-09-01"]) {
   test(`${key}: opening a menu during a cold anchor read preserves its own data state`, async ({ page, fakeFor, probe }) => {
     const fake = await fakeFor("deep", { next: 300 });
     const gate = fake.on({ route: /^\/cube\/bars/, times: 1 }).gate();
@@ -74,7 +74,20 @@ for (const key of ["fib:2026-09-01", "vwap:2026-09-01"]) {
       await page.locator("#ol-lines").click();
       await expect(page.locator(`[data-ref-key="${key}"]`)).toBeVisible();
       await expect(page.locator("#ol-lines-pop")).toBeVisible();
+      await expect(page.locator(`[data-ref-key="${key}"] .ol-line-reason`)).toHaveText("Loading…");
     } finally { gate.open(); }
     await probe.waitForReady(); await fake.idle();
   });
 }
+
+
+test("a failed session read stays unavailable instead of loading", async ({ page, fakeFor, probe, allowConsole }) => {
+  const fake = await fakeFor("deep", { next: 300 });
+  fake.on({ route: /^\/cube\/bars/ }).fail({ status: 503 });
+  allowConsole(/Failed to load resource/);
+  await page.goto(fake.url + "/" + VIEW.replace("lines=", "lines=dopen"));
+  await probe.waitForReady(); await fake.idle();
+  await page.locator("#ol-lines").click();
+  await expect(page.locator('[data-line-value="dopen"]')).toHaveText("unavailable");
+  await expect(page.locator('[data-ref-key="dopen"] .ol-line-reason')).not.toHaveText("Loading…");
+});
