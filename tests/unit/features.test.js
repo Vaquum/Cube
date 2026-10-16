@@ -111,6 +111,9 @@ test("a second Find while Mill is still connecting starts no second search", asy
   byId(root, "add").onclick();
   const first = submit(root), second = submit(root);
   assert.equal(byId(root, "find").disabled, true);
+  // Nor do the marked windows change under it.
+  assert.equal(byId(root, "clear-windows").disabled, true);
+  assert.ok(byId(root, "windows").all().filter((e) => e.tagName === "BUTTON").every((b) => b.disabled));
   await stub.answer(); await first; await second;
   assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/discover"]);
   assert.equal(byId(root, "results").hidden, false);

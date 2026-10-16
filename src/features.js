@@ -198,6 +198,8 @@
         item.dataset.flowKey = w.key; label.textContent = `${stamp(w.startMs)} → ${stamp(w.endMs)} UTC`;
         remove.type = "button"; remove.className = "ol-action ol-s cursor-interaction"; remove.textContent = "Remove";
         remove.setAttribute("aria-label", `Remove the window ${label.textContent}`); remove.onclick = () => removeWindow(w.key);
+        // The windows a pending search was asked about stay as they are until it answers.
+        remove.disabled = busy;
         item.append(label, remove); fragment.append(item);
       }
       window.explorerMotion.replaceChildren(list, fragment);
