@@ -5,7 +5,7 @@ const { test, expect } = require("./fixtures.js");
 
 for (const reason of ["expired", "invalidated"]) {
   test(`${reason} initial pack paints while its immediate refresh is held`, async ({ page, fakeFor }) => {
-    const fake = await fakeFor("mini", { next: 300 });
+    const fake = await fakeFor("mini", { next: 300, quiet: 400 });
     const held = fake.currentPack();
     if (reason === "expired") fake.bridge.clock += 120;
     else fake.rebuild();
@@ -26,12 +26,29 @@ for (const reason of ["expired", "invalidated"]) {
       expect(initial.state_token).toBe(held.state_token);
       expect(initial.cutoff).toBe(held.cutoff);
       expect(initial.next).toBe(1);
+      await expect(page.locator("#ol-state-pill")).toHaveAttribute("data-state", "refreshing");
+      await expect(page.locator("#ol-fresh")).toContainText("Refreshing snapshot");
+      await expect(page).not.toHaveTitle(/not updating/);
       expect(fake.log().find(r => r.path === "/cube/pack").query.since).toBe(held.state_token);
       gate.open();
       await expect.poll(() => fake.log().find(r => r.path === "/cube/pack")?.status).toBe(200);
+      // Only a successful current-cube check can declare that data has stalled.
+      await expect(page.locator("#ol-state-pill")).toHaveAttribute("data-state", "stale");
+      await expect(page.locator("#ol-fresh")).toContainText("no new data for");
       await expect(page.locator("#ol-loading")).toBeHidden();
     } finally {
       gate.open();
     }
   });
 }
+
+test("a failed initial refresh describes the snapshot and retry rather than claiming the cube stalled", async ({ page, fakeFor }) => {
+  const fake = await fakeFor("mini", { next: 300, quiet: 400 });
+  fake.currentPack(); fake.rebuild();
+  fake.on({ route: "/cube/pack", times: 1 }).fail({ status: 503, body: { error: "test refresh unavailable" } });
+  await page.goto(fake.url + "/#w=24h");
+  await expect(page.locator("#ol-loading")).toBeHidden();
+  await expect(page.locator("#ol-fresh")).toHaveText("snapshot refresh failed; retrying");
+  await expect(page.locator("#ol-state-pill")).toHaveAttribute("data-state", "refreshing");
+  await expect(page).not.toHaveTitle(/not updating/);
+});

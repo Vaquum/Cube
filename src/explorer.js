@@ -21964,7 +21964,7 @@
       poc === null
         ? INSTRUMENT
         : `${price((poc + 0.5) * PR * 2 ** src.m)} ${INSTRUMENT}`,
-      !PACK.live ? day(CUT) : live.state === "live" ? "" : "not updating",
+      !PACK.live ? day(CUT) : live.initialRefresh ? "refreshing" : live.state === "live" ? "" : "not updating",
       "Cube Explorer",
     ]
       .filter(Boolean)
@@ -21977,7 +21977,8 @@
   // showing the cutoff follows it; any other view stays where it is.
   const TIERS = ["overview", "recent", "reference"];
   const live = {
-    state: "live", // live, stale (the cube has no new data) or stopped (no answer)
+    state: "live", // live, refreshing (held snapshot), stale (checked cube) or stopped (no answer)
+    initialRefresh: PACK.live && Number(PACK.next) <= 1,
     timer: 0,
     busy: false,
     failures: 0,
@@ -22056,6 +22057,7 @@
       checkUpdate(body);
       if (body.status === "delta") await applyLive(body, false);
       else if (body.status === "pack") await applyLive(body.pack, true);
+      live.initialRefresh = false;
       if (Number.isFinite(body.quiet)) live.updated = Date.now() - body.quiet * 1000;
       live.failures = 0;
       live.error = "";
@@ -22205,6 +22207,8 @@
       state =
         live.failures && now - live.ok > 45000
           ? "stopped"
+          : live.initialRefresh
+            ? "refreshing"
           : quiet > 300000
             ? "stale"
             : "live",
@@ -22212,6 +22216,8 @@
     el("fresh").textContent =
       state === "stopped"
         ? "updates stopped"
+        : state === "refreshing"
+          ? live.failures ? "snapshot refresh failed; retrying" : `Refreshing snapshot · through ${when(CUT)} UTC`
         : state === "stale"
           ? `no new data for ${elapsed(quiet)}`
           : `updated ${ago(quiet)}`;
@@ -22219,6 +22225,8 @@
     pill.title =
       state === "stopped"
         ? `No answer from the server for ${elapsed(now - live.ok)}: ${live.error}. The page keeps asking.`
+        : state === "refreshing"
+          ? `Snapshot through ${when(CUT)} UTC; checking current cube data.` + (live.failures ? ` Refresh failed: ${live.error}. The page keeps asking.` : "")
         : `Data through ${when(CUT)} UTC` +
           (CANON !== null && CANON < CUT
             ? `; archived days through ${when(CANON)}, provisional minutes after, which the day's archive may revise`
