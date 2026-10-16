@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
+    <meta name="explorer-commit" content="">
+    <meta name="explorer-pr" content="">
     <meta name="description" content="Independent time and price grids for exploring recorded BTCUSDT spot trades.">
     <title>Market State Cube Explorer</title>
     <!-- A lattice whose diagonal is lit: the explorer's mark, inline so no request fails. -->
@@ -312,6 +314,7 @@
    the bar appears or goes as modes change, so no control ever moves. */
 #origo-lens .ol-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-1);
   min-height: 48px;
@@ -331,6 +334,28 @@
   padding-right: var(--sp-4);
   white-space: nowrap;
   overflow: hidden;
+}
+#origo-lens .ol-build-info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+#origo-lens .ol-build-info {
+  order: 1;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  color: var(--ol-muted);
+  font-size: var(--fs-s);
+}
+#origo-lens .ol-build-info > * {
+  flex: none;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--ol-line);
+  border-radius: var(--r-l);
+}
+#origo-lens #ol-version {
+  color: var(--ol-ink);
+  text-underline-offset: 2px;
 }
 #origo-lens .ol-pair {
   flex: none;
@@ -3617,6 +3642,11 @@
         ><span id="ol-snapshot" class="ol-snapshot"></span
         ><span id="ol-fresh" class="ol-fresh" hidden></span
       ></span>
+    </div>
+    <div class="ol-build-info ol-num">
+      <span id="ol-data-through" title="Latest available source data; independent of the selected window and replay"></span>
+      <a id="ol-version" hidden target="_blank" rel="noopener noreferrer"></a>
+      <span id="ol-version-unknown">Version unavailable</span>
     </div>
     <div class="ol-group ol-window-group">
       <button
@@ -43638,6 +43668,8 @@
   }
   // The state pill: how fresh the data is, and plainly when updates stop.
   function renderLive() {
+    const through = new Date(PACK.cutoff).toISOString();
+    el("data-through").textContent = `Data through ${through.replace("T", " ").replace(/(?:\.000)?Z$/, " UTC")}`;
     if (activeAnalysis?.mode === "captured") {
       el("market").textContent = "CAPTURED";
       el("fresh").hidden = false;
@@ -45369,6 +45401,16 @@
   bindScaleUi();
   guiAuditInit();
   try {
+    const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
+      pr = document.querySelector('meta[name="explorer-pr"]')?.content ?? "";
+    if (/^[a-f0-9]{40}$/.test(commit) && /^https:\/\/github\.com\/Vaquum\/Market-State-Cube-Explorer\/pull\/[1-9]\d*$/.test(pr)) {
+      el("version").textContent = `Cube ${commit.slice(0, 7)}`;
+      el("version").href = pr;
+      el("version").title = `Running explorer commit ${commit} · open its pull request`;
+      el("version").hidden = false;
+      el("version-unknown").hidden = true;
+    }
+    renderLive();
     qsa("button,input,select").forEach((control) => (control.disabled = true));
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live;
