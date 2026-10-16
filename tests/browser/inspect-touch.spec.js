@@ -145,6 +145,8 @@ test.describe("B47 Inspect and touch", () => {
     await open(page, fake, probe, "#w=7d&vis=2&mode=volume");
     await page.locator("#ol-res").click();
     const tap = async (selector) => {
+      // measured at rest: in motion, a 44 px box at a fractional offset can read 44 - 2^-17; every tap starts a level morph, so poll each frame
+      await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive()), { intervals: [16] }).toBe(false);
       const b = await page.locator(selector).boundingBox();
       expect(Math.min(b.width, b.height), `${selector} is a 44 px target`).toBeGreaterThanOrEqual(44);
       await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
