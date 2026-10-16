@@ -561,11 +561,14 @@ class Explorer:
         """The pack's age, how long the cube has had no new data, when a page should next
         ask (just after the pack can be rebuilt), and the page this server serves."""
         with self.lock:
-            quiet = max(0.0, time.time() - self.advanced_at)
-            invalidated = self.stale
+            return self._timing_locked(age)
+
+    def _timing_locked(self, age: float) -> dict:
+        """Capture freshness while the caller holds the snapshot's fields lock."""
+        quiet = max(0.0, time.time() - self.advanced_at)
         return {
             "age": round(age, 1), "quiet": round(quiet, 1),
-            "next": 1.0 if invalidated else round(max(1.0, PACK_MAX_AGE_SECONDS - age + 1), 1), "page": self.version,
+            "next": 1.0 if self.stale else round(max(1.0, PACK_MAX_AGE_SECONDS - age + 1), 1), "page": self.version,
         }
 
     def update(self, since: str) -> dict:
@@ -843,12 +846,13 @@ class Explorer:
         # Its actual age/cutoff travel with it; the page polls immediately when due.
         with self.lock:
             current = self.pack
-            age = time.monotonic() - self.packed_at
+            timing = self._timing_locked(time.monotonic() - self.packed_at)
         if current is None:
             current, age = self.current_pack()
+            timing = self.timing(age)
         # The pack with its timing, which names this page's version: the page compares it
         # with the version later answers name, and offers a reload when they differ.
-        data = json.dumps({**current, **self.timing(age)}, separators=(",", ":")).replace("<", "\\u003c")
+        data = json.dumps({**current, **timing}, separators=(",", ":")).replace("<", "\\u003c")
         replaced, hits = re.subn(
             r'(<script type="application/json" id="origo-lens-data">).*?(</script>)',
             lambda match: match.group(1) + data + match.group(2), text, count=1, flags=re.S,

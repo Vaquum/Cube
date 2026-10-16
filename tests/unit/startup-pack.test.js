@@ -42,6 +42,23 @@ with tempfile.TemporaryDirectory() as directory:
         assert age<=body['age']<age+1 and body['quiet']>=300
         assert body['next']==expected_next and body['page']=='test-version'
 
+    # Publish a refresh immediately after the snapshot lock is released. The
+    # old invalidated token must retain its own quiet time and immediate poll.
+    e=explorer(page);e.packed_at=time.monotonic()-10;e.stale=True
+    class PublishOnUnlock:
+        def __init__(self):self.native=threading.Lock();self.published=False
+        def __enter__(self):self.native.acquire();return self
+        def __exit__(self,*args):
+            self.native.release()
+            if not self.published:
+                self.published=True;e.pack=pack('new');e.stale=False
+                e.packed_at=time.monotonic();e.advanced_at=time.time()
+    e.lock=PublishOnUnlock()
+    body=payload(e)
+    assert e.pack['state_token']=='new' and not e.stale
+    assert body['state_token']=='old' and 10<=body['age']<11
+    assert body['next']==1 and body['quiet']>=300
+
     # A rebuild holds the actual building lock. HTML must finish before it is released.
     e=explorer(page);started=threading.Event();release=threading.Event();painted=threading.Event()
     failure=[];shown=[]
