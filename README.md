@@ -159,11 +159,11 @@ Edit `src/` and build into `reports/page/` during development. Regenerate the co
 - `tests/`: unit tests (`tests/unit`), browser tests (`tests/browser`), a fake cube (`tests/support`), an independent reference calculator (`tests/reference`) and fixtures with their provenance (`tests/fixtures`).
 - `tools/cube_bridge.py`: the server that reads the market state cube live; `tools/market_state_reader.py` is the cube's pinned reader.
 - `tools/rally_bridge.py`: the adapter for native Origo rally discovery and bounded membership projections.
-- `tools/features_dev.py`: a local relay that serves a built page with Mill behind `/mill/`, for Find features.
+- `tools/mill_relay.py`: Find features' relay to Mill, used by the bridge on the host and by `tools/features_dev.py`, a local relay that serves a built page with Mill behind `/mill/`.
 
-### Find features with Mill, locally
+### Find features with Mill
 
-Find features asks [Mill](https://github.com/Vaquum/Mill) which of its features describe windows marked on the chart (see `docs/data-and-semantics.md`). Its tab appears only where the page is served with Mill; the deployed explorer does not serve it yet. Locally, run Mill on its bars (`MILL_ARROW_DIR` names a local copy of its Arrow bar store when `/opt/arrow` is not on the machine) and open the page through the relay:
+Find features asks [Mill](https://github.com/Vaquum/Mill) which of its features describe windows marked on the chart (see `docs/data-and-semantics.md`). Its tab appears only where the page is served with Mill: on the Origo host the bridge relays Mill when `MILL_URL` and `MILL_API_SECRET` are set (see Deploy). Locally, run Mill on its bars (`MILL_ARROW_DIR` names a local copy of its Arrow bar store when `/opt/arrow` is not on the machine) and open the page through the relay:
 
 ```sh
 API_SECRET=local APP_USERNAME=local APP_PASSWORD=local BROWSER=true mill   # in Mill's checkout and venv; serves 127.0.0.1:8765
@@ -178,6 +178,7 @@ The relay forwards only `GET /mill/app-config` and `POST /mill/discover`, adds M
 The explorer runs on the Origo host, `37.27.112.167`, as the Compose project `cube-explorer` in `/opt/cube-explorer`:
 
 - `explorer` builds the `Dockerfile` (Python 3.12, pyarrow, numpy), mounts the cube's result volume `tdw-control-plane_market-state` read-only at `/opt/origo/market-state`, uses the host network so the cube service is `127.0.0.1:8486`, and serves the page on `127.0.0.1:8487` only, as a non-root user on a read-only filesystem. It checks no credentials of its own.
+- Find features reaches Mill on the same host, `127.0.0.1:8765`: `/opt/cube-explorer/.env`, which the deploy keeps, sets `MILL_URL` and `MILL_API_SECRET` (Mill's `API_SECRET`, from `/opt/mill/.env`), and Compose passes both to the bridge. Without them the bridge serves no `/mill/` and the page no Find features tab. A new Mill secret needs the same value here and a restart of `explorer`.
 - TLS and the login are the host's Caddy ingress on port 443, deployed from [Vaquum/Portal](https://github.com/Vaquum/Portal) (`/opt/portal/caddy/Caddyfile`): its `cube.vaquum.fi` site passes a request on to `127.0.0.1:8487` only after the Vaquum portal login, over a Let's Encrypt certificate. `cube.vaquum.fi` is a DNS-only A record for the host.
 
 Every push to `main` deploys through `.github/workflows/deploy.yml`, which first runs the checks of `.github/workflows/check.yml` and continues only if they passed for that exact commit; then it syncs the checkout to the host with rsync, runs `docker compose up -d --build`, and checks over SSH that the explorer answers 200. It needs the secret `DEPLOY_SSH_KEY` and the variables `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_DIR` and `DEPLOY_KNOWN_HOSTS`.

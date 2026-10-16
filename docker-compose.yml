@@ -8,6 +8,11 @@ services:
     build: .
     image: cube-explorer:latest
     network_mode: host
+    # Find features: Mill on this host, relayed at /mill/ (tools/mill_relay.py). Both come from this
+    # directory's .env, which the deploy keeps; without them the page offers no Find features tab.
+    environment:
+      MILL_URL: ${MILL_URL:-}
+      MILL_API_SECRET: ${MILL_API_SECRET:-}
     volumes:
       - market-state:/opt/origo/market-state:ro
       - cube-investigations:/var/lib/cube-explorer

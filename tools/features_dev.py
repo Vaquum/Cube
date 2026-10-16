@@ -5,7 +5,8 @@ The page asks its own origin for GET /mill/app-config and POST /mill/discover. T
 serves the page's directory, declares Mill to the page (the <meta name="explorer-mill"> that
 offers the Find features tab), and forwards exactly those two paths to Mill (MILL_URL, default
 http://127.0.0.1:8765) with Mill's API secret (MILL_API_SECRET) as a Bearer token, so the
-secret never reaches the page. It listens on 127.0.0.1 only.
+secret never reaches the page, as tools/cube_bridge.py does on the Origo host
+(tools/mill_relay.py). It listens on 127.0.0.1 only.
 
     npm run build:tmp
     MILL_API_SECRET=... python3 tools/features_dev.py --dir reports/page
@@ -14,67 +15,49 @@ secret never reaches the page. It listens on 127.0.0.1 only.
 import argparse
 import json
 import os
-import urllib.error
-import urllib.request
+import sys
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
-# Mill answers a search well within the minute; the relay never waits longer than that.
-TIMEOUT_S = 58
-ROUTES = {("GET", "/mill/app-config"), ("POST", "/mill/discover")}
-DECLARATION = b'<meta name="explorer-mill" content="/mill/">'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mill_relay import MAX_BODY, ROUTES, declare, forward  # noqa: E402
 
 
 class Relay(SimpleHTTPRequestHandler):
     mill = ""
     secret = ""
 
-    def forward(self, method: str) -> None:
-        path = self.path.split("?", 1)[0]
+    def answer(self, status: int, kind: str, payload: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", kind)
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def relay(self, method: str, path: str) -> None:
         if (method, path) not in ROUTES:
             self.send_error(404, "The relay forwards only GET /mill/app-config and POST /mill/discover")
             return
         length = int(self.headers.get("Content-Length") or 0)
-        request = urllib.request.Request(
-            self.mill + path[len("/mill"):], data=self.rfile.read(length) if length else None, method=method,
-            headers={"Authorization": f"Bearer {self.secret}", "Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
-                status, payload = response.status, response.read()
-        except urllib.error.HTTPError as error:
-            with error:
-                status, payload = error.code, error.read()
-        except (urllib.error.URLError, TimeoutError) as error:
-            status = 502
-            payload = json.dumps({"error": "mill_unreachable", "detail": f"Mill at {self.mill} did not answer: {error}"}).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def page(self) -> None:
-        with open(os.path.join(self.directory, "index.html"), "rb") as f:
-            payload = f.read().replace(b"<head>", b"<head>\n    " + DECLARATION, 1)
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(payload)
+        if length > MAX_BODY:
+            self.answer(413, "application/json", json.dumps({"error": "request_too_large"}).encode())
+            return
+        status, payload = forward(self.mill, self.secret, method, path, self.rfile.read(length) if length else None)
+        self.answer(status, "application/json", payload)
 
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path.startswith("/mill/"):
-            self.forward("GET")
+            self.relay("GET", path)
         elif path in ("/", "/index.html"):
-            self.page()
+            self.answer(200, "text/html; charset=utf-8", declare((Path(self.directory) / "index.html").read_bytes()))
         else:
             super().do_GET()
 
     def do_POST(self) -> None:
-        self.forward("POST")
+        self.relay("POST", self.path.split("?", 1)[0])
 
 
 def main() -> None:

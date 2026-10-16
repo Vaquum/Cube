@@ -108,7 +108,7 @@ describe("image contents", () => {
     .sort();
 
   it("the Dockerfile copies exactly the files the bridge and the page need", () => {
-    assert.deepEqual(copied, ["index.html", "tools/cube_bridge.py", "tools/investigation_store.py", "tools/market_state_reader.py", "tools/rally_bridge.py", "vendor/"]);
+    assert.deepEqual(copied, ["index.html", "tools/cube_bridge.py", "tools/investigation_store.py", "tools/market_state_reader.py", "tools/mill_relay.py", "tools/rally_bridge.py", "vendor/"]);
   });
 });
 
