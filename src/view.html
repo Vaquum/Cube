@@ -1301,6 +1301,9 @@
             <button type="button" id="ol-tab-rallies" class="ol-icon-button cursor-interaction" data-drawer="rallies" aria-label="Rallies" aria-controls="ol-panel-rallies" aria-expanded="false" aria-pressed="false" data-hint="Observed upward price moves from native trades">
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 12 6 8 9 10 14 3M10 3h4v4" /></svg><span class="ol-label">Rallies</span>
             </button>
+            <template id="ol-tab-features-template"><button type="button" id="ol-tab-features" class="ol-icon-button cursor-interaction" data-drawer="features" aria-label="Find features" aria-controls="ol-panel-features" aria-expanded="false" aria-pressed="false" data-hint="Which Mill features describe the windows you mark">
+              <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" /><path d="m10 10 4 4M4 8l1.5-2 1.5 1 2-2.5" /></svg><span class="ol-label">Find features</span>
+            </button></template>
             <button type="button" id="ol-tab-cells" class="ol-icon-button cursor-interaction" data-drawer="cells" aria-label="Cells" aria-controls="ol-panel-cells" aria-expanded="false" aria-pressed="false" data-hint="Measured cells in the bottom panel">
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5" /><path d="M2.5 8h11M8 2.5v11" /></svg><span id="ol-tab-cells-label" class="ol-label">Cells</span>
             </button>
@@ -1341,6 +1344,39 @@
             </div>
             <p id="ol-rally-status" role="status" class="ol-muted">Choose the analysis window, then Discover. Maximum span: 48h; ATR includes 3h45 warmup within that budget.</p>
             <div class="ol-rally-table-wrap"><table class="ol-table"><thead><tr><th>Start · UTC</th><th>Confirmed · UTC</th><th>Return</th><th>Duration</th><th>USDT volume</th><th>Trades</th></tr></thead><tbody id="ol-rally-rows"></tbody></table></div>
+          </section>
+          <section class="ol-panel ol-features-panel" id="ol-panel-features" aria-labelledby="ol-tab-features" hidden>
+            <form id="ol-features-form" class="ol-rally-form">
+              <label>Bars<select id="ol-features-bar"><option value="15m_time_bars">15 minutes</option><option value="30m_time_bars">30 minutes</option><option value="1h_time_bars" selected>1 hour</option><option value="2h_time_bars">2 hours</option><option value="4h_time_bars">4 hours</option></select></label>
+              <label>Mark<select id="ol-features-mode"><option value="inside">Bars inside each window</option><option value="lead">Bars before each window</option></select></label>
+              <label id="ol-features-lead-label" hidden>Bars before<input id="ol-features-lead" type="number" min="1" max="96" step="1" value="4" required></label>
+              <label>Compare against<select id="ol-features-against"><option value="research">Mill's research window</option><option value="view">Visible time</option></select></label>
+              <label>Pool<select id="ol-features-pool"><option value="catalog">Every factory · defaults</option></select></label>
+              <button id="ol-features-add" type="button" class="ol-action cursor-interaction">Add selection</button>
+              <button id="ol-features-find" type="submit" class="ol-action cursor-interaction">Find features</button>
+              <button id="ol-features-cancel" type="button" class="ol-action cursor-interaction" hidden>Stop waiting</button>
+            </form>
+            <p class="ol-muted">Mill ranks its features by how well they separate the bars you mark from the rest, then checks that against the same windows shifted in time. One window describes; many windows test. Rules are fitted in sample, and nothing here is saved.</p>
+            <p id="ol-features-status" role="status" class="ol-muted">Select a rectangle on the chart, then Add selection.</p>
+            <div id="ol-features-results" hidden>
+              <p id="ol-features-summary" class="ol-muted"></p>
+              <p id="ol-features-chance"></p>
+              <div class="ol-rally-table-wrap"><table class="ol-table"><thead><tr><th>Column</th><th>AUC</th><th>90% interval</th><th>Direction</th><th>Chance</th><th>Rule</th></tr></thead><tbody id="ol-features-rows"></tbody></table></div>
+              <div id="ol-features-detail" class="ol-features-detail" hidden>
+                <p id="ol-features-detail-text"></p>
+                <p id="ol-features-similar" class="ol-muted"></p>
+                <div class="ol-panel-head">
+                  <button id="ol-features-copy" type="button" class="ol-action ol-s cursor-interaction">Copy rule as Limen manifest</button>
+                  <button id="ol-features-unpreview" type="button" class="ol-action ol-s cursor-interaction">End preview</button>
+                </div>
+                <pre id="ol-features-yaml" class="ol-features-yaml" hidden></pre>
+              </div>
+            </div>
+            <div class="ol-panel-head">
+              <span id="ol-features-count" class="ol-muted">No window marked</span>
+              <button id="ol-features-clear-windows" type="button" class="ol-action ol-s cursor-interaction">Clear windows</button>
+            </div>
+            <ul id="ol-features-windows" class="ol-features-windows" aria-label="Marked windows"></ul>
           </section>
           <div
             class="ol-panel ol-comparison-panel"

@@ -1,0 +1,48 @@
+schema_version: "1.0"
+metadata:
+  name: find_features_1h_time_bars
+  limen_version: "3.15.2"
+  mode: development
+  description: "garman_klass_volatility > 0.004824 for 1 bar, fitted in sample by Mill Find features"
+sfd:
+  manifest:
+    type: rule_based
+    data_source:
+      method: limen.data.HistoricalData.get_arrow_file
+      params:
+        file_path: "/opt/arrow/time_1h/latest.arrow"
+    split_dates:
+      train_start: "2024-01-01"
+      train_end: "2025-12-31"
+      val_start: "2026-01-01"
+      val_end: "2026-03-08"
+      test_start: "2026-03-09"
+      test_end: "2026-05-15"
+    indicators:
+      - func: limen.features.garman_klass_volatility
+        params:
+          window: 20
+          open_col: open
+          high_col: high
+          low_col: low
+          close_col: close
+    strategy:
+      conditions:
+        - id: entry
+          name: "garman_klass_volatility > 0.004824 for 1 bar, fitted in sample by Mill Find features"
+          type: threshold
+          column: garman_klass_volatility
+          operator: ">"
+          value: "{threshold}"
+          persistence_n: 1
+      entry: entry
+    reference_architecture: limen.sfd.reference_architecture.rule_based
+  params:
+    threshold:
+      - 0.004824
+uel:
+  n_permutations: 1
+  search_strategy:
+    type: grid
+  prep_each_round: true
+  output_format: csv
