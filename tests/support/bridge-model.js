@@ -519,7 +519,7 @@ class Bridge {
 
   // current_pack(): the current pack and its age in seconds, rebuilt when a mutation or a read found the cube had moved past it.
   currentPack() {
-    if (this.pack !== null && !this.stale) return [this.pack, this.clock - this.packedAt];
+    if (this.pack !== null && !this.stale && this.clock - this.packedAt <= 60) return [this.pack, this.clock - this.packedAt];
     const { pack, pinned, cells } = this.buildPack();
     const tiers = Object.fromEntries(Object.entries(pack.blocks).map(([key, meta]) => [key, {
       block: Object.fromEntries(Object.entries(meta).filter(([k]) => k !== "gzip_base64")), cells: cells[key],
@@ -546,7 +546,7 @@ class Bridge {
   // timing(age): the pack's age, how long the cube has had no new data (fixed: `quiet`), when a page should next ask (fixed: `next`), and the page
   // this server serves (a constant unless the fake is told to change it).
   timing(age) {
-    return { age: Math.round(age * 10) / 10, quiet: this.quiet, next: this.nextSeconds, page: this.pageVersion };
+    return { age: Math.round(age * 10) / 10, quiet: this.quiet, next: this.stale || age >= 60 ? 1 : this.nextSeconds, page: this.pageVersion };
   }
 
   // update(since): what a page holding pack `since` needs to hold the current pack.

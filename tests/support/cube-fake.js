@@ -436,7 +436,9 @@ class FakeCube {
   html() {
     const text = fs.readFileSync(path.join(this.pageRoot, "index.html"), "utf8");
     if (this.opts.mode === "recorded") return text;
-    const [pack, age] = this.bridge.currentPack();
+    const [pack, age] = this.bridge.pack
+      ? [this.bridge.pack, this.bridge.clock - this.bridge.packedAt]
+      : this.bridge.currentPack();
     return model.injectPack(text, { ...pack, ...this.bridge.timing(age) });
   }
 

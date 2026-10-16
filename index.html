@@ -43696,7 +43696,10 @@
       renderLive();
       if (!live.busy && Date.now() - live.ok > 15000) pollLive();
     });
-    scheduleLive(Number(PACK.next) || 20);
+    // The initial HTML may carry an expired held snapshot so its first paint
+    // never waits for a rebuild. Refresh it now, after startup's first frames.
+    if (Number(PACK.next) <= 1) pollLive();
+    else scheduleLive(Number(PACK.next) || 20);
   }
 
   // Manual analysis is a tab-owned collection, independent of market queries and view history.
