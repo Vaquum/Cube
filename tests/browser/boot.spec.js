@@ -134,7 +134,7 @@ test.describe("B01 no production test hook (DD-T04, S1-003)", () => {
     expect(await page.evaluate(() => Object.keys(window.explorerComparison).sort())).toEqual(["METRICS", "analyze", "captureText", "frozenHistories", "frozenHistory", "identity", "normalizedPoc", "originating", "sort", "value"]);
     expect(await page.evaluate(() => Object.keys(window.explorerComparisonUI).sort())).toEqual(["PAGE_SIZE", "create"]);
     expect(await page.evaluate(() => Object.keys(window.explorerReference).sort())).toEqual(["create"]);
-    expect(await page.evaluate(() => Object.keys(window.explorerFeatures).sort())).toEqual(["chanceText", "clip", "create", "iso", "manifestYaml", "points", "request", "researchSpan"]);
+    expect(await page.evaluate(() => Object.keys(window.explorerFeatures).sort())).toEqual(["chanceText", "clip", "create", "dataSpan", "iso", "manifestYaml", "points", "request"]);
     expect(await page.evaluate(() => Object.keys(window.explorerState).sort())).toEqual(["backup", "comparison", "drawings", "history", "namedViews", "namedViewsStatus", "notice", "read", "returning", "save", "saveHistory", "saveNamedViews", "saveNotice", "saveScales", "saveViews", "saved", "scales", "views", "viewsKey"]);
   });
 
