@@ -46,6 +46,27 @@ jobs:
           test -n "$DEPLOY_USER"
           test -n "$DEPLOY_DIR"
           test -n "$DEPLOY_KNOWN_HOSTS"
+      - name: Stamp the running commit and its pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const sha = context.sha;
+            if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid deployment commit');
+            const pulls = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+              ...context.repo, commit_sha: sha,
+            });
+            const pull = pulls.find(p => p.merged_at && p.merge_commit_sha === sha &&
+              p.base.ref === 'main' && p.base.repo.full_name === `${context.repo.owner}/${context.repo.repo}`);
+            if (!pull) throw new Error(`No merged pull request identifies deployment ${sha}`);
+            const pr = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${pull.number}`;
+            let html = fs.readFileSync('index.html', 'utf8');
+            for (const [name, value] of [['explorer-commit', sha], ['explorer-pr', pr]]) {
+              const marker = `<meta name="${name}" content="">`;
+              if (html.split(marker).length !== 2) throw new Error(`Missing or duplicate ${name} metadata`);
+              html = html.replace(marker, `<meta name="${name}" content="${value}">`);
+            }
+            fs.writeFileSync('index.html', html);
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
