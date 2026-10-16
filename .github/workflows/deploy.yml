@@ -90,4 +90,7 @@ jobs:
             sleep 10
           done
           test "$code" = "200"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "curl --fail --show-error --max-time 120 http://127.0.0.1:8487/" > "$RUNNER_TEMP/deployed-explorer.html"
+          grep -Fq "<meta name=\"explorer-commit\" content=\"$GITHUB_SHA\">" "$RUNNER_TEMP/deployed-explorer.html"
+          echo "Verified live Cube revision $GITHUB_SHA." >> "$GITHUB_STEP_SUMMARY"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_DIR' && docker compose ps --format '{{.Name}} {{.Status}}'"
