@@ -91,3 +91,20 @@ test("a failed session read stays unavailable instead of loading", async ({ page
   await expect(page.locator('[data-line-value="dopen"]')).toHaveText("unavailable");
   await expect(page.locator('[data-ref-key="dopen"] .ol-line-reason')).not.toHaveText("Loading…");
 });
+
+
+for (const key of ["ema1h", "ema4h"]) {
+  test(`${key}: sparse replay at a chunk boundary warms up before a view beyond the cutoff`, async ({ page, fakeFor, probe }) => {
+    const day = 86400000, epoch = Date.UTC(2021, 0, 1), edge = 2048 * day;
+    // 2048 days is exactly twelve hourly chunks or three 4-hour chunks.
+    // Only 256 traded closes precede the edge; EMA(200) requires older chunks.
+    const trades = Array.from({ length: 263 }, (_, i) => ({ t_ms: i * 8 * day + 60000,
+      price: (10000 + 10 * i) * 100, qty: 100000000, takerBuy: true }));
+    const stamp = (offset) => new Date(epoch + offset).toISOString();
+    const fake = await fakeFor({ trades, cutoffIso: stamp(2100 * day) }, { next: 300 });
+    await page.goto(`${fake.url}/#t=${stamp(edge)}~${stamp(edge + day)}&replay=1&at=${stamp(edge)}&rows=off&marks=none&lines=${key}`);
+    await probe.waitForReady(); await fake.idle();
+    await page.locator("#ol-lines").click();
+    await expect(page.locator(`[data-line-value="${key}"]`)).toHaveText("12,305 · 11,555");
+  });
+}

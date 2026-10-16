@@ -13025,7 +13025,7 @@
       span = BAR_CHUNK * step;
     if (n === 6 || n === 8) {
       const first = Math.max(0, Math.min(S.tA, activeCutoff())),
-        chunk = Math.floor(first / span);
+        chunk = Math.max(0, Math.min(Math.floor(first / span), Math.ceil(activeCutoff() / span) - 1));
       let j = Math.max(0, chunk - 2), count = 0;
       // Sparse feeds need more time chunks to supply the same warm-up.
       for (let k = chunk; k >= j; k--) {
