@@ -20448,24 +20448,27 @@
     const el = id => root.querySelector("#ol-features-" + id);
     let config = null, configState = "idle", loading = null, windows = [], result = null, asked = null, selected = -1, busy = false,
       active = null, message = "", serial = 0, synced = "", cache = {candidate: null, list: []}, fallbackFor = null;
-    async function call(path, {body = null, timeout}) {
+    // One request to Mill, answered with JSON of the expected shape, or an error that says what came back instead. Its status is
+    // the HTTP status, or "unreachable" and "aborted" when there was no answer.
+    async function call(path, {body = null, timeout, shaped}) {
       const controller = new AbortController(), timer = setTimeout(() => controller.abort("timeout"), timeout);
+      const fail = (words, status) => Object.assign(new Error(words), {status}), name = path.slice(5);
       active = controller;
       try {
-        const response = await fetch(path, {method: body ? "POST" : "GET", headers: body ? {"Content-Type": "application/json"} : {},
-          body: body ? JSON.stringify(body) : undefined, cache: "no-store", signal: controller.signal});
-        const text = await response.text();
-        let reply;
-        try { reply = JSON.parse(text); } catch (error) { reply = {error: "not_json", detail: `Mill answered ${response.status} without JSON.`}; }
-        if (!response.ok) { const error = new Error(reply.detail || reply.error || `${response.status} ${response.statusText}`); error.status = response.status; throw error; }
-        return reply;
-      } catch (error) {
-        if (controller.signal.aborted) {
-          const stopped = new Error(controller.signal.reason === "user" ? "Stopped waiting. Mill may still finish what it was asked." : "Mill did not answer within the minute.");
-          stopped.aborted = true;
-          throw stopped;
+        let response, text;
+        try {
+          response = await fetch(path, {method: body ? "POST" : "GET", headers: body ? {"Content-Type": "application/json"} : {},
+            body: body ? JSON.stringify(body) : undefined, cache: "no-store", signal: controller.signal});
+          text = await response.text();
+        } catch (error) {
+          if (controller.signal.aborted) throw fail(controller.signal.reason === "user" ? "Stopped waiting. Mill may still finish what it was asked." : "Mill did not answer within the minute.", "aborted");
+          throw fail(`Mill could not be reached: ${error.message}.`, "unreachable");
         }
-        throw error;
+        let reply;
+        try { reply = JSON.parse(text); } catch (error) { throw fail(`Mill's ${name} answered ${response.status} without JSON.`, response.status); }
+        if (!response.ok) throw fail(response.status < 500 ? `Mill refused the request: ${reply?.detail || reply?.error || response.statusText}.` : `Mill failed: ${reply?.error || response.statusText}.`, response.status);
+        if (!shaped(reply)) throw fail(`Mill's ${name} answered with JSON that is not its answer.`, response.status);
+        return reply;
       } finally { clearTimeout(timer); if (active === controller) active = null; }
     }
     // Mill is asked only when the operator acts here: the first Find, or opening the pool to choose one of Mill's views.
@@ -20473,7 +20476,7 @@
     async function loadConfig() {
       configState = "loading"; render();
       try {
-        config = await call("/mill/app-config", {timeout: CONFIG_TIMEOUT});
+        config = await call("/mill/app-config", {timeout: CONFIG_TIMEOUT, shaped: (r) => typeof r?.data_window?.start === "string" && typeof r.data_window.end === "string"});
         configState = "ready"; message = "";
         const pool = el("pool"), group = document.createElement("optgroup");
         group.label = "Mill views";
@@ -20481,9 +20484,9 @@
         pool.querySelector("optgroup")?.remove(); pool.append(group);
       } catch (error) {
         configState = "failed";
-        message = error.aborted ? error.message : error.status === 404 || error.status === undefined
+        message = error.status === 404 || error.status === "unreachable"
           ? "Find features needs Mill, served to this page at /mill/. Locally, open the page through python3 tools/features_dev.py."
-          : `Mill: ${error.message}`;
+          : error.message;
       }
       render();
     }
@@ -20509,8 +20512,8 @@
         if (ask.error) { message = ask.error; return; }
         result = null; selected = -1; render(); changed();
         status(poolValue === "catalog" ? "Ranking every factory at its default parameters. A timeframe's first search builds its pool once: about 4 s on 1 hour, 16 s on 15 minutes." : "Ranking the view's columns…");
-        result = await call("/mill/discover", {body: ask.body, timeout: DISCOVER_TIMEOUT}); asked = ask.body; selected = result.candidates.length ? 0 : -1;
-      } catch (error) { message = error.aborted ? error.message : `${error.status ?? "Network"}: ${error.message}`; }
+        result = await call("/mill/discover", {body: ask.body, timeout: DISCOVER_TIMEOUT, shaped: (r) => Array.isArray(r?.candidates) && Boolean(r.target && r.context && r.chance && r.pool)}); asked = ask.body; selected = result.candidates.length ? 0 : -1;
+      } catch (error) { message = error.message; }
       finally { busy = false; render(); changed(); }
     }
     function select(i) { selected = selected === i ? -1 : i; render(); changed(); }

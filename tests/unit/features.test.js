@@ -84,12 +84,12 @@ function panel() {
   for (const name of ["status", "results", "summary", "chance", "rows", "detail", "detail-text", "similar", "copy", "unpreview", "yaml", "count", "clear-windows", "windows"]) root.append(field(name === "rows" ? "tbody" : "div", name));
   return root;
 }
-function mill() {
+function mill(answers = {}) {
   const calls = [], waiting = [];
   globalThis.fetch = (path, options) => new Promise((resolve) => {
     calls.push({path, body: options.body ? JSON.parse(options.body) : null});
-    const answer = path.endsWith("/app-config") ? {data_window: {start: "2024-01-01", end: "2026-05-15"}, views: []} : events;
-    waiting.push(() => resolve({ok: true, status: 200, text: async () => JSON.stringify(answer)}));
+    const text = answers[path] ?? JSON.stringify(path.endsWith("/app-config") ? {data_window: {start: "2024-01-01", end: "2026-05-15"}, views: []} : events);
+    waiting.push(() => resolve({ok: true, status: 200, text: async () => text}));
   });
   return {calls, answer: async () => { while (waiting.length) { waiting.shift()(); await new Promise((r) => setTimeout(r, 0)); } }};
 }
@@ -139,4 +139,20 @@ test("a manifest shown by hand after a refused copy goes with its leader", async
   byId(root, "rows").all().filter((e) => e.tagName === "BUTTON")[1].onclick();
   assert.equal(yaml.hidden, true);
   assert.equal(yaml.textContent, "");
+});
+
+test("an answer that is not Mill's is reported, keeps no result and is asked again", async () => {
+  const root = panel(), html = "<!doctype html><title>Explorer</title>";
+  let stub = mill({"/mill/app-config": html});
+  controller(root);
+  byId(root, "add").onclick();
+  let done = submit(root); await stub.answer(); await done;
+  assert.equal(byId(root, "status").textContent, "Mill's /app-config answered 200 without JSON.");
+  assert.equal(byId(root, "results").hidden, true);
+  // The next Find asks for the configuration again; a discovery answer of the wrong shape is refused the same way.
+  stub = mill({"/mill/discover": JSON.stringify({candidates: "none"})});
+  done = submit(root); await stub.answer(); await done;
+  assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/discover"]);
+  assert.equal(byId(root, "status").textContent, "Mill's /discover answered with JSON that is not its answer.");
+  assert.equal(byId(root, "results").hidden, true);
 });
