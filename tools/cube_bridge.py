@@ -844,12 +844,13 @@ class Explorer:
         # Paint the last consistent snapshot before refreshing it. An expired pack
         # can take seconds to rebuild, and another tab may already be building it.
         # Its actual age/cutoff travel with it; the page polls immediately when due.
-        with self.lock:
-            current = self.pack
-            timing = self._timing_locked(time.monotonic() - self.packed_at)
-        if current is None:
-            current, age = self.current_pack()
-            timing = self.timing(age)
+        while True:
+            with self.lock:
+                if self.pack is not None:
+                    current = self.pack
+                    timing = self._timing_locked(time.monotonic() - self.packed_at)
+                    break
+            self.current_pack()
         # The pack with its timing, which names this page's version: the page compares it
         # with the version later answers name, and offers a reload when they differ.
         data = json.dumps({**current, **timing}, separators=(",", ":")).replace("<", "\\u003c")
