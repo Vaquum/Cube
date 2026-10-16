@@ -81,7 +81,7 @@ test("a marked window is found, its leader previewed with its rule's hits, and t
   await expect.poll(async () => (await layout(page))[10]).toBe(28);
   await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text) => { window.copiedManifest = text; } } }));
   await page.locator("#ol-features-copy").click();
-  await expect(page.locator("#ol-features-status")).toContainText("Copied the rule as a Limen manifest");
+  await expect(page.locator("#ol-features-status")).toContainText("Copied garman_klass_volatility's rule as a Limen manifest");
   const golden = fs.readFileSync(path.join(__dirname, "../fixtures/features/manifest.yaml"), "utf8");
   expect(await page.evaluate(() => window.copiedManifest)).toBe(golden);
   // Ending the preview gives the pane back and takes the Rule hits lane away; the Marked lane stays.

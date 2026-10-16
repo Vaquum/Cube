@@ -157,11 +157,20 @@
       finally { busy = false; render(); changed(); }
     }
     function select(i) { selected = selected === i ? -1 : i; render(); changed(); }
+    // The copy names the leader it was made from: the clipboard may answer after another leader is selected, and a manifest shown
+    // by hand is only ever the selected leader's.
     async function copyRule() {
       const candidate = current(); if (!candidate?.rule) return;
       const text = manifestYaml(candidate.rule.manifest), shown = el("yaml");
-      try { await navigator.clipboard.writeText(text); fallbackFor = null; shown.hidden = true; shown.textContent = ""; status("Copied the rule as a Limen manifest. Its threshold was fitted in sample; run it in Furnace to test it."); }
-      catch (error) { fallbackFor = candidate; shown.hidden = false; shown.textContent = text; status("The clipboard refused the copy; the manifest is shown below to select by hand."); }
+      try {
+        await navigator.clipboard.writeText(text);
+        if (current() === candidate) { fallbackFor = null; shown.hidden = true; shown.textContent = ""; }
+        status(`Copied ${candidate.column}'s rule as a Limen manifest. Its threshold was fitted in sample; run it in Furnace to test it.`);
+      } catch (error) {
+        if (current() !== candidate) { status(`The clipboard refused to copy ${candidate.column}'s rule; select it and copy again.`); return; }
+        fallbackFor = candidate; shown.hidden = false; shown.textContent = text;
+        status(`The clipboard refused the copy; ${candidate.column}'s manifest is shown below to select by hand.`);
+      }
     }
     function status(words) { el("status").textContent = words; }
     function current() { return result && selected >= 0 ? result.candidates[selected] : null; }

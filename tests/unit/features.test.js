@@ -174,3 +174,19 @@ test("an answer that arrives after the cutoff moved before what it compared is n
   assert.equal(byId(root, "results").hidden, true);
   assert.equal(byId(root, "status").textContent, "The cutoff moved before the end of what Mill compared against, so its answer used later bars. Find again.");
 });
+
+test("a copy the clipboard refuses after another leader is selected shows no manifest under the new rule", async () => {
+  const root = panel(), stub = mill();
+  let refuse;
+  Object.defineProperty(globalThis, "navigator", {value: {clipboard: {writeText: () => new Promise((_, reject) => { refuse = reject; })}}, configurable: true});
+  controller(root);
+  byId(root, "add").onclick();
+  const done = submit(root); await stub.answer(); await done;
+  const copying = byId(root, "copy").onclick();
+  byId(root, "rows").all().filter((e) => e.tagName === "BUTTON")[1].onclick();
+  refuse(new Error("denied")); await copying;
+  const yaml = byId(root, "yaml");
+  assert.equal(yaml.hidden, true);
+  assert.equal(yaml.textContent, "");
+  assert.equal(byId(root, "status").textContent, `The clipboard refused to copy ${events.candidates[0].column}'s rule; select it and copy again.`);
+});
