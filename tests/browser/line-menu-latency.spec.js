@@ -62,3 +62,19 @@ test("sparse hourly inputs extend warm-up through all available history", async 
   // A unit ramp seeded by its first N closes has EMA = last − (N−1)/2 exactly.
   await expect(page.locator('[data-line-value="ema1h"]')).toHaveText("12,075 · 12,000");
 });
+
+
+for (const key of ["fib:2026-09-01", "vwap:2026-09-01"]) {
+  test(`${key}: opening a menu during a cold anchor read preserves its own data state`, async ({ page, fakeFor, probe }) => {
+    const fake = await fakeFor("deep", { next: 300 });
+    const gate = fake.on({ route: /^\/cube\/bars/, times: 1 }).gate();
+    try {
+      await page.goto(fake.url + "/" + VIEW.replace("lines=", `lines=${key}`));
+      await gate.arrived();
+      await page.locator("#ol-lines").click();
+      await expect(page.locator(`[data-ref-key="${key}"]`)).toBeVisible();
+      await expect(page.locator("#ol-lines-pop")).toBeVisible();
+    } finally { gate.open(); }
+    await probe.waitForReady(); await fake.idle();
+  });
+}

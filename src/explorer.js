@@ -16553,7 +16553,7 @@
   }
   function referencePending(key) {
     if (AVERAGE_SPECS[key]) return averageFrame(AVERAGE_SPECS[key].tf).state === "pending";
-    if (!TOGGLES[key]) return lineShown(key).state === "pending";
+    if (isPeriod(key)) return lineShown(key).state === "pending";
     return false;
   }
   function renderReferenceStatus() {
