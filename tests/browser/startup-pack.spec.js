@@ -43,12 +43,16 @@ for (const reason of ["expired", "invalidated"]) {
 }
 
 test("a failed initial refresh describes the snapshot and retry rather than claiming the cube stalled", async ({ page, fakeFor }) => {
+  await page.clock.install({ time: new Date("2026-10-16T12:00:00Z") });
   const fake = await fakeFor("mini", { next: 300, quiet: 400 });
   fake.currentPack(); fake.rebuild();
-  fake.on({ route: "/cube/pack", times: 1 }).fail({ status: 503, body: { error: "test refresh unavailable" } });
+  fake.on({ route: "/cube/pack" }).fail({ status: 503, body: { error: "test refresh unavailable" } });
   await page.goto(fake.url + "/#w=24h");
   await expect(page.locator("#ol-loading")).toBeHidden();
   await expect(page.locator("#ol-fresh")).toHaveText("snapshot refresh failed; retrying");
   await expect(page.locator("#ol-state-pill")).toHaveAttribute("data-state", "refreshing");
   await expect(page).not.toHaveTitle(/not updating/);
+  await page.clock.fastForward(46000);
+  await expect(page.locator("#ol-state-pill")).toHaveAttribute("data-state", "stopped");
+  await expect(page).toHaveTitle(/not updating/);
 });

@@ -43411,7 +43411,7 @@
       poc === null
         ? INSTRUMENT
         : `${price((poc + 0.5) * PR * 2 ** src.m)} ${INSTRUMENT}`,
-      !PACK.live ? day(CUT) : live.initialRefresh ? "refreshing" : live.state === "live" ? "" : "not updating",
+      !PACK.live ? day(CUT) : live.initialRefresh && live.state !== "stopped" ? "refreshing" : live.state === "live" ? "" : "not updating",
       "Cube Explorer",
     ]
       .filter(Boolean)
