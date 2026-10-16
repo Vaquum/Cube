@@ -307,13 +307,35 @@
 }
 #origo-lens .ol-id {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
   min-width: 0;
   margin-right: auto;
   padding-right: var(--sp-4);
   white-space: nowrap;
   overflow: hidden;
+}
+#origo-lens .ol-market-id,
+#origo-lens .ol-build-info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+#origo-lens .ol-build-info {
+  flex-wrap: wrap;
+  color: var(--ol-muted);
+  font-size: var(--fs-s);
+}
+#origo-lens .ol-build-info > * {
+  flex: none;
+}
+#origo-lens #ol-version {
+  color: var(--ol-ink);
+  text-underline-offset: 2px;
+}
+#origo-lens .ol-id {
+  flex-shrink: 0;
 }
 #origo-lens .ol-pair {
   flex: none;

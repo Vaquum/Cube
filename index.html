@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
+    <meta name="explorer-commit" content="">
+    <meta name="explorer-pr" content="">
     <meta name="description" content="Independent time and price grids for exploring recorded BTCUSDT spot trades.">
     <title>Market State Cube Explorer</title>
     <!-- A lattice whose diagonal is lit: the explorer's mark, inline so no request fails. -->
@@ -324,13 +326,35 @@
 }
 #origo-lens .ol-id {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
   min-width: 0;
   margin-right: auto;
   padding-right: var(--sp-4);
   white-space: nowrap;
   overflow: hidden;
+}
+#origo-lens .ol-market-id,
+#origo-lens .ol-build-info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+#origo-lens .ol-build-info {
+  flex-wrap: wrap;
+  color: var(--ol-muted);
+  font-size: var(--fs-s);
+}
+#origo-lens .ol-build-info > * {
+  flex: none;
+}
+#origo-lens #ol-version {
+  color: var(--ol-ink);
+  text-underline-offset: 2px;
+}
+#origo-lens .ol-id {
+  flex-shrink: 0;
 }
 #origo-lens .ol-pair {
   flex: none;
@@ -3610,6 +3634,7 @@
 >
   <header class="ol-bar">
     <div class="ol-id">
+      <div class="ol-market-id">
       <span class="ol-pair">BTC / USDT</span
       ><span class="ol-venue">Binance spot</span
       ><span class="ol-state-pill" id="ol-state-pill" data-state="live"
@@ -3617,6 +3642,12 @@
         ><span id="ol-snapshot" class="ol-snapshot"></span
         ><span id="ol-fresh" class="ol-fresh" hidden></span
       ></span>
+      </div>
+      <div class="ol-build-info ol-num">
+        <span id="ol-data-through" title="Latest available source data; independent of the selected window and replay"></span>
+        <a id="ol-version" hidden target="_blank" rel="noopener noreferrer"></a>
+        <span id="ol-version-unknown">Version unavailable</span>
+      </div>
     </div>
     <div class="ol-group ol-window-group">
       <button
@@ -43638,6 +43669,8 @@
   }
   // The state pill: how fresh the data is, and plainly when updates stop.
   function renderLive() {
+    const through = new Date(PACK.cutoff).toISOString();
+    el("data-through").textContent = `Data through ${through.replace("T", " ").replace(/(?:\.000)?Z$/, " UTC")}`;
     if (activeAnalysis?.mode === "captured") {
       el("market").textContent = "CAPTURED";
       el("fresh").hidden = false;
@@ -45369,6 +45402,16 @@
   bindScaleUi();
   guiAuditInit();
   try {
+    const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
+      pr = document.querySelector('meta[name="explorer-pr"]')?.content ?? "";
+    if (/^[a-f0-9]{40}$/.test(commit) && /^https:\/\/github\.com\/Vaquum\/Market-State-Cube-Explorer\/pull\/[1-9]\d*$/.test(pr)) {
+      el("version").textContent = `Cube ${commit.slice(0, 7)}`;
+      el("version").href = pr;
+      el("version").title = `Running explorer commit ${commit} · open its pull request`;
+      el("version").hidden = false;
+      el("version-unknown").hidden = true;
+    }
+    renderLive();
     qsa("button,input,select").forEach((control) => (control.disabled = true));
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live;
