@@ -20506,15 +20506,19 @@
     }
     // Mill is asked only when the operator acts here: the first Find, or opening the pool to choose one of Mill's views.
     function connect() { return loading ??= loadConfig().finally(() => { if (configState !== "ready") loading = null; }); }
+    // Mill's configuration: its views, and the days its bars cover, which grow as the store writes new ones.
+    async function fetchConfig() {
+      config = await call("/mill/app-config", {timeout: CONFIG_TIMEOUT, shaped: (r) => typeof r?.data_window?.start === "string" && typeof r.data_window.end === "string"});
+      const pool = el("pool"), group = document.createElement("optgroup"), chosen = pool.value;
+      group.label = "Mill views";
+      for (const name of config.views || []) { const option = document.createElement("option"); option.value = "view:" + name; option.textContent = name; group.append(option); }
+      pool.querySelector("optgroup")?.remove(); pool.append(group); pool.value = chosen;
+    }
     async function loadConfig() {
       configState = "loading"; render();
       try {
-        config = await call("/mill/app-config", {timeout: CONFIG_TIMEOUT, shaped: (r) => typeof r?.data_window?.start === "string" && typeof r.data_window.end === "string"});
+        await fetchConfig();
         configState = "ready"; message = "";
-        const pool = el("pool"), group = document.createElement("optgroup");
-        group.label = "Mill views";
-        for (const name of config.views || []) { const option = document.createElement("option"); option.value = "view:" + name; option.textContent = name; group.append(option); }
-        pool.querySelector("optgroup")?.remove(); pool.append(group);
       } catch (error) {
         configState = "failed";
         message = error.status === 404 || error.status === "unreachable"
@@ -20538,6 +20542,11 @@
       try {
         if (configState !== "ready") { status("Connecting to Mill…"); await connect(); }
         if (configState !== "ready") return;
+        // Once the chart reaches past the end Mill last reported, Mill may have newer bars: ask it again. A refusal keeps
+        // what it said before; stopping stops the search.
+        if (dataSpan(config)[1] < Math.min(context().edgeMs, Date.now())) {
+          try { await fetchConfig(); } catch (error) { if (error.status === "aborted") throw error; }
+        }
         const c = context(), poolValue = el("pool").value;
         const ask = request({windows, bar: el("bar").value, mode: el("mode").value, lead: Number(el("lead").value),
           against: el("against").value, pool: poolValue === "catalog" ? {kind: "catalog"} : {kind: "view", name: poolValue.slice(5)},

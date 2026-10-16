@@ -90,7 +90,8 @@ function mill(answers = {}) {
   const calls = [], waiting = [];
   globalThis.fetch = (path, options) => new Promise((resolve) => {
     calls.push({path, body: options.body ? JSON.parse(options.body) : null});
-    const text = answers[path] ?? JSON.stringify(path.endsWith("/app-config") ? {data_window: {start: "2024-01-01", end: "2026-05-15"}, views: []} : events);
+    const config = typeof answers.config === "function" ? answers.config() : answers.config ?? {data_window: {start: "2024-01-01", end: "2026-12-31"}, views: []};
+    const text = answers[path] ?? JSON.stringify(path.endsWith("/app-config") ? config : events);
     waiting.push(() => resolve({ok: true, status: 200, text: async () => text}));
   });
   const next = async () => { waiting.shift()(); await new Promise((r) => setTimeout(r, 0)); };
@@ -173,7 +174,7 @@ test("an answer that arrives after the cutoff moved before what it compared is n
   // The discovery is asked with the cutoff of that moment; replay then moves it into 2025 before Mill answers.
   edge = at("2025-06-01T00:00:00Z");
   await stub.next(); await done;
-  assert.equal(stub.calls[1].body.context.end, "2026-05-16T00:00:00Z");
+  assert.equal(stub.calls[1].body.context.end, "2026-09-24T00:00:00Z");
   assert.equal(byId(root, "results").hidden, true);
   assert.equal(byId(root, "status").textContent, "The cutoff moved before the end of what Mill compared against, so its answer used later bars. Find again.");
 });
@@ -203,4 +204,20 @@ test("a rule without a manifest, from data too short to split, cannot be copied 
   const done = submit(root); await stub.answer(); await done;
   assert.equal(byId(root, "copy").disabled, true);
   assert.match(byId(root, "detail-text").textContent, /too few days to split for a Limen manifest\.$/);
+});
+
+test("a search asks Mill for its span again once the chart reaches past the end Mill last reported", async () => {
+  const root = panel();
+  // Mill first reports bars through 2026-09-20, before the chart's cutoff of 2026-09-24; asked again, it has written more.
+  let asked = 0;
+  const stub = mill({config: () => ({data_window: {start: "2024-01-01", end: asked++ === 0 ? "2026-09-20" : "2026-09-30"}, views: []})});
+  controller(root);
+  byId(root, "add").onclick();
+  const first = submit(root);
+  await stub.answer(); await first;
+  assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/app-config", "/mill/discover"]);
+  assert.equal(stub.calls[2].body.context.end, "2026-09-24T00:00:00Z", "the comparison reaches the cutoff, past the stale end");
+  // Its span now covers the cutoff, so the next search asks only for the discovery.
+  const second = submit(root); await stub.answer(); await second;
+  assert.deepEqual(stub.calls.slice(3).map((c) => c.path), ["/mill/discover"]);
 });
