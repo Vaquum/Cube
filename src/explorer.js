@@ -22191,6 +22191,8 @@
   }
   // The state pill: how fresh the data is, and plainly when updates stop.
   function renderLive() {
+    const through = new Date(PACK.cutoff).toISOString();
+    el("data-through").textContent = `Data through ${through.replace("T", " ").replace(/(?:\.000)?Z$/, " UTC")}`;
     if (activeAnalysis?.mode === "captured") {
       el("market").textContent = "CAPTURED";
       el("fresh").hidden = false;
@@ -23922,6 +23924,16 @@
   bindScaleUi();
   guiAuditInit();
   try {
+    const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
+      pr = document.querySelector('meta[name="explorer-pr"]')?.content ?? "";
+    if (/^[a-f0-9]{40}$/.test(commit) && /^https:\/\/github\.com\/Vaquum\/Market-State-Cube-Explorer\/pull\/[1-9]\d*$/.test(pr)) {
+      el("version").textContent = `Cube ${commit.slice(0, 7)}`;
+      el("version").href = pr;
+      el("version").title = `Running explorer commit ${commit} · open its pull request`;
+      el("version").hidden = false;
+      el("version-unknown").hidden = true;
+    }
+    renderLive();
     qsa("button,input,select").forEach((control) => (control.disabled = true));
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live;

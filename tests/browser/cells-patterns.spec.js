@@ -100,11 +100,15 @@ for (const spec of CASES) {
           }
           const at = centres.map((c) => (c.start + c.end) / 2);
           expect(at.length, "several crossings along the row").toBeGreaterThanOrEqual(6);
-          const gaps = at.slice(1).map((v, i) => v - at[i]).sort((a, b) => a - b);
-          const median = gaps[Math.floor(gaps.length / 2)];
-          // a crosshatch's two diagonals cross a row at offsets that may interleave: half the period is the same tile
-          const periods = spec.tile === "pattern-cross" ? [spec.period * dpr, (spec.period * dpr) / 2] : [spec.period * dpr];
-          expect(Math.min(...periods.map((q) => Math.abs(median - q))), `the hatch repeats every ${periods.join(" or ")} device px`).toBeLessThanOrEqual(0.75);
+          // Crosshatch diagonals can alternate unequal gaps (for example 5 and 7 px
+          // in a 12 px tile). Compare corresponding crossings one full tile apart;
+          // where both diagonals merge into one crossing, the next crossing repeats.
+          const strides = spec.tile === "pattern-cross" ? [1, 2] : [1];
+          const periods = strides.map(stride => {
+            const gaps = at.slice(stride).map((v, i) => v - at[i]).sort((a, b) => a - b);
+            return gaps[Math.floor(gaps.length / 2)];
+          });
+          expect(Math.min(...periods.map(q => Math.abs(q - spec.period * dpr))), `the hatch repeats every ${spec.period * dpr} device px`).toBeLessThanOrEqual(0.75);
         }
         await context.close();
       });
