@@ -219,3 +219,13 @@ test("a search compares through the chart's cutoff whatever end Mill last report
   assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/discover"]);
   assert.equal(stub.calls[1].body.context.end, "2026-09-24T00:00:00Z");
 });
+
+test("the summary says when the bars Mill answered from end", async () => {
+  const root = panel(), answer = structuredClone(events);
+  answer.pool.through_ms = Date.parse("2026-09-23T23:00:00Z");
+  const stub = mill({"/mill/discover": JSON.stringify(answer)});
+  controller(root);
+  byId(root, "add").onclick();
+  const done = submit(root); await stub.answer(); await done;
+  assert.match(byId(root, "summary").textContent, / · 1 hour bars through 2026-09-23 23:00 UTC · /);
+});

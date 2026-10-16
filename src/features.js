@@ -4,7 +4,7 @@
   "use strict";
   const DAY = 86400000;
   const BAR_NAMES = {"15m_time_bars": "15 minutes", "30m_time_bars": "30 minutes", "1h_time_bars": "1 hour", "2h_time_bars": "2 hours", "4h_time_bars": "4 hours"};
-  // Within the minute any wait is allowed: a timeframe's first search builds its pool, at most about 16 s, then answers in under a second.
+  // Within the minute any wait is allowed: Mill keeps each timeframe's pool built, so it ranks in about 5 s on 1 hour and 20 s on 15 minutes.
   const DISCOVER_TIMEOUT = 55000, CONFIG_TIMEOUT = 20000;
   const AFTER_CUTOFF = "The cutoff moved before the end of what Mill compared against, so its answer used later bars. Find again.";
   function iso(ms) { return new Date(ms).toISOString().replace(".000Z", "Z"); }
@@ -150,7 +150,7 @@
           view: c.viewMs, edge: c.edgeMs, data: dataSpan(config)});
         if (ask.error) { message = ask.error; return; }
         result = null; selected = -1; render(); changed();
-        status(poolValue === "catalog" ? "Ranking every factory at its default parameters. A timeframe's first search builds its pool once: about 4 s on 1 hour, 16 s on 15 minutes." : "Ranking the view's columns…");
+        status(poolValue === "catalog" ? "Ranking every factory at its default parameters: about 5 s on 1 hour, 20 s on 15 minutes. In the few minutes after Mill starts, while it builds its pools, a search can take longer." : "Ranking the view's columns…");
         const reply = await call("/mill/discover", {body: ask.body, timeout: DISCOVER_TIMEOUT, shaped: (r) => Array.isArray(r?.candidates) && Boolean(r.target && r.context && r.chance && r.pool)});
         // The cutoff may have moved while Mill searched: an answer that compared bars after it is not kept.
         if (context().edgeMs < Date.parse(ask.body.context.end)) { message = AFTER_CUTOFF; return; }
@@ -213,7 +213,7 @@
       el("results").hidden = !result;
       if (!result) { window.explorerMotion.replaceChildren(body); el("detail").hidden = true; fallbackFor = null; el("yaml").hidden = true; el("yaml").textContent = ""; return; }
       const t = result.target, x = result.context, pool = result.pool;
-      el("summary").textContent = `${t.marked_bars} marked bars in ${t.events} window${t.events > 1 ? "s" : ""} · ${x.unmarked_bars} compared · ${result.screened} of ${pool.columns} columns ranked · ${BAR_NAMES[result.bar]} bars · ${Math.round(result.timing_ms.total)} ms` +
+      el("summary").textContent = `${t.marked_bars} marked bars in ${t.events} window${t.events > 1 ? "s" : ""} · ${x.unmarked_bars} compared · ${result.screened} of ${pool.columns} columns ranked · ${BAR_NAMES[result.bar]} bars${pool.through_ms ? ` through ${stamp(pool.through_ms)} UTC` : ""} · ${Math.round(result.timing_ms.total)} ms` +
         (pool.cached ? "" : ` · pool built in ${(pool.built_ms / 1000).toFixed(1)} s`) + (pool.skipped.length ? ` · ${pool.skipped.length} factories need inputs the bars lack` : "");
       el("chance").textContent = chanceText(result);
       result.candidates.forEach((candidate, i) => {
