@@ -16,7 +16,7 @@ test("browsing averages prepares shared daily bars; toggles reuse them without r
   await expect(page.locator('[data-line="ema21"]')).not.toBeChecked();
   await page.locator('[data-line="ema21"]').check();
   await expect(page.locator('[data-ref-key="ema21"] .ol-line-reason')).toHaveText("Loading…");
-  gate.release(); await fake.idle();
+  gate.open(); await fake.idle();
   await expect(page.locator('[data-line-value="ema21"]')).toHaveText(/[\d,]+/);
   const before = bars(fake, 9).length;
   for (const key of ["sma50", "sma100", "sma200", "bmsb"]) {

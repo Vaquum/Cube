@@ -13031,7 +13031,7 @@
       for (let k = chunk; k >= j; k--) {
         const held = barChunks.get(n + "|" + k);
         if (!held) break;
-        count += held.bars.filter((bar) => bar.c * step < first).length;
+        count += bisectColumn(held.bars, Math.ceil(first / step));
         if (k === j && count < 8192 && j > 0) j--;
       }
       return { from: j * span, to: activeCutoff() };
@@ -13042,7 +13042,7 @@
       to: Math.min(activeCutoff(), Math.ceil(S.tB / span) * span),
     };
   }
-  function averageFrame(tf) {
+  function averageFrame(tf, fullHistory = false) {
     if (tf === "1d" || tf === "1w") {
       const s9 = barSeries(9);
       if (s9.state !== "ready") return s9;
@@ -13063,6 +13063,14 @@
     }
     const n = AVERAGE_STEPS[tf],
       step = 2 ** n;
+    // RSI divergences index the full-history swings, so retain their frame.
+    if (fullHistory && tf === "4h") {
+      const series = barSeries(n);
+      if (series.state !== "ready") return series;
+      let frame = frameMemo.get(series);
+      if (!frame) frameMemo.set(series, (frame = makeFrame(series.bars.map(withStart(step)), (x) => (x.c + 1) * step, series.end, tf)));
+      return frame;
+    }
     const span = averageSpan(n);
     if (!span) return { state: "wide" };
     const r = barsBetween(n, span.from, span.to);
@@ -13407,7 +13415,7 @@
   // crosses. Computed once per frame.
   const OSCILLATORS = ["rsi1d", "rsi4h", "macd1d"];
   function oscillatorOf(key) {
-    const frame = averageFrame(key === "rsi4h" ? "4h" : "1d");
+    const frame = averageFrame(key === "rsi4h" ? "4h" : "1d", true);
     if (frame.state !== "ready") return frame;
     let hit = frame.memo.get(key);
     if (!hit) {
