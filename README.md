@@ -168,7 +168,7 @@ Find features asks [Mill](https://github.com/Vaquum/Mill) which of its features 
 ```sh
 API_SECRET=local APP_USERNAME=local APP_PASSWORD=local BROWSER=true mill   # in Mill's checkout and venv; serves 127.0.0.1:8765
 npm run build:tmp
-MILL_API_SECRET=local python3 tools/features_dev.py --dir reports/page   # http://127.0.0.1:8791/
+MILL_API_SECRET=local python3 tools/features_dev.py --dir reports/page   # http://127.0.0.1:8795/
 ```
 
 The relay forwards only `GET /mill/app-config` and `POST /mill/discover`, adds Mill's secret itself, and listens on 127.0.0.1.

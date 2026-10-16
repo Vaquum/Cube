@@ -80,7 +80,7 @@ class Relay(SimpleHTTPRequestHandler):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dir", default="reports/page", help="the built page's directory (default: reports/page)")
-    parser.add_argument("--port", type=int, default=8791, help="port on 127.0.0.1 (default: 8791)")
+    parser.add_argument("--port", type=int, default=8795, help="port on 127.0.0.1 (default: 8795)")
     parser.add_argument("--mill", default=os.environ.get("MILL_URL", "http://127.0.0.1:8765"), help="Mill's base URL")
     args = parser.parse_args()
     secret = os.environ.get("MILL_API_SECRET", "")
@@ -89,8 +89,11 @@ def main() -> None:
     if not os.path.isfile(os.path.join(args.dir, "index.html")):
         raise SystemExit(f"{args.dir}/index.html is missing; run npm run build:tmp first.")
     Relay.mill, Relay.secret = args.mill.rstrip("/"), secret
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Relay, directory=args.dir))
-    print(f"Explorer at http://127.0.0.1:{args.port}/ · Find features through Mill at {Relay.mill}")
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Relay, directory=args.dir))
+    except OSError as error:
+        raise SystemExit(f"127.0.0.1:{args.port} is not available ({error.strerror}); choose another with --port.") from None
+    print(f"Explorer at http://127.0.0.1:{args.port}/ · Find features through Mill at {Relay.mill}", flush=True)
     server.serve_forever()
 
 
