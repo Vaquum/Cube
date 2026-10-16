@@ -90,6 +90,13 @@ About five hundred lines of the bridge's protocol behaviour are duplicated in th
 
 ## Adding a regression fixture
 
+`startup-pack.test.js` drives the production bridge with hand-authored packs and an
+event-held rebuild: cached HTML must finish before the rebuild is released, retain
+the snapshot's actual age/cutoff, and survive refresh failure. `startup-pack.spec.js`
+holds the initial live poll and checks that the chart paints first and that an
+expired or invalidated snapshot refreshes immediately, without the ordinary poll
+timer. These check ordering and integrity; production timing remains separate.
+
 A failure found later is committed as a fixture with a test, not kept as a CI artifact.
 
 1. Reduce it to the smallest input that shows it: a micro trade sequence, a legacy payload, a wire vector, a saved address.

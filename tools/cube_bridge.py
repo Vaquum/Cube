@@ -12,7 +12,10 @@ Routes:
   tiers read up to the cube's data cutoff, so the latest trades are in it: the base column
   that holds the cutoff is the open one, still gaining trades. The partitions the tiers share
   must carry the same revision, and the pack's token digests every pin it read and the cutoff.
-  It is rebuilt at most once a minute.
+  Initial HTML reuses the held pack, including its real age and cutoff; an expired or
+  invalidated pack is refreshed by the page immediately after its first paint. Only a
+  server without any held pack builds one before answering HTML. Pack updates rebuild
+  at most once a minute unless a read invalidated the snapshot.
 - ``/cube/pack?since``: what a page holding pack ``since`` needs to hold the current one:
   nothing, the columns each tier gained when its pack is a prefix of the current one, or else
   the whole pack; with the current pack's age, how long the cube has had no new data, and
@@ -519,7 +522,8 @@ class Explorer:
         """The current pack and its age in seconds; rebuilt once it is older than a minute, or
         at once when a read found the cube had moved past it.
 
-        Reads for pages are answered while a pack is built: the build holds only its own lock.
+        Page HTML uses the held snapshot while this refresh runs; only pack updates wait
+        for the build. The build never holds the fields lock while reading the cube.
         """
         with self.building:
             with self.lock:
@@ -557,10 +561,14 @@ class Explorer:
         """The pack's age, how long the cube has had no new data, when a page should next
         ask (just after the pack can be rebuilt), and the page this server serves."""
         with self.lock:
-            quiet = max(0.0, time.time() - self.advanced_at)
+            return self._timing_locked(age)
+
+    def _timing_locked(self, age: float) -> dict:
+        """Capture freshness while the caller holds the snapshot's fields lock."""
+        quiet = max(0.0, time.time() - self.advanced_at)
         return {
             "age": round(age, 1), "quiet": round(quiet, 1),
-            "next": round(max(1.0, PACK_MAX_AGE_SECONDS - age + 1), 1), "page": self.version,
+            "next": 1.0 if self.stale else round(max(1.0, PACK_MAX_AGE_SECONDS - age + 1), 1), "page": self.version,
         }
 
     def update(self, since: str) -> dict:
@@ -833,10 +841,19 @@ class Explorer:
 
     def html(self) -> bytes:
         text = self.page.read_text(encoding="utf-8")
-        current, age = self.current_pack()
+        # Paint the last consistent snapshot before refreshing it. An expired pack
+        # can take seconds to rebuild, and another tab may already be building it.
+        # Its actual age/cutoff travel with it; the page polls immediately when due.
+        while True:
+            with self.lock:
+                if self.pack is not None:
+                    current = self.pack
+                    timing = self._timing_locked(time.monotonic() - self.packed_at)
+                    break
+            self.current_pack()
         # The pack with its timing, which names this page's version: the page compares it
         # with the version later answers name, and offers a reload when they differ.
-        data = json.dumps({**current, **self.timing(age)}, separators=(",", ":")).replace("<", "\\u003c")
+        data = json.dumps({**current, **timing}, separators=(",", ":")).replace("<", "\\u003c")
         replaced, hits = re.subn(
             r'(<script type="application/json" id="origo-lens-data">).*?(</script>)',
             lambda match: match.group(1) + data + match.group(2), text, count=1, flags=re.S,
