@@ -7299,6 +7299,8 @@
     S.drawer = tab;
     S.drawerOpen = open;
     if (tab === "compare" && open) S.drawerHeight=Math.max(S.drawerHeight,Math.min(420,drawerMax()));
+    // Find features' answer sits under its form: its drawer opens tall enough to show it, as Compare's does.
+    if (tab === "features" && open) S.drawerHeight = Math.max(S.drawerHeight, Math.min(360, drawerMax()));
     update();
     save();
   }

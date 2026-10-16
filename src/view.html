@@ -1357,11 +1357,6 @@
               <button id="ol-features-cancel" type="button" class="ol-action cursor-interaction" hidden>Stop waiting</button>
             </form>
             <p class="ol-muted">Mill ranks its features by how well they separate the bars you mark from the rest, then checks that against the same windows shifted in time. One window describes; many windows test. Rules are fitted in sample, and nothing here is saved.</p>
-            <div class="ol-panel-head">
-              <span id="ol-features-count" class="ol-muted">No window marked</span>
-              <button id="ol-features-clear-windows" type="button" class="ol-action ol-s cursor-interaction">Clear windows</button>
-            </div>
-            <ul id="ol-features-windows" class="ol-features-windows" aria-label="Marked windows"></ul>
             <p id="ol-features-status" role="status" class="ol-muted">Select a rectangle on the chart, then Add selection.</p>
             <div id="ol-features-results" hidden>
               <p id="ol-features-summary" class="ol-muted"></p>
@@ -1377,6 +1372,11 @@
                 <pre id="ol-features-yaml" class="ol-features-yaml" hidden></pre>
               </div>
             </div>
+            <div class="ol-panel-head">
+              <span id="ol-features-count" class="ol-muted">No window marked</span>
+              <button id="ol-features-clear-windows" type="button" class="ol-action ol-s cursor-interaction">Clear windows</button>
+            </div>
+            <ul id="ol-features-windows" class="ol-features-windows" aria-label="Marked windows"></ul>
           </section>
           <div
             class="ol-panel ol-comparison-panel"

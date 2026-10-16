@@ -278,7 +278,7 @@
       const note = "A temporary preview from Find features, computed by Mill on its own bars, not on the cube's.";
       if (!near) { h.tipRows(node, `Preview · ${candidate.column}`, "No value known here", [], note); return; }
       h.tipRows(node, `Preview · ${candidate.column}`, `${h.when(h.baseOf(near.ms))} UTC · known when its bar closed`,
-        [["Value", String(near.value)], ["Bars per point", String(candidate.series.bucket_bars)], ["Factory", `${candidate.source}.${candidate.factory}`], ["Bars", `Mill · ${BAR_NAMES[result.bar]}`]], note);
+        [["Value", String(+near.value.toPrecision(6))], ["Bars per point", String(candidate.series.bucket_bars)], ["Factory", `${candidate.source}.${candidate.factory}`], ["Bars", `Mill · ${BAR_NAMES[result.bar]}`]], note);
     }
     el("form").addEventListener("submit", find);
     el("add").onclick = addSelection;
@@ -288,6 +288,7 @@
     for (const type of ["focus", "pointerdown"]) el("pool").addEventListener(type, () => { if (configState === "idle") connect(); });
     el("copy").onclick = copyRule;
     el("unpreview").onclick = () => select(-1);
+    render();
     return {sync, paintPane, tip,
       get previewing() { return Boolean(current()?.series); },
       get lanes() {
