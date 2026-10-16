@@ -314,6 +314,7 @@
    the bar appears or goes as modes change, so no control ever moves. */
 #origo-lens .ol-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-1);
   min-height: 48px;
@@ -326,35 +327,35 @@
 }
 #origo-lens .ol-id {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-1);
+  align-items: center;
+  gap: var(--sp-2);
   min-width: 0;
   margin-right: auto;
   padding-right: var(--sp-4);
   white-space: nowrap;
   overflow: hidden;
 }
-#origo-lens .ol-market-id,
 #origo-lens .ol-build-info {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
 }
 #origo-lens .ol-build-info {
+  order: 1;
+  flex-basis: 100%;
   flex-wrap: wrap;
   color: var(--ol-muted);
   font-size: var(--fs-s);
 }
 #origo-lens .ol-build-info > * {
   flex: none;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--ol-line);
+  border-radius: var(--r-l);
 }
 #origo-lens #ol-version {
   color: var(--ol-ink);
   text-underline-offset: 2px;
-}
-#origo-lens .ol-id {
-  flex-shrink: 0;
 }
 #origo-lens .ol-pair {
   flex: none;
@@ -3634,7 +3635,6 @@
 >
   <header class="ol-bar">
     <div class="ol-id">
-      <div class="ol-market-id">
       <span class="ol-pair">BTC / USDT</span
       ><span class="ol-venue">Binance spot</span
       ><span class="ol-state-pill" id="ol-state-pill" data-state="live"
@@ -3642,12 +3642,11 @@
         ><span id="ol-snapshot" class="ol-snapshot"></span
         ><span id="ol-fresh" class="ol-fresh" hidden></span
       ></span>
-      </div>
-      <div class="ol-build-info ol-num">
-        <span id="ol-data-through" title="Latest available source data; independent of the selected window and replay"></span>
-        <a id="ol-version" hidden target="_blank" rel="noopener noreferrer"></a>
-        <span id="ol-version-unknown">Version unavailable</span>
-      </div>
+    </div>
+    <div class="ol-build-info ol-num">
+      <span id="ol-data-through" title="Latest available source data; independent of the selected window and replay"></span>
+      <a id="ol-version" hidden target="_blank" rel="noopener noreferrer"></a>
+      <span id="ol-version-unknown">Version unavailable</span>
     </div>
     <div class="ol-group ol-window-group">
       <button
