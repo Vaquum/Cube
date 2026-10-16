@@ -100,7 +100,7 @@ for (const key of ["ema1h", "ema4h"]) {
     // Only 256 traded closes precede the edge; EMA(200) requires older chunks.
     const trades = Array.from({ length: 263 }, (_, i) => ({ t_ms: i * 8 * day + 60000,
       price: (10000 + 10 * i) * 100, qty: 100000000, takerBuy: true }));
-    const stamp = (offset) => new Date(epoch + offset).toISOString();
+    const stamp = (offset) => new Date(epoch + offset).toISOString().slice(0, 16) + "Z";
     const fake = await fakeFor({ trades, cutoffIso: stamp(2100 * day) }, { next: 300 });
     await page.goto(`${fake.url}/#t=${stamp(edge)}~${stamp(edge + day)}&replay=1&at=${stamp(edge)}&rows=off&marks=none&lines=${key}`);
     await probe.waitForReady(); await fake.idle();
