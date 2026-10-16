@@ -51,13 +51,18 @@ Routes:
   Like motion, they end at the pack's last complete base column or where the cube's measures
   end, and say where (``end``, ``through``). Kept per pack and span.
 - ``/vendor/<file>``: the vendored scripts, flat file names only.
+- ``GET /mill/app-config`` and ``POST /mill/discover``: Find features, relayed to Mill
+  (``tools/mill_relay.py``) with ``MILL_API_SECRET`` as its Bearer token, and ``/`` then declares
+  Mill in the page, which offers the Find features tab. Only when ``MILL_URL`` and
+  ``MILL_API_SECRET`` are both set; otherwise ``/mill/`` is not found and the page has no such tab.
 
 Every ``/cube/`` route takes ``proto=2``, the page's protocol. A page loaded before it names
 none and can't read MSC2 blocks, so it is answered 409 with words telling its reader to reload.
 
 The server checks no credentials: it listens on 127.0.0.1 only, and the host's Caddy passes a
 request for cube.vaquum.fi on only after the Vaquum portal login (Vaquum/Portal).
-``MARKET_STATE_URL`` names the cube service (default ``http://127.0.0.1:8486``).
+``MARKET_STATE_URL`` names the cube service (default ``http://127.0.0.1:8486``); ``MILL_URL`` names
+Mill (on the Origo host, ``http://127.0.0.1:8765``).
 
 MSC2 (little-endian): 32-byte header ``magic n m pad col0 col1 count 12x`` then columnar
 arrays volume f64, taker-buy volume f64, trades f64, taker-buy trades f64, column u32, row u32,
@@ -100,6 +105,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from market_state_reader import MarketStateError, query, read_table  # noqa: E402
 from rally_bridge import RallyStore  # noqa: E402
 from investigation_store import InvestigationStore, MAX_BYTES as INVESTIGATION_MAX_BYTES  # noqa: E402
+from mill_relay import MAX_BODY as MILL_MAX_BODY, ROUTES as MILL_ROUTES, declare, forward  # noqa: E402
 
 T0 = 1609459200
 BASE_SECONDS = 56.25
@@ -141,6 +147,9 @@ BUSY_WAIT_SECONDS = 20.0
 CUBE_SLOT = threading.Lock()
 MOTION_SLOT = threading.Lock()
 CUBE_URL = os.environ.get("MARKET_STATE_URL", "http://127.0.0.1:8486")
+# Find features relays to Mill only with both set: the secret stays here, the page never sees it.
+MILL_URL = os.environ.get("MILL_URL", "")
+MILL_API_SECRET = os.environ.get("MILL_API_SECRET", "")
 SOURCE = "Binance BTCUSDT spot · Origo market state cube"
 VENDOR_TYPES = {".js": "application/javascript", ".css": "text/css", ".txt": "text/plain", ".md": "text/markdown"}
 TIERS = (
@@ -935,6 +944,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         url = urlsplit(self.path)
+        if url.path.startswith("/mill/"):
+            self.mill(url.path)
+            return
         if url.path not in ("/cube/rallies", "/cube/rallies/view", "/cube/investigations"):
             self.json({"error": "not_found"}, 404)
             return
@@ -942,8 +954,7 @@ class Handler(BaseHTTPRequestHandler):
             if parse_qs(url.query).get("proto") != [PROTOCOL]:
                 self.json({"error": OUTDATED, "reload": True}, 409)
                 return
-            origin = self.headers.get("Origin")
-            if origin and origin not in ("https://cube.vaquum.fi", "http://" + self.headers.get("Host", "")):
+            if self.foreign_origin():
                 self.json({"error": "invalid_origin"}, 403)
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
@@ -985,13 +996,17 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/healthz":
             self.reply(200, "text/plain", b"ok")
             return
+        if url.path.startswith("/mill/"):
+            self.mill(url.path)
+            return
         try:
             args = parse_qs(url.query)
             if url.path.startswith("/cube/") and args.get("proto", [""])[0] != PROTOCOL:
                 self.json({"error": OUTDATED, "reload": True}, 409)
                 return
             if url.path in ("/", "/index.html"):
-                self.reply(200, "text/html; charset=utf-8", self.explorer.html())
+                page = self.explorer.html()
+                self.reply(200, "text/html; charset=utf-8", declare(page) if mill_relayed() else page)
             elif url.path == "/cube/pack":
                 since = args.get("since", [""])[0]
                 self.json(self.explorer.update(since))
@@ -1071,6 +1086,35 @@ class Handler(BaseHTTPRequestHandler):
 
     do_HEAD = do_GET
 
+    def foreign_origin(self) -> bool:
+        """A request sent from a page on another origin; the portal's Caddy refuses those too."""
+        origin = self.headers.get("Origin")
+        return bool(origin) and origin not in ("https://cube.vaquum.fi", "http://" + self.headers.get("Host", ""))
+
+    def mill(self, path: str) -> None:
+        """A Find features request relayed to Mill, or not found where Mill is not relayed or the route is not one."""
+        if not mill_relayed() or (self.command, path) not in MILL_ROUTES:
+            self.json({"error": "not_found"}, 404)
+            return
+        body = None
+        if self.command == "POST":
+            if self.foreign_origin():
+                self.json({"error": "invalid_origin"}, 403)
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
+                self.json({"error": "invalid_request", "detail": "Content-Type must be application/json"}, 400)
+                return
+            length = int(self.headers.get("Content-Length", "")) if self.headers.get("Content-Length", "").isdigit() else 0
+            if length > MILL_MAX_BODY:
+                self.json({"error": "request_too_large"}, 413)
+                return
+            if length == 0:
+                self.json({"error": "invalid_request", "detail": "a JSON body is required"}, 400)
+                return
+            body = self.rfile.read(length)
+        status, payload = forward(MILL_URL, MILL_API_SECRET, self.command, path, body)
+        self.reply(status, "application/json", payload)
+
     def json(self, body: dict, status: int = 200) -> None:
         self.reply(status, "application/json", json.dumps(body, separators=(",", ":")).encode())
 
@@ -1087,6 +1131,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: object) -> None:
         sys.stderr.write("%s %s\n" % (self.address_string(), format % args))
+
+
+def mill_relayed() -> bool:
+    """Whether Find features is relayed to Mill: only with both its address and its secret."""
+    return bool(MILL_URL and MILL_API_SECRET)
 
 
 def integer(args: dict, key: str) -> int:
@@ -1147,7 +1196,8 @@ def main(argv: list[str] | None = None) -> int:
     # Loopback only, and not configurable: the server checks no credentials, so the portal-gated
     # Caddy on this host must be the only way to it.
     with ThreadingHTTPServer(("127.0.0.1", arguments.port), Handler) as httpd:
-        print(f"explorer on http://127.0.0.1:{arguments.port} · cube at {CUBE_URL}", flush=True)
+        print(f"explorer on http://127.0.0.1:{arguments.port} · cube at {CUBE_URL}"
+              + (f" · Find features through Mill at {MILL_URL}" if mill_relayed() else ""), flush=True)
         httpd.serve_forever()
     return 0
 
