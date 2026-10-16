@@ -20417,14 +20417,15 @@
     const a = Math.max(span[0], bounds[0]), b = Math.min(span[1], bounds[1]);
     return a < b ? [a, b] : null;
   }
-  // The body of Mill's POST /discover, or why it cannot be asked. Nothing reaches Mill from outside the bars it has
-  // or after the chart's cutoff: the compared span and the returned series both end there.
+  // The body of Mill's POST /discover, or why it cannot be asked. Mill's bars run from its first through its latest, and
+  // only the first stays put, so a span starts no earlier than Mill's first bar and ends at the chart's cutoff: the
+  // compared span and the returned series end there, and Mill compares the bars it has up to it.
   function request({windows, bar, mode, lead, against, pool, view, edge, data}) {
     if (!data) return {error: "The span of Mill's bars is not known yet."};
     if (!windows.length) return {error: "Add at least one window: select a rectangle on the chart, then Add selection."};
-    const outside = windows.find(w => w.startMs < data[0] || w.endMs > data[1]);
-    if (outside) return {error: `The window ${stamp(outside.startMs)} → ${stamp(outside.endMs)} UTC lies outside the bars Mill has, ${iso(data[0]).slice(0, 10)} to ${iso(data[1] - DAY).slice(0, 10)}.`};
-    const bound = [data[0], Math.min(data[1], edge)];
+    const early = windows.find(w => w.startMs < data[0]);
+    if (early) return {error: `The window ${stamp(early.startMs)} → ${stamp(early.endMs)} UTC starts before the bars Mill has, which begin ${iso(data[0]).slice(0, 10)}.`};
+    const bound = [data[0], edge];
     if (bound[0] >= bound[1]) return {error: "The chart's cutoff is before Mill's first bar."};
     const context = against === "view" ? clip(view, bound) : bound;
     if (!context) return {error: "The visible time lies outside the bars Mill has. Move the view inside them, or compare against all of Mill's data."};
@@ -20506,19 +20507,15 @@
     }
     // Mill is asked only when the operator acts here: the first Find, or opening the pool to choose one of Mill's views.
     function connect() { return loading ??= loadConfig().finally(() => { if (configState !== "ready") loading = null; }); }
-    // Mill's configuration: its views, and the days its bars cover, which grow as the store writes new ones.
-    async function fetchConfig() {
-      config = await call("/mill/app-config", {timeout: CONFIG_TIMEOUT, shaped: (r) => typeof r?.data_window?.start === "string" && typeof r.data_window.end === "string"});
-      const pool = el("pool"), group = document.createElement("optgroup"), chosen = pool.value;
-      group.label = "Mill views";
-      for (const name of config.views || []) { const option = document.createElement("option"); option.value = "view:" + name; option.textContent = name; group.append(option); }
-      pool.querySelector("optgroup")?.remove(); pool.append(group); pool.value = chosen;
-    }
     async function loadConfig() {
       configState = "loading"; render();
       try {
-        await fetchConfig();
+        config = await call("/mill/app-config", {timeout: CONFIG_TIMEOUT, shaped: (r) => typeof r?.data_window?.start === "string" && typeof r.data_window.end === "string"});
         configState = "ready"; message = "";
+        const pool = el("pool"), group = document.createElement("optgroup");
+        group.label = "Mill views";
+        for (const name of config.views || []) { const option = document.createElement("option"); option.value = "view:" + name; option.textContent = name; group.append(option); }
+        pool.querySelector("optgroup")?.remove(); pool.append(group);
       } catch (error) {
         configState = "failed";
         message = error.status === 404 || error.status === "unreachable"
@@ -20542,11 +20539,6 @@
       try {
         if (configState !== "ready") { status("Connecting to Mill…"); await connect(); }
         if (configState !== "ready") return;
-        // Once the chart reaches past the end Mill last reported, Mill may have newer bars: ask it again. A refusal keeps
-        // what it said before; stopping stops the search.
-        if (dataSpan(config)[1] < Math.min(context().edgeMs, Date.now())) {
-          try { await fetchConfig(); } catch (error) { if (error.status === "aborted") throw error; }
-        }
         const c = context(), poolValue = el("pool").value;
         const ask = request({windows, bar: el("bar").value, mode: el("mode").value, lead: Number(el("lead").value),
           against: el("against").value, pool: poolValue === "catalog" ? {kind: "catalog"} : {kind: "view", name: poolValue.slice(5)},
@@ -20648,7 +20640,7 @@
       if (message) status(message);
       else if (configState === "loading") status("Connecting to Mill…");
       else if (result) status(current() ? `Previewing ${current().column} in the Columns pane; its rule's hits are a lane under the chart. Nothing is saved.` : "Select a leader to preview it.");
-      else if (configState === "ready") status(`Mill reads bars from ${config.data_window.start} to ${config.data_window.end}. Mark windows inside it, then Find features.`);
+      else if (configState === "ready") status(`Mill has bars from ${config.data_window.start} through its latest. Mark windows, then Find features.`);
       else status("Select a rectangle on the chart, then Add selection. Mill is asked when you press Find features.");
     }
     function sync() {

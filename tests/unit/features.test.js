@@ -17,9 +17,9 @@ test("a request never reaches outside the bars Mill has or past the chart's cuto
   const base = {bar: "1h_time_bars", mode: "inside", lead: 4, pool: {kind: "catalog"}, data};
   const edge = at("2025-06-01T00:00:00Z"), view = [at("2025-05-20T00:00:00Z"), at("2025-06-10T00:00:00Z")];
   const marked = [w("2025-05-25T00:00:00Z", "2025-05-25T12:00:00Z")];
-  assert.match(api.request({...base, windows: [w("2026-06-01T00:00:00Z", "2026-06-02T00:00:00Z")], against: "all", view, edge: Infinity}).error,
-    /outside the bars Mill has, 2024-01-01 to 2026-05-15/);
-  // Against the whole window, the compared span ends at the cutoff; the returned series covers the view inside it.
+  assert.match(api.request({...base, windows: [w("2023-06-01T00:00:00Z", "2023-06-02T00:00:00Z")], against: "all", view, edge}).error,
+    /starts before the bars Mill has, which begin 2024-01-01/);
+  // Against all of Mill's data, the compared span ends at the cutoff; the returned series covers the view inside it.
   const whole = api.request({...base, windows: marked, against: "all", view, edge}).body;
   assert.deepEqual(whole.context, {start: "2024-01-01T00:00:00Z", end: "2025-06-01T00:00:00Z"});
   assert.deepEqual(whole.display, {start: "2025-05-20T00:00:00Z", end: "2025-06-01T00:00:00Z"});
@@ -28,8 +28,12 @@ test("a request never reaches outside the bars Mill has or past the chart's cuto
   // A window wholly after the cutoff has no bar to mark, and no window is no request.
   assert.match(api.request({...base, windows: [w("2025-06-05T00:00:00Z", "2025-06-06T00:00:00Z")], against: "all", view, edge}).error, /No marked window lies inside/);
   assert.match(api.request({...base, windows: [], against: "all", view, edge}).error, /Add at least one window/);
-  assert.match(api.request({...base, windows: marked, against: "view", view: [at("2026-07-01T00:00:00Z"), at("2026-08-01T00:00:00Z")], edge: Infinity}).error,
+  assert.match(api.request({...base, windows: marked, against: "view", view: [at("2023-07-01T00:00:00Z"), at("2023-08-01T00:00:00Z")], edge}).error,
     /The visible time lies outside the bars Mill has/);
+  // The end Mill last reported does not bound anything: Mill compares the bars it has up to the cutoff.
+  const later = api.request({...base, windows: [w("2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z")], against: "all", view,
+    edge: at("2026-10-17T00:00:00Z")}).body;
+  assert.deepEqual(later.context, {start: "2024-01-01T00:00:00Z", end: "2026-10-17T00:00:00Z"});
 });
 
 test("a leader's points sit at their buckets' ends, and a partial last bucket at the display's end", () => {
@@ -90,8 +94,7 @@ function mill(answers = {}) {
   const calls = [], waiting = [];
   globalThis.fetch = (path, options) => new Promise((resolve) => {
     calls.push({path, body: options.body ? JSON.parse(options.body) : null});
-    const config = typeof answers.config === "function" ? answers.config() : answers.config ?? {data_window: {start: "2024-01-01", end: "2026-12-31"}, views: []};
-    const text = answers[path] ?? JSON.stringify(path.endsWith("/app-config") ? config : events);
+    const text = answers[path] ?? JSON.stringify(path.endsWith("/app-config") ? {data_window: {start: "2024-01-01", end: "2026-05-15"}, views: []} : events);
     waiting.push(() => resolve({ok: true, status: 200, text: async () => text}));
   });
   const next = async () => { waiting.shift()(); await new Promise((r) => setTimeout(r, 0)); };
@@ -206,18 +209,13 @@ test("a rule without a manifest, from data too short to split, cannot be copied 
   assert.match(byId(root, "detail-text").textContent, /too few days to split for a Limen manifest\.$/);
 });
 
-test("a search asks Mill for its span again once the chart reaches past the end Mill last reported", async () => {
+test("a search compares through the chart's cutoff whatever end Mill last reported, asking Mill once", async () => {
   const root = panel();
-  // Mill first reports bars through 2026-09-20, before the chart's cutoff of 2026-09-24; asked again, it has written more.
-  let asked = 0;
-  const stub = mill({config: () => ({data_window: {start: "2024-01-01", end: asked++ === 0 ? "2026-09-20" : "2026-09-30"}, views: []})});
+  // Mill last reported bars through 2026-05-15; the chart's cutoff is 2026-09-24.
+  const stub = mill();
   controller(root);
   byId(root, "add").onclick();
-  const first = submit(root);
-  await stub.answer(); await first;
-  assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/app-config", "/mill/discover"]);
-  assert.equal(stub.calls[2].body.context.end, "2026-09-24T00:00:00Z", "the comparison reaches the cutoff, past the stale end");
-  // Its span now covers the cutoff, so the next search asks only for the discovery.
-  const second = submit(root); await stub.answer(); await second;
-  assert.deepEqual(stub.calls.slice(3).map((c) => c.path), ["/mill/discover"]);
+  const first = submit(root); await stub.answer(); await first;
+  assert.deepEqual(stub.calls.map((c) => c.path), ["/mill/app-config", "/mill/discover"]);
+  assert.equal(stub.calls[1].body.context.end, "2026-09-24T00:00:00Z");
 });

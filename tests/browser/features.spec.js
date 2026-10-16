@@ -70,7 +70,9 @@ test("a marked window is found, its leader previewed with its rule's hits, and t
   const body = asked[1].body;
   expect(body.mode).toBe("lead");
   expect(body.lead_bars).toBe(4);
-  expect(body.context).toEqual({ start: "2024-01-01T00:00:00Z", end: "2026-05-16T00:00:00Z" });
+  // Mill's first bar starts the comparison and the chart's cutoff ends it, past the end Mill last reported.
+  expect(body.context.start).toBe("2024-01-01T00:00:00Z");
+  expect(Date.parse(body.context.end)).toBeGreaterThan(Date.parse("2026-05-16T00:00:00Z"));
   expect(body.windows).toHaveLength(1);
   await expect(page.locator("#ol-features-rows tr")).toHaveCount(events.candidates.length);
   await expect(page.locator("#ol-features-rows tr").first()).toContainText("garman_klass_volatility");
