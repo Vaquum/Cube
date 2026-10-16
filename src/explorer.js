@@ -15494,14 +15494,15 @@
       rallyLane.events.push({t0:base(e.start_at_us), t1:base(e.end_at_us), confirmed:base(e.confirmed_at_us),
         open:false, what:"Rally", rally:e, rec:{kind:"rally", label:"confirmed", final:true}});
     }
-    // Find features' marks: the windows as authored, and each run of rule hits once its first bar has closed, ending at the cutoff.
+    // Find features' marks: the windows as authored, and each run of rule hits once its first bar has closed. A run's end is known
+    // when the bar after it closes; until then it is open at the cutoff.
     const finds = featureController.lanes, baseOf = (ms) => (ms / 1000 - T0) / BASE, edgeMs = msAt(cut);
     const windowLane = lane("findwindows");
     if (windowLane) for (const [a, b] of finds.windows) windowLane.events.push({ t0: baseOf(a), t1: baseOf(b), open: false, what: "Marked window", find: true });
     const hitLane = lane("findhits");
     if (hitLane) for (const [a, b] of finds.hits) {
       if (a + finds.stepMs > edgeMs) break;
-      hitLane.events.push({ t0: baseOf(a), t1: baseOf(Math.min(b, edgeMs)), open: b > edgeMs, what: finds.rule, find: true });
+      hitLane.events.push({ t0: baseOf(a), t1: baseOf(Math.min(b, edgeMs)), open: b + finds.stepMs > edgeMs, what: finds.rule, find: true });
     }
     const fills = S.lines.length ? lineItems(cut).fills || [] : [];
     for (const f of fills) {
@@ -15574,14 +15575,15 @@
   }
   function eventTip(tip, h) {
     if (h.lane === "findwindows" || h.lane === "findhits") {
-      const events = h.span.events, many = events.length > 1;
+      const events = h.span.events, many = events.length > 1,
+        run = (e) => `${when(e.t0)} → ${when(e.t1)} UTC${e.open ? " · open at the cutoff" : ""}`;
       if (h.lane === "findwindows")
         tipRows(tip, many ? `${events.length} marked windows` : "Marked window", many ? "Merged where they overlap" : `${when(events[0].t0)} → ${when(events[0].t1)} UTC`,
           many ? events.map((e) => ["Window", `${when(e.t0)} → ${when(e.t1)} UTC`]) : [],
           "Find features ranks Mill's features against the bars these windows mark. Nothing is saved.");
       else
-        tipRows(tip, `Rule hits · ${events[0].what}`, many ? `${events.length} runs in this mark` : `${when(events[0].t0)} → ${events[0].open ? "the cutoff" : when(events[0].t1) + " UTC"}`,
-          many ? events.map((e) => ["Holds", `${when(e.t0)} → ${e.open ? "the cutoff" : when(e.t1) + " UTC"}`]) : [],
+        tipRows(tip, `Rule hits · ${events[0].what}`, many ? `${events.length} runs in this mark` : run(events[0]),
+          many ? events.map((e) => ["Holds", run(e)]) : [],
           "Where the previewed rule holds on Mill's own bars, each run shown once its first bar has closed. The threshold was fitted in sample.");
       return;
     }

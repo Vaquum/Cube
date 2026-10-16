@@ -9,6 +9,8 @@
   function iso(ms) { return new Date(ms).toISOString().replace(".000Z", "Z"); }
   function stamp(ms) { return iso(ms).slice(0, 16).replace("T", " "); }
   function fixed(v, digits = 3) { return v === null || v === undefined ? "—" : Number(v).toFixed(digits); }
+  // A p-value to two significant digits, so the smallest one a null of many shifts allows still reads as itself.
+  function pValue(p) { return String(+Number(p).toPrecision(2)); }
   // Mill's research window as half-open milliseconds, from the inclusive days of its data window.
   function researchSpan(config) {
     const w = config && config.data_window;
@@ -191,7 +193,7 @@
         button.setAttribute("aria-pressed", String(i === selected)); button.title = `${candidate.source}.${candidate.factory} · select to preview`;
         button.onclick = () => select(i); name.append(button); tr.dataset.flowKey = candidate.column;
         tr.append(name, cell(fixed(candidate.auc)), cell(candidate.ci90 ? `${fixed(candidate.ci90[0])}–${fixed(candidate.ci90[1])}` : "withheld"),
-          cell(`${candidate.direction} ${mode === "lead" ? "before" : "inside"}`), cell(`${candidate.beyond_chance ? "beyond chance" : "within chance"} · p ${fixed(candidate.p_adjusted)}`),
+          cell(`${candidate.direction} ${mode === "lead" ? "before" : "inside"}`), cell(`${candidate.beyond_chance ? "beyond chance" : "within chance"} · p ${pValue(candidate.p_adjusted)}`),
           cell(candidate.rule ? candidate.rule.text : "no rule"));
         fragment.append(tr);
       });
