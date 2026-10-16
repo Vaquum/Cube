@@ -1,0 +1,464 @@
+{
+ "target": {
+  "mode": "inside",
+  "lead_bars": null,
+  "windows": [
+   [
+    1740960000000,
+    1741003200000
+   ]
+  ],
+  "marked_bars": 12,
+  "events": 1,
+  "longest_run": 12
+ },
+ "context": {
+  "start_ms": 1740787200000,
+  "end_ms": 1741392000000,
+  "bars": 168,
+  "unmarked_bars": 156
+ },
+ "evidence": "description",
+ "intervals": false,
+ "chance": {
+  "method": "circular-shift",
+  "shifts": 145,
+  "min_shift": 12,
+  "alpha": 0.05,
+  "critical": 0.5,
+  "best": 0.4968
+ },
+ "screened": 249,
+ "timing_ms": {
+  "rank": 3.65,
+  "screen": 0.15,
+  "null": 0.82,
+  "stage_two": 7.45,
+  "total": 12.09
+ },
+ "candidates": [
+  {
+   "column": "macd_signal",
+   "factory": "macd",
+   "source": "limen.indicators",
+   "params": {
+    "price_col": "close",
+    "fast_period": 12,
+    "slow_period": 26,
+    "signal_period": 9
+   },
+   "auc": 0.9968,
+   "direction": "higher",
+   "separation": 0.4968,
+   "p_adjusted": 0.3425,
+   "beyond_chance": false,
+   "ci90": null,
+   "conservative": null,
+   "similar": [
+    "macdfix_signal",
+    "trend_strength",
+    "macdfix",
+    "macd"
+   ],
+   "rule": {
+    "column": "macd_signal",
+    "operator": ">",
+    "value": 1400.0,
+    "persistence_n": 3,
+    "tpr": 1.0,
+    "fpr": 0.0,
+    "precision": 1.0,
+    "events_hit": 1.0,
+    "hits": [
+     [
+      1740960000000,
+      1741003200000
+     ]
+    ],
+    "manifest": {
+     "schema_version": "1.0",
+     "metadata": {
+      "name": "find_features_1h_time_bars",
+      "limen_version": "3.15.2",
+      "mode": "development",
+      "description": "macd_signal > 1400 for 3 bars, fitted in sample by Mill Find features"
+     },
+     "sfd": {
+      "manifest": {
+       "type": "rule_based",
+       "data_source": {
+        "method": "limen.data.HistoricalData.get_arrow_file",
+        "params": {
+         "file_path": "/opt/arrow/time_1h/latest.arrow"
+        }
+       },
+       "split_dates": {
+        "train_start": "2024-01-01",
+        "train_end": "2025-03-07",
+        "val_start": "2025-03-08",
+        "val_end": "2025-10-10",
+        "test_start": "2025-10-11",
+        "test_end": "2026-05-15"
+       },
+       "indicators": [
+        {
+         "func": "limen.indicators.macd",
+         "params": {
+          "price_col": "close",
+          "fast_period": 12,
+          "slow_period": 26,
+          "signal_period": 9
+         }
+        }
+       ],
+       "strategy": {
+        "conditions": [
+         {
+          "id": "entry",
+          "name": "macd_signal > 1400 for 3 bars, fitted in sample by Mill Find features",
+          "type": "threshold",
+          "column": "macd_signal",
+          "operator": ">",
+          "value": "{threshold}",
+          "persistence_n": 3
+         }
+        ],
+        "entry": "entry"
+       },
+       "reference_architecture": "limen.sfd.reference_architecture.rule_based"
+      },
+      "params": {
+       "threshold": [
+        1400.0
+       ]
+      }
+     },
+     "uel": {
+      "n_permutations": 1,
+      "search_strategy": {
+       "type": "grid"
+      },
+      "prep_each_round": true,
+      "output_format": "csv"
+     }
+    },
+    "text": "macd_signal > 1400 for 3 bars"
+   },
+   "series": {
+    "t0": 1740787200000,
+    "step_ms": 7200000,
+    "bucket_bars": 2,
+    "values": [
+     91.99220649,
+     253.9224998,
+     418.43709263,
+     511.79715555,
+     561.76666918,
+     562.61605154,
+     523.19522504,
+     468.95764457,
+     434.36872445,
+     416.65513111,
+     419.83547221,
+     444.82544141,
+     470.0300501,
+     473.19740702,
+     456.28265129,
+     446.01488348,
+     417.89455418,
+     387.56452394,
+     350.96516492,
+     314.21637301,
+     555.30255995,
+     955.29475774,
+     1383.00978345,
+     1736.12991266,
+     1933.79279995,
+     1991.81545843,
+     1951.358372,
+     1810.5380242,
+     1604.87539878,
+     1420.16185001,
+     1287.92489275,
+     1037.13926275,
+     756.70504092,
+     351.82836168,
+     -117.53074316,
+     -507.45506755,
+     -846.47917423,
+     -1169.03354658,
+     -1417.22362626,
+     -1577.30126887,
+     -1655.05318965,
+     -1652.87721627,
+     -1616.96503286,
+     -1572.72612455,
+     -1459.66232859,
+     -1167.70725456,
+     -818.38122386,
+     -486.24816251,
+     -222.36039833,
+     -17.97618072,
+     112.57808781,
+     215.94070598,
+     313.48359888,
+     472.38967522,
+     641.10094716,
+     708.97379144,
+     736.02815436,
+     766.00295089,
+     811.39584103,
+     852.17981987,
+     871.37290441,
+     923.78163318,
+     1002.590791,
+     1043.97590992,
+     1006.12596146,
+     935.67683975,
+     798.14253374,
+     639.96257509,
+     455.7593743,
+     239.2304249,
+     79.23150177,
+     12.53315658,
+     -153.39155419,
+     -322.79132851,
+     -443.94841215,
+     -490.73235164,
+     -478.95573773,
+     -410.37926885,
+     -327.12005378,
+     -221.32476475,
+     -220.41322896,
+     -229.295543,
+     -300.09228712,
+     -392.5482731
+    ]
+   }
+  },
+  {
+   "column": "vwap",
+   "factory": "vwap",
+   "source": "limen.features",
+   "params": {
+    "price_col": "close",
+    "volume_col": "volume"
+   },
+   "auc": 0.9963,
+   "direction": "higher",
+   "separation": 0.4963,
+   "p_adjusted": 0.3425,
+   "beyond_chance": false,
+   "ci90": null,
+   "conservative": null,
+   "similar": [
+    "tema_30",
+    "tenkan",
+    "mama",
+    "dema_30",
+    "t3_5_0.7",
+    "bbands_middle",
+    "linearreg_14",
+    "tsf_14",
+    "open",
+    "avgprice",
+    "medprice",
+    "mean",
+    "wclprice",
+    "typprice"
+   ],
+   "rule": {
+    "column": "vwap",
+    "operator": ">",
+    "value": 92000.0,
+    "persistence_n": 1,
+    "tpr": 1.0,
+    "fpr": 0.0128,
+    "precision": 0.8571,
+    "events_hit": 1.0,
+    "hits": [
+     [
+      1740960000000,
+      1741010400000
+     ]
+    ],
+    "manifest": {
+     "schema_version": "1.0",
+     "metadata": {
+      "name": "find_features_1h_time_bars",
+      "limen_version": "3.15.2",
+      "mode": "development",
+      "description": "vwap > 92000 for 1 bar, fitted in sample by Mill Find features"
+     },
+     "sfd": {
+      "manifest": {
+       "type": "rule_based",
+       "data_source": {
+        "method": "limen.data.HistoricalData.get_arrow_file",
+        "params": {
+         "file_path": "/opt/arrow/time_1h/latest.arrow"
+        }
+       },
+       "split_dates": {
+        "train_start": "2024-01-01",
+        "train_end": "2025-03-07",
+        "val_start": "2025-03-08",
+        "val_end": "2025-10-10",
+        "test_start": "2025-10-11",
+        "test_end": "2026-05-15"
+       },
+       "indicators": [
+        {
+         "func": "limen.features.vwap",
+         "params": {
+          "price_col": "close",
+          "volume_col": "volume"
+         }
+        }
+       ],
+       "strategy": {
+        "conditions": [
+         {
+          "id": "entry",
+          "name": "vwap > 92000 for 1 bar, fitted in sample by Mill Find features",
+          "type": "threshold",
+          "column": "vwap",
+          "operator": ">",
+          "value": "{threshold}",
+          "persistence_n": 1
+         }
+        ],
+        "entry": "entry"
+       },
+       "reference_architecture": "limen.sfd.reference_architecture.rule_based"
+      },
+      "params": {
+       "threshold": [
+        92000.0
+       ]
+      }
+     },
+     "uel": {
+      "n_permutations": 1,
+      "search_strategy": {
+       "type": "grid"
+      },
+      "prep_each_round": true,
+      "output_format": "csv"
+     }
+    },
+    "text": "vwap > 92000 for 1 bar"
+   },
+   "series": {
+    "t0": 1740787200000,
+    "step_ms": 7200000,
+    "bucket_bars": 2,
+    "values": [
+     84371.87418635,
+     84954.1626083,
+     85295.96106397,
+     85127.4655964,
+     85152.68215734,
+     85082.9892488,
+     85030.29784488,
+     85013.5181552,
+     85033.22144883,
+     85047.79819538,
+     85082.32479713,
+     85132.03541564,
+     86192.09045881,
+     85985.83601581,
+     85935.47752739,
+     86015.78939824,
+     85973.52614851,
+     85982.8885271,
+     85963.24232583,
+     86561.49558828,
+     90059.1631165,
+     90530.66808058,
+     90809.19548938,
+     91073.33462346,
+     93199.53344594,
+     93127.7117157,
+     93125.65202486,
+     92777.36960984,
+     92507.39044272,
+     92524.53847893,
+     92618.73787098,
+     91553.10276007,
+     91418.45133333,
+     90189.63442611,
+     89652.74209875,
+     89508.86867652,
+     83925.30811173,
+     83936.81688355,
+     83923.60741036,
+     83865.05320469,
+     83861.47863646,
+     83869.41353171,
+     83766.35163688,
+     83572.51304123,
+     83701.83009788,
+     84258.54390155,
+     84539.69703751,
+     84605.91665413,
+     87157.85723461,
+     87163.86694238,
+     87098.2055619,
+     87168.36655037,
+     87376.82049947,
+     88145.75016353,
+     88589.52648023,
+     88550.70196753,
+     88659.91800512,
+     88733.12203187,
+     88805.61019706,
+     88865.39464458,
+     90749.2907593,
+     91224.10571495,
+     91598.21725485,
+     91622.95261661,
+     91506.71780448,
+     91481.12694074,
+     91174.90417294,
+     90953.04117174,
+     90614.74006504,
+     90417.62236975,
+     90349.4366579,
+     90337.08107003,
+     86488.17118462,
+     86607.24566758,
+     86738.6122739,
+     86868.64454527,
+     87022.98016781,
+     87128.95369987,
+     87423.72232714,
+     87807.34634639,
+     87743.77778369,
+     87779.7165579,
+     87655.03540151,
+     87620.08138102
+    ]
+   }
+  }
+ ],
+ "bar": "1h_time_bars",
+ "step_ms": 3600000,
+ "window": {
+  "start": "2024-01-01",
+  "end": "2026-05-15"
+ },
+ "pool": {
+  "kind": "catalog",
+  "name": null,
+  "columns": 249,
+  "skipped": [
+   "breakout_features",
+   "conserved_flux_renormalization",
+   "fractional_diff",
+   "bollinger_position"
+  ],
+  "cached": true,
+  "built_ms": 0.0
+ }
+}

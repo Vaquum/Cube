@@ -618,7 +618,7 @@
       }
       if (record.restoreLayout !== null) {
         const layout = record.restoreLayout;
-        comparisonAssert(comparisonKeys(layout, ["sideOpen", "sideWidth", "drawerHeight", "drawerOpen", "drawer"]) && typeof layout.sideOpen === "boolean" && typeof layout.drawerOpen === "boolean" && Number.isFinite(layout.sideWidth) && layout.sideWidth > 0 && Number.isFinite(layout.drawerHeight) && layout.drawerHeight > 0 && ["cells", "cases", "query", "compare", "rallies"].includes(layout.drawer), "invalid comparison restoration layout");
+        comparisonAssert(comparisonKeys(layout, ["sideOpen", "sideWidth", "drawerHeight", "drawerOpen", "drawer"]) && typeof layout.sideOpen === "boolean" && typeof layout.drawerOpen === "boolean" && Number.isFinite(layout.sideWidth) && layout.sideWidth > 0 && Number.isFinite(layout.drawerHeight) && layout.drawerHeight > 0 && ["cells", "cases", "query", "compare", "rallies", "features"].includes(layout.drawer), "invalid comparison restoration layout");
       }
       comparisonAssert(!record.expanded || record.restoreLayout !== null, "expanded comparison has no restoration layout");
       return { ok: true, status: "ok", reason: null };

@@ -151,6 +151,7 @@ Edit `src/` and build into `reports/page/` during development. Regenerate the co
 - `src/evidence.js`: historical state matching, outcome populations and calendar-block uncertainty intervals.
 - `src/reference.js`: System reference topics, controls and chart highlights.
 - `src/rallies.js`: native rally discovery controls, retained-result filtering and member inspection.
+- `src/features.js`: Find features: marked windows, the request to Mill's `/discover`, the ranked answer, and a leader's preview in the Columns pane and the event strip.
 - `src/document.html`: standalone page shell.
 - `data/snapshot.json`: real recorded measures, compressed in three embedded blocks.
 - `vendor/`: pinned D3 7.9.0 and its license.
@@ -158,6 +159,19 @@ Edit `src/` and build into `reports/page/` during development. Regenerate the co
 - `tests/`: unit tests (`tests/unit`), browser tests (`tests/browser`), a fake cube (`tests/support`), an independent reference calculator (`tests/reference`) and fixtures with their provenance (`tests/fixtures`).
 - `tools/cube_bridge.py`: the server that reads the market state cube live; `tools/market_state_reader.py` is the cube's pinned reader.
 - `tools/rally_bridge.py`: the adapter for native Origo rally discovery and bounded membership projections.
+- `tools/features_dev.py`: a local relay that serves a built page with Mill behind `/mill/`, for Find features.
+
+### Find features with Mill, locally
+
+Find features asks [Mill](https://github.com/Vaquum/Mill) which of its features describe windows marked on the chart (see `docs/data-and-semantics.md`). Its tab appears only where the page is served with Mill; the deployed explorer does not serve it yet. Locally, run Mill on its bars (`MILL_ARROW_DIR` names a local copy of its Arrow bar store when `/opt/arrow` is not on the machine) and open the page through the relay:
+
+```sh
+API_SECRET=local APP_USERNAME=local APP_PASSWORD=local BROWSER=true mill   # in Mill's checkout and venv; serves 127.0.0.1:8765
+npm run build:tmp
+MILL_API_SECRET=local python3 tools/features_dev.py --dir reports/page   # http://127.0.0.1:8791/
+```
+
+The relay forwards only `GET /mill/app-config` and `POST /mill/discover`, adds Mill's secret itself, and listens on 127.0.0.1.
 
 ## Deploy
 

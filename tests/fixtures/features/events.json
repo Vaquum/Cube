@@ -1,0 +1,637 @@
+{
+ "target": {
+  "mode": "lead",
+  "lead_bars": 4,
+  "windows": [
+   [
+    1736164800000,
+    1736179200000
+   ],
+   [
+    1736791200000,
+    1736805600000
+   ],
+   [
+    1736935200000,
+    1736949600000
+   ],
+   [
+    1737345600000,
+    1737360000000
+   ],
+   [
+    1737468000000,
+    1737482400000
+   ],
+   [
+    1737626400000,
+    1737640800000
+   ],
+   [
+    1737972000000,
+    1737986400000
+   ],
+   [
+    1738587600000,
+    1738602000000
+   ],
+   [
+    1738922400000,
+    1738936800000
+   ],
+   [
+    1739365200000,
+    1739379600000
+   ],
+   [
+    1740744000000,
+    1740758400000
+   ],
+   [
+    1740920400000,
+    1740934800000
+   ],
+   [
+    1741100400000,
+    1741114800000
+   ],
+   [
+    1741219200000,
+    1741233600000
+   ],
+   [
+    1741701600000,
+    1741716000000
+   ],
+   [
+    1743591600000,
+    1743606000000
+   ],
+   [
+    1744005600000,
+    1744020000000
+   ],
+   [
+    1744210800000,
+    1744225200000
+   ],
+   [
+    1745186400000,
+    1745200800000
+   ],
+   [
+    1745319600000,
+    1745334000000
+   ],
+   [
+    1746561600000,
+    1746576000000
+   ],
+   [
+    1747656000000,
+    1747670400000
+   ],
+   [
+    1747821600000,
+    1747836000000
+   ],
+   [
+    1750694400000,
+    1750708800000
+   ],
+   [
+    1752152400000,
+    1752166800000
+   ],
+   [
+    1752454800000,
+    1752469200000
+   ],
+   [
+    1754870400000,
+    1754884800000
+   ],
+   [
+    1755867600000,
+    1755882000000
+   ],
+   [
+    1760922000000,
+    1760936400000
+   ],
+   [
+    1761044400000,
+    1761058800000
+   ],
+   [
+    1762531200000,
+    1762545600000
+   ],
+   [
+    1763578800000,
+    1763593200000
+   ],
+   [
+    1763719200000,
+    1763733600000
+   ],
+   [
+    1763992800000,
+    1764007200000
+   ],
+   [
+    1764165600000,
+    1764180000000
+   ],
+   [
+    1764680400000,
+    1764694800000
+   ],
+   [
+    1765116000000,
+    1765130400000
+   ],
+   [
+    1765281600000,
+    1765296000000
+   ],
+   [
+    1765472400000,
+    1765486800000
+   ],
+   [
+    1765965600000,
+    1765980000000
+   ]
+  ],
+  "marked_bars": 160,
+  "events": 40,
+  "longest_run": 4
+ },
+ "context": {
+  "start_ms": 1735689600000,
+  "end_ms": 1767225600000,
+  "bars": 8600,
+  "unmarked_bars": 8440
+ },
+ "evidence": "events",
+ "intervals": true,
+ "chance": {
+  "method": "circular-shift",
+  "shifts": 8593,
+  "min_shift": 4,
+  "alpha": 0.05,
+  "critical": 0.1712,
+  "best": 0.2002
+ },
+ "screened": 249,
+ "timing_ms": {
+  "rank": 27.47,
+  "screen": 6.05,
+  "null": 62.67,
+  "stage_two": 99.61,
+  "total": 196.09
+ },
+ "candidates": [
+  {
+   "column": "garman_klass_volatility",
+   "factory": "garman_klass_volatility",
+   "source": "limen.features",
+   "params": {
+    "window": 20,
+    "open_col": "open",
+    "high_col": "high",
+    "low_col": "low",
+    "close_col": "close"
+   },
+   "auc": 0.7002,
+   "direction": "higher",
+   "separation": 0.2002,
+   "p_adjusted": 0.0095,
+   "beyond_chance": true,
+   "ci90": [
+    0.6318,
+    0.7594
+   ],
+   "conservative": 0.1318,
+   "similar": [
+    "rogers_satchell_volatility",
+    "yang_zhang_volatility",
+    "parkinson_volatility",
+    "natr_14",
+    "parkinson_vol_of_vol",
+    "atr_percent_sma"
+   ],
+   "rule": {
+    "column": "garman_klass_volatility",
+    "operator": ">",
+    "value": 0.004824,
+    "persistence_n": 1,
+    "tpr": 0.65,
+    "fpr": 0.2955,
+    "precision": 0.04,
+    "events_hit": 0.7,
+    "hits": [
+     [
+      1740787200000,
+      1740855600000
+     ],
+     [
+      1740927600000,
+      1741392000000
+     ]
+    ],
+    "manifest": {
+     "schema_version": "1.0",
+     "metadata": {
+      "name": "find_features_1h_time_bars",
+      "limen_version": "3.15.2",
+      "mode": "development",
+      "description": "garman_klass_volatility > 0.004824 for 1 bar, fitted in sample by Mill Find features"
+     },
+     "sfd": {
+      "manifest": {
+       "type": "rule_based",
+       "data_source": {
+        "method": "limen.data.HistoricalData.get_arrow_file",
+        "params": {
+         "file_path": "/opt/arrow/time_1h/latest.arrow"
+        }
+       },
+       "split_dates": {
+        "train_start": "2024-01-01",
+        "train_end": "2025-12-31",
+        "val_start": "2026-01-01",
+        "val_end": "2026-03-08",
+        "test_start": "2026-03-09",
+        "test_end": "2026-05-15"
+       },
+       "indicators": [
+        {
+         "func": "limen.features.garman_klass_volatility",
+         "params": {
+          "window": 20,
+          "open_col": "open",
+          "high_col": "high",
+          "low_col": "low",
+          "close_col": "close"
+         }
+        }
+       ],
+       "strategy": {
+        "conditions": [
+         {
+          "id": "entry",
+          "name": "garman_klass_volatility > 0.004824 for 1 bar, fitted in sample by Mill Find features",
+          "type": "threshold",
+          "column": "garman_klass_volatility",
+          "operator": ">",
+          "value": "{threshold}",
+          "persistence_n": 1
+         }
+        ],
+        "entry": "entry"
+       },
+       "reference_architecture": "limen.sfd.reference_architecture.rule_based"
+      },
+      "params": {
+       "threshold": [
+        0.004824
+       ]
+      }
+     },
+     "uel": {
+      "n_permutations": 1,
+      "search_strategy": {
+       "type": "grid"
+      },
+      "prep_each_round": true,
+      "output_format": "csv"
+     }
+    },
+    "text": "garman_klass_volatility > 0.004824 for 1 bar"
+   },
+   "series": {
+    "t0": 1740787200000,
+    "step_ms": 7200000,
+    "bucket_bars": 2,
+    "values": [
+     0.0094429,
+     0.0089682,
+     0.00845954,
+     0.00825629,
+     0.00797983,
+     0.00686672,
+     0.0063784,
+     0.00541165,
+     0.00494151,
+     0.00479145,
+     0.00462421,
+     0.0041655,
+     0.00379422,
+     0.0038764,
+     0.00385991,
+     0.0038195,
+     0.0037339,
+     0.00364343,
+     0.00362921,
+     0.00655809,
+     0.01054707,
+     0.0108945,
+     0.01096562,
+     0.01109691,
+     0.01120625,
+     0.01135476,
+     0.01132966,
+     0.01173714,
+     0.01189772,
+     0.01066652,
+     0.00674956,
+     0.0083255,
+     0.00858011,
+     0.00980643,
+     0.01016746,
+     0.01029986,
+     0.01155329,
+     0.01179623,
+     0.01177004,
+     0.01180203,
+     0.01182115,
+     0.01044431,
+     0.01044707,
+     0.01113952,
+     0.0114401,
+     0.01169007,
+     0.01166388,
+     0.01108775,
+     0.01113039,
+     0.01121712,
+     0.0111909,
+     0.01112732,
+     0.01095961,
+     0.00946375,
+     0.00897064,
+     0.00906469,
+     0.00852584,
+     0.00867959,
+     0.00853782,
+     0.00835081,
+     0.0087879,
+     0.00887161,
+     0.00881874,
+     0.00822547,
+     0.00779153,
+     0.00703171,
+     0.00615745,
+     0.00674857,
+     0.0072462,
+     0.0077503,
+     0.00732604,
+     0.00752595,
+     0.01323514,
+     0.01333523,
+     0.01343991,
+     0.01336631,
+     0.01334166,
+     0.01292767,
+     0.01290333,
+     0.01362152,
+     0.01450932,
+     0.01472802,
+     0.01079481,
+     0.01090528
+    ]
+   }
+  },
+  {
+   "column": "hour_cos",
+   "factory": "cyclical_time_features",
+   "source": "limen.features",
+   "params": {},
+   "auc": 0.3203,
+   "direction": "lower",
+   "separation": 0.1797,
+   "p_adjusted": 0.0197,
+   "beyond_chance": true,
+   "ci90": [
+    0.2557,
+    0.3927
+   ],
+   "conservative": 0.1073,
+   "similar": [],
+   "rule": {
+    "column": "hour_cos",
+    "operator": "<",
+    "value": -0.4,
+    "persistence_n": 1,
+    "tpr": 0.6813,
+    "fpr": 0.3641,
+    "precision": 0.0343,
+    "events_hit": 0.825,
+    "hits": [
+     [
+      1740816000000,
+      1740848400000
+     ],
+     [
+      1740902400000,
+      1740934800000
+     ],
+     [
+      1740988800000,
+      1741021200000
+     ],
+     [
+      1741075200000,
+      1741107600000
+     ],
+     [
+      1741161600000,
+      1741194000000
+     ],
+     [
+      1741248000000,
+      1741280400000
+     ],
+     [
+      1741334400000,
+      1741366800000
+     ]
+    ],
+    "manifest": {
+     "schema_version": "1.0",
+     "metadata": {
+      "name": "find_features_1h_time_bars",
+      "limen_version": "3.15.2",
+      "mode": "development",
+      "description": "hour_cos < -0.4 for 1 bar, fitted in sample by Mill Find features"
+     },
+     "sfd": {
+      "manifest": {
+       "type": "rule_based",
+       "data_source": {
+        "method": "limen.data.HistoricalData.get_arrow_file",
+        "params": {
+         "file_path": "/opt/arrow/time_1h/latest.arrow"
+        }
+       },
+       "split_dates": {
+        "train_start": "2024-01-01",
+        "train_end": "2025-12-31",
+        "val_start": "2026-01-01",
+        "val_end": "2026-03-08",
+        "test_start": "2026-03-09",
+        "test_end": "2026-05-15"
+       },
+       "indicators": [
+        {
+         "func": "limen.features.cyclical_time_features",
+         "params": {}
+        }
+       ],
+       "strategy": {
+        "conditions": [
+         {
+          "id": "entry",
+          "name": "hour_cos < -0.4 for 1 bar, fitted in sample by Mill Find features",
+          "type": "threshold",
+          "column": "hour_cos",
+          "operator": "<",
+          "value": "{threshold}",
+          "persistence_n": 1
+         }
+        ],
+        "entry": "entry"
+       },
+       "reference_architecture": "limen.sfd.reference_architecture.rule_based"
+      },
+      "params": {
+       "threshold": [
+        -0.4
+       ]
+      }
+     },
+     "uel": {
+      "n_permutations": 1,
+      "search_strategy": {
+       "type": "grid"
+      },
+      "prep_each_round": true,
+      "output_format": "csv"
+     }
+    },
+    "text": "hour_cos < -0.4 for 1 bar"
+   },
+   "series": {
+    "t0": 1740787200000,
+    "step_ms": 7200000,
+    "bucket_bars": 2,
+    "values": [
+     0.96592583,
+     0.70710678,
+     0.25881905,
+     -0.25881905,
+     -0.70710678,
+     -0.96592583,
+     -0.96592583,
+     -0.70710678,
+     -0.25881905,
+     0.25881905,
+     0.70710678,
+     0.96592583,
+     0.96592583,
+     0.70710678,
+     0.25881905,
+     -0.25881905,
+     -0.70710678,
+     -0.96592583,
+     -0.96592583,
+     -0.70710678,
+     -0.25881905,
+     0.25881905,
+     0.70710678,
+     0.96592583,
+     0.96592583,
+     0.70710678,
+     0.25881905,
+     -0.25881905,
+     -0.70710678,
+     -0.96592583,
+     -0.96592583,
+     -0.70710678,
+     -0.25881905,
+     0.25881905,
+     0.70710678,
+     0.96592583,
+     0.96592583,
+     0.70710678,
+     0.25881905,
+     -0.25881905,
+     -0.70710678,
+     -0.96592583,
+     -0.96592583,
+     -0.70710678,
+     -0.25881905,
+     0.25881905,
+     0.70710678,
+     0.96592583,
+     0.96592583,
+     0.70710678,
+     0.25881905,
+     -0.25881905,
+     -0.70710678,
+     -0.96592583,
+     -0.96592583,
+     -0.70710678,
+     -0.25881905,
+     0.25881905,
+     0.70710678,
+     0.96592583,
+     0.96592583,
+     0.70710678,
+     0.25881905,
+     -0.25881905,
+     -0.70710678,
+     -0.96592583,
+     -0.96592583,
+     -0.70710678,
+     -0.25881905,
+     0.25881905,
+     0.70710678,
+     0.96592583,
+     0.96592583,
+     0.70710678,
+     0.25881905,
+     -0.25881905,
+     -0.70710678,
+     -0.96592583,
+     -0.96592583,
+     -0.70710678,
+     -0.25881905,
+     0.25881905,
+     0.70710678,
+     0.96592583
+    ]
+   }
+  }
+ ],
+ "bar": "1h_time_bars",
+ "step_ms": 3600000,
+ "window": {
+  "start": "2024-01-01",
+  "end": "2026-05-15"
+ },
+ "pool": {
+  "kind": "catalog",
+  "name": null,
+  "columns": 249,
+  "skipped": [
+   "breakout_features",
+   "conserved_flux_renormalization",
+   "fractional_diff",
+   "bollinger_position"
+  ],
+  "cached": false,
+  "built_ms": 4292.7
+ }
+}

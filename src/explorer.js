@@ -237,6 +237,18 @@
     changed: () => { rallyRevision++; if (ready) { requestDraw(); scheduleCube(); scheduleMotion(); } },
     inspect: () => { S.sideOpen = true; applyPanels(); requestDraw(); }
   });
+  // Find features asks Mill, through the page's /mill/ path, which of its features describe windows marked on this chart. It keeps
+  // the windows, one answer and one preview, which takes the Columns pane and a strip lane while it lasts; nothing is saved. Its tab
+  // is offered only where the page is served with Mill, which the server declares with <meta name="explorer-mill">.
+  const millTab = document.querySelector('meta[name="explorer-mill"]') ? root.querySelector("#ol-tab-features-template") : null;
+  if (millTab) millTab.replaceWith(millTab.content.cloneNode(true));
+  const msAt = (t) => Math.round((T0 + t * BASE) * 1000);
+  const featureController = window.explorerFeatures.create({root,
+    context: () => ({ready,
+      selectionMs: S.selection ? [msAt(S.selection[0]), msAt(S.selection[1])] : null,
+      viewMs: [msAt(S.tA), msAt(S.tB)], edgeMs: msAt(activeCutoff())}),
+    changed: () => { if (ready) requestDraw(); }
+  });
   const groups = new Map(),
     evidenceCache = new Map();
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v)),
@@ -2580,6 +2592,7 @@
     selectionPresentation(meas, mv, selectionContext.seasonal, selectionContext.response);
     comparisonRefresh();
     rallyController.sync();
+    featureController.sync();
     // The shared spring owns frame scheduling and completion, including reversals.
     // The tooltip and the legend marker follow a mapping, theme or pack that changed under them.
     try {
@@ -4784,8 +4797,8 @@
     return events.reduce((best, e) => !best || Math.abs(e.t - t) < Math.abs(best.t - t) || Math.abs(e.t - t) === Math.abs(best.t - t) && e.t < best.t ? e : best, null);
   }
   function stripReferencePresentation(tip, h) {
-    if (h.lane === "rallies") return;
-    const all = (h.lane === "all" ? h.lanes.flatMap((l) => l.events) : h.span.events).filter(e => !e.rally);
+    if (h.lane === "rallies" || h.lane === "findwindows" || h.lane === "findhits") return;
+    const all = (h.lane === "all" ? h.lanes.flatMap((l) => l.events) : h.span.events).filter(e => !e.rally && !e.find);
     const e = [...all].sort((a, b) => Math.abs(a.t0 - (hover?.t ?? activeCutoff())) - Math.abs(b.t0 - (hover?.t ?? activeCutoff())) || a.t0 - b.t0)[0];
     if (!e) return;
     if (e.gap) calendarReferencePresentation(tip, { gap: e.gap });
@@ -6027,6 +6040,9 @@
       eventTip(tip, eventAt(p));
       stripReferencePresentation(tip, eventAt(p));
       syncRowHover(null);
+    } else if (last && featureController.previewing && inActivity(p)) {
+      featureController.tip(tip, p.t, featureView(last.cut));
+      syncRowHover(null);
     } else if (last && paneShown && inActivity(p)) {
       paneTip(tip, p, money, count, share, exact, note);
       if (paneShown.osc) oscillatorReferencePresentation(tip, p);
@@ -6217,7 +6233,7 @@
         }
     }
     for (const lane of eventLanes(cut)) for (const event of lane.events) {
-      if (event.gap) continue; // Existing gap identity already appears above.
+      if (event.gap || event.find) continue; // Existing gap identity already appears above; Find features' marks are a preview.
       const id = `strip|${lane.id}|${event.t0}`;
       // a squeeze is its Bollinger line's; a rally has no line of its own and goes by its lane
       out.push({ id, key: { squeeze4h: "bb4h", squeeze1d: "bb1d" }[lane.id] ?? lane.id, name: `${EVENT_NAMES[lane.id].name} · ${when(event.t0)}`, at: null, kind: "strip", hit: { key: lane.id, id, strip: { lane: lane.id, span: { events: [event], t0: event.t0, t1: event.t1 } } } });
@@ -7265,6 +7281,8 @@
     drawer.style.setProperty("--drawer-h", drawerHeight + "px");
     // A closed or switched drawer leaves no row outlined on the chart.
     if (!(S.drawerOpen && S.drawer === "cells")) tableHover = null;
+    // A drawer this page does not offer (Find features, restored where Mill is not served) opens as Cells.
+    if (!root.querySelector(`[data-drawer="${S.drawer}"]`)) S.drawer = "cells";
     for (const tab of qsa("[data-drawer]")) {
       const on = tab.dataset.drawer === S.drawer;
       const expanded = on && S.drawerOpen;
@@ -15444,6 +15462,9 @@
   function eventKinds() {
     const kinds = [];
     if (rallyController.enabled) kinds.push("rallies");
+    const finds = featureController.lanes;
+    if (finds.windows.length) kinds.push("findwindows");
+    if (finds.hits) kinds.push("findhits");
     if (S.lines.includes("bb4h")) kinds.push("squeeze4h");
     if (S.lines.includes("bb1d")) kinds.push("squeeze1d");
     if (S.lines.includes("cme") && PACK.live) kinds.push("cmegap");
@@ -15451,6 +15472,8 @@
   }
   const EVENT_NAMES = {
     rallies: { name: "Rallies", long: "Confirmed upward moves · native trades" },
+    findwindows: { name: "Marked", long: "Find features · windows you marked" },
+    findhits: { name: "Rule hits", long: "Find features · where the previewed rule holds" },
     squeeze4h: { name: "4h squeeze", long: "Bollinger squeeze on 4-hour bars" },
     squeeze1d: { name: "1D squeeze", long: "Bollinger squeeze on daily bars" },
     cmegap: { name: "Spot gap", long: "Binance spot weekend proxy" },
@@ -15468,6 +15491,15 @@
       const base = us => (us / 1000000 - T0) / BASE;
       rallyLane.events.push({t0:base(e.start_at_us), t1:base(e.end_at_us), confirmed:base(e.confirmed_at_us),
         open:false, what:"Rally", rally:e, rec:{kind:"rally", label:"confirmed", final:true}});
+    }
+    // Find features' marks: the windows as authored, and each run of rule hits once its first bar has closed, ending at the cutoff.
+    const finds = featureController.lanes, baseOf = (ms) => (ms / 1000 - T0) / BASE, edgeMs = msAt(cut);
+    const windowLane = lane("findwindows");
+    if (windowLane) for (const [a, b] of finds.windows) windowLane.events.push({ t0: baseOf(a), t1: baseOf(b), open: false, what: "Marked window", find: true });
+    const hitLane = lane("findhits");
+    if (hitLane) for (const [a, b] of finds.hits) {
+      if (a + finds.stepMs > edgeMs) break;
+      hitLane.events.push({ t0: baseOf(a), t1: baseOf(Math.min(b, edgeMs)), open: b > edgeMs, what: finds.rule, find: true });
     }
     const fills = S.lines.length ? lineItems(cut).fills || [] : [];
     for (const f of fills) {
@@ -15539,6 +15571,18 @@
     return eventHits.find((h) => p.x >= h.box[0] && p.x <= h.box[2] && p.y >= h.box[1] && p.y <= h.box[3]) || null;
   }
   function eventTip(tip, h) {
+    if (h.lane === "findwindows" || h.lane === "findhits") {
+      const events = h.span.events, many = events.length > 1;
+      if (h.lane === "findwindows")
+        tipRows(tip, many ? `${events.length} marked windows` : "Marked window", many ? "Merged where they overlap" : `${when(events[0].t0)} → ${when(events[0].t1)} UTC`,
+          many ? events.map((e) => ["Window", `${when(e.t0)} → ${when(e.t1)} UTC`]) : [],
+          "Find features ranks Mill's features against the bars these windows mark. Nothing is saved.");
+      else
+        tipRows(tip, `Rule hits · ${events[0].what}`, many ? `${events.length} runs in this mark` : `${when(events[0].t0)} → ${events[0].open ? "the cutoff" : when(events[0].t1) + " UTC"}`,
+          many ? events.map((e) => ["Holds", `${when(e.t0)} → ${e.open ? "the cutoff" : when(e.t1) + " UTC"}`]) : [],
+          "Where the previewed rule holds on Mill's own bars, each run shown once its first bar has closed. The threshold was fitted in sample.");
+      return;
+    }
     if (h.lane === "rallies") {
       tipRows(tip, "Confirmed rallies", `${h.span.events.length} separate events in this interval`,
         h.span.events.map(e => [e.rally.rally_id, `${when(e.t0)} → ${when(e.t1)} UTC · confirmed ${when(e.confirmed)} UTC`]),
@@ -17005,7 +17049,20 @@
   // before the cutoff by the conservative bound, the status line E.model.describe leaves to its consumers.
   const modelNoteWords = (note) =>
     (note.status === "eligible-by-bound" ? [E.text.model.eligibleByBound, ...note.labels] : note.labels).join(" · ");
+  // What a Find features preview paints and reads with: the chart's own primitives and time axis, and the effective cutoff.
+  function featureView(cut) {
+    return { colors, X: G.X, baseOf: (ms) => (ms / 1000 - T0) / BASE, msOf: msAt, edgeMs: msAt(cut), replay: S.replay,
+      hatchRect, timeGrid, line, compact, tipRows, when,
+      label: (s, top) => paneLegend({ label: s, unit: "", osc: true }, [], null, top) };
+  }
   function activity(shown, cut, mv, full, sc) {
+    // A Find features preview takes the pane while it lasts: the measure is not drawn, read out or tallied under it.
+    if (featureController.previewing) {
+      paneShown = null;
+      if (sc !== INERT_SC) sc.pane = null;
+      featureController.paintPane(ctx, G, featureView(cut));
+      return;
+    }
     const first = paneMeasure();
     if (PANE_MEASURES[first]?.osc) return drawOscillator(first, PANE_MEASURES[first], cut, sc);
     const pane = paneColumns(shown, cut, mv, full),
@@ -17202,6 +17259,7 @@
   // A bar's index is its length on the axis in 256 steps, so "low discrimination" reads as most bars being
   // tiny against the axis.
   function paneTally(tally) {
+    if (featureController.previewing) return;
     const vp = viewParts(),
       pane = paneColumns(vp.shown, vp.cut, vp.mv, vp.full);
     if (pane.measure.osc) return;
@@ -19693,7 +19751,7 @@
     for (const entry of E.codec.VISUAL_KEYS)
       for (const path of entry.fields) {
         if (path.startsWith("scale.")) out.scale[path.slice(6)] = S.scale[path.slice(6)];
-        else out[path] = path === "follow" ? followMode() : path === "drawer" && ["compare", "rallies"].includes(S.drawer) ? "cells" : S[path];
+        else out[path] = path === "follow" ? followMode() : path === "drawer" && ["compare", "rallies", "features"].includes(S.drawer) ? "cells" : S[path];
       }
     return out;
   }
