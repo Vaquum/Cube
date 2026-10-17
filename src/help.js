@@ -8,7 +8,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const controls = 'button,input:not([type="hidden"]),select,textarea,a,summary,[role="button"],[role="slider"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="tab"],[role="separator"][tabindex],tr[tabindex]';
-  const values = 'output,td,dd,.ol-metric>strong,.ol-row>span:last-child,.ol-num,.ol-num>span,.ol-comparison-value,.ol-comparison-difference,.ol-comparison-rank,.ol-comparison-band,.ol-comparison-capture-stamp>span,.ol-comparison-frozen-history li[data-canonical],[data-field]:not(data),.ol-pair,.ol-venue,#ol-market,#ol-snapshot,#ol-fresh,#ol-data-through,#ol-version-unknown,#ol-prob-up,#ol-prob-flat,#ol-prob-down,#ol-base-prob-up,#ol-base-prob-flat,#ol-base-prob-down,#ol-diff-up,#ol-diff-flat,#ol-diff-down,#ol-anchor-time,#ol-pixel-state,#ol-scope,#ol-cutoff,#ol-drawing-toolbar-name,#ol-drawing-toolbar-status,#ol-inspect-position,#ol-query-mini';
+  const values = 'output,td,dd,.ol-metric>strong,.ol-row>span:last-child,.ol-num,.ol-num>span,.ol-comparison-value,.ol-comparison-difference,.ol-comparison-rank,.ol-comparison-band,.ol-comparison-history-note,.ol-comparison-capture-stamp>span,.ol-comparison-frozen-history li[data-canonical],[data-field]:not(data),.ol-pair,.ol-venue,#ol-market,#ol-snapshot,#ol-fresh,#ol-data-through,#ol-version-unknown,#ol-prob-up,#ol-prob-flat,#ol-prob-down,#ol-base-prob-up,#ol-base-prob-flat,#ol-base-prob-down,#ol-diff-up,#ol-diff-flat,#ol-diff-down,#ol-anchor-time,#ol-pixel-state,#ol-scope,#ol-cutoff,#ol-drawing-toolbar-name,#ol-drawing-toolbar-status,#ol-inspect-position,#ol-query-mini';
   const selector = `${controls},${values},[data-hint],[title]`;
   const clean = value => String(value ?? "").replace(/\s+/g, " ").trim();
   const normalize = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -234,6 +234,7 @@
     const described = clean((node.getAttribute('aria-describedby') || "").split(/\s+/).filter(key => key && key !== 'ol-help-tooltip').map(key => node.ownerDocument.getElementById(key)?.textContent || "").join(" ")).replace(/(?:^|\. )Key:.*$/, "");
     const legacy = clean(node.getAttribute('title') || savedTitle || node.closest('[title]')?.getAttribute('title'));
     let text = clean(data.help || (!read && data.hint) || fields[id]);
+    if (!text && read && node.matches(".ol-comparison-history-note")) text = "Frozen comparison history is unavailable for this capture; the reason shown is a data state, not a zero measurement.";
     if (!text && read) {
       const key = data.field || node.closest('[data-metric]')?.dataset.metric || id;
       text = node.matches('.ol-comparison-difference') ? glossary.get('difference') : node.matches('.ol-comparison-rank') ? glossary.get('rank') : meaning(label, key);

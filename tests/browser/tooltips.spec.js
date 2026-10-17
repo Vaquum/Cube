@@ -41,6 +41,22 @@ test("the read value itself explains its quantity at 500 ms and preserves existi
   await page.clock.runFor(500);
   await expect(bubble(page)).toContainText("Time span currently covered by the chart");
 });
+test("a tooltip cannot intercept a neighboring menu action, and missing comparison history explains its state", async ({ page, fakeFor, probe }) => {
+  await open(page, fakeFor, probe);
+  await page.locator("#ol-window").click();
+  await page.locator('[data-window="7d"]').hover();
+  await expect(bubble(page)).toBeVisible();
+  const next = page.locator('#ol-window-menu [data-window]').first();
+  const key = await next.getAttribute('data-window');
+  const rect = await next.boundingBox();
+  await bubble(page).evaluate((node, rect) => Object.assign(node.style, { left: rect.x + 'px', top: rect.y + 'px', width: rect.width + 'px', height: rect.height + 'px' }), rect);
+  await next.click();
+  await expect(page.locator('#ol-window-menu')).toBeHidden();
+  expect(await page.evaluate(() => new URLSearchParams(location.hash.slice(1)).get('w'))).toBe(key);
+  await page.evaluate(() => { const note=document.createElement('span'); note.className='ol-comparison-history-note'; note.textContent='Frozen context not recorded'; document.querySelector('#origo-lens').append(note); });
+  await page.locator('.ol-comparison-history-note').hover();
+  await expect(bubble(page)).toContainText('not a zero measurement');
+});
 test("leaving before the delay cancels work, and an icon receives its button's explanation", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
   await frozen(page);
