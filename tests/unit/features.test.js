@@ -100,10 +100,10 @@ function mill(answers = {}) {
   const next = async () => { waiting.shift()(); await new Promise((r) => setTimeout(r, 0)); };
   return {calls, next, answer: async () => { while (waiting.length) await next(); }};
 }
-function controller(root, edgeMs = () => at("2026-09-24T00:00:00Z")) {
+function controller(root, edgeMs = () => at("2026-09-24T00:00:00Z"), selectionMs = () => [at("2025-03-03T00:00:00Z"), at("2025-03-03T12:00:00Z")]) {
   globalThis.document = {createElement: (tag) => new Element(tag), createDocumentFragment: () => Object.assign(new Element("#fragment"), {fragment: true})};
   globalThis.window = {explorerMotion: {replaceChildren: (host, ...content) => { host.children = []; host.append(...content); }}};
-  return api.create({root, changed: () => {}, context: () => ({ready: true, selectionMs: [at("2025-03-03T00:00:00Z"), at("2025-03-03T12:00:00Z")],
+  return api.create({root, changed: () => {}, context: () => ({ready: true, selectionMs: selectionMs(),
     viewMs: [at("2025-03-01T00:00:00Z"), at("2025-03-08T00:00:00Z")], edgeMs: edgeMs()})});
 }
 const byId = (root, name) => root.querySelector("#ol-features-" + name);
@@ -229,3 +229,29 @@ test("the summary says when the bars Mill answered from end", async () => {
   const done = submit(root); await stub.answer(); await done;
   assert.match(byId(root, "summary").textContent, / · 1 hour bars through 2026-09-23 23:00 UTC · /);
 });
+
+// Oracle: a ranking belongs to the exact marked windows and settings submitted, never their later edits.
+for (const edit of ["add", "remove", "clear", "bar", "mode", "lead", "against", "pool"]) {
+  test(`editing ${edit} discards the previous answer, preview and rule hits`, async () => {
+    const root = panel(), stub = mill();
+    let selection = [at("2025-03-03T00:00:00Z"), at("2025-03-03T12:00:00Z")];
+    const c = controller(root, undefined, () => selection);
+    byId(root, "add").onclick();
+    const done = submit(root); await stub.answer(); await done;
+    assert.equal(c.previewing, true);
+    if (edit === "add") {
+      selection = [at("2025-03-05T00:00:00Z"), at("2025-03-05T03:00:00Z")];
+      byId(root, "add").onclick();
+    } else if (edit === "remove") byId(root, "windows").all().find(e => e.tagName === "BUTTON").onclick();
+    else if (edit === "clear") byId(root, "clear-windows").onclick();
+    else {
+      const field = byId(root, edit);
+      field.value = {bar: "15m_time_bars", mode: "lead", lead: "8", against: "view", pool: "view:ochlv"}[edit];
+      for (const listener of field.listeners.change || []) listener();
+    }
+    assert.equal(byId(root, "results").hidden, true);
+    assert.equal(c.previewing, false);
+    assert.equal(c.lanes.hits, null);
+    assert.match(byId(root, "status").textContent, /Find|Mark/);
+  });
+}
