@@ -308,6 +308,7 @@
 }
 #origo-lens .ol-id {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
@@ -537,6 +538,25 @@
   #origo-lens #ol-res-text,
   #origo-lens .ol-bar .ol-lines-count:not(:empty),
   #origo-lens .ol-state-pill[data-state="live"] .ol-fresh {
+    display: none;
+  }
+}
+
+/* Preserve the market mode as metadata shortens in narrower bars. */
+@container (max-width: 1200px) {
+  #origo-lens .ol-id {
+    gap: var(--sp-1);
+    padding-right: 0;
+  }
+  #origo-lens .ol-build-info > * { padding: 0 var(--sp-1); }
+  #origo-lens .ol-controls { gap: var(--sp-1); }
+  #origo-lens .ol-controls > :is(.ol-lines-group, .ol-tools, .ol-replay, .ol-history, .ol-help)::before {
+    left: calc(var(--sp-1) / -2);
+  }
+}
+@container (max-width: 860px) {
+  #origo-lens .ol-controls { gap: 0; }
+  #origo-lens .ol-controls > :is(.ol-lines-group, .ol-tools, .ol-replay, .ol-history, .ol-help)::before {
     display: none;
   }
 }
