@@ -1,6 +1,6 @@
 "use strict";
-// Named-view regression checks: protected authority must retain list order and a failed
-// Undo must remain retryable without publishing a partial registry.
+// Oracles: explicit saved names/order, chart mode, authored coordinates and stored bytes.
+// Row Save must retain complete snapshots and failures must preserve prior publications.
 const { test, expect } = require("./fixtures.js");
 const S = require("./persistence-support.js");
 const PREFIX = "market-state-cube-explorer:";
@@ -26,8 +26,7 @@ async function openSeeded(page, context, fake) {
   await expect(rowNames(page)).toHaveText(["A", "B"]);
 }
 async function upgradeA(page) {
-  await page.locator("#ol-view-name").fill("A");
-  await page.locator("#ol-view-form button[type=submit]").click();
+  await page.getByRole("button", { name: "Save “A”", exact: true }).click();
   await expect.poll(async () => (await S.namedEntries(page)).map((x) => x.visualVersion)).toEqual([3, 2]);
 }
 
@@ -60,12 +59,84 @@ test("upgrading and updating first legacy name retains A, B order and unchanged 
   }).toBe(true);
   const newMode = S.param((await S.where(page)).hash, "mode");
   await S.openViews(page);
-  await page.locator("#ol-view-name").fill("A");
-  await page.locator("#ol-view-form button[type=submit]").click();
+  await page.locator("#ol-view-name").fill("This name must not be saved");
+  await page.getByRole("button", { name: "Save “A”", exact: true }).click();
+  await expect(page.locator("#ol-views-status")).toHaveText("Updated “A”.");
   await expect.poll(async () => (await S.namedEntries(page))[0].payload.view.mode).toBe(newMode);
   expect((await S.namedEntries(page)).map((x) => x.name)).toEqual(["A", "B"]);
   expect((await S.namedEntries(page))[1]).toEqual(legacyViews[1]);
   expect((await S.storage(page)).local["views:v1"]).toBe(rawLegacy);
+  const updated = await S.namedEntries(page);
+  await page.reload(); await fake.idle(); await S.openViews(page);
+  expect(await S.namedEntries(page)).toEqual(updated);
+  await page.locator("#ol-saved .ol-entry").filter({ hasText: "A" }).click();
+  await expect.poll(async () => S.param((await S.where(page)).hash, "mode")).toBe(newMode);
+});
+
+test("row Save failure preserves the previous snapshot and can be retried", async ({ page, context, fakeFor }) => {
+  const fake = await fakeFor("mini");
+  await openSeeded(page, context, fake); await upgradeA(page);
+  const previous = await S.namedEntries(page), stored = await S.namedStorage(page);
+  await page.keyboard.press("Escape"); await page.keyboard.press("m");
+  await S.openViews(page);
+  await page.evaluate((key) => {
+    window.__namedOriginalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (name, value) {
+      if (name.startsWith(key)) throw new DOMException("Named update quota fixture", "QuotaExceededError");
+      return window.__namedOriginalSetItem.call(this, name, value);
+    };
+  }, PREFIX + PUBLICATION);
+  await page.getByRole("button", { name: "Save “A”", exact: true }).click();
+  await expect(page.locator("#ol-views-status")).toContainText("views can't be saved");
+  expect(await S.namedEntries(page)).toEqual(previous);
+  expect(await S.namedStorage(page)).toEqual(stored);
+  await expect(rowNames(page)).toHaveText(["A", "B"]);
+  await page.evaluate(() => { Storage.prototype.setItem = window.__namedOriginalSetItem; });
+  await page.getByRole("button", { name: "Save “A”", exact: true }).click();
+  await expect(page.locator("#ol-views-status")).toHaveText("Updated “A”.");
+  expect((await S.namedEntries(page))[0].payload.view.mode).not.toBe(previous[0].payload.view.mode);
+  expect((await S.namedEntries(page))[1]).toEqual(previous[1]);
+});
+
+test("row Save replaces the complete drawing snapshot and restores it after reload", async ({ page, fakeFor }) => {
+  const D = require("./drawings-support.js"), fake = await fakeFor("mini");
+  await D.open(page, fake); await S.openViews(page);
+  await page.locator("#ol-view-name").fill("Drawing view");
+  await page.locator("#ol-view-form button[type=submit]").click();
+  await expect(page.locator("#ol-views-status")).toHaveText("Saved “Drawing view”.");
+  await page.keyboard.press("Escape"); await D.drawing(page);
+  const authored = await D.rows(page);
+  await S.openViews(page);
+  await page.getByRole("button", { name: "Save “Drawing view”", exact: true }).click();
+  await expect(page.locator("#ol-views-status")).toHaveText("Updated “Drawing view”.");
+  expect((await S.namedEntries(page))[0].payload.drawings.objects).toHaveLength(1);
+  await page.reload(); await D.ready(page);
+  await D.action(page, authored[0].id, "delete");
+  await expect.poll(() => D.count(page)).toBe(0);
+  await S.openViews(page);
+  await page.locator("#ol-saved .ol-entry").filter({ hasText: "Drawing view" }).click();
+  await expect.poll(() => D.rows(page)).toEqual(authored);
+});
+
+for (const phone of [false, true]) test(`tab history starts collapsed and expands for keyboard navigation (${phone ? "phone" : "desktop"})`, async ({ page, fakeFor, probe }) => {
+  if (phone) await page.setViewportSize({ width: 390, height: 844 });
+  const fake = await fakeFor("mini");
+  await page.goto(fake.url + "/#w=24h&vis=2"); await probe.waitForReady();
+  await page.locator("#ol-canvas").focus(); await page.keyboard.press("2");
+  await probe.waitForReady();
+  if (phone) await page.locator("#ol-sheet-toggle").click();
+  await S.openViews(page);
+  const heading = page.locator("#ol-tab-history summary"), history = page.locator("#ol-breadcrumbs");
+  await expect(heading).toBeVisible(); await expect(history).toBeHidden();
+  await expect(history.locator("button")).toHaveCount(2);
+  await heading.focus(); await page.keyboard.press("Enter");
+  await expect(history).toBeVisible();
+  await history.locator("button").last().click();
+  await expect(page.locator("#ol-hist-pop")).toBeHidden();
+  await expect.poll(async () => S.param((await S.where(page)).hash, "w")).toBe("24h");
+  await S.openViews(page); await expect(history).toBeHidden();
+  await heading.click(); await expect(history).toBeVisible();
+  await heading.focus(); await page.keyboard.press("Space"); await expect(history).toBeHidden();
 });
 
 test("quota during named Delete Undo keeps the authoritative deletion and allows one retry in place", async ({ page, context, fakeFor }) => {

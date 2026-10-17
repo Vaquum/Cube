@@ -9828,6 +9828,7 @@
       refreshPlane();
     });
     bindPop("hist", "hist-pop", () => {
+      el("tab-history").open = false;
       loadViews();
       renderHistory();
       renderViews();
@@ -20451,10 +20452,11 @@
     views.list.forEach((x, i) => {
       const row = document.createElement("div"),
         open = document.createElement("button"),
+        save = document.createElement("button"),
         remove = document.createElement("button");
       row.className = "ol-saved-row";
       row.dataset.flowKey = x.name;
-      open.type = remove.type = "button";
+      open.type = save.type = remove.type = "button";
       open.className = "ol-entry cursor-interaction";
       open.title = x.window || x.live
         ? "Opens on the latest data"
@@ -20464,13 +20466,18 @@
         closePop();
         openView(views.list.find(view => view.name === x.name));
       });
+      save.className = "ol-action ol-s cursor-interaction";
+      save.textContent = "Save";
+      save.setAttribute("aria-label", `Save “${x.name}”`);
+      save.title = "Replace this saved view with the current chart";
+      save.addEventListener("click", () => saveView(x.name));
       remove.className = "ol-icon-button ol-s cursor-interaction";
       remove.setAttribute("aria-label", `Delete “${x.name}”`);
       remove.title = "Delete this view";
       remove.innerHTML =
         '<svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"/></svg>';
       remove.addEventListener("click", () => deleteView(x.name));
-      row.append(open, remove);
+      row.append(open, save, remove);
       frag.append(row);
     });
     if (!views.list.length)
