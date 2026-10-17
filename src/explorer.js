@@ -24,7 +24,11 @@
       shell.toggleAttribute("data-overflow-start", startHidden);
       shell.toggleAttribute("data-overflow-end", endHidden);
     };
-    const move = (direction) => Flow.scrollAxis(viewport, viewport.scrollLeft + direction * Math.max(1, viewport.clientWidth - 32), "x");
+    const move = (direction) => {
+      // Bring a faded edge into the clear part of the next view, past the opposite fade.
+      const overlap = 2 * parseFloat(getComputedStyle(shell, "::after").width);
+      Flow.scrollAxis(viewport, viewport.scrollLeft + direction * Math.max(1, viewport.clientWidth - overlap), "x");
+    };
     previous.onclick = () => move(-1);
     next.onclick = () => move(1);
     viewport.addEventListener("scroll", update, { passive: true });
