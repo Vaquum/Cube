@@ -6964,12 +6964,19 @@
       inspectSurface("references");
     });
   }
-  function update(options) {
+  let autoContext = "";
+  function update() {
     if (!ready) return;
     if (comparisonModel.expanded) { applyPanels(); comparisonRefresh(); return; }
     limits();
     chooseSource();
-    if (S.auto && !options?.preserveLevel) autoLevel();
+    // Data/status updates retain their grid. Camera and internal plot-layout
+    // changes choose it again; outer resizes are handled by the canvas observer.
+    const context = [S.auto, S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, eventKinds().length].join(":");
+    if (context !== autoContext) {
+      autoContext = context;
+      if (S.auto) autoLevel();
+    }
     el("n").textContent = "n " + S.n;
     el("m").textContent = "m " + S.m;
     el("tr").textContent = dur(BASE * 2 ** S.n);
@@ -24044,7 +24051,7 @@
         if (drawingDrag && !statusOnly) drawingCancelOperation();
         geometry(false);
         if (S.auto && !statusOnly) autoLevel();
-        update({ preserveLevel: statusOnly });
+        update();
         noteGesture();
         requestDraw();
       }
