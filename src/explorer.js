@@ -6964,12 +6964,12 @@
       inspectSurface("references");
     });
   }
-  function update() {
+  function update(options) {
     if (!ready) return;
     if (comparisonModel.expanded) { applyPanels(); comparisonRefresh(); return; }
     limits();
     chooseSource();
-    if (S.auto) autoLevel();
+    if (S.auto && !options?.preserveLevel) autoLevel();
     el("n").textContent = "n " + S.n;
     el("m").textContent = "m " + S.m;
     el("tr").textContent = dur(BASE * 2 ** S.n);
@@ -24044,7 +24044,7 @@
         if (drawingDrag && !statusOnly) drawingCancelOperation();
         geometry(false);
         if (S.auto && !statusOnly) autoLevel();
-        update();
+        update({ preserveLevel: statusOnly });
         noteGesture();
         requestDraw();
       }
