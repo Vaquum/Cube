@@ -141,6 +141,9 @@ test("title-only help hides on leave and value labels take precedence over broad
   const label = page.locator('#ol-poc').locator('..');
   await label.hover();
   await expect(bubble(page)).toBeVisible();
+  await expect(bubble(page)).toContainText("Each column's point of control");
+  await label.evaluate(node => node.append(document.createTextNode(" · current")));
+  await expect(bubble(page)).toContainText("Each column's point of control");
   await page.mouse.move(0, 0);
   await expect(bubble(page)).toBeHidden();
   const meanings = await page.evaluate(() => ({
@@ -166,6 +169,8 @@ test("thousands of dynamic values need no registration, one hover timer and no e
   const requests = fake.log().length;
   const result = await page.evaluate(() => {
     const host = document.createElement("div"), reads = new Array(2000).fill(0), live = new Set();
+    // Keep the existing chart geometry and scroll position fixed while adding targets.
+    host.style.cssText = "position:fixed;left:8px;top:8px;width:200px;height:20px;overflow:auto";
     let listeners = 0, high = 0;
     const add = EventTarget.prototype.addEventListener, set = window.setTimeout, clear = window.clearTimeout;
     EventTarget.prototype.addEventListener = function (...args) { listeners++; return add.apply(this, args); };
@@ -198,6 +203,19 @@ test("thousands of dynamic values need no registration, one hover timer and no e
   expect(await page.locator(".ol-hint").count()).toBe(1);
   expect(fake.log().length).toBe(requests);
   test.info().annotations.push({ type: "dense-hover", description: `2,000 target changes: ${result.elapsed.toFixed(2)} ms; one pending timer` });
+});
+test("refreshing an active control description retains one accessible description", async ({ page, fakeFor, probe }) => {
+  await open(page, fakeFor, probe);
+  await page.locator("#ol-lines").hover();
+  await expect(bubble(page)).toContainText("Column overlays");
+  const counts = await page.locator("#ol-lines").evaluate(async node => {
+    const before = document.querySelectorAll('[id^="ol-desc-"]').length;
+    for (let i = 0; i < 30; i++) { node.dataset.hint = `Current line controls, revision ${i}`; await Promise.resolve(); }
+    return { before, after: document.querySelectorAll('[id^="ol-desc-"]').length, ids: node.getAttribute('aria-describedby') };
+  });
+  expect(counts.after).toBe(counts.before);
+  expect(counts.ids.split(/\s+/)).toContain("ol-help-tooltip");
+  await expect(bubble(page)).toContainText("revision 29");
 });
 test("static and generated control/value targets resolve explanatory copy without registration", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
