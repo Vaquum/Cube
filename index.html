@@ -2010,15 +2010,66 @@
   }
 }
 #origo-lens .ol-status-keys {
-  flex: none;
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+#origo-lens .ol-status-key-list {
   display: flex;
   align-items: center;
+  width: max-content;
   gap: var(--sp-1) var(--sp-3);
 }
-#origo-lens .ol-status-keys > span {
+#origo-lens .ol-status-key-list > span {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
+}
+#origo-lens .ol-status-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  outline-offset: -2px;
+}
+#origo-lens .ol-status-scroll::-webkit-scrollbar {
+  display: none;
+}
+/* Fades sit outside the scrolling actor, so their spring survives scroll updates. */
+#origo-lens .ol-status > .ol-status-keys::before,
+#origo-lens .ol-status > .ol-status-keys::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  width: var(--sp-6);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--flow-settle) var(--flow-spring);
+}
+#origo-lens .ol-status-keys::before {
+  left: 0;
+  background: linear-gradient(to right, var(--ol-bg), transparent);
+}
+#origo-lens .ol-status-keys::after {
+  right: 0;
+  background: linear-gradient(to left, var(--ol-bg), transparent);
+}
+#origo-lens .ol-status-keys[data-overflow-start]::before,
+#origo-lens .ol-status-keys[data-overflow-end]::after {
+  opacity: 1;
+}
+#origo-lens .ol-status-nav {
+  flex: none;
+  display: flex;
+  gap: var(--sp-1);
+  margin-left: auto;
+}
+#origo-lens .ol-status-nav button {
+  width: var(--h-s);
+  padding: 0;
+  transition: opacity var(--flow-feedback) var(--flow-feedback-ease), background-color var(--flow-feedback) var(--flow-feedback-ease), color var(--flow-feedback) var(--flow-feedback-ease);
 }
 #origo-lens .ol-gesture {
   flex: 1 1 auto;
@@ -2030,20 +2081,6 @@
    not on it: the LIVE pill names the data's reach and the resolution plane the cell size. */
 #origo-lens .ol-status-meta {
   display: none;
-}
-/* With many line families on, the keys scroll instead of being cut off at the edge. */
-#origo-lens .ol-status-keys {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-/* Above phone width the footer stays one line: each key keeps its width, so a long row scrolls rather than
-   wrapping onto a second line that shrinks the chart when keys come and go. */
-@media (min-width: 761px) {
-  #origo-lens .ol-status-keys > * {
-    flex: none;
-  }
 }
 #origo-lens .ol-data-key {
   display: inline-block;
@@ -2593,8 +2630,6 @@
     height: auto;
     max-height: 70vh;
   }
-  #origo-lens .ol-status,
-  #origo-lens .ol-status-keys,
   #origo-lens .ol-status-meta {
     flex-wrap: wrap;
     white-space: normal;
@@ -2609,6 +2644,9 @@
   }
 }
 @media (pointer: coarse) {
+  #origo-lens .ol-status-nav button {
+    min-width: 44px;
+  }
   #origo-lens .ol-inspect button,
   #origo-lens .ol-inspect select {
     min-height: 44px;
@@ -5311,6 +5349,8 @@
       </div>
       <footer class="ol-status">
         <div class="ol-status-keys" aria-label="Key">
+          <div id="ol-status-scroll" class="ol-status-scroll" role="region" aria-label="Chart legend" tabindex="0">
+            <div id="ol-status-key-list" class="ol-status-key-list">
           <span id="ol-key-zero"
             ><i class="ol-data-key ol-glyph" data-stroke-role="empty" aria-hidden="true"></i>Zero trades</span
           ><span id="ol-key-open"
@@ -5359,10 +5399,20 @@
             ><i class="ol-data-key ol-glyph" data-stroke-role="untested" aria-hidden="true"></i
             ><span id="ol-ray-count-text"></span></span
           ><span id="ol-keys-ref" class="ol-keys-scale ol-keys-ref" aria-label="References"></span>
+            </div>
+          </div>
         </div>
         <span class="ol-gesture" id="ol-gesture"
           >Drag to pan · wheel to zoom · Replay/Continuations/Cases: click anchors</span
         >
+        <div class="ol-status-nav" role="group" aria-label="Scroll chart legend">
+          <button type="button" id="ol-status-prev" class="ol-s cursor-interaction" aria-label="Scroll legend left" aria-controls="ol-status-scroll" disabled>
+            <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m10 4-4 4 4 4" /></svg>
+          </button>
+          <button type="button" id="ol-status-next" class="ol-s cursor-interaction" aria-label="Scroll legend right" aria-controls="ol-status-scroll" disabled>
+            <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4" /></svg>
+          </button>
+        </div>
         <div class="ol-status-meta ol-num">
           <span id="ol-pixel-state"></span><span id="ol-scope"
             >Real Binance trades · recorded snapshot</span
@@ -21523,6 +21573,34 @@
   const Flow = window.explorerMotion;
   if (!Flow) throw new Error("explorerMotion is missing");
   Flow.initMotion(root);
+  initLegendScroll();
+  function initLegendScroll() {
+    const viewport = el("status-scroll"), content = el("status-key-list"),
+      shell = viewport.parentElement, previous = el("status-prev"), next = el("status-next");
+    const update = () => {
+      const end = Math.max(0, viewport.scrollWidth - viewport.clientWidth),
+        startHidden = viewport.scrollLeft > 1, endHidden = viewport.scrollLeft < end - 1;
+      previous.disabled = !startHidden;
+      next.disabled = !endHidden;
+      shell.toggleAttribute("data-overflow-start", startHidden);
+      shell.toggleAttribute("data-overflow-end", endHidden);
+    };
+    const move = (direction) => Flow.scrollAxis(viewport, viewport.scrollLeft + direction * Math.max(1, viewport.clientWidth - 32), "x");
+    previous.onclick = () => move(-1);
+    next.onclick = () => move(1);
+    viewport.addEventListener("scroll", update, { passive: true });
+    viewport.addEventListener("keydown", (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Home" || event.key === "End") Flow.scrollAxis(viewport, event.key === "Home" ? 0 : () => viewport.scrollWidth, "x");
+      else move(event.key === "ArrowLeft" ? -1 : 1);
+    });
+    const resize = new ResizeObserver(update);
+    resize.observe(viewport);
+    resize.observe(content);
+    update();
+  }
   const E = window.explorerEncoding;
   const Agent = window.explorerAgent;
   const initialAnalysisHash = new URLSearchParams(location.hash.slice(1)).has("analysis") ? location.hash : null;
@@ -45075,9 +45153,9 @@
         }
         const column=uiEl("div","ol-reference-colour-row");column.append(uiKeySwatch("diamond",inks),uiEl("span","","Columns · undefined value"));container.append(column);
       }
-      if (original) { const copy = original.cloneNode(true); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
+      if (original) { const copy = original.querySelector(".ol-status-key-list").cloneNode(true); copy.classList.add("ol-status-keys"); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
         copy.querySelectorAll("canvas").forEach((canvas,index)=>canvas.getContext("2d").drawImage(originals[index],0,0));
-        copy.style.flexWrap="wrap";copy.style.overflow="visible";container.append(copy); }
+        copy.style.flexWrap="wrap";copy.style.width="auto";copy.style.overflow="visible";container.append(copy); }
       container.append(uiEl("p","ol-muted",topic.id === "state-glossary" ? "Cells/Rows non-value key, with the Columns diamond. Inspect names the exact reason; these are definitions, not counts of the current view." : "The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
     }
   }
