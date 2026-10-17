@@ -21655,7 +21655,31 @@
   terms("current axis|reference axis|domain", "The numeric range used to draw this track; independent tracks can use different ranges.");
   terms("window w", "Wholly-in-view price rows shared by the two profiles for this comparison.");
   terms("native ids", "Identifiers of the native trades defining the selected rally's membership.");
+  terms("accumulated travel", "Sum of attributed price travel within the cell, in USDT; travel can exist without a trade in that cell.");
+  terms("u", "Upper magnitude of the fitted colour domain; larger values are clipped to its outer colour.");
+  terms("k", "Scale of the logarithmic curve; smaller values give more colour detail to small amounts.");
+  terms("mapping", "Identity of the fitted colour mapping; equal values need the same mapping for equal colours.");
+  terms("cohort", "Population of eligible observations used to fit this scale or estimate.");
+  terms("transform", "How measured values are mapped to colour: logarithmic, linear or relative rank.");
+  terms("scale policy", "When the colour domain is fitted, held or restored as the view changes.");
+  terms("basis", "Whether this quantity is an amount, an exposure-normalized intensity, or a declared share or ratio.");
+  terms("warnings", "Limits affecting interpretation, such as clipping or weak colour separation.");
+  terms("fit time|fitted through", "When the mapping was fitted and the latest observation included in its calibration.");
+  terms("cutoff|source cutoff|replay edge", "The last time available to this observation; later values are excluded.");
+  terms("context|context key", "Time, price, measure and source settings that identify the measured region or calibration.");
+  terms("revision|token", "Source revision identifying the data used for this read; revisions can replace provisional observations.");
+  terms("excluded", "Observations omitted because their support or measurement state is not eligible for this calculation.");
+  terms("appearance", "The colour palette applied after the measured value has been mapped to a scale position.");
+  terms("rule", "The fitted feature condition selecting these bars; it is an in-sample observation, not a forecast.");
   const fields = {
+    "sheet-toggle": "Open the chart controls in the phone layout.", "sheet-close": "Close the phone controls and return to the chart.",
+    "tminus": "Halve the duration of each time cell.", "tplus": "Double the duration of each time cell.",
+    "pminus": "Halve the width of each price row.", "pplus": "Double the width of each price row.",
+    "help": "Open the keyboard shortcuts and navigation reference.", "keys-close": "Close the keyboard shortcuts and return to the chart.",
+    "back": "Move the replay boundary or active continuation anchor one column earlier.",
+    "next": "Move the replay boundary or active continuation anchor one column later.",
+    "play": "Start or pause replay at the selected number of columns per second.",
+    "table-next": "Show the next page of measured cells.", "case-next": "Show the next page of historical cases.",
     "rally-mode": "Choose the operational definition used to discover observed upward price moves.",
     "rally-scale": "Express rally thresholds in basis points or multiples of native ATR14-SMA.",
     "rally-target": "Minimum upward move from the frozen reference price, in the selected scale.",
@@ -21760,13 +21784,13 @@
   }
   function valueName(node) {
     const metric = node.closest('.ol-comparison-metric'), row = node.closest('.ol-row'), cell = node.closest('td'), dt = node.previousElementSibling;
-    return clean(metric?.querySelector('.ol-comparison-label')?.textContent || row?.firstElementChild?.textContent || node.closest('.ol-metric')?.querySelector('label')?.textContent || (dt?.matches('dt') ? dt.textContent : "") || cell?.closest('table')?.querySelector('thead tr')?.children[cell.cellIndex]?.textContent || node.dataset.field || node.id.replace(/^ol-/, "").replace(/-/g, " ") || "Measured value");
+    return clean(metric?.querySelector('.ol-comparison-label')?.textContent || row?.firstElementChild?.textContent || node.closest('.ol-metric')?.querySelector('label')?.textContent || node.closest('.ol-line-row,label')?.querySelector('.ol-line-name')?.textContent || (node.matches('.ol-family-count,.ol-lines-count') ? 'Enabled lines' : '') || (node.closest('.ol-legend-ticks') ? 'Colour scale value' : '') || (dt?.matches('dt') ? dt.textContent : "") || cell?.closest('table')?.querySelector('thead tr')?.children[cell.cellIndex]?.textContent || node.dataset.field || node.id.replace(/^ol-/, "").replace(/-/g, " ") || "Measured value");
   }
   function name(node) {
     if (node.dataset.helpLabel) return node.dataset.helpLabel;
     if (isValue(node)) return valueName(node);
     const labelled = node.getAttribute('aria-labelledby');
-    return clean(node.dataset.hintLabel || node.getAttribute('aria-label') || (labelled && labelled.split(/\s+/).map(id => node.ownerDocument.getElementById(id)?.textContent || "").join(" ")) || textLabel(node.labels?.[0]) || textLabel(node) || node.id.replace(/^ol-/, "").replace(/-/g, " "));
+    return clean(node.dataset.hintLabel || node.getAttribute('aria-label') || (labelled && labelled.split(/\s+/).map(id => node.ownerDocument.getElementById(id)?.textContent || "").join(" ")) || textLabel(node.labels?.[0]) || textLabel(node) || node.name || node.id.replace(/^ol-/, "").replace(/-/g, " "));
   }
   function meaning(label, key = "") {
     const field = normalize(key), title = normalize(label);
@@ -21778,17 +21802,18 @@
   }
   function describe(node) {
     const label = name(node), id = node.id.replace(/^ol-/, ""), read = isValue(node), data = node.dataset;
-    const described = clean((node.getAttribute('aria-describedby') || "").split(/\s+/).filter(key => key && key !== 'ol-help-tooltip').map(key => node.ownerDocument.getElementById(key)?.textContent || "").join(" "));
+    const described = clean((node.getAttribute('aria-describedby') || "").split(/\s+/).filter(key => key && key !== 'ol-help-tooltip').map(key => node.ownerDocument.getElementById(key)?.textContent || "").join(" ")).replace(/(?:^|\. )Key:.*$/, "");
     const legacy = clean(node.getAttribute('title') || node.closest('[title]')?.getAttribute('title'));
     let text = clean(data.help || (!read && data.hint) || fields[id]);
     if (!text && read) {
       const key = data.field || node.closest('[data-metric]')?.dataset.metric || id;
-      text = meaning(label, key);
-      if (!text && node.matches('.ol-comparison-difference')) text = glossary.get('difference');
-      if (!text && node.matches('.ol-comparison-rank')) text = glossary.get('rank');
+      text = node.matches('.ol-comparison-difference') ? glossary.get('difference') : node.matches('.ol-comparison-rank') ? glossary.get('rank') : meaning(label, key);
+      if (!text && node.closest('.ol-legend-ticks')) text = "Numeric value mapped to this position on the current colour scale, in its selected measurement basis.";
+      if (!text && node.matches('.ol-comparison-band')) text = "Lower and upper price limits of the captured cell's nominal price row, in USDT.";
       if (!text && node.matches('.ol-pair')) text = "Traded asset and quote currency: bitcoin priced in USDT.";
       if (!text && node.matches('.ol-venue')) text = "The exchange and market type supplying these trades.";
       if (!text && node.matches('.ol-family-count,.ol-lines-count')) text = "Number of enabled lines in this group; enabled lines can be held back by visibility limits.";
+      if (!text && legacy.length > 20 && /[a-z]{3}/i.test(legacy)) text = legacy;
       if (!text) text = `${label} for the current ${node.closest('#ol-comparisonWorkspace') ? 'captured cell' : node.closest('#ol-summary-body') ? 'view and source' : 'measured observation'}.`;
     }
     if (!text && data.comparisonControl) text = actions[data.comparisonControl];
@@ -21798,8 +21823,10 @@
     if (!text && data.sort) text = `Order the Cells table by ${label.toLowerCase()}; choose again to reverse the order.`;
     if (!text && data.caseSort) text = `Order historical cases by ${label.toLowerCase()}; choose again to reverse the order.`;
     if (!text && data.window) text = `Show ${label.replace(/\s*\d$/, '')} of trading history, ending at the latest available data unless a calendar year is selected.`;
+    if (!text && data.rallyId) text = "Select this observed rally and inspect its native member trades and volume profile.";
     if (!text && data.drawingAction) text = `${label} for ${data.drawingId ? 'this drawing' : 'the drawing collection'}; changes can be undone in drawing context.`;
-    if (!text) text = clean(node.querySelector('.ol-item-desc')?.textContent) || described || legacy;
+    if (!text) text = clean(node.querySelector('.ol-item-desc')?.textContent) || described || (legacy.length >= 12 ? legacy : "");
+    if (!text && node.matches('input') && meaning(label, node.name)) text = meaning(label, node.name);
     if (!text && node.matches('input')) text = `Set ${label.toLowerCase()}${node.type === 'checkbox' || node.type === 'radio' ? ' for the current view' : ''}.`;
     if (!text && node.matches('select')) text = `Choose ${label.toLowerCase()} for the current view.`;
     if (!text && node.matches('summary')) text = `Expand or collapse ${label.toLowerCase()}.`;
@@ -31485,8 +31512,7 @@
   }
 
   // Labels: a control's name and key, or a read value's meaning, half a second after the
-  // pointer rests on it, a finger holds it or the keyboard reaches it; once
-  // one has shown, the next shows at once. A hold that shows a label doesn't
+  // pointer rests on it, a finger holds it or the keyboard reaches it. A hold doesn't
   // press the control too.
   const Help = window.explorerHelp;
   if (!Help) throw new Error("explorerHelp is missing");
@@ -31524,7 +31550,7 @@
   function showHint(target) {
     if (
       !target.isConnected ||
-      target.closest("[hidden],[inert]")
+      target.closest("[hidden],[inert],dialog:not([open])") || !target.getClientRects().length
     )
       return hideHint();
     hintValueObserver.disconnect();
@@ -31585,8 +31611,8 @@
   function armHint(target) {
     clearTimeout(hint.timer);
     clearTimeout(hint.leave);
-    if (hint.target || performance.now() - hint.hiddenAt < 600) showHint(target);
-    else hint.timer = setTimeout(() => showHint(target), HINT_DELAY);
+    if (hint.target && hint.target !== target) hideHint();
+    hint.timer = setTimeout(() => showHint(target), HINT_DELAY);
   }
   // What a label says under a control's name, and its key when it doesn't
   // state one itself, is also the control's description for assistive
