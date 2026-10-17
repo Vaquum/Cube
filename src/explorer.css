@@ -295,7 +295,7 @@
    the bar appears or goes as modes change, so no control ever moves. */
 #origo-lens .ol-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--sp-1);
   min-height: 48px;
@@ -320,16 +320,15 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-}
-#origo-lens .ol-build-info {
-  order: 1;
-  flex-basis: 100%;
-  flex-wrap: wrap;
+  min-width: 0;
   color: var(--ol-muted);
   font-size: var(--fs-s);
 }
 #origo-lens .ol-build-info > * {
-  flex: none;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 0 var(--sp-2);
   border: 1px solid var(--ol-line);
   border-radius: var(--r-l);
