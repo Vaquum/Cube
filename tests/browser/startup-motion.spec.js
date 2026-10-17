@@ -195,7 +195,8 @@ test("a status-only resize cannot oscillate Auto between a cached coarse tile an
   await page.waitForFunction(() => window.cubeAgent);
   await expect(page.locator("#ol-loading")).toBeHidden();
   await fake.idle({ quietMs: 300 });
-  expect(fake.log().some(entry => entry.path === "/cube/tile" && entry.query.m === "1" && entry.status === 200)).toBe(true);
+  await expect.poll(() => fake.log().some(entry => entry.path === "/cube/tile" && entry.query.m === "1" && entry.status === 200),
+    { message: "the coarse tile must be cached before enabling Auto", timeout: 15000 }).toBe(true);
   const canvasHeight = (await page.locator("#ol-canvas").boundingBox()).height, height = 600 + 252 - canvasHeight;
   const heatmapHeight = async viewportHeight => {
     await page.setViewportSize({ width: 1500, height: viewportHeight });
@@ -228,10 +229,15 @@ test("a status-only resize cannot oscillate Auto between a cached coarse tile an
 });
 
 for (const operation of ["create", "endpoint", "cancel"]) test(`a completing read preserves an active drawing ${operation} gesture`, async ({ page, fakeFor }) => {
-  const fake = await fakeFor("mini", { next: 300 });
+  const fake = await fakeFor("standard", { next: 300 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await D.open(page, fake);
+  const shift = Date.parse("2026-08-23T12:00:00Z") - D.CAMERA.tA,
+    expected = (x, y) => { const point = D.expected(x, y); return { ...point, timeMs: point.timeMs + shift }; };
+  await page.goto(fake.url + "/" + D.HASH.replaceAll("2026-09-23", "2026-08-23").replaceAll("2026-09-24", "2026-08-24"));
+  await D.ready(page);
   await page.waitForFunction(() => window.cubeAgent);
+  await expect.poll(() => fake.log().some(entry => entry.path === "/cube/tile" && entry.query.n === "4" && entry.status === 200)).toBe(true);
+  await expect(page.locator("#ol-loading")).toBeHidden();
   await fake.idle({ quietMs: 300 });
   const made = operation === "endpoint" ? await D.drawing(page) : null;
   await D.trend(page);
@@ -255,8 +261,8 @@ for (const operation of ["create", "endpoint", "cancel"]) test(`a completing rea
     await expect.poll(() => D.count(page)).toBe(operation === "cancel" ? 0 : 1);
     if (operation !== "cancel") {
       const row = await D.row(page, made?.id ?? await D.active(page));
-      expect(row.a).toEqual(D.expected(operation === "endpoint" ? .3125 : .25, operation === "endpoint" ? .6875 : .75));
-      expect(row.b).toEqual(D.expected(.75, .25));
+      expect(row.a).toEqual(expected(operation === "endpoint" ? .3125 : .25, operation === "endpoint" ? .6875 : .75));
+      expect(row.b).toEqual(expected(.75, .25));
     }
   } finally { gate.open(); await page.mouse.up(); }
 });
