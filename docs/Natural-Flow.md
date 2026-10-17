@@ -8,6 +8,8 @@ information 8 px. There are no repeating decorative animations.
 
 Startup status uses a bounded, scrollable row outside the plot while a message
 is active, including in expanded Compare. An idle chart reclaims that row.
+Status-only resizing does not change Auto resolution. Visibility changes wait
+for an active drawing gesture to commit or cancel before resizing its surface.
 Controls start transparent
 before the first paint; the chart enters in place through the same spring after
 its first calibrated or terminal frame. Calibration timing and market values

@@ -2,6 +2,7 @@
 // Oracles: native frame geometry/opacity, the displayed calibration state, and
 // independently held cube responses. Reload uses the same browser's saved view.
 const { test, expect } = require("./fixtures.js");
+const D = require("./drawings-support.js");
 
 function recordStartup() {
   const native = requestAnimationFrame.bind(window);
@@ -182,4 +183,80 @@ test("a failed initial tile reveals the fallback and keeps its error visible", a
   } finally {
     gate.open();
   }
+});
+
+test("a status-only resize cannot oscillate Auto between a cached coarse tile and a failed fine tile", async ({ page, fakeFor, allowConsole }) => {
+  const fake = await fakeFor("standard", { next: 300 });
+  allowConsole(/Failed to load resource/);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1500, height: 600 });
+  const time = "t=2026-05-28T00:00Z~2026-09-24T00:00Z";
+  await page.goto(fake.url + "/#" + time + "&p=22000~27000&r=11,1&vis=2");
+  await page.waitForFunction(() => window.cubeAgent);
+  await expect(page.locator("#ol-loading")).toBeHidden();
+  await fake.idle({ quietMs: 300 });
+  expect(fake.log().some(entry => entry.path === "/cube/tile" && entry.query.m === "1" && entry.status === 200)).toBe(true);
+  const canvasHeight = (await page.locator("#ol-canvas").boundingBox()).height, height = 600 + 252 - canvasHeight;
+  const heatmapHeight = async viewportHeight => {
+    await page.setViewportSize({ width: 1500, height: viewportHeight });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    return page.locator("#ol-canvas").evaluate(node => Number(node.dataset.layout.split(",")[3]));
+  };
+  const idle = await heatmapHeight(height), active = await heatmapHeight(height - 32);
+  await heatmapHeight(height);
+  expect(idle / active, "the 32px status row straddles Auto's 8/18px hysteresis").toBeGreaterThan(9 / 8);
+  const basePrice = await page.locator("#origo-lens-data").evaluate(node => JSON.parse(node.textContent).base_price),
+    span = basePrice * (active / 8 + idle / 9) / 2;
+  await page.evaluate(hash => { location.hash = hash; }, `#${time}&p=${(25000 - span / 2).toFixed(2)}~${(25000 + span / 2).toFixed(2)}&r=11,1&vis=2`);
+  await expect(page.locator("#ol-loading")).toBeHidden();
+  await fake.idle({ quietMs: 300 });
+  fake.on({ route: "/cube/tile", when: query => query.n === "11" && query.m === "0" }).fail({ status: 503 });
+  await page.locator("#ol-res").click();
+  await page.locator("#ol-auto").click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#ol-loading")).toContainText("unavailable");
+  const frames = await page.evaluate(() => new Promise(resolve => {
+    const frames = [];
+    function sample() {
+      frames.push([document.getElementById("ol-m").textContent, document.getElementById("ol-loading").hidden]);
+      if (frames.length === 90) resolve(frames); else requestAnimationFrame(sample);
+    }
+    requestAnimationFrame(sample);
+  }));
+  expect([...new Set(frames.map(frame => JSON.stringify(frame)))]).toEqual([JSON.stringify(["m 0", false])]);
+  expect(fake.log().filter(entry => entry.path === "/cube/tile" && entry.query.m === "0" && entry.status === 503)).toHaveLength(1);
+});
+
+for (const operation of ["create", "endpoint", "cancel"]) test(`a completing read preserves an active drawing ${operation} gesture`, async ({ page, fakeFor }) => {
+  const fake = await fakeFor("mini", { next: 300 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await D.open(page, fake);
+  await page.waitForFunction(() => window.cubeAgent);
+  await fake.idle({ quietMs: 300 });
+  const made = operation === "endpoint" ? await D.drawing(page) : null;
+  await D.trend(page);
+  const gate = fake.on({ route: "/cube/tile", when: query => query.n === "3" && query.m === "0" }).gate();
+  try {
+    await page.evaluate(() => { const query = new URLSearchParams(location.hash.slice(1)); query.set("r", "3,0"); location.hash = query.toString(); });
+    await gate.arrived();
+    await expect(page.locator("#ol-loading")).toBeVisible();
+    await D.trend(page);
+    const plot = await D.plot(page), a = D.point(plot, .25, .75), b = D.point(plot, ...(operation === "endpoint" ? [.3125, .6875] : [.75, .25]));
+    const before = await page.locator("#ol-canvas").boundingBox(), revision = await page.locator("#ol-canvas").getAttribute("data-drawing-revision");
+    await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(b.x, b.y, { steps: 6 });
+    gate.open();
+    await expect(page.locator("#ol-loading")).toHaveText("Ready");
+    expect(await page.locator("#ol-canvas").boundingBox(), "read completion cannot resize the held drawing surface").toEqual(before);
+    expect(await page.locator("#ol-canvas").getAttribute("data-drawing-revision")).toBe(revision);
+    if (operation === "cancel") await page.keyboard.press("Escape");
+    await page.mouse.up();
+    await expect(page.locator("#ol-loading")).toBeHidden();
+    expect(await page.locator("#ol-loading").evaluate(node => node.offsetHeight)).toBe(0);
+    await expect.poll(() => D.count(page)).toBe(operation === "cancel" ? 0 : 1);
+    if (operation !== "cancel") {
+      const row = await D.row(page, made?.id ?? await D.active(page));
+      expect(row.a).toEqual(D.expected(operation === "endpoint" ? .3125 : .25, operation === "endpoint" ? .6875 : .75));
+      expect(row.b).toEqual(D.expected(.75, .25));
+    }
+  } finally { gate.open(); await page.mouse.up(); }
 });
