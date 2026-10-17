@@ -91,15 +91,67 @@ function panel() {
   return root;
 }
 function mill(answers = {}) {
-  const calls = [], waiting = [];
+  const calls = [], waiting = [], listeners = [];
   globalThis.fetch = (path, options) => new Promise((resolve) => {
     calls.push({path, body: options.body ? JSON.parse(options.body) : null});
-    const text = answers[path] ?? JSON.stringify(path.endsWith("/app-config") ? {data_window: {start: "2024-01-01", end: "2026-05-15"}, views: []} : events);
-    waiting.push(() => resolve({ok: true, status: 200, text: async () => text}));
+    const configured = answers[path], entry = Array.isArray(configured) ? configured.shift() : configured;
+    const status = entry?.status ?? 200;
+    const text = typeof entry === "string" ? entry : JSON.stringify(entry?.body ?? (path.endsWith("/app-config") ? {data_window: {start: "2024-01-01", end: "2026-05-15"}, views: []} : events));
+    waiting.push(() => resolve({ok: status < 400, status, text: async () => text}));
+    listeners.splice(0).forEach(resolve => resolve());
   });
-  const next = async () => { waiting.shift()(); await new Promise((r) => setTimeout(r, 0)); };
+  const next = async () => {
+    if (!waiting.length) await new Promise(resolve => listeners.push(resolve));
+    waiting.shift()(); await new Promise(setImmediate);
+  };
   return {calls, next, answer: async () => { while (waiting.length) await next(); }};
 }
+
+const busyReply = require("../fixtures/regressions/features-inputs/busy.json");
+test("Mill preparation retries the identical request and retains its marked windows", async () => {
+  const root = panel(), stub = mill({"/mill/discover": [busyReply, {body: events}]});
+  controller(root); byId(root, "add").onclick();
+  const done = submit(root);
+  await stub.next(); await stub.next();
+  assert.match(byId(root, "status").textContent, /Retrying within/);
+  assert.equal(byId(root, "find").disabled, true);
+  await stub.next(); await done;
+  assert.deepEqual(stub.calls[1].body, stub.calls[2].body);
+  assert.equal(byId(root, "results").hidden, false);
+});
+
+test("canceling during Mill's retry backoff sends no further request", async () => {
+  const root = panel(), stub = mill({"/mill/discover": busyReply});
+  controller(root); byId(root, "add").onclick();
+  const done = submit(root);
+  await stub.next(); await stub.next();
+  byId(root, "cancel").onclick(); await done;
+  assert.equal(stub.calls.length, 2);
+  assert.equal(byId(root, "results").hidden, true);
+  assert.match(byId(root, "status").textContent, /^Stopped waiting/);
+  assert.equal(byId(root, "find").disabled, false);
+});
+
+test("busy replies share the original deadline instead of extending it", async t => {
+  t.mock.timers.enable({apis: ["setTimeout"]});
+  const root = panel(), stub = mill({"/mill/discover": busyReply});
+  controller(root); byId(root, "add").onclick();
+  const done = submit(root);
+  await stub.next(); await stub.next();
+  t.mock.timers.tick(55000); await done;
+  assert.equal(stub.calls.length, 2);
+  assert.equal(byId(root, "results").hidden, true);
+  assert.match(byId(root, "status").textContent, /did not finish in time/);
+});
+
+test("unrelated service errors are reported without automatic retries", async () => {
+  const root = panel(), stub = mill({"/mill/discover": {status: 503, body: {error: "mill_unreachable"}}});
+  controller(root); byId(root, "add").onclick();
+  const done = submit(root); await stub.answer(); await done;
+  assert.equal(stub.calls.length, 2);
+  assert.equal(byId(root, "results").hidden, true);
+  assert.match(byId(root, "status").textContent, /Mill failed: mill_unreachable/);
+});
 function controller(root, edgeMs = () => at("2026-09-24T00:00:00Z"), selectionMs = () => [at("2025-03-03T00:00:00Z"), at("2025-03-03T12:00:00Z")]) {
   globalThis.document = {createElement: (tag) => new Element(tag), createDocumentFragment: () => Object.assign(new Element("#fragment"), {fragment: true})};
   globalThis.window = {explorerMotion: {replaceChildren: (host, ...content) => { host.children = []; host.append(...content); }}};

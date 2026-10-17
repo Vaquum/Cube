@@ -5,5 +5,5 @@
   "seed": null,
   "extractedOn": null,
   "source": "Find features input ownership: an answer is valid only for the windows and settings submitted.",
-  "notes": "Each edit changes one submitted input after an answer. Expected: results hidden, preview false and no rule-hit lane; the next request uses the edited input. No market-data or ranking expectations are inferred from the controller."
+  "notes": "Each edit changes one submitted input after an answer. Expected: results hidden, preview false and no rule-hit lane; the next request uses the edited input. busy.json uses Mill's documented 503 research_busy response: repeat the identical request within one deadline, stop on cancellation or expiry, and do not retry unrelated failures. A live full-history search exposed the terminal handling on 2026-10-17. No market-data or ranking expectations are inferred from the controller."
 }

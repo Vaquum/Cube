@@ -92,22 +92,38 @@
     async function call(path, {body = null, timeout, shaped}) {
       const controller = new AbortController(), timer = setTimeout(() => controller.abort("timeout"), timeout);
       const fail = (words, status) => Object.assign(new Error(words), {status}), name = path.slice(5);
+      const aborted = () => fail(controller.signal.reason === "user" ? "Stopped waiting. Mill may still finish what it was asked." : "Mill did not finish in time. Find again to continue.", "aborted");
       active = controller;
       try {
-        let response, text;
-        try {
-          response = await fetch(path, {method: body ? "POST" : "GET", headers: body ? {"Content-Type": "application/json"} : {},
-            body: body ? JSON.stringify(body) : undefined, cache: "no-store", signal: controller.signal});
-          text = await response.text();
-        } catch (error) {
-          if (controller.signal.aborted) throw fail(controller.signal.reason === "user" ? "Stopped waiting. Mill may still finish what it was asked." : "Mill did not answer within the minute.", "aborted");
-          throw fail(`Mill could not be reached: ${error.message}.`, "unreachable");
+        for (;;) {
+          if (controller.signal.aborted) throw aborted();
+          let response, text;
+          try {
+            response = await fetch(path, {method: body ? "POST" : "GET", headers: body ? {"Content-Type": "application/json"} : {},
+              body: body ? JSON.stringify(body) : undefined, cache: "no-store", signal: controller.signal});
+            text = await response.text();
+          } catch (error) {
+            if (controller.signal.aborted) throw aborted();
+            throw fail(`Mill could not be reached: ${error.message}.`, "unreachable");
+          }
+          let reply;
+          try { reply = JSON.parse(text); } catch (error) { throw fail(`Mill's ${name} answered ${response.status} without JSON.`, response.status); }
+          // Mill checkpoints catalog preparation across 503 research_busy replies. Retry the same request under
+          // the original deadline; cancellation also interrupts the backoff, so it cannot start another attempt.
+          if (path === "/mill/discover" && response.status === 503 && reply?.error === "research_busy") {
+            status(`Mill is preparing or busy: ${reply.detail || "retry shortly"}. Retrying within this search's one-minute limit…`);
+            await new Promise(resolve => {
+              const done = () => { clearTimeout(wait); controller.signal.removeEventListener("abort", done); resolve(); };
+              const wait = setTimeout(done, 1000);
+              controller.signal.addEventListener("abort", done, {once: true});
+              if (controller.signal.aborted) done();
+            });
+            continue;
+          }
+          if (!response.ok) throw fail(response.status < 500 ? `Mill refused the request: ${reply?.detail || reply?.error || response.statusText}.` : `Mill failed: ${reply?.error || response.statusText}.`, response.status);
+          if (!shaped(reply)) throw fail(`Mill's ${name} answered with JSON that is not its answer.`, response.status);
+          return reply;
         }
-        let reply;
-        try { reply = JSON.parse(text); } catch (error) { throw fail(`Mill's ${name} answered ${response.status} without JSON.`, response.status); }
-        if (!response.ok) throw fail(response.status < 500 ? `Mill refused the request: ${reply?.detail || reply?.error || response.statusText}.` : `Mill failed: ${reply?.error || response.statusText}.`, response.status);
-        if (!shaped(reply)) throw fail(`Mill's ${name} answered with JSON that is not its answer.`, response.status);
-        return reply;
       } finally { clearTimeout(timer); if (active === controller) active = null; }
     }
     // Mill is asked only when the operator acts here: the first Find, or opening the pool to choose one of Mill's views.
