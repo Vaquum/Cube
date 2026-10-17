@@ -3,6 +3,7 @@
   "expectationSource": "hand-computed",
   "generator": null,
   "seed": null,
+  "extractedOn": null,
   "source": "Find features input ownership: an answer is valid only for the windows and settings submitted.",
   "notes": "Each edit changes one submitted input after an answer. Expected: results hidden, preview false and no rule-hit lane; the next request uses the edited input. No market-data or ranking expectations are inferred from the controller."
 }
