@@ -287,6 +287,7 @@
           if (changed) { owner.dispatchEvent(new Event('input', { bubbles: true })); owner.dispatchEvent(new Event('change', { bubbles: true })); }
         }
       }, true);
+      root.addEventListener('change', event => { if (source === event.target) close(); });
       root.addEventListener('keydown', event => {
         if (source && panel.contains(event.target)) {
           event.stopPropagation();

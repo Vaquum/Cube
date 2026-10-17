@@ -9673,7 +9673,12 @@
     if (!described.includes("ol-help-tooltip")) target.setAttribute("aria-describedby", [...described, "ol-help-tooltip"].join(" "));
     // Suppress the browser's competing title only while this target is explained.
     for (let node = target; node && node !== root; node = node.parentElement) {
-      if (node.hasAttribute("title")) { hint.titles.push([node, node.getAttribute("title")]); node.removeAttribute("title"); }
+      if (node.hasAttribute("title")) {
+        const held = hint.titles.find(entry => entry[0] === node);
+        if (held) held[1] = node.getAttribute("title");
+        else hint.titles.push([node, node.getAttribute("title")]);
+        node.removeAttribute("title");
+      }
     }
     hintValueObserver.observe(target, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["title", "data-canonical", "data-hint", "aria-disabled", "disabled"] });
   }
@@ -9691,13 +9696,14 @@
   function describe(node) {
     const keys = node.hasAttribute("aria-keyshortcuts") ? "" : node.dataset.keys,
       text = [node.dataset.hint, keys && `Key: ${keys}`].filter(Boolean).join(". ");
-    let span = document.getElementById(node.getAttribute("aria-describedby") || "");
+    const ids = (node.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+    let span = ids.map(id => document.getElementById(id)).find(value => value?.parentElement === descs);
     if (!span) {
       if (!text) return;
       span = document.createElement("span");
       span.id = `ol-desc-${++descCount}`;
       descs.append(span);
-      node.setAttribute("aria-describedby", span.id);
+      node.setAttribute("aria-describedby", [...ids, span.id].join(" "));
     }
     if (span.textContent !== text) span.textContent = text;
   }
