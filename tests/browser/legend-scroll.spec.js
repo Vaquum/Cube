@@ -16,7 +16,7 @@ async function geometry(page) {
     return { y, height };
   }));
 }
-async function addKeys(page, count = 12) {
+async function addKeys(page, count = 24) {
   await page.locator("#ol-status-key-list").evaluate((list, count) => {
     for (let index = 0; index < count; index++) {
       const key = document.createElement("span");
