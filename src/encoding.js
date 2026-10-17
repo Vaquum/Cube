@@ -9818,7 +9818,7 @@
   const cdcDayPattern = /^\d{4}-\d{2}-\d{2}$/;
   // The defaults of env. They repeat the page's own lists (WINDOWS, MODES, PANES, ROWS, LINE_KEYS) so the
   // module is usable, and testable, without a page; the page always passes its own.
-  const cdcWindows = Object.freeze(["15m", "30m", "1h", "4h", "12h", "24h", "7d", "30d", "1y", "ytd", "lastyear", "all"]);
+  const cdcWindows = Object.freeze(["15m", "30m", "1h", "4h", "12h", "24h", "7d", "30d", "45d", "90d", "180d", "270d", "1y", "ytd", "lastyear", "all"]);
   const cdcModes = Object.freeze(["volume", "flow", "delta", "cascade", "trades", "flowtrades", "size", "path", "dwell", "geometry", "candles"]);
   const cdcPanes = Object.freeze(["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"]);
   const cdcRowChoices = Object.freeze(["off", "volume", "delta", "relvol", "time"]);
@@ -9865,7 +9865,7 @@
   function cdcWindowKeyDefault(key) {
     if (key === "1") return "24h";
     if (key === "7") return "7d";
-    return typeof key === "string" && cdcWindows.indexOf(key) >= 0 ? key : "";
+    return typeof key === "string" && (cdcWindows.indexOf(key) >= 0 || (key >= "2021-01-01" && ctxRealDay(key))) ? key : "";
   }
 
   function cdcValidPeriodDefault(key) {
@@ -10279,7 +10279,8 @@
   function cdcCheckView(v, env) {
     if (!cdcIsObject(v)) return null;
     const ok = (...x) => x.every(Number.isFinite);
-    const w = env.windowKey(v.window);
+    const candidate = env.windowKey(v.window),
+      w = cdcDayPattern.test(candidate) && !(cdcTime(candidate + "T00:00:00Z", env) < env.CUT) ? "" : candidate;
     if (!w && !(ok(v.tA, v.tB, v.pA, v.pB) && v.tB > v.tA && v.pB > v.pA && v.tA < env.CUT && v.pA >= 0)) return null;
     const sel = Array.isArray(v.selection) ? v.selection : [];
     const anchor = Number.isFinite(v.anchor) && v.anchor > 0 && v.anchor <= env.CUT ? v.anchor : null;
