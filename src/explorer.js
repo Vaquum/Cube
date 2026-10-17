@@ -12,6 +12,34 @@
   const Flow = window.explorerMotion;
   if (!Flow) throw new Error("explorerMotion is missing");
   Flow.initMotion(root);
+  initLegendScroll();
+  function initLegendScroll() {
+    const viewport = el("status-scroll"), content = el("status-key-list"),
+      shell = viewport.parentElement, previous = el("status-prev"), next = el("status-next");
+    const update = () => {
+      const end = Math.max(0, viewport.scrollWidth - viewport.clientWidth),
+        startHidden = viewport.scrollLeft > 1, endHidden = viewport.scrollLeft < end - 1;
+      previous.disabled = !startHidden;
+      next.disabled = !endHidden;
+      shell.toggleAttribute("data-overflow-start", startHidden);
+      shell.toggleAttribute("data-overflow-end", endHidden);
+    };
+    const move = (direction) => Flow.scrollAxis(viewport, viewport.scrollLeft + direction * Math.max(1, viewport.clientWidth - 32), "x");
+    previous.onclick = () => move(-1);
+    next.onclick = () => move(1);
+    viewport.addEventListener("scroll", update, { passive: true });
+    viewport.addEventListener("keydown", (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Home" || event.key === "End") Flow.scrollAxis(viewport, event.key === "Home" ? 0 : () => viewport.scrollWidth, "x");
+      else move(event.key === "ArrowLeft" ? -1 : 1);
+    });
+    const resize = new ResizeObserver(update);
+    resize.observe(viewport);
+    resize.observe(content);
+    update();
+  }
   const E = window.explorerEncoding;
   const Agent = window.explorerAgent;
   const initialAnalysisHash = new URLSearchParams(location.hash.slice(1)).has("analysis") ? location.hash : null;
@@ -23564,9 +23592,9 @@
         }
         const column=uiEl("div","ol-reference-colour-row");column.append(uiKeySwatch("diamond",inks),uiEl("span","","Columns · undefined value"));container.append(column);
       }
-      if (original) { const copy = original.cloneNode(true); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
+      if (original) { const copy = original.querySelector(".ol-status-key-list").cloneNode(true); copy.classList.add("ol-status-keys"); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
         copy.querySelectorAll("canvas").forEach((canvas,index)=>canvas.getContext("2d").drawImage(originals[index],0,0));
-        copy.style.flexWrap="wrap";copy.style.overflow="visible";container.append(copy); }
+        copy.style.flexWrap="wrap";copy.style.width="auto";copy.style.overflow="visible";container.append(copy); }
       container.append(uiEl("p","ol-muted",topic.id === "state-glossary" ? "Cells/Rows non-value key, with the Columns diamond. Inspect names the exact reason; these are definitions, not counts of the current view." : "The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
     }
   }
