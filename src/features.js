@@ -134,9 +134,15 @@
       if (!s || s[1] <= s[0]) return;
       if (windows.some(w => w.startMs === s[0] && w.endMs === s[1])) { message = "That window is already marked."; render(); return; }
       windows = [...windows, {startMs: s[0], endMs: s[1], key: "w" + (++serial)}].sort((a, b) => a.startMs - b.startMs);
-      message = ""; render(); changed();
+      message = ""; invalidate(); render(); changed();
     }
-    function removeWindow(key) { windows = windows.filter(w => w.key !== key); message = ""; render(); changed(); }
+    // A ranking, copied rule and preview belong to the submitted inputs. Editing them requires a new search.
+    function invalidate() {
+      if (!result) return;
+      result = null; asked = null; selected = -1;
+      message = "Search inputs changed. Find features again.";
+    }
+    function removeWindow(key) { windows = windows.filter(w => w.key !== key); message = ""; invalidate(); render(); changed(); }
     async function find(event) {
       event.preventDefault();
       if (busy) return;
@@ -314,9 +320,10 @@
     }
     el("form").addEventListener("submit", find);
     el("add").onclick = addSelection;
-    el("clear-windows").onclick = () => { windows = []; message = ""; render(); changed(); };
+    el("clear-windows").onclick = () => { windows = []; message = ""; invalidate(); render(); changed(); };
     el("cancel").onclick = () => active?.abort("user");
-    el("mode").addEventListener("change", controls);
+    for (const name of ["bar", "mode", "lead", "against", "pool"])
+      el(name).addEventListener("change", () => { invalidate(); render(); changed(); });
     for (const type of ["focus", "pointerdown"]) el("pool").addEventListener(type, () => { if (configState === "idle") connect(); });
     el("copy").onclick = copyRule;
     el("unpreview").onclick = () => select(-1);

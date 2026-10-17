@@ -231,7 +231,7 @@ test("the summary says when the bars Mill answered from end", async () => {
 });
 
 // Oracle: a ranking belongs to the exact marked windows and settings submitted, never their later edits.
-for (const edit of ["add", "remove", "clear", "bar", "mode", "lead", "against", "pool"]) {
+for (const edit of require("../fixtures/regressions/features-inputs/edits.json")) {
   test(`editing ${edit} discards the previous answer, preview and rule hits`, async () => {
     const root = panel(), stub = mill();
     let selection = [at("2025-03-03T00:00:00Z"), at("2025-03-03T12:00:00Z")];
