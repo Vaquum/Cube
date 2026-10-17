@@ -1190,12 +1190,17 @@
   background: var(--ol-panel);
   border-bottom: 1px solid var(--ol-line);
 }
-/* Status belongs above the plot; it never changes the market's geometry. */
+/* A reserved status row keeps errors readable without covering market marks or
+   controls. Long messages scroll within the row, including in expanded Compare. */
 #origo-lens #ol-loading {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 5;
-  pointer-events: none;
+  flex: 0 0 var(--h-l);
+  height: var(--h-l);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+#origo-lens #ol-loading[hidden] {
+  display: block !important;
+  visibility: hidden;
 }
 /* Set before the first paint, then handed to the shared entrance spring. */
 #origo-lens [data-startup] {
@@ -4565,6 +4570,9 @@
       <button type="button" id="ol-reference-shortcuts" class="ol-action cursor-interaction">Keyboard shortcuts</button>
     </aside>
     <section class="ol-chart" aria-label="Market field and linked volume profile">
+      <div id="ol-loading" class="ol-loading" role="status" tabindex="0">
+        Loading the last seven days…
+      </div>
       <div id="ol-update" class="ol-loading ol-update" role="status" hidden>
         <span>A newer version of the explorer is ready.</span
         ><button type="button" id="ol-reload" class="ol-action ol-s cursor-interaction">
@@ -4780,9 +4788,6 @@
       </div>
       <p id="ol-drawing-replay-status" class="ol-drawing-replay-note" role="status" aria-live="polite" hidden></p>
       <div class="ol-plot">
-        <div id="ol-loading" class="ol-loading" role="status">
-          Loading the last seven days…
-        </div>
         <canvas
           id="ol-canvas"
           data-startup
@@ -21510,6 +21515,8 @@
   let activeAnalysis = null, analysisOrigin = null, analysisHash = null, analysisPrevious = null, analysisRevision = 0;
   if (!E) {
     el("loading").textContent = "The explorer's measurement module did not load. Reload the page.";
+    revealStartup(el("controls"));
+    revealStartup(el("canvas"));
     throw new Error("explorerEncoding is missing");
   }
   const BASE = PACK.base_seconds,
@@ -24098,11 +24105,15 @@
     if (!canvas.hasAttribute("data-startup") || loadingLine.startup) return;
     // Reveal the actual fitted frame, or the terminal state with its visible
     // error. No extra clock and no interpolation of quantitative values.
-    const failed = activeFailures().length || scaleRt.fault || scaleRt.cur.cells?.failed;
+    const failed = activeFailures().length || cube.stale || scaleRt.fault || scaleRt.cur.cells?.failed;
     if (!failed && (viewReadPending() || scaleAsked("cells") ||
       S.mode === "candles" && candleRange(renderN(), S.tA, S.tB).state === "pending")) return;
-    Flow.reveal(canvas, { distance: 0 });
-    delete canvas.dataset.startup;
+    revealStartup(canvas);
+  }
+  function revealStartup(element) {
+    if (!element.hasAttribute("data-startup")) return;
+    Flow.reveal(element, { distance: 0 });
+    delete element.dataset.startup;
   }
   // The crosshair's readouts where the pointer is on either pane, each rounded
   // to what a pixel can tell apart, with the box its chip takes.
@@ -45493,8 +45504,7 @@
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
     Flow.onMotionFrame(() => referenceGuide?.refresh(true));
     // Controls can enter while the first chart frame prepares its calibration.
-    Flow.reveal(el("controls"), { distance: 0 });
-    delete el("controls").dataset.startup;
+    revealStartup(el("controls"));
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();
     scaleArm();
@@ -45555,8 +45565,11 @@
     }
     startLive();
   } catch (error) {
+    loadingLine.startup = "";
     loadingLine.fatal = (PACK.live ? "Cube data unavailable: " : "Recorded data unavailable: ") + error.message;
     renderLoading();
+    revealStartup(el("controls"));
+    revealStartup(canvas);
   }
 })();
 </script>
