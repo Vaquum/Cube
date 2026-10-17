@@ -76,14 +76,15 @@ for (const [mode, pane, bar] of cases) for (const count of [1, 3, 8]) {
     });
     await probe.waitForReady();
     const frame = await forPage(page).last();
-    await expect(page.locator("#ol-axis-chip")).toBeHidden();
+    // Axis settings live in the separately opened System reference; test the pane's own hidden state.
+    await expect(page.locator("#ol-axis-chip")).toHaveJSProperty("hidden", true);
     expect(frame.texts.some(t => t.text.startsWith("Preview · garman_klass_volatility"))).toBe(true);
     expect(frame.strokes.some(s => s.width === 1.5 && s.path.length > 2 && s.clip)).toBe(true);
     if (count === 3) await page.screenshot({path: info.outputPath(`${mode}-mill-preview.png`)});
     await page.locator("#ol-features-unpreview").click();
     await probe.waitForReady();
     expect((await forPage(page).last()).texts.some(t => t.text.startsWith("Preview ·"))).toBe(false);
-    await expect(page.locator("#ol-axis-chip")).toBeVisible();
+    await expect(page.locator("#ol-axis-chip")).toHaveJSProperty("hidden", false);
     expect(new URLSearchParams(new URL(page.url()).hash.slice(1)).get("pane")).toBe(pane);
   });
 }
