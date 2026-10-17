@@ -8,6 +8,9 @@ async function open(page, fakeFor, probe, profile = "mini") {
   const fake = await fakeFor(profile);
   await page.goto(fake.url + "/#w=24h&vis=2");
   await probe.waitForReady();
+  if (await page.locator("#ol-side-toggle").getAttribute("aria-expanded") === "false") await page.locator("#ol-side-toggle").click();
+  await page.locator("#ol-context-tab").click();
+  await expect(page.locator("#ol-vol")).toBeVisible();
   return fake;
 }
 const bubble = page => page.locator("#ol-help-tooltip");
@@ -43,6 +46,19 @@ test("leaving before the delay cancels work, and an icon receives its button's e
   await page.locator("#ol-lines svg").first().dispatchEvent("pointerover", { pointerType: "mouse" });
   await page.clock.runFor(500);
   await expect(bubble(page)).toContainText("Column overlays");
+});
+test("moving from an explained value to another value still waits 500 ms", async ({ page, fakeFor, probe }) => {
+  await open(page, fakeFor, probe);
+  await frozen(page);
+  await page.locator("#ol-vol").dispatchEvent("pointerover", { pointerType: "mouse" });
+  await page.clock.runFor(500);
+  await expect(bubble(page)).toContainText("Total USDT");
+  await page.locator("#ol-count").dispatchEvent("pointerover", { pointerType: "mouse" });
+  await expect(bubble(page)).toBeHidden();
+  await page.clock.runFor(499);
+  await expect(bubble(page)).toBeHidden();
+  await page.clock.runFor(1);
+  await expect(bubble(page)).toContainText("Number of reported trades");
 });
 test("generated menu items and a disabled control explain their own actions", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe, "recorded");

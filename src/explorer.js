@@ -9585,8 +9585,7 @@
   }
 
   // Labels: a control's name and key, or a read value's meaning, half a second after the
-  // pointer rests on it, a finger holds it or the keyboard reaches it; once
-  // one has shown, the next shows at once. A hold that shows a label doesn't
+  // pointer rests on it, a finger holds it or the keyboard reaches it. A hold doesn't
   // press the control too.
   const Help = window.explorerHelp;
   if (!Help) throw new Error("explorerHelp is missing");
@@ -9624,7 +9623,7 @@
   function showHint(target) {
     if (
       !target.isConnected ||
-      target.closest("[hidden],[inert]")
+      target.closest("[hidden],[inert],dialog:not([open])") || !target.getClientRects().length
     )
       return hideHint();
     hintValueObserver.disconnect();
@@ -9685,8 +9684,8 @@
   function armHint(target) {
     clearTimeout(hint.timer);
     clearTimeout(hint.leave);
-    if (hint.target || performance.now() - hint.hiddenAt < 600) showHint(target);
-    else hint.timer = setTimeout(() => showHint(target), HINT_DELAY);
+    if (hint.target && hint.target !== target) hideHint();
+    hint.timer = setTimeout(() => showHint(target), HINT_DELAY);
   }
   // What a label says under a control's name, and its key when it doesn't
   // state one itself, is also the control's description for assistive
