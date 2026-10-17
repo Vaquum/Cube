@@ -82,6 +82,20 @@ for (const colorScheme of ["light", "dark"]) {
   });
 }
 
+test("legend keyboard focus is visible inside its clipped viewport", async ({ page, fakeFor, probe }) => {
+  await open(page, fakeFor, probe);
+  const viewport = page.getByRole("region", { name: "Chart legend", exact: true });
+  await viewport.focus();
+  const focus = await viewport.evaluate(node => {
+    const style = getComputedStyle(node);
+    return { visible: node.matches(":focus-visible"), width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset), style: style.outlineStyle };
+  });
+  expect(focus.visible).toBe(true);
+  expect(focus.style).toBe("solid");
+  expect(focus.width).toBeGreaterThan(0);
+  expect(focus.offset + focus.width).toBeLessThanOrEqual(0);
+});
+
 test("legend uses the shared spring, accepts reversal and yields to trackpad scrolling", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
   await addKeys(page);
@@ -135,7 +149,7 @@ test("legend remeasures after resizing and settles immediately with reduced moti
 
 test.describe("touch legend", () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
-  test("phone legend stays on one line with usable touch targets", async ({ page, fakeFor, probe }) => {
+  test("phone legend scrolls with usable touch targets and wraps inside Help", async ({ page, fakeFor, probe }) => {
     await open(page, fakeFor, probe);
     const before = await geometry(page);
     await addKeys(page);
@@ -150,5 +164,24 @@ test.describe("touch legend", () => {
     expect(await geometry(page)).toEqual(before);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
     await page.locator(".ol-status").screenshot({ path: "reports/legend-phone.png" });
+    await page.evaluate(() => {
+      for (const id of ["ol-keys-ref", "ol-keys-scale"]) {
+        const group = document.getElementById(id);
+        for (let index = 0; index < 8; index++) {
+          const key = document.createElement("span");
+          key.textContent = `Observed reference ${index + 1}`;
+          group.append(key);
+        }
+      }
+    });
+    await page.locator("#ol-canvas").focus();
+    await page.keyboard.press("Shift+J");
+    await page.locator("#ol-key-guide").click();
+    const copy = page.locator("#ol-reference-colours .ol-status-key-list");
+    await expect(copy).toBeVisible();
+    expect(await copy.evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+    const groups = await copy.locator(".ol-keys-scale").evaluateAll(nodes => nodes.map(node => node.scrollWidth - node.clientWidth));
+    expect(groups.length).toBeGreaterThanOrEqual(2);
+    for (const overflow of groups) expect(overflow).toBeLessThanOrEqual(1);
   });
 });

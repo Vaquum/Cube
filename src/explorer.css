@@ -2002,15 +2002,19 @@
   gap: var(--sp-1) var(--sp-3);
 }
 #origo-lens .ol-status-key-list > span {
-  flex: none;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
+}
+#origo-lens .ol-status .ol-status-key-list > span {
+  flex: none;
 }
 #origo-lens .ol-status-scroll {
   overflow-x: auto;
   scrollbar-width: none;
   overscroll-behavior-x: contain;
+}
+#origo-lens .ol-status-scroll:focus-visible {
   outline-offset: -2px;
 }
 #origo-lens .ol-status-scroll::-webkit-scrollbar {
