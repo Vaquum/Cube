@@ -3067,6 +3067,8 @@
         ? 0
         : key === "ytd"
           ? yearStart(CUT_YEAR)
+          : isDay(key)
+            ? dayStart(key)
           : Math.max(0, CUT - windowOf(key).span);
     S.tB = Math.max(S.tA + 1, CUT + (CUT - S.tA) * 0.105);
   }
@@ -3192,6 +3194,10 @@
       { key: "24h", short: "24h", name: "24 hours", label: "Last 24 hours", span: DAYS, n: 4, m: 0 },
       { key: "7d", short: "7d", name: "7 days", label: "Last 7 days", span: 7 * DAYS, n: 6, m: 0 },
       { key: "30d", short: "30d", name: "30 days", label: "Last 30 days", span: 30 * DAYS, n: 8, m: 1 },
+      { key: "45d", short: "45d", name: "45 days", label: "Last 45 days", span: 45 * DAYS, n: 9, m: 1 },
+      { key: "90d", short: "90d", name: "90 days", label: "Last 90 days", span: 90 * DAYS, n: 10, m: 2 },
+      { key: "180d", short: "180d", name: "180 days", label: "Last 180 days", span: 180 * DAYS, n: 11, m: 3 },
+      { key: "270d", short: "270d", name: "270 days", label: "Last 270 days", span: 270 * DAYS, n: 12, m: 3 },
       { key: "1y", short: "1y", name: "1 year", label: "Last 12 months", span: 365 * DAYS, n: 12, m: 3 },
       { key: "ytd", name: "This year", n: 12, m: 3 },
       { key: "lastyear", name: "Last year", n: 12, m: 3 },
@@ -3199,7 +3205,14 @@
     ],
     // The number keys choose the windows in order, and 0 all history.
     WINDOW_KEYS = ["all", "15m", "30m", "1h", "4h", "12h", "24h", "7d", "30d", "1y"],
-    windowOf = (key) => WINDOWS.find((w) => w.key === key),
+    windowOf = (key) => {
+      if (isDay(key) && dayStart(key) < CUT) {
+        const span = CUT - dayStart(key),
+          level = WINDOWS.find((w) => w.span >= span) ?? WINDOWS.at(-1);
+        return { key, short: `Since ${key}`, name: `Since ${key} (UTC)`, label: `Since ${key} (UTC)`, n: level.n, m: level.m };
+      }
+      return WINDOWS.find((w) => w.key === key);
+    },
     // Views and history stored before these windows name 24 hours and 7 days
     // "1" and "7".
     windowKey = (key) =>
@@ -9146,7 +9159,7 @@
     const parts = [];
     for (const [cap, keys] of [
       ["Minutes and hours", ["15m", "30m", "1h", "4h", "12h", "24h"]],
-      ["Days", ["7d", "30d"]],
+      ["Days", ["7d", "30d", "45d", "90d", "180d", "270d"]],
       ["Years", ["1y", "ytd", "lastyear", "all"]],
     ]) {
       // Each section is a group named by its caption.
@@ -9176,7 +9189,42 @@
         group.append(b);
       }
     }
-    el("window-menu").replaceChildren(...parts);
+    const form = uiEl("form", "ol-lines-add ol-flow-date ol-window-since"),
+      label = uiEl("label", "", "Since (UTC)"), input = uiEl("input"),
+      apply = uiEl("button", "ol-action cursor-interaction", "Apply"),
+      error = uiEl("p", "ol-lines-status");
+    form.noValidate = true;
+    input.type = "date";
+    input.id = "ol-window-since";
+    input.min = "2021-01-01";
+    input.max = date(Math.max(0, CUT - 1e-6)).toISOString().slice(0, 10);
+    input.value = isDay(S.window) ? S.window : "";
+    label.htmlFor = input.id;
+    apply.type = "submit";
+    apply.setAttribute("role", "menuitem");
+    apply.setAttribute("aria-label", "Apply since date");
+    error.id = "ol-window-since-error";
+    error.setAttribute("role", "status");
+    error.hidden = true;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!isDay(input.value) || dayStart(input.value) >= CUT) {
+        error.textContent = `Choose a day from 1 Jan 2021 to ${day(Math.max(0, CUT - 1e-6))}.`;
+        error.hidden = false;
+        input.setAttribute("aria-invalid", "true");
+        input.setAttribute("aria-describedby", error.id);
+        input.focus();
+        return;
+      }
+      chooseWindow(input.value);
+    });
+    input.addEventListener("input", () => {
+      input.removeAttribute("aria-invalid");
+      input.removeAttribute("aria-describedby");
+      error.hidden = true;
+    });
+    form.append(label, input, apply, error);
+    el("window-menu").replaceChildren(...parts, form);
   }
   // A choice's name over what it does, each with an id for the item to name
   // and describe itself by.

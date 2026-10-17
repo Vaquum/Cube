@@ -569,6 +569,14 @@
 #origo-lens .ol-menu[hidden] {
   display: none;
 }
+#origo-lens #ol-window-menu {
+  max-height: 70vh;
+  overflow: auto;
+}
+#origo-lens .ol-window-since {
+  padding: var(--sp-2);
+  border-top: 1px solid var(--ol-line);
+}
 #origo-lens .ol-menu-cap {
   padding: var(--sp-2) var(--sp-2) 2px 28px;
   font-size: var(--fs-s);

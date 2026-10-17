@@ -40,6 +40,22 @@ const base = (patch) => ({
 const withScale = (patch, rest) => base({ scale: { ...base().scale, ...patch }, ...(rest || {}) });
 const HEAD = "#w=24h&vis=2&ap=" + AP;
 
+// Calendar dates and the requested durations are literal address grammar;
+// round trips must retain the fixed start rather than turn it into a rectangle.
+test("long day windows and real Since dates survive addresses and view validation", () => {
+  for (const window of ["45d", "90d", "180d", "270d", "2021-01-01", "2024-02-29", "2026-09-24"]) {
+    const hash = `#w=${window}&vis=2&ap=${AP}`;
+    const parsed = C.parseAddress(hash, ENV);
+    assert.equal(parsed.view.window, window);
+    assert.equal(C.classify(hash).kind, "v2");
+    assert.equal(C.formatAddress(parsed.view, ENV).hash, hash);
+    assert.equal(C.checkView(base({ window }), ENV).window, window);
+  }
+  for (const window of ["2020-12-31", "2025-02-29", "2026-02-30", "2026-13-01", "2026-09-25", "2026-9-01"]) {
+    assert.equal(C.checkView(base({ window }), ENV), null, window);
+  }
+});
+
 // A record the way the spine builds one from the store: the descriptor from E.scale, the context from E.context.
 const cellsCtx = (measure, n, m, extra) => E.context.cellsKey({ measure, basis: "amount", transform: "value", curve: "log", n, m, ...(extra || {}) });
 function record(channel, desc, ctx, extra) {
