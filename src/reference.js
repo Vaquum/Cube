@@ -284,7 +284,7 @@
     let group;
     for (const topic of topics) {
       if (!group || group.label !== topic.group) { group = document.createElement("optgroup"); group.label = topic.group; select.append(group); }
-      const option = node("option", topic.title); option.value = topic.id; group.append(option);
+      const option = node("option", topic.title); option.value = topic.id; option.dataset.help = topic.purpose; group.append(option);
     }
     const ns = "http://www.w3.org/2000/svg", overlay = document.createElementNS(ns, "svg"), shade = document.createElementNS(ns, "path"), frame = document.createElementNS(ns, "rect");
     overlay.id = "ol-reference-spotlight";

@@ -9584,11 +9584,12 @@
     });
   }
 
-  // Labels: a control's name and key, and what it does, a second after the
-  // pointer rests on it, a finger holds it or the keyboard reaches it; once
-  // one has shown, the next shows at once. A hold that shows a label doesn't
+  // Labels: a control's name and key, or a read value's meaning, half a second after the
+  // pointer rests on it, a finger holds it or the keyboard reaches it. A hold doesn't
   // press the control too.
-  const HINT_DELAY = 1000,
+  const Help = window.explorerHelp;
+  if (!Help) throw new Error("explorerHelp is missing");
+  const HINT_DELAY = 500,
     hint = {
       timer: 0,
       leave: 0,
@@ -9597,10 +9598,24 @@
       held: null,
       box: null,
       touch: false,
+      titles: [],
     };
+  // Observe only the currently explained target, never the table or chart subtree.
+  // A live value can change while the pointer remains still; its help must follow it.
+  const hintValueObserver = new MutationObserver(() => {
+    if (hint.target) showHint(hint.target);
+  });
   function hideHint() {
     clearTimeout(hint.timer);
     clearTimeout(hint.leave);
+    hintValueObserver.disconnect();
+    if (hint.target) {
+      const ids = (hint.target.getAttribute("aria-describedby") || "").split(/\s+/).filter(id => id && id !== "ol-help-tooltip");
+      if (ids.length) hint.target.setAttribute("aria-describedby", ids.join(" "));
+      else hint.target.removeAttribute("aria-describedby");
+    }
+    for (const [node, title] of hint.titles) if (!node.hasAttribute("title")) node.setAttribute("title", title);
+    hint.titles.length = 0;
     if (hint.target) hint.hiddenAt = performance.now();
     if (hint.box) hint.box.hidden = true;
     hint.target = null;
@@ -9608,32 +9623,41 @@
   function showHint(target) {
     if (
       !target.isConnected ||
-      target.closest("[hidden]") ||
-      target.getAttribute("aria-expanded") === "true"
+      target.closest("[hidden],[inert],dialog:not([open])") || !target.getClientRects().length
     )
-      return;
+      return hideHint();
+    hintValueObserver.disconnect();
+    if (hint.target && hint.target !== target) hideHint();
+    const savedTitle = hint.titles.find(entry => entry[0] === target) || hint.titles.find(entry => entry[0].contains(target));
+    const info = Help.describe(target, savedTitle?.[1] || "");
     if (!hint.box) {
-      // What the label says is each control's description already, so the
-      // label itself is for the eye only.
       hint.box = document.createElement("div");
       hint.box.className = "ol-hint";
-      hint.box.setAttribute("aria-hidden", "true");
+      hint.box.id = "ol-help-tooltip";
+      hint.box.setAttribute("role", "tooltip");
       root.append(hint.box);
       Flow.watchPanel(hint.box, () => !hint.box.hidden, 3);
     }
+    // Native modal dialogs live above the root's stacking context.
+    const host = target.closest("dialog[open]") || root;
+    if (hint.box.parentElement !== host) host.append(hint.box);
     const box = hint.box,
       head = document.createElement("div"),
       parts = [head],
-      keys = target.dataset.keys,
-      desc = target.dataset.hint;
+      keys = info.keys,
+      desc = info.text;
     head.className = "ol-hint-head";
-    head.append(target.dataset.hintLabel || target.getAttribute("aria-label") || target.textContent.trim());
+    head.append(info.label);
     if (keys) head.append(keyCap(keys));
     if (desc) {
       const line = document.createElement("div");
       line.className = "ol-hint-desc";
       line.textContent = desc;
       parts.push(line);
+    }
+    const exact = target.getAttribute("title");
+    if (info.read && exact && exact !== desc && exact.length < 180) {
+      const value = document.createElement("div"); value.className = "ol-hint-desc ol-num"; value.textContent = exact; parts.push(value);
     }
     box.replaceChildren(...parts);
     box.hidden = false;
@@ -9645,14 +9669,24 @@
     box.style.left = clamp(r.left + r.width / 2 - w / 2, 4, innerWidth - w - 4) + "px";
     box.style.top = (below + h > innerHeight - 4 ? r.top - 6 - h : below) + "px";
     hint.target = target;
+    const described = (target.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+    if (!described.includes("ol-help-tooltip")) target.setAttribute("aria-describedby", [...described, "ol-help-tooltip"].join(" "));
+    // Suppress the browser's competing title only while this target is explained.
+    for (let node = target; node && node !== root; node = node.parentElement) {
+      if (node.hasAttribute("title")) {
+        const held = hint.titles.find(entry => entry[0] === node);
+        if (held) held[1] = node.getAttribute("title");
+        else hint.titles.push([node, node.getAttribute("title")]);
+        node.removeAttribute("title");
+      }
+    }
+    hintValueObserver.observe(target, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["title", "data-canonical", "data-hint", "aria-disabled", "disabled"] });
   }
   function armHint(target) {
     clearTimeout(hint.timer);
     clearTimeout(hint.leave);
-    // A button whose list or popover is open needs no label over it.
-    if (target.getAttribute("aria-expanded") === "true") return;
-    if (hint.target || performance.now() - hint.hiddenAt < 600) showHint(target);
-    else hint.timer = setTimeout(() => showHint(target), HINT_DELAY);
+    if (hint.target && hint.target !== target) hideHint();
+    hint.timer = setTimeout(() => showHint(target), HINT_DELAY);
   }
   // What a label says under a control's name, and its key when it doesn't
   // state one itself, is also the control's description for assistive
@@ -9662,13 +9696,14 @@
   function describe(node) {
     const keys = node.hasAttribute("aria-keyshortcuts") ? "" : node.dataset.keys,
       text = [node.dataset.hint, keys && `Key: ${keys}`].filter(Boolean).join(". ");
-    let span = document.getElementById(node.getAttribute("aria-describedby") || "");
+    const ids = (node.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+    let span = ids.map(id => document.getElementById(id)).find(value => value?.parentElement === descs);
     if (!span) {
       if (!text) return;
       span = document.createElement("span");
       span.id = `ol-desc-${++descCount}`;
       descs.append(span);
-      node.setAttribute("aria-describedby", span.id);
+      node.setAttribute("aria-describedby", [...ids, span.id].join(" "));
     }
     if (span.textContent !== text) span.textContent = text;
   }
@@ -9683,7 +9718,7 @@
       attributes: true,
       attributeFilter: ["data-hint", "data-keys", "aria-keyshortcuts"],
     });
-    const hinted = (node) => (node instanceof Element ? node.closest("[data-hint]") : null);
+    const hinted = (node) => Help.target(node, root);
     root.addEventListener("pointerover", (e) => {
       const t = hinted(e.target);
       if (e.pointerType !== "touch" && t && t !== hint.target && !t.contains(e.relatedTarget))
@@ -9698,7 +9733,7 @@
     };
     root.addEventListener("pointerout", (e) => {
       if (e.pointerType === "touch") return;
-      const t = hinted(e.target),
+      const t = hint.target?.contains(e.target) ? hint.target : hinted(e.target),
         onBox = hint.box?.contains(e.target);
       if (t && !t.contains(e.relatedTarget) && !hint.box?.contains(e.relatedTarget))
         // A label not shown yet is simply called off.
@@ -9770,6 +9805,7 @@
       },
       true,
     );
+    Help.choices({ root, beforeOpen: select => { if (!pop.open?.panel.contains(select)) closePop(); }, hide: hideHint }).bind();
   }
   function bindTopBar() {
     bindHints();
