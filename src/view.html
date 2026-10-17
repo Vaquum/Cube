@@ -1650,6 +1650,8 @@
       </div>
       <footer class="ol-status">
         <div class="ol-status-keys" aria-label="Key">
+          <div id="ol-status-scroll" class="ol-status-scroll" role="region" aria-label="Chart legend" tabindex="0">
+            <div id="ol-status-key-list" class="ol-status-key-list">
           <span id="ol-key-zero"
             ><i class="ol-data-key ol-glyph" data-stroke-role="empty" aria-hidden="true"></i>Zero trades</span
           ><span id="ol-key-open"
@@ -1698,10 +1700,20 @@
             ><i class="ol-data-key ol-glyph" data-stroke-role="untested" aria-hidden="true"></i
             ><span id="ol-ray-count-text"></span></span
           ><span id="ol-keys-ref" class="ol-keys-scale ol-keys-ref" aria-label="References"></span>
+            </div>
+          </div>
         </div>
         <span class="ol-gesture" id="ol-gesture"
           >Drag to pan · wheel to zoom · Replay/Continuations/Cases: click anchors</span
         >
+        <div class="ol-status-nav" role="group" aria-label="Scroll chart legend">
+          <button type="button" id="ol-status-prev" class="ol-s cursor-interaction" aria-label="Scroll legend left" aria-controls="ol-status-scroll" disabled>
+            <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m10 4-4 4 4 4" /></svg>
+          </button>
+          <button type="button" id="ol-status-next" class="ol-s cursor-interaction" aria-label="Scroll legend right" aria-controls="ol-status-scroll" disabled>
+            <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4" /></svg>
+          </button>
+        </div>
         <div class="ol-status-meta ol-num">
           <span id="ol-pixel-state"></span><span id="ol-scope"
             >Real Binance trades · recorded snapshot</span

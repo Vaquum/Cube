@@ -1990,15 +1990,70 @@
   }
 }
 #origo-lens .ol-status-keys {
-  flex: none;
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+#origo-lens .ol-status-key-list {
   display: flex;
   align-items: center;
+  width: max-content;
   gap: var(--sp-1) var(--sp-3);
 }
-#origo-lens .ol-status-keys > span {
+#origo-lens .ol-status-key-list > span {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
+}
+#origo-lens .ol-status .ol-status-key-list > span {
+  flex: none;
+}
+#origo-lens .ol-status-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+#origo-lens .ol-status-scroll:focus-visible {
+  outline-offset: -2px;
+}
+#origo-lens .ol-status-scroll::-webkit-scrollbar {
+  display: none;
+}
+/* Fades sit outside the scrolling actor, so their spring survives scroll updates. */
+#origo-lens .ol-status > .ol-status-keys::before,
+#origo-lens .ol-status > .ol-status-keys::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  width: var(--sp-6);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--flow-settle) var(--flow-spring);
+}
+#origo-lens .ol-status-keys::before {
+  left: 0;
+  background: linear-gradient(to right, var(--ol-bg), transparent);
+}
+#origo-lens .ol-status-keys::after {
+  right: 0;
+  background: linear-gradient(to left, var(--ol-bg), transparent);
+}
+#origo-lens .ol-status-keys[data-overflow-start]::before,
+#origo-lens .ol-status-keys[data-overflow-end]::after {
+  opacity: 1;
+}
+#origo-lens .ol-status-nav {
+  flex: none;
+  display: flex;
+  gap: var(--sp-1);
+  margin-left: auto;
+}
+#origo-lens .ol-status-nav button {
+  width: var(--h-s);
+  padding: 0;
+  transition: opacity var(--flow-feedback) var(--flow-feedback-ease), background-color var(--flow-feedback) var(--flow-feedback-ease), color var(--flow-feedback) var(--flow-feedback-ease);
 }
 #origo-lens .ol-gesture {
   flex: 1 1 auto;
@@ -2010,20 +2065,6 @@
    not on it: the LIVE pill names the data's reach and the resolution plane the cell size. */
 #origo-lens .ol-status-meta {
   display: none;
-}
-/* With many line families on, the keys scroll instead of being cut off at the edge. */
-#origo-lens .ol-status-keys {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-/* Above phone width the footer stays one line: each key keeps its width, so a long row scrolls rather than
-   wrapping onto a second line that shrinks the chart when keys come and go. */
-@media (min-width: 761px) {
-  #origo-lens .ol-status-keys > * {
-    flex: none;
-  }
 }
 #origo-lens .ol-data-key {
   display: inline-block;
@@ -2573,8 +2614,6 @@
     height: auto;
     max-height: 70vh;
   }
-  #origo-lens .ol-status,
-  #origo-lens .ol-status-keys,
   #origo-lens .ol-status-meta {
     flex-wrap: wrap;
     white-space: normal;
@@ -2589,6 +2628,9 @@
   }
 }
 @media (pointer: coarse) {
+  #origo-lens .ol-status-nav button {
+    min-width: 44px;
+  }
   #origo-lens .ol-inspect button,
   #origo-lens .ol-inspect select {
     min-height: 44px;
