@@ -30,7 +30,7 @@ test("the read value itself explains its quantity at 500 ms and preserves existi
   await value.dispatchEvent("pointerout", { pointerType: "mouse" });
   await page.clock.runFor(150);
   await expect(bubble(page)).toBeHidden();
-  expect(await value.getAttribute("aria-describedby")).not.toContain("ol-help-tooltip");
+  expect((await value.getAttribute("aria-describedby")) || "").not.toContain("ol-help-tooltip");
 });
 test("leaving before the delay cancels work, and an icon receives its button's explanation", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
