@@ -53,6 +53,8 @@ jobs:
             const fs = require('fs');
             const sha = context.sha;
             if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid deployment commit');
+            const { data: revision } = await github.rest.repos.getCommit({ ...context.repo, ref: sha });
+            const committedAt = new Date(revision.commit.committer.date).toISOString();
             const pulls = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
               ...context.repo, commit_sha: sha,
             });
@@ -61,7 +63,7 @@ jobs:
             if (!pull) throw new Error(`No merged pull request identifies deployment ${sha}`);
             const pr = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${pull.number}`;
             let html = fs.readFileSync('index.html', 'utf8');
-            for (const [name, value] of [['explorer-commit', sha], ['explorer-pr', pr]]) {
+            for (const [name, value] of [['explorer-commit', sha], ['explorer-committed-at', committedAt], ['explorer-pr', pr]]) {
               const marker = `<meta name="${name}" content="">`;
               if (html.split(marker).length !== 2) throw new Error(`Missing or duplicate ${name} metadata`);
               html = html.replace(marker, `<meta name="${name}" content="${value}">`);

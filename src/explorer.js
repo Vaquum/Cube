@@ -22212,6 +22212,7 @@
   function renderLive() {
     const through = new Date(PACK.cutoff).toISOString();
     el("data-through").textContent = `Data through ${through.replace("T", " ").replace(/(?:\.000)?Z$/, " UTC")}`;
+    el("data-through").title = `${el("data-through").textContent}; latest available source data, independent of the selected window and replay`;
     if (activeAnalysis?.mode === "captured") {
       el("market").textContent = "CAPTURED";
       el("fresh").hidden = false;
@@ -23953,11 +23954,15 @@
   guiAuditInit();
   try {
     const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
+      committedAt = new Date(document.querySelector('meta[name="explorer-committed-at"]')?.content ?? ""),
       pr = document.querySelector('meta[name="explorer-pr"]')?.content ?? "";
     if (/^[a-f0-9]{40}$/.test(commit) && /^https:\/\/github\.com\/Vaquum\/Market-State-Cube-Explorer\/pull\/[1-9]\d*$/.test(pr)) {
-      el("version").textContent = `Cube ${commit.slice(0, 7)}`;
+      const date = Number.isFinite(committedAt.getTime()) ? new Intl.DateTimeFormat("en-GB", {
+        day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC",
+      }).format(committedAt) + " UTC" : "";
+      el("version").textContent = `Cube ${commit.slice(0, 7)}${date ? ` · ${date}` : ""}`;
       el("version").href = pr;
-      el("version").title = `Running explorer commit ${commit} · open its pull request`;
+      el("version").title = `Running explorer commit ${commit}${date ? ` · ${date}` : ""} · open its pull request`;
       el("version").hidden = false;
       el("version-unknown").hidden = true;
     }
