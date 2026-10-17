@@ -70,6 +70,17 @@ test("phone menu scrolls to Since and its date field keeps native keyboard navig
   await page.locator("#ol-window").focus();
   await page.keyboard.press("ArrowUp");
   await expect(page.getByRole("menuitem", { name: "Apply since date" })).toBeFocused();
+  const initial = await page.evaluate(() => location.hash);
+  await page.keyboard.press("ArrowUp");
+  await expect(page.locator('#ol-window-menu [data-window="all"]')).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(page.getByRole("menuitem", { name: "Apply since date" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator('#ol-window-menu [data-window="15m"]')).toBeFocused();
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowRight");
+  expect(await page.evaluate(() => location.hash)).toBe(initial);
   await page.keyboard.press("Shift+Tab");
   const input = page.getByLabel("Since (UTC)", { exact: true });
   await expect(input).toBeFocused();

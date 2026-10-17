@@ -7556,8 +7556,12 @@
       focusMenuItem(menu, e.key === "ArrowUp" ? -1 : checkedItem(menu));
     });
     menu.addEventListener("keydown", (e) => {
-      // The custom period's native date field and form keep their editing and Tab keys.
-      if (e.key !== "Escape" && e.target.closest("form")) return;
+      // Forms keep native editing and Tab keys; their menu actions keep menu
+      // navigation. No form key may also reach the chart's shortcuts.
+      if (e.target.closest("form")) {
+        e.stopPropagation();
+        if (e.key !== "Escape" && (!e.target.matches('[role^="menuitem"]') || e.key === "Tab")) return;
+      }
       const i = menuItems(menu).indexOf(document.activeElement);
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
