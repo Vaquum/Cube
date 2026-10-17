@@ -9628,7 +9628,8 @@
       return hideHint();
     hintValueObserver.disconnect();
     if (hint.target && hint.target !== target) hideHint();
-    const info = Help.describe(target);
+    const savedTitle = hint.titles.find(entry => entry[0] === target) || hint.titles.find(entry => entry[0].contains(target));
+    const info = Help.describe(target, savedTitle?.[1] || "");
     if (!hint.box) {
       hint.box = document.createElement("div");
       hint.box.className = "ol-hint";
@@ -9732,7 +9733,7 @@
     };
     root.addEventListener("pointerout", (e) => {
       if (e.pointerType === "touch") return;
-      const t = hinted(e.target),
+      const t = hint.target?.contains(e.target) ? hint.target : hinted(e.target),
         onBox = hint.box?.contains(e.target);
       if (t && !t.contains(e.relatedTarget) && !hint.box?.contains(e.relatedTarget))
         // A label not shown yet is simply called off.

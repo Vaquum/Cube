@@ -206,16 +206,16 @@
   }
   function meaning(label, key = "") {
     const field = normalize(key), title = normalize(label);
-    if (glossary.has(field)) return glossary.get(field);
     if (glossary.has(title)) return glossary.get(title);
+    if (glossary.has(field)) return glossary.get(field);
     if (/^diff (up|flat|down)$/.test(field)) return "Matching-case outcome share minus the seasonally eligible baseline, in percentage points.";
     for (const [term, text] of glossary) if (term.length > 5 && (` ${title} `).includes(` ${term} `)) return text;
     return "";
   }
-  function describe(node) {
+  function describe(node, savedTitle = "") {
     const label = name(node), id = node.id.replace(/^ol-/, ""), read = isValue(node), data = node.dataset;
     const described = clean((node.getAttribute('aria-describedby') || "").split(/\s+/).filter(key => key && key !== 'ol-help-tooltip').map(key => node.ownerDocument.getElementById(key)?.textContent || "").join(" ")).replace(/(?:^|\. )Key:.*$/, "");
-    const legacy = clean(node.getAttribute('title') || node.closest('[title]')?.getAttribute('title'));
+    const legacy = clean(node.getAttribute('title') || savedTitle || node.closest('[title]')?.getAttribute('title'));
     let text = clean(data.help || (!read && data.hint) || fields[id]);
     if (!text && read) {
       const key = data.field || node.closest('[data-metric]')?.dataset.metric || id;
@@ -277,7 +277,7 @@
         panel.setAttribute('role', 'listbox'); panel.dataset.temporary = 'popover'; root.append(panel);
       }
       panel.setAttribute('aria-label', name(select));
-      panel.replaceChildren(...Array.from(select.options, (option, index) => {
+      panel.replaceChildren(...Array.from(select.options).filter(option => !option.hidden && !option.closest('optgroup')?.hidden).map(option => {
         const button = root.ownerDocument.createElement('button'); button.type = 'button'; button.className = 'ol-item cursor-interaction'; button.setAttribute('role', 'option');
         button.setAttribute('aria-selected', String(option.selected)); button.disabled = option.disabled || Boolean(option.closest('optgroup')?.disabled); button.tabIndex = -1;
         button.textContent = option.label; button.dataset.helpLabel = option.label;
@@ -288,7 +288,7 @@
           bps: "Express the price move in basis points of its frozen reference price; 100 basis points is 1%.",
           atr: "Express the move in multiples of native ATR14-SMA on UTC 15-minute bars, frozen at the anchor or trough.",
         };
-        button.dataset.help = option.dataset.help || (select.id.startsWith('ol-rally-') && rallyChoices[option.value]) || `${describe(select).text} Choice: ${option.label}.`; button.dataset.helpChoice = String(index);
+        button.dataset.help = option.dataset.help || (select.id.startsWith('ol-rally-') && rallyChoices[option.value]) || `${describe(select).text} Choice: ${option.label}.`; button.dataset.helpChoice = option.value;
         return button;
       }));
       select.setAttribute('aria-expanded', 'true'); select.setAttribute('aria-controls', panel.id);
@@ -309,7 +309,11 @@
         const select = event.target.closest?.('select'), choice = event.target.closest?.('[data-help-choice]');
         if (select && !select.disabled && !select.multiple && select.size <= 1) { event.preventDefault(); open(select); }
         else if (choice && source && !choice.disabled) {
-          const owner = source, option = owner.options[Number(choice.dataset.helpChoice)];
+          const owner = source, option = Array.from(owner.options).find(item => item.value === choice.dataset.helpChoice);
+          // Read lists can be replaced while open. Match the displayed identity,
+          // never an old index, and refuse vanished or newly unavailable choices.
+          event.stopPropagation();
+          if (!owner.isConnected || owner.disabled || !option || option.disabled || option.hidden || option.closest('optgroup')?.disabled || option.closest('optgroup')?.hidden) return close(true);
           const changed = owner.selectedIndex !== option.index; owner.selectedIndex = option.index; close(true);
           if (changed) { owner.dispatchEvent(new Event('input', { bubbles: true })); owner.dispatchEvent(new Event('change', { bubbles: true })); }
         }

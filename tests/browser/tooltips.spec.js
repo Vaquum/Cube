@@ -10,9 +10,12 @@ async function open(page, fakeFor, probe, profile = "mini") {
   await probe.waitForReady();
   if (await page.locator("#ol-side-toggle").getAttribute("aria-expanded") === "false") await page.locator("#ol-side-toggle").click();
   await page.locator("#ol-context-tab").click();
-  await expect(page.locator("#ol-vol")).toBeVisible();
+  await expect(page.locator(VOLUME)).toBeVisible();
+  await probe.waitForReady();
   return fake;
 }
+const VOLUME = '#ol-selection-card .ol-cell-stat[data-measure="volume"] dd';
+const TRADES = '#ol-selection-card .ol-cell-stat[data-measure="trades"] dd';
 const bubble = page => page.locator("#ol-help-tooltip");
 async function frozen(page) {
   const now = new Date("2026-10-17T12:00:00Z");
@@ -22,7 +25,7 @@ async function frozen(page) {
 test("the read value itself explains its quantity at 500 ms and preserves existing descriptions", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
   await frozen(page);
-  const value = page.locator("#ol-vol");
+  const value = page.locator(VOLUME);
   await value.dispatchEvent("pointerover", { pointerType: "mouse" });
   await page.clock.runFor(499);
   await expect(bubble(page)).not.toBeVisible();
@@ -38,9 +41,9 @@ test("the read value itself explains its quantity at 500 ms and preserves existi
 test("leaving before the delay cancels work, and an icon receives its button's explanation", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
   await frozen(page);
-  await page.locator("#ol-vol").dispatchEvent("pointerover", { pointerType: "mouse" });
+  await page.locator(VOLUME).dispatchEvent("pointerover", { pointerType: "mouse" });
   await page.clock.runFor(250);
-  await page.locator("#ol-vol").dispatchEvent("pointerout", { pointerType: "mouse" });
+  await page.locator(VOLUME).dispatchEvent("pointerout", { pointerType: "mouse" });
   await page.clock.runFor(500);
   await expect(bubble(page)).not.toBeVisible();
   await page.locator("#ol-lines svg").first().dispatchEvent("pointerover", { pointerType: "mouse" });
@@ -50,10 +53,10 @@ test("leaving before the delay cancels work, and an icon receives its button's e
 test("moving from an explained value to another value still waits 500 ms", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
   await frozen(page);
-  await page.locator("#ol-vol").dispatchEvent("pointerover", { pointerType: "mouse" });
+  await page.locator(VOLUME).dispatchEvent("pointerover", { pointerType: "mouse" });
   await page.clock.runFor(500);
   await expect(bubble(page)).toContainText("Total USDT");
-  await page.locator("#ol-count").dispatchEvent("pointerover", { pointerType: "mouse" });
+  await page.locator(TRADES).dispatchEvent("pointerover", { pointerType: "mouse" });
   await expect(bubble(page)).toBeHidden();
   await page.clock.runFor(499);
   await expect(bubble(page)).toBeHidden();
@@ -104,15 +107,58 @@ test("modal fields show their explanation above the native dialog", async ({ pag
   expect(rect.x).toBeGreaterThanOrEqual(0);
   expect(rect.y).toBeGreaterThanOrEqual(0);
 });
+test("dropdown activation uses option identity after asynchronous replacement and ignores vanished choices", async ({ page, fakeFor, probe }) => {
+  await open(page, fakeFor, probe);
+  await page.locator("#ol-tab-rallies").click();
+  const select = page.locator("#ol-rally-mode"), list = page.locator("#ol-help-choices");
+  await select.click();
+  await select.evaluate(node => {
+    const current = node.value; node.replaceChildren(...Array.from(node.options).reverse()); node.value = current;
+  });
+  await list.getByRole("option", { name: "Controlled advance", exact: true }).click();
+  await expect(select).toHaveValue("controlled_advance");
+  await select.click();
+  await select.evaluate(node => node.querySelector('[value="swing"]').remove());
+  const before = await select.inputValue();
+  await list.getByRole("option", { name: "Swing", exact: true }).click();
+  await expect(select).toHaveValue(before);
+  await expect(list).toBeHidden();
+});
+test("filtered reference choices stay above their pane and use viewport positioning", async ({ page, fakeFor, probe }) => {
+  await open(page, fakeFor, probe);
+  await page.locator("#ol-reference-toggle").click();
+  await page.locator("#ol-reference-search").fill("Grid precision");
+  await page.locator("#ol-reference-topic").click();
+  const list = page.locator("#ol-help-choices");
+  await expect(list.getByRole("option")).toHaveCount(1);
+  await expect(list.getByRole("option")).toHaveText("Grid precision");
+  expect(await list.evaluate(node => getComputedStyle(node).position)).toBe("fixed");
+  expect(await list.getByRole("option").evaluate(node => { const r = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+});
+test("title-only help hides on leave and value labels take precedence over broad metric keys", async ({ page, fakeFor, probe }) => {
+  await open(page, fakeFor, probe);
+  await page.locator("#ol-lines").click();
+  const label = page.locator('#ol-poc').locator('..');
+  await label.hover();
+  await expect(bubble(page)).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(bubble(page)).toBeHidden();
+  const meanings = await page.evaluate(() => ({
+    distance: window.explorerHelp.meaning("POC distance", "poc"),
+    path: window.explorerHelp.meaning("Path / price span", "path"),
+  }));
+  expect(meanings.distance).toContain("Signed price distance");
+  expect(meanings.path).toContain("divided by the price-row width");
+});
 test("changing a hovered value refreshes its help without polling or stale title restoration", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
-  await page.locator("#ol-vol").hover();
+  await page.locator(VOLUME).hover();
   await expect(bubble(page)).toContainText("Total USDT");
-  await page.locator("#ol-vol").evaluate(node => { node.textContent = "2.5K"; node.title = "2,500 USDT"; });
+  await page.locator(VOLUME).evaluate(node => { node.textContent = "2.5K"; node.title = "2,500 USDT"; });
   await expect(bubble(page)).toContainText("2,500 USDT");
   await page.mouse.move(0, 0);
   await expect(bubble(page)).toBeHidden();
-  await expect(page.locator("#ol-vol")).toHaveAttribute("title", "2,500 USDT");
+  await expect(page.locator(VOLUME)).toHaveAttribute("title", "2,500 USDT");
 });
 test("thousands of dynamic values need no registration, one hover timer and no extra requests", async ({ page, fakeFor, probe }) => {
   const fake = await open(page, fakeFor, probe);
