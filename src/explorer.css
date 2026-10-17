@@ -871,6 +871,20 @@
   margin-top: 2px;
   opacity: 0.8;
 }
+#origo-lens .ol-hint { z-index: 100; pointer-events: auto; }
+#origo-lens .ol-help-choices {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  max-height: min(360px, 65dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-1);
+}
+#origo-lens .ol-help-choices[hidden] { display: none; }
+#origo-lens .ol-help-choices > button { flex-shrink: 0; width: 100%; text-align: left; }
+#origo-lens .ol-help-choices > [aria-selected="true"] { background: var(--ol-hover); font-weight: 600; }
 
 /* Popovers: anchored under their button, above the workspace. */
 #origo-lens .ol-pop {
