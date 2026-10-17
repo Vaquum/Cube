@@ -1,20 +1,6 @@
 "use strict";
 const {test,expect}=require("./fixtures.js");
 
-test("the first chart frame is visible while startup controls enter",async({freshContext,fakeFor})=>{
- const fake=await fakeFor("mini"),context=await freshContext({probe:false}),page=await context.newPage();
- await page.addInitScript(()=>{
-  const native=requestAnimationFrame;
-  const width=Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,"width");let painted=false;
-  Object.defineProperty(HTMLCanvasElement.prototype,"width",{...width,set(value){if(this.id==="ol-canvas")painted=true;width.set.call(this,value);}});
-  window.requestAnimationFrame=callback=>native(time=>{painted=false;try{return callback(time);}finally{
-   if(painted&&window.__firstChartOpacity===undefined)window.__firstChartOpacity=Number(getComputedStyle(document.querySelector("#ol-main")).opacity);
-  }});
- });
- await page.goto(fake.url+"/#w=24h");await page.waitForFunction(()=>window.cubeAgent&&!window.explorerMotion.motionActive()&&document.querySelector("#ol-loading").hidden);
- expect(await page.evaluate(()=>window.__firstChartOpacity)).toBe(1);
-});
-
 test("a spring keeps wall-clock duration on 100 ms frames",async({freshContext,fakeFor})=>{
  const fake=await fakeFor("mini"),context=await freshContext({probe:false}),page=await context.newPage();
  await page.addInitScript(()=>{

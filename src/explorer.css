@@ -1171,6 +1171,22 @@
   background: var(--ol-panel);
   border-bottom: 1px solid var(--ol-line);
 }
+/* A reserved status row keeps errors readable without covering market marks or
+   controls. Long messages scroll within the row, including in expanded Compare. */
+#origo-lens #ol-loading {
+  flex: 0 0 var(--h-l);
+  height: var(--h-l);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+#origo-lens #ol-loading[hidden] {
+  display: block !important;
+  visibility: hidden;
+}
+/* Set before the first paint, then handed to the shared entrance spring. */
+#origo-lens [data-startup] {
+  opacity: 0;
+}
 #origo-lens .ol-update {
   display: flex;
   align-items: center;

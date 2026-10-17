@@ -6,6 +6,12 @@ position and velocity on reversal; completion belongs to the latest request.
 Control feedback is 100 ms ease-out. Ordinary arrival travels 20 px and local
 information 8 px. There are no repeating decorative animations.
 
+Startup status has a reserved, scrollable row outside the plot, retained when
+empty and in expanded Compare. Controls start transparent
+before the first paint; the chart enters in place through the same spring after
+its first calibrated or terminal frame. Calibration timing and market values
+remain direct, including on refresh. Reduced motion presents the frame immediately.
+
 Panel width and drawer height follow the shared spring while canvas coordinates
 remain native to each presented size. Resize grips take over from presented
 geometry. Popovers and the phone sheet retain inert departing content; logical

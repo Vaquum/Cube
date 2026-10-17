@@ -18,6 +18,8 @@
   let activeAnalysis = null, analysisOrigin = null, analysisHash = null, analysisPrevious = null, analysisRevision = 0;
   if (!E) {
     el("loading").textContent = "The explorer's measurement module did not load. Reload the page.";
+    revealStartup(el("controls"));
+    revealStartup(el("canvas"));
     throw new Error("explorerEncoding is missing");
   }
   const BASE = PACK.base_seconds,
@@ -2600,6 +2602,21 @@
     } catch (error) {
       scaleFault(error);
     }
+    revealStartupChart();
+  }
+  function revealStartupChart() {
+    if (!canvas.hasAttribute("data-startup") || loadingLine.startup) return;
+    // Reveal the actual fitted frame, or the terminal state with its visible
+    // error. No extra clock and no interpolation of quantitative values.
+    const failed = activeFailures().length || cube.stale || scaleRt.fault || scaleRt.cur.cells?.failed;
+    if (!failed && (viewReadPending() || scaleAsked("cells") ||
+      S.mode === "candles" && candleRange(renderN(), S.tA, S.tB).state === "pending")) return;
+    revealStartup(canvas);
+  }
+  function revealStartup(element) {
+    if (!element.hasAttribute("data-startup")) return;
+    Flow.reveal(element, { distance: 0 });
+    delete element.dataset.startup;
   }
   // The crosshair's readouts where the pointer is on either pane, each rounded
   // to what a pixel can tell apart, with the box its chip takes.
@@ -23989,8 +24006,8 @@
     for (const label of qsa(".ol-rally-form > label")) Flow.watchPanel(label, () => !label.hidden, 3);
     for (const panel of qsa(".ol-panel, #ol-context, #ol-evidence, #ol-inspect, #ol-replaybar, #ol-lensbar, #ol-drawing-toolbar, #ol-notice, #ol-rally-inspector, .ol-comparison-panes, .ol-comparison-collection")) Flow.watchPanel(panel, () => !panel.hidden);
     Flow.onMotionFrame(() => referenceGuide?.refresh(true));
-    // The first data paint stays visible while the controls enter.
-    Flow.reveal(el("controls"), { distance: 0 });
+    // Controls can enter while the first chart frame prepares its calibration.
+    revealStartup(el("controls"));
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();
     scaleArm();
@@ -24043,6 +24060,7 @@
     // Startup is over: its caption goes. What stays on the line is decided by the failures that still matter, not by this loop.
     loadingLine.startup = "";
     renderLoading();
+    requestDraw(true);
     agentInit();
     if (initialAnalysisHash) {
       try { await agentImport(await agentRead(location.origin + location.pathname + initialAnalysisHash), initialAnalysisHash); }
@@ -24050,7 +24068,10 @@
     }
     startLive();
   } catch (error) {
+    loadingLine.startup = "";
     loadingLine.fatal = (PACK.live ? "Cube data unavailable: " : "Recorded data unavailable: ") + error.message;
     renderLoading();
+    revealStartup(el("controls"));
+    revealStartup(canvas);
   }
 })();
