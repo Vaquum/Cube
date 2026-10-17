@@ -23,6 +23,7 @@ function recordStartup() {
     if (canvas && controls) {
       const box = canvas.getBoundingClientRect();
       window.startupFrames.push({ geometry: [box.x, box.y, box.width, box.height], painted: Boolean(canvas.dataset.layout),
+        statusHeight: document.getElementById("ol-loading").offsetHeight,
         opacity: Number(getComputedStyle(canvas).opacity), controls: Number(getComputedStyle(controls).opacity),
         state: document.getElementById("ol-legend")?.dataset.state });
     }
@@ -50,7 +51,12 @@ for (const profile of ["recorded", "mini"]) for (const phone of [false, true]) {
       });
       const painted = frames.filter(frame => frame.painted);
       expect(painted.length).toBeGreaterThan(0);
-      expect(new Set(painted.map(frame => JSON.stringify(frame.geometry))).size, "status removal must not move or resize painted data").toBe(1);
+      const normalized = painted.map(frame => {
+        const [x, y, width, height] = frame.geometry;
+        return [x, y - frame.statusHeight, width, height + (phone ? 0 : frame.statusHeight)];
+      });
+      expect(new Set(normalized.map(geometry => JSON.stringify(geometry))).size, "only the active status row may consume chart space").toBe(1);
+      expect(painted.at(-1).statusHeight, "idle startup must leave no empty row").toBe(0);
       const visible = painted.filter(frame => frame.opacity > 0);
       expect(visible.length).toBeGreaterThan(0);
       expect(visible.every(frame => frame.state === "ready"), "uncalibrated outlines must not flash before color").toBe(true);
@@ -62,12 +68,21 @@ for (const profile of ["recorded", "mini"]) for (const phone of [false, true]) {
       }
       expect(painted.at(-1).opacity).toBe(1);
       if (reload) await page.screenshot({ path: testInfo.outputPath("startup-settled.png") });
-      // A multiline status must also preserve geometry after startup.
-      const before = await page.locator("#ol-canvas").boundingBox();
-      await page.locator("#ol-loading").evaluate(node => { node.textContent = "Unavailable data. ".repeat(30); node.hidden = false; });
-      expect(await page.locator("#ol-canvas").boundingBox()).toEqual(before);
-      const status = await page.locator("#ol-loading").boundingBox();
-      expect(status.y + status.height, "status must not cover market marks or floating controls").toBeLessThanOrEqual(before.y);
+      // Measure a long status in one layout transaction, before the application's
+      // state-derived status renderer handles the next resize observation.
+      const layout = await page.locator("#ol-loading").evaluate(node => {
+        const canvas = document.getElementById("ol-canvas"), before = canvas.getBoundingClientRect().toJSON(), text = node.textContent;
+        node.textContent = "Unavailable data. ".repeat(30); node.hidden = false;
+        const status = node.getBoundingClientRect().toJSON(), shown = canvas.getBoundingClientRect().toJSON();
+        node.hidden = true; node.textContent = text;
+        return { before, status, shown, after: canvas.getBoundingClientRect().toJSON(), idleHeight: node.offsetHeight };
+      });
+      expect(layout.status.height).toBe(32);
+      expect(layout.shown.y).toBe(layout.before.y + layout.status.height);
+      expect(layout.shown.height).toBe(layout.before.height - (phone ? 0 : layout.status.height));
+      expect(layout.status.bottom, "status must not cover market marks or floating controls").toBeLessThanOrEqual(layout.shown.y);
+      expect(layout.after).toEqual(layout.before);
+      expect(layout.idleHeight).toBe(0);
     }
   });
 }
@@ -124,21 +139,28 @@ test("status stays visible outside the plot when Compare expands", async ({ page
   expect(await page.locator("#ol-loading").evaluate(node => Boolean(node.closest("[inert]")))).toBe(false);
 });
 
-test("status visibility and wrapped errors do not reclamp a maximized drawer", async ({ page, fakeFor }) => {
-  const fake = await fakeFor("recorded");
+test("clearing a real status reclaims space with a maximized drawer", async ({ page, fakeFor, allowConsole }) => {
+  const fake = await fakeFor("standard");
+  fake.on({ route: "/cube/tile", when: query => Number(query.n) === 11 }).fail({ status: 503 });
+  allowConsole(/Failed to load resource/);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(fake.url + "/#w=24h");
+  await page.goto(fake.url + "/#t=2026-05-28T00:00Z~2026-09-24T00:00Z&p=22000~27000&vis=2");
+  await expect(page.locator("#ol-loading")).toContainText("unavailable");
   await expect(page.locator("#ol-canvas")).toHaveCSS("opacity", "1");
   await page.locator("#ol-tab-cells").click();
   const grip = page.locator("#ol-drawer-grip");
   for (let step = 0; step < 30; step++) await grip.press("ArrowUp");
   const before = await page.locator("#ol-canvas").boundingBox();
-  await page.locator("#ol-loading").evaluate(node => { node.textContent = "Unavailable data. ".repeat(30); node.hidden = false; });
-  await grip.press("ArrowUp");
-  expect(await page.locator("#ol-canvas").boundingBox()).toEqual(before);
-  await page.locator("#ol-loading").evaluate(node => { node.hidden = true; });
-  await grip.press("ArrowUp");
-  expect(await page.locator("#ol-canvas").boundingBox()).toEqual(before);
+  const statusHeight = await page.locator("#ol-loading").evaluate(node => node.offsetHeight);
+  await page.locator("#ol-window").click();
+  await page.locator('#ol-window-menu [data-window="24h"]').click();
+  await expect(page.locator("#ol-loading")).toBeHidden();
+  expect(await page.locator("#ol-loading").evaluate(node => node.offsetHeight)).toBe(0);
+  await expect.poll(async () => (await page.locator("#ol-canvas").boundingBox()).y).toBe(before.y - statusHeight);
+  for (let step = 0; step < 3; step++) await grip.press("ArrowUp");
+  await expect.poll(async () => (await page.locator("#ol-canvas").boundingBox()).height).toBe(before.height);
+  const chart = await page.locator(".ol-chart").boundingBox(), status = await page.locator(".ol-status").boundingBox();
+  expect(status.y + status.height).toBeLessThanOrEqual(chart.y + chart.height);
 });
 
 test("a failed initial tile reveals the fallback and keeps its error visible", async ({ page, fakeFor, allowConsole }) => {

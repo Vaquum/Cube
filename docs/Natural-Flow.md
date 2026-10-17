@@ -6,8 +6,9 @@ position and velocity on reversal; completion belongs to the latest request.
 Control feedback is 100 ms ease-out. Ordinary arrival travels 20 px and local
 information 8 px. There are no repeating decorative animations.
 
-Startup status has a reserved, scrollable row outside the plot, retained when
-empty and in expanded Compare. Controls start transparent
+Startup status uses a bounded, scrollable row outside the plot while a message
+is active, including in expanded Compare. An idle chart reclaims that row.
+Controls start transparent
 before the first paint; the chart enters in place through the same spring after
 its first calibrated or terminal frame. Calibration timing and market values
 remain direct, including on refresh. Reduced motion presents the frame immediately.

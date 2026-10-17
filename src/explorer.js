@@ -18470,14 +18470,20 @@
       failures = activeFailures(),
       text = failures.length ? failures.join(" · ") : loadingLine.live || [...loadingLine.reads.values()][0] || loadingLine.startup;
     if (!text) {
-      if (!node.hidden) node.hidden = true;
+      if (!node.hidden) {
+        node.hidden = true;
+        if (ready) applyPanels();
+      }
       return;
     }
     if (node.textContent !== text) node.textContent = text;
     if (failures.length) {
       if (node.getAttribute("role") !== "alert") node.setAttribute("role", "alert");
     } else if (node.hasAttribute("role")) node.removeAttribute("role");
-    if (node.hidden) node.hidden = false;
+    if (node.hidden) {
+      node.hidden = false;
+      if (ready) applyPanels();
+    }
   }
   function scheduleCube() {
     if (activeAnalysis?.mode === "captured") return;
