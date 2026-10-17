@@ -62,7 +62,7 @@
         <circle cx="10" cy="11" r="1.5" />
       </svg>
     </button>
-    <div class="ol-controls" id="ol-controls">
+    <div class="ol-controls" id="ol-controls" data-startup>
       <div class="ol-sheet-head">
         <span>Controls</span
         ><button
@@ -923,7 +923,7 @@
       <button type="button" id="ol-reference-shortcuts" class="ol-action cursor-interaction">Keyboard shortcuts</button>
     </aside>
     <section class="ol-chart" aria-label="Market field and linked volume profile">
-      <div id="ol-loading" class="ol-loading" role="status">
+      <div id="ol-loading" class="ol-loading" role="status" tabindex="0">
         Loading the last seven days…
       </div>
       <div id="ol-update" class="ol-loading ol-update" role="status" hidden>
@@ -1143,6 +1143,7 @@
       <div class="ol-plot">
         <canvas
           id="ol-canvas"
+          data-startup
           tabindex="0"
           role="application"
           aria-label="Time by price grid with real traded volume, point of control and linked volume profile"
