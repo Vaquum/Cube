@@ -3069,7 +3069,7 @@
           ? yearStart(CUT_YEAR)
           : isDay(key)
             ? dayStart(key)
-          : Math.max(0, CUT - windowOf(key).span);
+            : Math.max(0, CUT - windowOf(key).span);
     S.tB = Math.max(S.tA + 1, CUT + (CUT - S.tA) * 0.105);
   }
   function setWindow(key) {
@@ -9192,12 +9192,12 @@
     const form = uiEl("form", "ol-lines-add ol-flow-date ol-window-since"),
       label = uiEl("label", "", "Since (UTC)"), input = uiEl("input"),
       apply = uiEl("button", "ol-action cursor-interaction", "Apply"),
-      error = uiEl("p", "ol-lines-status");
+      error = uiEl("p", "ol-lines-status"), last = Math.max(0, CUT - 0.001 / BASE);
     form.noValidate = true;
     input.type = "date";
     input.id = "ol-window-since";
     input.min = "2021-01-01";
-    input.max = date(Math.max(0, CUT - 1e-6)).toISOString().slice(0, 10);
+    input.max = date(last).toISOString().slice(0, 10);
     input.value = isDay(S.window) ? S.window : "";
     label.htmlFor = input.id;
     apply.type = "submit";
@@ -9209,7 +9209,7 @@
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       if (!isDay(input.value) || dayStart(input.value) >= CUT) {
-        error.textContent = `Choose a day from 1 Jan 2021 to ${day(Math.max(0, CUT - 1e-6))}.`;
+        error.textContent = `Choose a day from 1 Jan 2021 to ${day(last)}.`;
         error.hidden = false;
         input.setAttribute("aria-invalid", "true");
         input.setAttribute("aria-describedby", error.id);
