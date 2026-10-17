@@ -32,7 +32,7 @@ function recordStartup() {
 }
 
 for (const profile of ["recorded", "mini"]) for (const phone of [false, true]) {
-  test(`${profile} ${phone ? "phone" : "desktop"}: first load and refresh reveal a stable calibrated chart`, async ({ fakeFor, freshContext }) => {
+  test(`${profile} ${phone ? "phone" : "desktop"}: first load and refresh reveal a stable calibrated chart`, async ({ fakeFor, freshContext }, testInfo) => {
     const fake = await fakeFor(profile, { next: 300 });
     const context = await freshContext({ probe: false, viewport: phone ? { width: 390, height: 844 } : { width: 1500, height: 950 } });
     await context.addInitScript(recordStartup);
@@ -41,6 +41,9 @@ for (const profile of ["recorded", "mini"]) for (const phone of [false, true]) {
       if (reload) await page.reload();
       else await page.goto(fake.url + "/#w=24h");
       await page.waitForFunction(() => window.cubeAgent && !document.getElementById("ol-canvas").hasAttribute("data-startup") && !window.explorerMotion.motionActive());
+      // The sampler runs before the spring's callback; capture the next native
+      // frame so its final sample includes the completed opacity write.
+      await page.evaluate(() => new Promise(requestAnimationFrame));
       const { frames, reveals } = await page.evaluate(() => {
         window.stopStartupRecording = true;
         return { frames: window.startupFrames, reveals: window.startupReveals };
@@ -58,6 +61,7 @@ for (const profile of ["recorded", "mini"]) for (const phone of [false, true]) {
         expect(entries[0].distance, "chart and controls enter in place").toBe(0);
       }
       expect(painted.at(-1).opacity).toBe(1);
+      if (reload) await page.screenshot({ path: testInfo.outputPath("startup-settled.png") });
       // A multiline status must also preserve geometry after startup.
       const before = await page.locator("#ol-canvas").boundingBox();
       await page.locator("#ol-loading").evaluate(node => { node.textContent = "Unavailable data. ".repeat(30); node.hidden = false; });
