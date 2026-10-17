@@ -76,12 +76,14 @@ for (const [mode, pane, bar] of cases) for (const count of [1, 3, 8]) {
     });
     await probe.waitForReady();
     const frame = await forPage(page).last();
+    await expect(page.locator("#ol-axis-chip")).toBeHidden();
     expect(frame.texts.some(t => t.text.startsWith("Preview · garman_klass_volatility"))).toBe(true);
     expect(frame.strokes.some(s => s.width === 1.5 && s.path.length > 2 && s.clip)).toBe(true);
     if (count === 3) await page.screenshot({path: info.outputPath(`${mode}-mill-preview.png`)});
     await page.locator("#ol-features-unpreview").click();
     await probe.waitForReady();
     expect((await forPage(page).last()).texts.some(t => t.text.startsWith("Preview ·"))).toBe(false);
+    await expect(page.locator("#ol-axis-chip")).toBeVisible();
     expect(new URLSearchParams(new URL(page.url()).hash.slice(1)).get("pane")).toBe(pane);
   });
 }
@@ -104,4 +106,58 @@ test("editing windows and settings clears the displayed answer and searches the 
   await page.locator("#ol-features-clear-windows").click();
   await expect(page.locator("#ol-features-results")).toBeHidden();
   await expect(page.locator("#ol-features-find")).toBeDisabled();
+});
+
+test("a duplicate window stays single, and overlapping windows retain their authored bounds", async ({page, fakeFor}) => {
+  const fake = await fakeFor("mini", {cutoff: "2025-03-08T00:00:00Z"});
+  const requests = await serve(page, fake);
+  await page.goto(`${fake.url}/${VIEW}`);
+  await page.locator("#ol-tab-features").click();
+  await mark(page, .1, .3, 1);
+  await page.locator("#ol-features-add").click();
+  await expect(page.locator("#ol-features-windows li")).toHaveCount(1);
+  await expect(page.locator("#ol-features-status")).toHaveText("That window is already marked.");
+  await mark(page, .2, .4, 2);
+  await page.locator("#ol-features-find").click();
+  await expect(page.locator("#ol-features-results")).toBeVisible();
+  expect(requests[0].windows).toHaveLength(2);
+  expect(Date.parse(requests[0].windows[0].end)).toBeGreaterThan(Date.parse(requests[0].windows[1].start));
+});
+
+test("stopping a pending search keeps no late answer and allows a fresh search", async ({page, fakeFor}) => {
+  const fake = await fakeFor("mini", {cutoff: "2025-03-08T00:00:00Z"});
+  await serve(page, fake);
+  let release, started;
+  const pending = new Promise(resolve => { started = resolve; });
+  await page.route("**/mill/discover", async route => {
+    started();
+    await new Promise(resolve => { release = resolve; });
+    await route.fulfill({json: answer});
+  });
+  await page.goto(`${fake.url}/${VIEW}`);
+  await page.locator("#ol-tab-features").click();
+  await mark(page, .1, .2, 1);
+  await page.locator("#ol-features-find").click();
+  await pending;
+  await page.locator("#ol-features-cancel").click();
+  await expect(page.locator("#ol-features-status")).toContainText("Stopped waiting");
+  await expect(page.locator("#ol-features-results")).toBeHidden();
+  release();
+  await page.unroute("**/mill/discover");
+  await page.locator("#ol-features-find").click();
+  await expect(page.locator("#ol-features-results")).toBeVisible();
+});
+
+test("rewinding before the searched cutoff discards the answer and its preview", async ({page, fakeFor, probe}) => {
+  const fake = await fakeFor("mini", {cutoff: "2025-03-08T00:00:00Z"});
+  await serve(page, fake);
+  await page.goto(`${fake.url}/${VIEW}`);
+  await page.locator("#ol-tab-features").click();
+  await mark(page, .1, .2, 1);
+  await page.locator("#ol-features-find").click();
+  await expect(page.locator("#ol-features-results")).toBeVisible();
+  await page.evaluate(() => { location.hash += "&at=2025-03-07T00:00Z"; });
+  await probe.waitForReady();
+  await expect(page.locator("#ol-features-results")).toBeHidden();
+  await expect(page.locator("#ol-features-status")).toContainText("its answer used later bars");
 });
