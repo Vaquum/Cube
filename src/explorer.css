@@ -1171,6 +1171,17 @@
   background: var(--ol-panel);
   border-bottom: 1px solid var(--ol-line);
 }
+/* Status belongs above the plot; it never changes the market's geometry. */
+#origo-lens #ol-loading {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 5;
+  pointer-events: none;
+}
+/* Set before the first paint, then handed to the shared entrance spring. */
+#origo-lens [data-startup] {
+  opacity: 0;
+}
 #origo-lens .ol-update {
   display: flex;
   align-items: center;
