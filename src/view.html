@@ -923,6 +923,9 @@
       <button type="button" id="ol-reference-shortcuts" class="ol-action cursor-interaction">Keyboard shortcuts</button>
     </aside>
     <section class="ol-chart" aria-label="Market field and linked volume profile">
+      <div id="ol-loading" class="ol-loading" role="status" tabindex="0">
+        Loading the last seven days…
+      </div>
       <div id="ol-update" class="ol-loading ol-update" role="status" hidden>
         <span>A newer version of the explorer is ready.</span
         ><button type="button" id="ol-reload" class="ol-action ol-s cursor-interaction">
@@ -1138,9 +1141,6 @@
       </div>
       <p id="ol-drawing-replay-status" class="ol-drawing-replay-note" role="status" aria-live="polite" hidden></p>
       <div class="ol-plot">
-        <div id="ol-loading" class="ol-loading" role="status">
-          Loading the last seven days…
-        </div>
         <canvas
           id="ol-canvas"
           data-startup

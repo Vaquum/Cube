@@ -66,6 +66,8 @@ for (const profile of ["recorded", "mini"]) for (const phone of [false, true]) {
       const before = await page.locator("#ol-canvas").boundingBox();
       await page.locator("#ol-loading").evaluate(node => { node.textContent = "Unavailable data. ".repeat(30); node.hidden = false; });
       expect(await page.locator("#ol-canvas").boundingBox()).toEqual(before);
+      const status = await page.locator("#ol-loading").boundingBox();
+      expect(status.y + status.height, "status must not cover market marks or floating controls").toBeLessThanOrEqual(before.y);
     }
   });
 }
@@ -80,6 +82,63 @@ test("reduced motion presents the first calibrated chart without intermediate op
   const frames = await page.evaluate(() => { window.stopStartupRecording = true; return window.startupFrames; });
   expect(frames.every(frame => [0, 1].includes(frame.opacity) && [0, 1].includes(frame.controls))).toBe(true);
   await expect(page.locator("#ol-canvas")).toHaveCSS("opacity", "1");
+});
+
+test("a changed cube with a failed pack refresh still reveals its held snapshot", async ({ page, fakeFor, allowConsole }) => {
+  const fake = await fakeFor("standard", { next: 300 });
+  fake.on({ route: "/cube/tile" }).fail({ status: 409, body: { error: "cube_changed" } });
+  fake.on({ route: "/cube/pack" }).fail({ status: 503, body: { error: "refresh unavailable" } });
+  allowConsole(/Failed to load resource/);
+  await page.goto(fake.url + "/#w=7d&r=2,0");
+  await expect.poll(() => fake.log().some(entry => entry.path === "/cube/pack" && entry.status === 503)).toBe(true);
+  await expect(page.locator("#ol-canvas")).toHaveCSS("opacity", "1");
+  await expect(page.locator("#ol-controls")).toHaveCSS("opacity", "1");
+  await expect(page.locator("#ol-canvas")).toHaveAttribute("data-layout", /\d/);
+});
+
+test("a fatal startup decode leaves its error and controls visible", async ({ page, fakeFor }) => {
+  const fake = await fakeFor("recorded");
+  await page.route(fake.url + "/", async route => {
+    const response = await route.fetch(), html = await response.text();
+    const match = html.match(/(<script type="application\/json" id="origo-lens-data">)([\s\S]*?)(<\/script>)/);
+    const pack = JSON.parse(match[2]);
+    pack.blocks.recent.gzip_base64 = "AA==";
+    await route.fulfill({ response, body: html.replace(match[0], match[1] + JSON.stringify(pack) + match[3]) });
+  });
+  await page.goto(fake.url + "/");
+  await expect(page.locator("#ol-loading")).toContainText("Recorded data unavailable");
+  await expect(page.locator("#ol-loading")).toHaveAttribute("role", "alert");
+  await expect(page.locator("#ol-controls")).toHaveCSS("opacity", "1");
+  await expect(page.locator("#ol-canvas")).toHaveCSS("opacity", "1");
+});
+
+test("status stays visible outside the plot when Compare expands", async ({ page, fakeFor }) => {
+  const fake = await fakeFor("recorded");
+  await page.goto(fake.url + "/#w=24h");
+  await expect(page.locator("#ol-canvas")).toHaveCSS("opacity", "1");
+  await page.locator("#ol-tab-compare").click();
+  await page.locator('[data-comparison-action="expand"]').click();
+  await expect(page.locator("#origo-lens")).toHaveAttribute("data-comparison-expanded", "true");
+  await page.locator("#ol-loading").evaluate(node => { node.textContent = "Live updates stopped"; node.hidden = false; });
+  await expect(page.locator("#ol-loading")).toBeVisible();
+  expect(await page.locator("#ol-loading").evaluate(node => Boolean(node.closest("[inert]")))).toBe(false);
+});
+
+test("status visibility and wrapped errors do not reclamp a maximized drawer", async ({ page, fakeFor }) => {
+  const fake = await fakeFor("recorded");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(fake.url + "/#w=24h");
+  await expect(page.locator("#ol-canvas")).toHaveCSS("opacity", "1");
+  await page.locator("#ol-tab-cells").click();
+  const grip = page.locator("#ol-drawer-grip");
+  for (let step = 0; step < 30; step++) await grip.press("ArrowUp");
+  const before = await page.locator("#ol-canvas").boundingBox();
+  await page.locator("#ol-loading").evaluate(node => { node.textContent = "Unavailable data. ".repeat(30); node.hidden = false; });
+  await grip.press("ArrowUp");
+  expect(await page.locator("#ol-canvas").boundingBox()).toEqual(before);
+  await page.locator("#ol-loading").evaluate(node => { node.hidden = true; });
+  await grip.press("ArrowUp");
+  expect(await page.locator("#ol-canvas").boundingBox()).toEqual(before);
 });
 
 test("a failed initial tile reveals the fallback and keeps its error visible", async ({ page, fakeFor, allowConsole }) => {
