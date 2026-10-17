@@ -32,7 +32,7 @@ test("recorded page identifies its available data and missing version explicitly
   await modeFits(page);
 });
 
-test("deployed commit shows its date and shares one header row at desktop and phone widths", async ({ page, fakeFor }) => {
+test("deployed metadata sits beside the market with no idle status gap", async ({ page, fakeFor }, testInfo) => {
   const fake = await fakeFor("mini"), commit = "1234567890abcdef1234567890abcdef12345678",
     pr = "https://github.com/Vaquum/Market-State-Cube-Explorer/pull/153";
   await page.route(`${fake.url}/`, async route => {
@@ -49,8 +49,14 @@ test("deployed commit shows its date and shares one header row at desktop and ph
   await expect(page.locator("#ol-version")).toHaveAttribute("title", new RegExp(commit));
   await expect(page.locator("#ol-version-unknown")).toBeHidden();
   await page.locator("#ol-loading").waitFor({ state: "hidden" });
-  for (const width of [1500, 1100, 800, 777, 390]) {
+  for (const width of [1816, 1500, 1100, 800, 777, 390]) {
     await page.setViewportSize({ width, height: 950 });
+    const identity = await page.locator(".ol-id").boundingBox(), metadata = await page.locator(".ol-build-info").boundingBox(),
+      bar = await page.locator(".ol-bar").boundingBox(), head = await page.locator(".ol-chart-head").boundingBox();
+    expect(metadata.x - identity.x - identity.width, `metadata follows market at ${width}`).toBeGreaterThanOrEqual(0);
+    expect(metadata.x - identity.x - identity.width, `metadata stays on the left at ${width}`).toBeLessThanOrEqual(8);
+    expect(await page.locator("#ol-loading").evaluate(node => node.offsetHeight), `idle status has no height at ${width}`).toBe(0);
+    expect(head.y, `chart controls directly follow header at ${width}`).toBeCloseTo(bar.y + bar.height, 0);
     const windowBounds = await page.locator("#ol-window").boundingBox();
     for (const id of ["ol-data-through", "ol-version", "ol-window"]) {
       const bounds = await page.locator(`#${id}`).boundingBox();
@@ -60,6 +66,7 @@ test("deployed commit shows its date and shares one header row at desktop and ph
     }
     expect(await page.locator(".ol-bar").evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
     await modeFits(page);
+    if (width === 1816) await page.screenshot({ path: testInfo.outputPath("header-left-desktop.png"), clip: { x: 0, y: 0, width, height: 260 } });
   }
   await page.locator("#ol-sheet-toggle").click();
   await page.locator("#ol-replay").click();

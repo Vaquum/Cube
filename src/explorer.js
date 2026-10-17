@@ -6964,12 +6964,19 @@
       inspectSurface("references");
     });
   }
+  let autoContext = "";
   function update() {
     if (!ready) return;
     if (comparisonModel.expanded) { applyPanels(); comparisonRefresh(); return; }
     limits();
     chooseSource();
-    if (S.auto) autoLevel();
+    // Data/status updates retain their grid. Camera and internal plot-layout
+    // changes choose it again; outer resizes are handled by the canvas observer.
+    const context = [S.auto, S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, eventKinds().length].join(":");
+    if (context !== autoContext) {
+      autoContext = context;
+      if (S.auto) autoLevel();
+    }
     el("n").textContent = "n " + S.n;
     el("m").textContent = "m " + S.m;
     el("tr").textContent = dur(BASE * 2 ** S.n);
@@ -18448,6 +18455,7 @@
   //     it or shows in its place.
   //   * Startup blocks that could not be read show while the view cannot be drawn without them; a fatal start failure shows for good.
   //   * Without a failure the line is the caption of a read in flight, else the startup caption, else the stopped-updates notice, else it is hidden.
+  let loadingResize = null, observedCanvasSize = null;
   const loadingLine = { startup: "Loading the last seven days…", reads: new Map(), blocks: new Map(), live: "", fatal: "" },
     noted = new Map();
   function activeFailures() {
@@ -18465,19 +18473,35 @@
     }
     return out;
   }
+  function setLoadingHidden(hidden) {
+    const node = el("loading");
+    if (node.hidden === hidden || (ready && drawingDrag)) return;
+    const before = canvas.getBoundingClientRect();
+    node.hidden = hidden;
+    if (ready) applyPanels();
+    const after = canvas.getBoundingClientRect();
+    // Only a status change from the last observed size may bypass Auto. A
+    // concurrent viewport or panel resize must retain its normal behavior.
+    loadingResize = observedCanvasSize?.width === before.width && observedCanvasSize.height === before.height &&
+      before.width === after.width && before.height !== after.height ? { width: after.width, height: after.height } : null;
+  }
   function renderLoading() {
     const node = el("loading"),
       failures = activeFailures(),
       text = failures.length ? failures.join(" · ") : loadingLine.live || [...loadingLine.reads.values()][0] || loadingLine.startup;
     if (!text) {
-      if (!node.hidden) node.hidden = true;
+      if (ready && drawingDrag && !node.hidden) {
+        if (node.textContent !== "Ready") node.textContent = "Ready";
+        node.removeAttribute("role");
+      }
+      setLoadingHidden(true);
       return;
     }
     if (node.textContent !== text) node.textContent = text;
     if (failures.length) {
       if (node.getAttribute("role") !== "alert") node.setAttribute("role", "alert");
     } else if (node.hasAttribute("role")) node.removeAttribute("role");
-    if (node.hidden) node.hidden = false;
+    setLoadingHidden(false);
   }
   function scheduleCube() {
     if (activeAnalysis?.mode === "captured") return;
@@ -22372,6 +22396,7 @@
     return true;
   }
   function drawingCancelOperation(all = true) {
+    const wasDragging = Boolean(drawingDrag);
     if (drawingDrag) drawingCancelledPointers.add(drawingDrag.pointerId);
     drawingDrag = null;
     if (all) drawingDraft = null;
@@ -22380,6 +22405,7 @@
     nav.hold = false;
     requestDraw();
     drawingSyncUI();
+    if (wasDragging) renderLoading();
   }
   function drawingColor() {
     if (drawingLastColor) return drawingLastColor;
@@ -22691,7 +22717,7 @@
     const d = drawingDrag;
     if (!d || e.pointerId !== d.pointerId) return false;
     drawingDrag = null; nav.pointers.delete(e.pointerId); nav.hold = false;
-    if (d.surface !== [window.innerWidth, window.innerHeight, canvas.clientWidth, canvas.clientHeight, S.tA, S.tB, S.pA, S.pB].join(",") || !inPlot(p) || drawingLensOwns(p) || d.invalid) { drawingDraft = null; drawingNotice("Drawing gesture cancelled."); requestDraw(); return true; }
+    if (d.surface !== [window.innerWidth, window.innerHeight, canvas.clientWidth, canvas.clientHeight, S.tA, S.tB, S.pA, S.pB].join(",") || !inPlot(p) || drawingLensOwns(p) || d.invalid) { drawingDraft = null; drawingNotice("Drawing gesture cancelled."); requestDraw(); renderLoading(); return true; }
     if (d.kind === "create") {
       if (d.moved || d.second) { const b = drawingPoint(p); if (!drawingCreate(d.a, b)) drawingDraft = { a: d.a, b }; }
       else drawingDraft = { a: d.a, b: d.a };
@@ -24019,9 +24045,12 @@
     title();
     new ResizeObserver(() => {
       if (ready && !comparisonModel.expanded && canvas.getBoundingClientRect().height > 0) {
-        if (drawingDrag) drawingCancelOperation();
+        const rect = canvas.getBoundingClientRect(), statusOnly = loadingResize?.width === rect.width && loadingResize.height === rect.height;
+        loadingResize = null;
+        observedCanvasSize = { width: rect.width, height: rect.height };
+        if (drawingDrag && !statusOnly) drawingCancelOperation();
         geometry(false);
-        if (S.auto) autoLevel();
+        if (S.auto && !statusOnly) autoLevel();
         update();
         noteGesture();
         requestDraw();

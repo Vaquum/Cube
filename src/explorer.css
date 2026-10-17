@@ -289,7 +289,7 @@
   transform: rotate(45deg);
 }
 
-/* Top bar: one row. The market on the left; on the right the controls in
+/* Top bar: one row. Market and source metadata on the left; controls on the right in
    groups by task (the view, the pointer tools, replay, history, help), each
    named with its key after a second's hover, focus or touch hold. Nothing in
    the bar appears or goes as modes change, so no control ever moves. */
@@ -312,13 +312,12 @@
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
-  margin-right: auto;
-  padding-right: var(--sp-4);
   white-space: nowrap;
   overflow: hidden;
 }
 #origo-lens .ol-build-info {
   display: flex;
+  margin-right: auto;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
@@ -546,7 +545,6 @@
 @container (max-width: 1200px) {
   #origo-lens .ol-id {
     gap: var(--sp-1);
-    padding-right: 0;
   }
   #origo-lens .ol-build-info > * { padding: 0 var(--sp-1); }
   #origo-lens .ol-controls { gap: var(--sp-1); }
@@ -1190,17 +1188,13 @@
   background: var(--ol-panel);
   border-bottom: 1px solid var(--ol-line);
 }
-/* A reserved status row keeps errors readable without covering market marks or
-   controls. Long messages scroll within the row, including in expanded Compare. */
+/* Active status stays outside the plot; an idle page reclaims the row.
+   Long messages scroll within the row, including in expanded Compare. */
 #origo-lens #ol-loading {
   flex: 0 0 var(--h-l);
   height: var(--h-l);
   overflow: auto;
   overflow-wrap: anywhere;
-}
-#origo-lens #ol-loading[hidden] {
-  display: block !important;
-  visibility: hidden;
 }
 /* Set before the first paint, then handed to the shared entrance spring. */
 #origo-lens [data-startup] {
