@@ -157,7 +157,7 @@ test("rewinding before the searched cutoff discards the answer and its preview",
   await mark(page, .1, .2, 1);
   await page.locator("#ol-features-find").click();
   await expect(page.locator("#ol-features-results")).toBeVisible();
-  await page.evaluate(() => { location.hash += "&at=2025-03-07T00:00Z"; });
+  await page.evaluate(() => { location.hash += "&replay=1&at=2025-03-07T00:00Z"; });
   await probe.waitForReady();
   await expect(page.locator("#ol-features-results")).toBeHidden();
   await expect(page.locator("#ol-features-status")).toContainText("its answer used later bars");
