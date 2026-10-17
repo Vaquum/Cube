@@ -69,7 +69,10 @@ test("upgrading and updating first legacy name retains A, B order and unchanged 
   const updated = await S.namedEntries(page);
   await page.reload(); await fake.idle(); await S.openViews(page);
   expect(await S.namedEntries(page)).toEqual(updated);
-  await page.locator("#ol-saved .ol-entry").filter({ hasText: "A" }).click();
+  await page.keyboard.press("Escape"); await page.keyboard.press("m");
+  await expect.poll(async () => S.param((await S.where(page)).hash, "mode")).not.toBe(newMode);
+  await S.openViews(page);
+  await rowNames(page).filter({ hasText: /^A$/ }).click();
   await expect.poll(async () => S.param((await S.where(page)).hash, "mode")).toBe(newMode);
 });
 
