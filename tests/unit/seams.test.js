@@ -36,7 +36,7 @@ const SPEC = {
   text: { fill: F(1, 2), fillStrict: F(1, 2) },
   result: { TAGS: "array", TAG: "object", make: F(1, 2), finite: F(1), isValue: F(1), precedence: F(1), assertJsonSafe: F(1), describe: F(1, 2) },
   time: { baseToMs: F(1, 3), msToBase: F(1, 3), utcDay: F(1) },
-  util: { clamp: F(3), quantile7: F(2), median7: F(1), lowerBound: F(2), upperBound: F(2) },
+  util: { windowLevel: F(1), clamp: F(3), quantile7: F(2), median7: F(1), lowerBound: F(2), upperBound: F(2) },
   hash: { sha256: F(1), canonical: F(1), id96: F(1), b64urlEncode: F(1), b64urlDecode: F(1), hex: F(1, 2), utf8: F(1), fromUtf8: F(1), f64ToB64: F(1), b64ToF64: F(2) },
   measure: {
     developingPoc: F(2), // docs/data-and-semantics.md: cumulative UTC-session prefix POC

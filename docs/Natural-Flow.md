@@ -8,7 +8,8 @@ information 8 px. There are no repeating decorative animations.
 
 Startup status uses a bounded, scrollable row outside the plot while a message
 is active, including in expanded Compare. An idle chart reclaims that row.
-Status-only resizing does not change Auto resolution. Visibility changes wait
+Status appearance retains Auto resolution; a timeframe recomputes once the row
+is hidden and the plot reclaims its height. Visibility changes wait
 for an active drawing gesture to commit or cancel before resizing its surface.
 Controls start transparent
 before the first paint; the chart enters in place through the same spring after
@@ -55,7 +56,7 @@ fit, and whole-window changes release the previous cell morph before painting.
 
 Automatic timeframe grids choose time and price levels together after the price
 fit. The closest available cell aspect ratio wins; equally square grids choose
-the geometric mean nearest 12 CSS pixels. The rule uses the actual plot size,
+the geometric mean nearest 12 CSS pixels (`E.util.windowLevel`). The rule uses the actual plot size,
 respects source resolution, tile capacity and the empirical diagonal, and runs
 again after destination data or a layout change. Base resolution can require
 larger cells in short windows. Explicit grid locks survive timeframe changes;

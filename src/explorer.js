@@ -18527,7 +18527,7 @@
           nMin = source?.n || 0; mMin = source?.m || 0;
         }
       }
-      const level = E.grid.windowLevel({ timeSpan: S.tB - S.tA, priceSpan: S.pB - S.pA,
+      const level = E.util.windowLevel({ timeSpan: S.tB - S.tA, priceSpan: S.pB - S.pA,
         width: g.w, height: g.h, nMin, mMin, nMax: N_MAX, mMax: M_MAX,
         diagonal: S.diagonal ? { a: ISO_A, b: ISO_B } : null });
       if (!level) return false;
@@ -24367,9 +24367,13 @@
         if (drawingDrag && !statusOnly) drawingCancelOperation();
         const pendingFit = pendingWindowPriceFit?.context === windowPriceFitContext() ? pendingWindowPriceFit : null;
         geometry(false);
-        if (S.auto && !statusOnly) autoLevel();
+        // Status appearance keeps the current grid. Once it disappears a
+        // timeframe may use the reclaimed plot, without oscillating per read.
+        if (S.auto && (!statusOnly || (S.window && el("loading").hidden))) autoLevel();
         update();
         if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
+        else if (S.auto && S.window && windowPriceFitPending())
+          pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding: null };
         noteGesture();
         requestDraw();
       }

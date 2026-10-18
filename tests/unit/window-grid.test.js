@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const E = require("../support/enc");
-const grid = E.grid.windowLevel;
+const grid = E.util.windowLevel;
 const desktop = { width: 1024, height: 512, timeSpan: 1024, priceSpan: 64 };
 
 test("joint window levels match hand-calculated square cells at desktop and phone widths", () => {

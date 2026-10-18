@@ -42,17 +42,20 @@ function assertBest(s, nMin = 0, mMin = 0, diagonal = false) {
 async function settled(page, probe) {
   await probe.waitForReady();
   await expect.poll(async () => (await state(page)).auto).toBe(true);
+  await expect(page.locator("#ol-loading")).toBeHidden();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
 for (const width of [1500, 390]) {
   test(`all time-menu defaults use the nearest square in a ${width}px viewport`, async ({ page, fakeFor, probe }) => {
     test.setTimeout(120000);
     await page.setViewportSize({ width, height: width === 390 ? 844 : 950 });
-    const fake = await fakeFor("standard");
+    const fake = await fakeFor("standard", { cutoff: "2026-09-24T12:00:00Z" });
     await page.goto(`${fake.url}/#w=24h&vis=2`); await settled(page, probe);
     for (const key of presets) {
       await choose(page, key); await settled(page, probe);
       // A tile holds at most 4096 aligned columns; future spare space has no data.
       const s = await state(page), [a, b] = s.viewport;
+      expect(s.window, key).toBe(key);
       const cut = (Date.parse("2026-09-24T12:00:00Z") / 1000 - 1609459200) / 56.25;
       let floor = 0;
       while (Math.ceil(Math.min(b, cut) / 2 ** floor) - Math.floor(a / 2 ** floor) > 4096) floor++;
@@ -88,7 +91,7 @@ test("finer destination fitting and layout changes recompute the automatic grid"
 
 test("automatic diagonal time defaults remain on the empirical path", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("mini");
-  await page.goto(`${fake.url}/#w=24h&follow=diagonal&vis=2`); await settled(page, probe);
+  await page.goto(`${fake.url}/#w=24h&f=diagonal&vis=2`); await settled(page, probe);
   for (const key of ["1h", "7d", "all"]) {
     await choose(page, key); await settled(page, probe);
     const s = await state(page);
