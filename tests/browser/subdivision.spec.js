@@ -1,19 +1,26 @@
 "use strict";
 // Pixel oracle: old calibrated volume survives a held destination calibration.
 const {test,expect}=require('./fixtures.js'),S=require('./rows-support.js');
-async function pixels(page){return page.locator('#ol-canvas').evaluate(canvas=>{
+const {popoverAction}=require('./scale-helpers.js');
+async function pixels(page,fraction=1){return page.locator('#ol-canvas').evaluate((canvas,fraction)=>{
  const [x,y,w,h]=canvas.dataset.layout.split(',').map(Number),d=devicePixelRatio;
- const a=canvas.getContext('2d').getImageData(Math.ceil(x*d),Math.ceil(y*d),Math.floor(w*d),Math.floor(h*d)).data;
+ const a=canvas.getContext('2d').getImageData(Math.ceil(x*d),Math.ceil(y*d),Math.floor(w*d*fraction),Math.floor(h*d)).data;
  let blue=0,opaque=0,hash=2166136261;
  for(let i=0;i<a.length;i+=4){if(a[i+2]>a[i]+8)blue++;if(a[i+3]===255)opaque++;for(let k=0;k<3;k++)hash=Math.imul(hash^a[i+k],16777619);}
  return {blue,opaque,count:a.length/4,hash:hash>>>0};
-});}
-async function open(page,fakeFor,probe){
+},fraction);}
+async function open(page,fakeFor,probe,hash='#w=24h&vis=2'){
  await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerEncoding',{get:()=>api,set:value=>{
   api={...value,util:{...value.util,windowLevel:spec=>window.__subdivisionGrid||value.util.windowLevel(spec)},lifecycle:{...value.lifecycle,coherent:(...args)=>window.__holdSubdivisionCalibration?{ok:false,reason:'pending'}:value.lifecycle.coherent(...args)},
-   readout:{...value.readout,cellsFrame(...args){const frame=value.readout.cellsFrame(...args);return window.__replaceSubdivisionMapping?{...frame,mappingId:frame.mappingId+':next'}:frame;}}};
+   scale:{...value.scale,fitValue(...args){if(window.__watchPreviewFits)window.__previewFits++;return value.scale.fitValue(...args);},fitRank(...args){if(window.__watchPreviewFits)window.__previewFits++;return value.scale.fitRank(...args);}},
+   readout:{...value.readout,cellsFrame(...args){const frame=value.readout.cellsFrame(...args),spec=args[0];
+    if(window.__previewSamples&&spec.mode==='volume'&&spec.basis==='intensity'&&spec.cutMs===undefined)return {...frame,encode(z,out){
+     frame.encode(z,out);const {n,m}=spec.level,ts=2**n,left=window.__previewLeft;
+     if(z.c*ts<left&&(z.c+1)*ts>left)window.__previewSamples.push({n,m,c:z.c,r:z.r,v:z.v,value:out.value});return out;
+    }};
+    return window.__replaceSubdivisionMapping?{...frame,mappingId:frame.mappingId+':next'}:frame;}}};
  }});});
- const fake=await fakeFor('standard');await page.goto(fake.url+'/#w=24h&vis=2');await S.atRest(page,fake,probe);
+ const fake=await fakeFor('standard');await page.goto(fake.url+'/'+hash);await S.atRest(page,fake,probe);
  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
  return fake;
 }
@@ -41,6 +48,99 @@ test('native time selection and rapid reversal settle to the same volume field',
  await expect(page.locator('#ol-canvas')).not.toHaveAttribute('data-subdivision',/.+/);
  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
  await expect.poll(async()=>(await pixels(page)).hash).toBe(before.hash);
+});
+test('newly revealed history stays coloured through a held wider-window tile and calibration',async({page,fakeFor,probe})=>{
+ const fake=await open(page,fakeFor,probe), before=await pixels(page);
+ const gate=fake.on({route:'/cube/tile'}).gate();
+ const choose=async key=>{await page.locator('#ol-window').click();await page.locator(`[data-window="${key}"]`).click();};
+ try {
+  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;});
+  await choose('180d');await gate.arrived();
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive()),{timeout:2500}).toBe(false);
+  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision','waiting');
+  // The outgoing day occupies <1% of this view, at the right edge. Whole-plot
+  // counts miss the regression: require colour in the newly exposed history.
+  const historical=await pixels(page,.75);
+  expect(historical.blue).toBeGreaterThan(1000);expect(historical.opaque).toBe(historical.count);
+  gate.open();await fake.idle();
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive()),{timeout:2500}).toBe(false);
+  expect((await pixels(page,.75)).blue).toBeGreaterThan(1000);
+  await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;document.querySelector('#ol-poc').click();});
+  await expect(page.locator('#ol-canvas')).not.toHaveAttribute('data-subdivision',/.+/);
+  expect((await pixels(page,.75)).blue).toBeGreaterThan(1000);
+  await page.evaluate(()=>{window.__subdivisionGrid=null;});
+  await choose('24h');await S.atRest(page,fake,probe);
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
+  // Restore the test's POC toggle before comparing the native settled field.
+  await page.locator('#ol-poc').evaluate(node=>node.click());await S.atRest(page,fake,probe);
+  await expect.poll(async()=>(await pixels(page)).hash).toBe(before.hash);
+ } finally {gate.open();await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;});}
+});
+test('a calibration arriving mid-camera keeps colour beyond the presented viewport',async({page,fakeFor,probe})=>{
+ await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerMotion',{get:()=>api,set:motion=>{
+  api={...motion,spring(owner,name,options){
+   const camera=name==='cells-camera',detail=name==='cells';
+   return motion.spring(owner,name,camera||detail?{...options,
+    canComplete:()=>camera?window.__cameraProgress==null:!window.__holdDetail,
+    write(value){options.write(camera&&window.__cameraProgress!=null?{progress:window.__cameraProgress}:detail&&window.__holdDetail?{progress:0}:value);}
+   }:options);
+  }};
+ }});});
+ const fake=await open(page,fakeFor,probe),gate=fake.on({route:'/cube/tile'}).gate();
+ try {
+  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;window.__cameraProgress=.35;window.__holdDetail=true;});
+  await page.locator('#ol-window').click();await page.locator('[data-window="180d"]').click();await gate.arrived();
+  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision','waiting');
+  await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;});gate.open();
+  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision',/dividing|joining|blending/);
+  // The final detail is still at alpha zero. Advance only the camera to expose
+  // the history outside the viewport captured when calibration landed.
+  await page.evaluate(()=>{window.__cameraProgress=1;});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  expect((await pixels(page,.15)).blue).toBeGreaterThan(1000);
+  // A subsequent mapping handoff must keep that full coverage too.
+  await page.evaluate(()=>{window.__cameraProgress=.8;window.__replaceSubdivisionMapping=true;document.querySelector('#ol-poc').click();});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.evaluate(()=>{window.__cameraProgress=1;});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  expect((await pixels(page,.15)).blue).toBeGreaterThan(1000);
+ } finally {gate.open();await page.evaluate(()=>{window.__cameraProgress=null;window.__holdDetail=false;window.__holdSubdivisionCalibration=false;});}
+});
+test('wider-window preview honours a held comparison mapping without fitting',async({page,fakeFor,probe,surface})=>{
+ // Keep the calibration context stable while the scale dialog changes layout.
+ const fake=await open(page,fakeFor,probe,'#w=24h&vis=2&r=7,0');
+ await popoverAction(page,surface,'cells','Comparison lock');await S.atRest(page,fake,probe);
+ expect((await surface.chip('cells')).data.policy).toBe('comparison');
+ const held=(await surface.chip('cells')).data.mappingId, gate=fake.on({route:'/cube/tile'}).gate();
+ expect(held).not.toBe('');
+ try {
+  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;window.__previewFits=0;window.__watchPreviewFits=true;});
+  await page.locator('#ol-window').click();await page.locator('[data-window="180d"]').click();await gate.arrived();
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive()),{timeout:2500}).toBe(false);
+  expect((await pixels(page,.75)).blue).toBeGreaterThan(1000);
+  expect(await page.evaluate(()=>window.__previewFits)).toBe(0);
+  expect((await surface.chip('cells')).data.mappingId).toBe(held);
+ } finally {gate.open();await page.evaluate(()=>{window.__watchPreviewFits=false;window.__holdSubdivisionCalibration=false;});}
+});
+test('Intensity preview crops pixels without inflating a boundary cell rate',async({page,fakeFor,probe})=>{
+ const fake=await open(page,fakeFor,probe);
+ await page.locator('#ol-mode').click();await page.locator('#ol-mode-menu [data-mode-step="basis"]').click();
+ await page.getByRole('menuitemradio',{name:/^Intensity/}).click();await page.keyboard.press('Escape');await S.atRest(page,fake,probe);
+ const gate=fake.on({route:'/cube/tile'}).gate();
+ try {
+  await page.evaluate(()=>{
+   window.__holdSubdivisionCalibration=true;window.__subdivisionGrid={n:10,m:2};window.__previewSamples=[];
+   window.__previewLeft=(Date.parse('2026-09-24T12:02:00Z')/1000-1609459200)/56.25-180*1536;
+  });
+  await page.locator('#ol-window').click();await page.locator('[data-window="180d"]').click();await gate.arrived();
+  const samples=await page.evaluate(()=>window.__previewSamples);expect(samples.length).toBeGreaterThan(0);
+  for(const s of samples){
+   const ts=2**s.n,ps=2**s.m,source=fake.cube.read(s.n,s.m,s.c*ts,(s.c+1)*ts,s.r*ps,(s.r+1)*ps).cells;
+   expect(source.vol.length).toBe(1);expect(s.v).toBeCloseTo(source.vol[0],7);
+   // Independent units: USDT / (minutes × number of 125-USDT price bands).
+   expect(s.value).toBeCloseTo(source.vol[0]/(56.25*ts/60*ps),9);
+  }
+ } finally {gate.open();await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;window.__previewSamples=null;});}
 });
 test('multiple inputs before the first paint retain the last coloured field',async({page,fakeFor,probe})=>{
  await open(page,fakeFor,probe);const before=await pixels(page);

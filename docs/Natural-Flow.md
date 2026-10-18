@@ -40,6 +40,17 @@ operational timing. Motion never generates intermediate market values.
 Volume resolution and time-menu changes retain the previous coloured field
 until the new grid has its own coherent calibration. Subdivision opens or closes
 seams inside parent footprints, then reveals the destination's measured colours.
+Wider windows also reveal already loaded history immediately. A temporary Volume
+mapping uses the held or cached calibration when available; otherwise it is
+fitted once from that complete block at its displayed level, using
+the selected basis and transform; it never enters the native calibration store,
+legend or readouts. Over 8,192 cells, measured sums are coarsened before fitting.
+Preview sums include whole parent cells; the camera clips pixels rather than
+Intensity exposure. Incomplete source-edge parents are omitted.
+The layer is rasterised once per source arrival, behind the outgoing field;
+the final calibration rebases from the presented image over full destination
+coverage. This underlay also survives calibration arriving mid-camera and later
+mapping replacements, without another surface or per-frame cell work.
 Temporary colour interpolation is presentation only; readouts stay exact and
 the settled frame uses the native renderer. Reversal takes the presented raster.
 Preparation is bounded to 8,192 tiles; larger changes use retained raster layers.

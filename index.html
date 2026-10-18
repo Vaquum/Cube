@@ -22958,8 +22958,8 @@
     probe.remove();
     themeChanged();
   }
-  // Only presentation is retained. New measurements and colour descriptors
-  // remain native; a missing destination calibration never borrows an old one.
+  // Presentation never lends an old descriptor to another level. A wider view
+  // can preview loaded history with its own temporary, uncommitted mapping.
   const subdivision = { actor: null, scene: null, retained: document.createElement("canvas"),
     presented: document.createElement("canvas"), target: document.createElement("canvas") };
   const subdivisionCamera = () => [S.tA, S.tB, S.pA, S.pB];
@@ -23013,13 +23013,68 @@
     if (!before) return false;
     subdivisionStop(); transition = null; Flow.cancelMotion(canvas, "cells");
     const actor = { before, camera: 0, detail: 0, cameraDone: false, detailDone: false,
-      target: null, plan: null, goal: null, animateCamera, cameraFrom: before.camera, targetId: null, hasPaint: false };
+      target: null, plan: null, goal: null, animateCamera, cameraFrom: before.camera, targetId: null, hasPaint: false,
+      preview: null, previewSource: null };
     subdivision.actor = actor;
+    subdivisionPrepare();
     canvas.dataset.subdivision = "waiting"; canvas.setAttribute("aria-busy", "true");
     Flow.spring(canvas, "cells-camera", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
       write: ({ progress }) => { if (subdivision.actor === actor) { actor.camera = clamp(progress, 0, 1); requestDraw(true); } },
       complete: () => { if (subdivision.actor === actor) { actor.cameraDone = true; subdivisionComplete(actor); } } });
     return true;
+  }
+  function subdivisionPrepare() {
+    const actor = subdivision.actor;
+    if (!actor || actor.target || S.mode !== "volume" || S.selection || S.replay || cube.stale) return;
+    const camera = subdivisionCamera(), cut = activeCutoff(), from = actor.cameraFrom,
+      src = displaySource();
+    if (camera[0] >= from[0] && Math.min(camera[1], cut) <= from[1]) return;
+    // One preparation per loaded source, outside the animation callback. The
+    // native query may still be pending; this layer only reads complete blocks.
+    if (!src || actor.previewSource === src.cells) return;
+    actor.previewSource = src.cells;
+    const [start, end] = sourceRange(src), a = Math.max(0, camera[0]), b = Math.min(camera[1], cut);
+    if (start > a || end < b) return;
+    let n = renderN(), m = renderM();
+    const wholeCells = () => {
+      const ts = 2 ** n, ps = 2 ** m,
+        bounds = [Math.floor(a / ts) * ts, Math.ceil(b / ts) * ts,
+          Math.floor(camera[2] / ps) * ps, Math.ceil(camera[3] / ps) * ps],
+        all = aggregate(src, n, m, bounds);
+      // A parent at a block edge can lack children. Do not give a partial sum
+      // the exposure of a whole parent; the live open column has its own cutoff.
+      return { cells: all.cells.filter(z => z.c * ts >= start && ((z.c + 1) * ts <= end || end >= cut)) };
+    };
+    let shown = wholeCells();
+    // Coarsen measured sums, never sample or invent cells. Both the fit and the
+    // retained field are bounded; repeated frames only composite the raster.
+    while (shown.cells.length > 8192 && (n < N_MAX || m < M_MAX)) {
+      n = Math.min(N_MAX, n + 1); m = Math.min(M_MAX, m + 1);
+      shown = wholeCells();
+    }
+    const eff = E.policy.effective(S.scale, "volume"), bounds = [a, b, camera[2], camera[3]],
+      context = E.context.cellsKey({ measure: "volume", basis: eff.basis, pathBasis: eff.pathBasis,
+        transform: eff.transform, curve: eff.curve, n, m, workspace: scaleWorkspace(), instrument: INSTRUMENT }),
+      mapping = E.policy.resolve({ channel: "c", kind: "unbounded", ctx: context, scale: S.scale,
+        store: scaleRt.store, workspace: scaleWorkspace(), cutMs: E.time.baseToMs(cut, T0, BASE) });
+    let desc = mapping.desc;
+    if (!desc) {
+      const cohort = E.cohort.cells({ cells: shown.cells, mode: "volume", basis: eff.basis,
+          b: bounds, cut, CUT, level: { n, m }, geom: { BASE, PR }, read: { state: "recorded" } }),
+        fit = eff.transform === "rank" ? E.scale.fitRank(cohort)
+          : E.scale.fitValue(cohort, { signed: false, linear: eff.curve === "linear" });
+      if (fit.state !== "ok") return;
+      desc = fit.descriptor;
+    }
+    // Loaded cells contain their whole source support. The camera crops their
+    // pixels, never the denominator of Intensity; only the open cutoff clips it.
+    const cells = E.readout.cellsFrame({ mode: "volume", basis: eff.basis, level: { n, m },
+      bounds: null, cut, CUT, geom: { BASE, PR }, mapping: { state: "ok", desc },
+      lut: lutFor(scaleRt.appearance, scaleRt.theme) }),
+      field = subdivisionField({ camera, cut, n, m, shown, sc: { cells } });
+    if (!field.cells.length) return;
+    actor.preview = { camera, field };
+    subdivisionRaster(field, camera);
   }
   function subdivisionComplete(actor) {
     if (!actor.cameraDone || !actor.detailDone || subdivision.actor !== actor) return;
@@ -23055,6 +23110,26 @@
       else pen.fillRect(x + gap / 2, y + gap / 2, Math.max(.1, w - gap), Math.max(.1, h - gap));
     }
   }
+  function subdivisionRebase(actor) {
+    const from = [...G.X.domain(), ...G.Y.domain()],
+      to = actor.target ? subdivisionCamera() : actor.preview.camera,
+      camera = [Math.min(from[0], to[0]), Math.max(from[1], to[1]),
+        Math.min(from[2], to[2]), Math.max(from[3], to[3])];
+    subdivisionSurface(subdivision.retained);
+    const pen = subdivision.retained.getContext("2d"), w = subdivision.retained.width, h = subdivision.retained.height,
+      layer = (surface, view) => pen.drawImage(surface,
+        (view[0] - camera[0]) * w / (camera[1] - camera[0]),
+        (camera[3] - view[3]) * h / (camera[3] - camera[2]),
+        (view[1] - view[0]) * w / (camera[1] - camera[0]),
+        (view[3] - view[2]) * h / (camera[3] - camera[2]));
+    pen.setTransform(1, 0, 0, 1, 0, 0); pen.globalAlpha = 1;
+    pen.fillStyle = colors.surface; pen.fillRect(0, 0, w, h);
+    // Keep the full destination beneath the visible snapshot. A calibration can
+    // arrive mid-camera: pixels outside that snapshot must already have colour.
+    // Reuse the same three surfaces, including on a later calibration rebase.
+    layer(subdivision.target, to); layer(subdivision.presented, from);
+    actor.before = { camera, field: null };
+  }
   function subdivisionPaint(sc, shown, cut) {
     const actor = subdivision.actor;
     if (!actor) {
@@ -23070,9 +23145,8 @@
     if (available && actor.targetId !== targetId) {
       // The first ready frame is sampled once. A later colour calibration rebases
       // from the presented raster instead of jumping to newly encoded colours.
-      if (actor.target) {
-        subdivisionCopy(subdivision.retained, subdivision.presented);
-        actor.before = { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
+      if (actor.target || actor.preview && actor.hasPaint) {
+        subdivisionRebase(actor);
       }
       actor.targetId = targetId;
       actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });
@@ -23097,6 +23171,10 @@
     pen.drawImage(canvas, G.x * dpr, G.y * dpr, G.w * dpr, G.h * dpr, G.x, G.y, G.w, G.h);
     if (actor.plan) Flow.paintSubdivision(pen, actor.plan, actor.detail, G.X, G.Y, design.gap);
     else {
+      if (actor.preview && !actor.target) {
+        const to = actor.preview.camera;
+        pen.drawImage(subdivision.target, G.X(to[0]), G.Y(to[3]), G.X(to[1]) - G.X(to[0]), G.Y(to[2]) - G.Y(to[3]));
+      }
       const from = actor.before.camera;
       pen.drawImage(subdivision.retained, G.X(from[0]), G.Y(from[3]), G.X(from[1]) - G.X(from[0]), G.Y(from[2]) - G.Y(from[3]));
       if (actor.target) {
@@ -23108,7 +23186,7 @@
     ctx.drawImage(subdivision.presented, G.x, G.y, G.w, G.h);
     actor.hasPaint = true;
     passFrame = null;
-    if (!actor.target) chartLabel("Refining grid · previous colours held", G.x + 8, G.y + 12);
+    if (!actor.target) chartLabel(actor.preview ? "Refining grid · loaded history" : "Refining grid · previous colours held", G.x + 8, G.y + 12);
   }
   function beginLevelMorph() {
     if (S.mode === "volume" && subdivisionStart(subdivisionCapture())) return;
@@ -29370,6 +29448,7 @@
     scaleArm();
     // What the loading line says follows what the view needs now.
     renderLoading();
+    subdivisionPrepare();
     summaryRefresh();
   }
   function bindRoot() {
