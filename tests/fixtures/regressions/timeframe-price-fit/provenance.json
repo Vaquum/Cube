@@ -1,0 +1,9 @@
+{
+  "kind": "synthetic",
+  "expectationSource": "hand-computed",
+  "generator": null,
+  "seed": null,
+  "extractedOn": null,
+  "source": "Hand-authored trades for issue #183",
+  "notes": "Visible candle prices 25000..25150 plus 5% of 150; occupied 125 USDT rows span 25000..25250 plus 5% of 250. Older 20000 and 40000 trades are outside every destination. Timeframe choices fit destination data, including delayed bars and finer tiles, as one reversible navigation action."
+}

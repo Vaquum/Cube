@@ -21908,9 +21908,7 @@
     drawingCancelOperation(); drawingKeyContext = false;
     if (pop.open?.panel === el("window-menu")) closePop(true);
     setWindow(w);
-    recordView("Window");
-    update();
-    save();
+    fitPrice("Window", 0.05, true);
   }
   function setMode(mode) {
     drawingCancelOperation(); drawingKeyContext = false;
