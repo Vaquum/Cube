@@ -2474,7 +2474,7 @@
     // Candidates, main paint and Lens share one label measurement per frame.
     drawingLabelLayouts = new WeakMap();
     if (!ready) return;
-    if (comparisonModel.expanded) { comparisonRefresh(); return; }
+    if (comparisonModel.expanded) { subdivisionStop(); comparisonRefresh(); return; }
     paintedRevision = drawRevision;
     geometry();
     for (const k in markCount) markCount[k] = 0;
@@ -22147,9 +22147,11 @@
       return;
     }
     if (windowPriceFitPending()) return;
+    const before = subdivision.actor?.animateCamera ? subdivisionCapture() : null;
     pendingWindowPriceFit = null;
     fit(pending.padding);
     if (S.auto) autoLevel(false);
+    subdivisionStart(before, true);
     update();
     syncURL(true);
     save();

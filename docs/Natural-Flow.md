@@ -35,6 +35,17 @@ replay stepping and live data remain authoritative and immediate. Replay speeds,
 hover intent, settle/calibration clocks, query debounce and polling keep their
 operational timing. Motion never generates intermediate market values.
 
+Volume resolution and time-menu changes retain the previous coloured field
+until the new grid has its own coherent calibration. Subdivision opens or closes
+seams inside parent footprints, then reveals the destination's measured colours.
+Temporary colour interpolation is presentation only; readouts stay exact and
+the settled frame uses the native renderer. Reversal takes the presented raster.
+Preparation is bounded to 8,192 tiles; larger changes use retained raster layers.
+Flat geometry and cached colour pairs avoid per-cell lookup/allocation during
+animation. Three reusable surfaces retain at most two million pixels each.
+Pending data does not keep an idle frame loop alive. Direct navigation, layout,
+mode changes and reduced motion release presentation ownership.
+
 Timeframe choices fit the destination prices with the existing Fit margin,
 completing after pending bars or finer tiles arrive. The time
 change and price fit share one history entry. New navigation cancels an obsolete
