@@ -879,7 +879,161 @@
     probe.remove();
     themeChanged();
   }
+  // Only presentation is retained. New measurements and colour descriptors
+  // remain native; a missing destination calibration never borrows an old one.
+  const subdivision = { actor: null, scene: null, retained: document.createElement("canvas"),
+    presented: document.createElement("canvas"), target: document.createElement("canvas") };
+  const subdivisionCamera = () => [S.tA, S.tB, S.pA, S.pB];
+  const subdivisionGoal = () => [S.tA, S.tB, S.pA, S.pB, S.n, S.m, S.mode, S.replay, S.anchor, colourEpoch, live.generation].join("|");
+  function subdivisionSurface(surface) {
+    // Three reusable surfaces together retain at most 24 MB of pixel storage.
+    const ratio = Math.min(devicePixelRatio || 1, Math.sqrt(2000000 / Math.max(1, G.w * G.h))),
+      width = Math.max(1, Math.floor(G.w * ratio)), height = Math.max(1, Math.floor(G.h * ratio));
+    if (surface.width !== width) surface.width = width;
+    if (surface.height !== height) surface.height = height;
+    return ratio;
+  }
+  function subdivisionCopy(destination, source, crop = false) {
+    subdivisionSurface(destination);
+    const pen = destination.getContext("2d");
+    pen.setTransform(1, 0, 0, 1, 0, 0);
+    if (crop) {
+      const ratio = devicePixelRatio || 1;
+      pen.drawImage(source, G.x * ratio, G.y * ratio, G.w * ratio, G.h * ratio, 0, 0, destination.width, destination.height);
+    } else pen.drawImage(source, 0, 0, destination.width, destination.height);
+  }
+  function subdivisionField(frame) {
+    const ts = 2 ** frame.n, ps = 2 ** frame.m, encoded = {}, cells = [];
+    for (const z of frame.shown.cells) {
+      const t = z.c * ts, p = z.r * ps;
+      if (t >= frame.cut || t + ts <= frame.camera[0] || t >= frame.camera[1] || p + ps <= frame.camera[2] || p >= frame.camera[3]) continue;
+      frame.sc.cells.encode(z, encoded);
+      cells.push({ t, end: Math.min(t + ts, frame.cut), p, high: p + ps, css: encoded.css,
+        pattern: encoded.pattern, outline: encoded.role === ROLE_ZERO || encoded.role === ROLE_OCCUPANCY });
+    }
+    return { n: frame.n, m: frame.m, cut: frame.cut, cells };
+  }
+  function subdivisionCapture() {
+    if (!ready || Flow.stationary() || S.mode !== "volume" || S.selection || !subdivision.scene || comparisonModel.expanded) return null;
+    const previous = subdivision.actor;
+    if (previous) {
+      if (!previous.hasPaint) return previous.before;
+      subdivisionCopy(subdivision.retained, subdivision.presented);
+      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
+    }
+    const scene = subdivision.scene;
+    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null };
+  }
+  function subdivisionStop() {
+    if (subdivision.actor) { Flow.cancelMotion(canvas, "cells"); Flow.cancelMotion(canvas, "cells-camera"); }
+    subdivision.actor = null;
+    delete canvas.dataset.subdivision; delete canvas.dataset.subdivisionTiles;
+    canvas.removeAttribute("aria-busy");
+  }
+  function subdivisionStart(before, animateCamera = false) {
+    if (!before) return false;
+    subdivisionStop(); transition = null; Flow.cancelMotion(canvas, "cells");
+    const actor = { before, camera: 0, detail: 0, cameraDone: false, detailDone: false,
+      target: null, plan: null, goal: null, animateCamera, cameraFrom: before.camera, targetId: null, hasPaint: false };
+    subdivision.actor = actor;
+    canvas.dataset.subdivision = "waiting"; canvas.setAttribute("aria-busy", "true");
+    Flow.spring(canvas, "cells-camera", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
+      write: ({ progress }) => { if (subdivision.actor === actor) { actor.camera = clamp(progress, 0, 1); requestDraw(true); } },
+      complete: () => { if (subdivision.actor === actor) { actor.cameraDone = true; subdivisionComplete(actor); } } });
+    return true;
+  }
+  function subdivisionComplete(actor) {
+    if (!actor.cameraDone || !actor.detailDone || subdivision.actor !== actor) return;
+    subdivisionCopy(subdivision.retained, subdivision.presented);
+    subdivision.scene = { camera: [...G.X.domain(), ...G.Y.domain()], frame: null };
+    subdivisionStop(); requestDraw(true);
+  }
+  function subdivisionGeometry() {
+    const actor = subdivision.actor;
+    if (!actor) return;
+    const goal = subdivisionGoal();
+    if (Flow.stationary() || S.mode !== "volume" || S.selection ||
+        actor.goal !== null && actor.goal !== goal) { subdivisionStop(); return; }
+    actor.goal = goal;
+    if (!actor.animateCamera) return;
+    const from = actor.cameraFrom, p = actor.camera;
+    G.X.domain([from[0] + (S.tA - from[0]) * p, from[1] + (S.tB - from[1]) * p]);
+    G.Y.domain([from[2] + (S.pA - from[2]) * p, from[3] + (S.pB - from[3]) * p]);
+  }
+  function subdivisionRaster(field, camera) {
+    const ratio = subdivisionSurface(subdivision.target), pen = subdivision.target.getContext("2d"),
+      X = value => G.x + (value - camera[0]) * G.w / (camera[1] - camera[0]),
+      Y = value => G.y + G.h - (value - camera[2]) * G.h / (camera[3] - camera[2]);
+    pen.setTransform(ratio, 0, 0, ratio, -G.x * ratio, -G.y * ratio);
+    pen.fillStyle = colors.surface; pen.fillRect(G.x, G.y, G.w, G.h);
+    for (const cell of field.cells) {
+      const x = X(cell.t), y = Y(cell.high), w = X(cell.end) - x, h = Y(cell.p) - y,
+        gap = w > 4 && h > 4 ? design.gap : 0;
+      if (cell.pattern !== null) pen.fillStyle = patternFor(cell.pattern);
+      else if (cell.css) pen.fillStyle = pen.strokeStyle = cell.css;
+      else continue;
+      if (cell.outline) { pen.lineWidth = 1; pen.strokeRect(x + .5, y + .5, Math.max(.1, w - 1), Math.max(.1, h - 1)); }
+      else pen.fillRect(x + gap / 2, y + gap / 2, Math.max(.1, w - gap), Math.max(.1, h - gap));
+    }
+  }
+  function subdivisionPaint(sc, shown, cut) {
+    const actor = subdivision.actor;
+    if (!actor) {
+      if (S.mode !== "volume" || S.selection || !sc.map?.cells?.desc) { subdivision.scene = null; return; }
+      const scene = subdivision.scene, camera = subdivisionCamera(), id = camera.join("|") + "|" + sc.stamp;
+      if (scene?.id === id && scene.frame?.shown === shown && scene.frame.cut === cut) return;
+      subdivisionCopy(subdivision.retained, canvas, true);
+      subdivision.scene = { id, camera, frame: { camera, sc, shown, cut, n: renderN(), m: renderM() } };
+      return;
+    }
+    const available = Boolean(sc.map?.cells?.desc) && !viewReadPending(),
+      targetId = sc.cells.mappingId + "|" + renderN() + "|" + renderM();
+    if (available && actor.targetId !== targetId) {
+      // The first ready frame is sampled once. A later colour calibration rebases
+      // from the presented raster instead of jumping to newly encoded colours.
+      if (actor.target) {
+        subdivisionCopy(subdivision.retained, subdivision.presented);
+        actor.before = { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
+      }
+      actor.targetId = targetId;
+      actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });
+      actor.plan = Flow.subdivisionPlan(actor.before.field, actor.target, colors.surface);
+      actor.detail = 0; actor.detailDone = false;
+      subdivisionRaster(actor.target, subdivisionCamera());
+      canvas.dataset.subdivision = actor.plan ? actor.plan.refining ? "dividing" : "joining" : "blending";
+      canvas.dataset.subdivisionTiles = String(actor.plan?.count ?? 0);
+      Flow.spring(canvas, "cells", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
+        write: ({ progress }) => { if (subdivision.actor === actor) { actor.detail = clamp(progress, 0, 1); requestDraw(true); } },
+        complete: () => { if (subdivision.actor === actor) { actor.detailDone = true; subdivisionComplete(actor); } } });
+    }
+    // Empty/failed destinations use their honest native state. A merely pending
+    // read holds the old field, without an idle requestAnimationFrame loop.
+    if (!actor.target && !scaleAsked("cells") && !viewReadPending() && !sc.map?.cells?.desc) {
+      subdivisionStop(); requestDraw(); return;
+    }
+    const ratio = subdivisionSurface(subdivision.presented), pen = subdivision.presented.getContext("2d"),
+      dpr = devicePixelRatio || 1;
+    pen.setTransform(ratio, 0, 0, ratio, -G.x * ratio, -G.y * ratio);
+    pen.globalAlpha = 1;
+    pen.drawImage(canvas, G.x * dpr, G.y * dpr, G.w * dpr, G.h * dpr, G.x, G.y, G.w, G.h);
+    if (actor.plan) Flow.paintSubdivision(pen, actor.plan, actor.detail, G.X, G.Y, design.gap);
+    else {
+      const from = actor.before.camera;
+      pen.drawImage(subdivision.retained, G.X(from[0]), G.Y(from[3]), G.X(from[1]) - G.X(from[0]), G.Y(from[2]) - G.Y(from[3]));
+      if (actor.target) {
+        const to = subdivisionCamera(); pen.globalAlpha = actor.detail;
+        pen.drawImage(subdivision.target, G.X(to[0]), G.Y(to[3]), G.X(to[1]) - G.X(to[0]), G.Y(to[2]) - G.Y(to[3]));
+        pen.globalAlpha = 1;
+      }
+    }
+    ctx.drawImage(subdivision.presented, G.x, G.y, G.w, G.h);
+    actor.hasPaint = true;
+    passFrame = null;
+    if (!actor.target) chartLabel("Refining grid · previous colours held", G.x + 8, G.y + 12);
+  }
   function beginLevelMorph() {
+    if (S.mode === "volume" && subdivisionStart(subdivisionCapture())) return;
+    subdivisionStop();
     if (Flow.stationary() || S.mode === "candles") { Flow.cancelMotion(canvas, "cells"); transition = null; return; }
     const previous = transition ? { ...transition } : null;
     const actor = { n: renderN(), m: renderM(), previous, progress: 0 };
@@ -944,6 +1098,7 @@
       .scaleLinear()
       .domain([S.pA, S.pB])
       .range([G.y + G.h, G.y]);
+    subdivisionGeometry();
     // The layout as the page drew it (css px), for the observation surface: the heatmap (x, y, w, h), the Rows strip (x, w), the profile tracks
     // (count, x of each), the event strip (y, h, collapsed) and the activity pane (y, h). Written only when it changes.
     const layoutText = [G.x, G.y, G.w, G.h, G.sx, G.sw, G.tracks, G.tx[0], G.tx[1], G.ey, G.eh, G.ecollapsed ? 1 : 0, G.ay, G.ah].map((n) => Math.round(n * 100) / 100).join(",");
@@ -2320,7 +2475,7 @@
     // Candidates, main paint and Lens share one label measurement per frame.
     drawingLabelLayouts = new WeakMap();
     if (!ready) return;
-    if (comparisonModel.expanded) { comparisonRefresh(); return; }
+    if (comparisonModel.expanded) { subdivisionStop(); comparisonRefresh(); return; }
     paintedRevision = drawRevision;
     geometry();
     for (const k in markCount) markCount[k] = 0;
@@ -2453,9 +2608,10 @@
     ctx.clip();
     if (S.mode === "candles") paintCandles(renderN(), S.tA, S.tB);
     else if (moving) paintMotion(shown, mv.shown, mv, b, u, sc.cells);
-    else for (const z of shown.cells) fillCell(z, full, u, sc.cells);
+    else if (!subdivision.actor) for (const z of shown.cells) fillCell(z, full, u, sc.cells);
     markTally = false;
     ctx.restore();
+    subdivisionPaint(sc, shown, cut);
     if (S.mode !== "candles") markings(shown, cut);
     occlusionPlan(cut);
     // The continuation boxes go under the reference lines, so the lines' tags stay readable over them.
@@ -18355,7 +18511,7 @@
   function autoLevel(animate = true) {
     // A whole-window command interrupts old presentation even at a locked or
     // unchanged level. Its destination never inherits the departed grid.
-    if (!animate) { transition = null; Flow.cancelMotion(canvas, "cells"); }
+    if (!animate) { transition = null; subdivisionStop(); Flow.cancelMotion(canvas, "cells"); }
     if (comparisonModel.expanded || !canvas.getClientRects().length || canvas.getBoundingClientRect().height <= 0 || !S.auto || !(S.tB > S.tA) || !(S.pB > S.pA)) return false;
     const g = navGeometry(),
       n = pixelLevel(S.n, S.tB - S.tA, g.w, N_MAX),
@@ -21905,10 +22061,12 @@
     el("reset-canvas").focus({ preventScroll: true });
   }
   function chooseWindow(w) {
+    const before = subdivisionCapture();
     drawingCancelOperation(); drawingKeyContext = false;
     if (pop.open?.panel === el("window-menu")) closePop(true);
     setWindow(w);
     fitPrice("Window", null, true);
+    subdivisionStart(before, true);
   }
   function setMode(mode) {
     drawingCancelOperation(); drawingKeyContext = false;
@@ -21990,9 +22148,11 @@
       return;
     }
     if (windowPriceFitPending()) return;
+    const before = subdivision.actor?.animateCamera ? subdivisionCapture() : null;
     pendingWindowPriceFit = null;
     fit(pending.padding);
     if (S.auto) autoLevel(false);
+    subdivisionStart(before, true);
     update();
     syncURL(true);
     save();

@@ -148,21 +148,49 @@ test("a rapid timeframe replacement owns the final fit", async ({ page, fakeFor,
   } finally { gate.open(); }
 });
 
-test("a timeframe choice releases an active cell spring before its destination paints", async ({ page, fakeFor, probe }) => {
+test("a deferred timeframe refit continues the coloured subdivision", async ({ page, fakeFor, probe }) => {
   await page.addInitScript(() => {
-    let api;
+    let api; window.__subdivisionCameraStarts = 0;
     Object.defineProperty(window, "explorerMotion", { get: () => api, set: motion => {
       api = { ...motion, spring(owner, name, options) {
-        return motion.spring(owner, name, name === "cells" ? { ...options, canComplete: () => false } : options);
+        if (name === "cells-camera") window.__subdivisionCameraStarts++;
+        return motion.spring(owner, name, options);
+      } };
+    } });
+  });
+  const fake = await open(page, fakeFor, probe, "volume", "free", "20000~40000", true);
+  await expect(page.locator("#ol-legend")).toHaveAttribute("data-state", "ready");
+  const gate = fake.on({ route: "/cube/tile" }).gate();
+  try {
+    await choose(page, "2026-08-11"); await gate.arrived();
+    await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", /.+/);
+    const starts = await page.evaluate(() => window.__subdivisionCameraStarts);
+    gate.open(); await fitted(page, "volume", "2026-08-11");
+    expect(await page.evaluate(() => window.__subdivisionCameraStarts)).toBeGreaterThan(starts);
+    await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-subdivision", /.+/);
+  } finally { gate.open(); }
+});
+test("a timeframe choice replaces an active cell spring with its own subdivision", async ({ page, fakeFor, probe }) => {
+  await page.addInitScript(() => {
+    let api, generation = 0;
+    window.__oldCellWrites = 0;
+    Object.defineProperty(window, "explorerMotion", { get: () => api, set: motion => {
+      api = { ...motion, spring(owner, name, options) {
+        if (name !== "cells") return motion.spring(owner, name, options);
+        const id = ++generation;
+        return motion.spring(owner, name, id === 1 ? { ...options, canComplete: () => false,
+          write(value) { window.__oldCellWrites++; options.write(value); } } : options);
       } };
     } });
   });
   await open(page, fakeFor, probe, "volume");
   await page.locator("#ol-canvas").focus();
   await page.keyboard.press("]");
-  expect(await page.evaluate(() => window.explorerMotion.motionValue(document.querySelector("#ol-canvas"), "cells"))).not.toBeNull();
+  await expect.poll(() => page.evaluate(() => window.explorerMotion.motionValue(document.querySelector("#ol-canvas"), "cells"))).not.toBeNull();
   await choose(page, "24h");
-  expect(await page.evaluate(() => window.explorerMotion.motionValue(document.querySelector("#ol-canvas"), "cells"))).toBeNull();
+  const retiredWrites = await page.evaluate(() => window.__oldCellWrites);
   await fitted(page, "volume");
+  await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-subdivision", /.+/);
+  expect(await page.evaluate(() => window.__oldCellWrites)).toBe(retiredWrites);
   expect(await page.evaluate(() => window.explorerMotion.motionValue(document.querySelector("#ol-canvas"), "cells"))).toBeNull();
 });
