@@ -83,9 +83,11 @@ test("finer destination fitting and layout changes recompute the automatic grid"
     await page.setViewportSize({ width: 800, height: 1000 });
     gate.open(); await settled(page, probe);
     await expect.poll(async () => (await state(page)).viewport.slice(2)).toEqual([198, 204]);
-    assertBest(await state(page));
+    // These two late trades fit a completed 4-hour column ending at noon;
+    // coarser columns contain only unfinished observations.
+    assertBest(await state(page), 5, 0, false, 8);
     await page.setViewportSize({ width: 390, height: 844 }); await settled(page, probe);
-    assertBest(await state(page));
+    assertBest(await state(page), 5, 0, false, 8);
   } finally { gate.open(); }
 });
 

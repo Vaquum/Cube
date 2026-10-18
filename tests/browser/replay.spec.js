@@ -52,7 +52,7 @@ test("scrubbing back never paints a mapping fitted after the edge; leaving repla
   const fake = await fakeFor("standard");
   const ctx = { page, fake, probe, surface };
   await withEdges(page);
-  await page.goto(`${fake.url}/#w=24h`);
+  await page.goto(`${fake.url}/#w=24h&r=4,0`);
   const live = await calm(ctx);
   expect(live.workspace).toBe("live");
 
