@@ -18554,7 +18554,11 @@
     }
     const changed = n !== S.n || m !== S.m;
     if (changed) {
-      if (animate) beginLevelMorph();
+      const animateCamera = subdivision.actor?.animateCamera;
+      if (animate) {
+        beginLevelMorph();
+        if (animateCamera && subdivision.actor) subdivision.actor.animateCamera = true;
+      }
       S.n = n;
       S.m = m;
     }
@@ -18788,10 +18792,10 @@
   }
   function refreshWindowGridAfterStatus() {
     if (!ready || !S.auto || !S.window || S.mode === "candles" || !el("loading").hidden) return;
-    const pendingFit = pendingWindowPriceFit?.context === windowPriceFitContext() ? pendingWindowPriceFit : null,
-      before = subdivision.actor?.animateCamera ? subdivisionCapture() : null;
+    const pendingFit = pendingWindowPriceFit?.context === windowPriceFitContext() ? pendingWindowPriceFit : null;
+    // An unchanged grid must not capture into the active actor's retained
+    // surface. A changed grid captures once in beginLevelMorph, keeping camera intent.
     if (!autoLevel()) return;
-    subdivisionStart(before, true);
     update();
     save();
     if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
