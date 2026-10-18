@@ -15,7 +15,7 @@ const S = require("./rows-support.js");
 const P = require("./persistence-support.js");
 
 const REPLAY = "2026-09-24T06:00Z";
-const ADDRESS = `#w=7d&vis=2&rows=volume&period=30d&pane=efficiency&lines=1d&replay=1&at=${REPLAY}`;
+const ADDRESS = `#w=7d&r=7,0&vis=2&rows=volume&period=30d&pane=efficiency&lines=1d&replay=1&at=${REPLAY}`;
 
 async function fieldsOf(locator) {
   return locator.evaluate((el) => {

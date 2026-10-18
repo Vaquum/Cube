@@ -10,11 +10,12 @@ async function pixels(page){return page.locator('#ol-canvas').evaluate(canvas=>{
 });}
 async function open(page,fakeFor,probe){
  await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerEncoding',{get:()=>api,set:value=>{
-  api={...value,lifecycle:{...value.lifecycle,coherent:(...args)=>window.__holdSubdivisionCalibration?{ok:false,reason:'pending'}:value.lifecycle.coherent(...args)},
+  api={...value,util:{...value.util,windowLevel:spec=>window.__subdivisionGrid||value.util.windowLevel(spec)},lifecycle:{...value.lifecycle,coherent:(...args)=>window.__holdSubdivisionCalibration?{ok:false,reason:'pending'}:value.lifecycle.coherent(...args)},
    readout:{...value.readout,cellsFrame(...args){const frame=value.readout.cellsFrame(...args);return window.__replaceSubdivisionMapping?{...frame,mappingId:frame.mappingId+':next'}:frame;}}};
  }});});
  const fake=await fakeFor('standard');await page.goto(fake.url+'/#w=24h&vis=2');await S.atRest(page,fake,probe);
  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
+ return fake;
 }
 test('uncached resolution retains colour and rests while calibration waits',async({page,fakeFor,probe})=>{
  await open(page,fakeFor,probe);const before=await pixels(page);expect(before.blue).toBeGreaterThan(1000);
@@ -82,4 +83,42 @@ test('a new calibration keeps the camera at its presented position',async({page,
  expect(await page.evaluate(()=>window.__subdivisionPriceCamera)).toEqual(before);
  await page.evaluate(()=>{window.__holdSubdivisionCamera=false;});
  await expect(page.locator('#ol-canvas')).not.toHaveAttribute('data-subdivision',/.+/);
+});
+
+test('an unchanged status grid leaves the active coloured source untouched',async({page,fakeFor,probe})=>{
+ await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerMotion',{get:()=>api,set:motion=>{
+  api={...motion,spring(owner,name,options){return motion.spring(owner,name,name==='cells-camera'?{...options,
+   canComplete:()=>!window.__holdSubdivisionCamera,write(value){options.write(window.__holdSubdivisionCamera?{progress:.5}:value);}}:options);}};
+ }});});
+ const fake=await open(page,fakeFor,probe);
+ const choose=async key=>{await page.locator('#ol-window').click();await page.locator(`[data-window="${key}"]`).click();};
+ await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:1};});
+ await choose('45d');await S.atRest(page,fake,probe);
+ await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
+ await page.evaluate(()=>{window.__subdivisionGrid=null;});
+ await choose('24h');await S.atRest(page,fake,probe);
+ await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
+ const gate=fake.on({route:'/cube/query'}).gate();
+ try {
+  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCamera=true;window.__holdSubdivisionCalibration=true;});
+  await choose('45d');await gate.arrived();
+  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision','waiting');
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.evaluate(()=>{
+   const draw=CanvasRenderingContext2D.prototype.drawImage;window.__statusSourceCopies=0;
+   CanvasRenderingContext2D.prototype.drawImage=function(...args){
+    if(args.length===5&&args[1]===0&&args[2]===0&&!this.canvas.id&&!args[0]?.id&&this.canvas.width>100&&this.canvas.height>100)window.__statusSourceCopies++;
+    return draw.apply(this,args);
+   };
+  });
+  gate.open();await expect(page.locator('#ol-loading')).toBeHidden();
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  expect(await page.locator('#ol-n').textContent()).toBe('n 10');
+  expect(await page.locator('#ol-m').textContent()).toBe('m 2');
+  expect(await page.evaluate(()=>window.__statusSourceCopies)).toBe(0);
+  expect((await pixels(page)).blue).toBeGreaterThan(100);
+ } finally {
+  gate.open();
+  await page.evaluate(()=>{window.__holdSubdivisionCamera=false;window.__holdSubdivisionCalibration=false;document.querySelector('#ol-poc').click();});
+ }
 });

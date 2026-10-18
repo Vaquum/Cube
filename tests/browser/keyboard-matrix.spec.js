@@ -17,11 +17,11 @@ const S = require("./rows-support.js");
 
 // The address as the state it holds, without the keys that only the visual version adds. Column POCs start off in this
 // build and on in the original, so this build's marks are said the way the original writes them.
-const normal = (hash, current = false) => {
+const normal = (hash, current = false, defaultLevel = false) => {
   let parts = hash
     .replace(/^#/, "")
     .split("&")
-    .filter((p) => p && !/^(vis|ap|sc|pc|po)=/.test(p));
+    .filter((p) => p && !/^(vis|ap|sc|pc|po)=/.test(p) && !(defaultLevel && p.startsWith("r=")));
   if (current) {
     const marks = parts.find((p) => p.startsWith("marks="));
     parts = parts.filter((p) => !p.startsWith("marks="));
@@ -81,8 +81,14 @@ test.describe("B49 the documented shortcuts are the original's", () => {
       await Promise.all([probe.waitForReady({ timeout: 30000 }), old.probe.waitForReady({ timeout: 30000 })]);
       const a = await snapshot(old.page),
         b = await snapshot(page);
-      const was = { ...a, hash: normal(a.hash) },
-        now = { ...b, hash: normal(b.hash, true) };
+      // Auto now latches the near-square default. Its on/off state and every
+      // other command still match; the following finer key aligns both grids.
+      if (key === "a") {
+        expect(new URLSearchParams(a.hash.slice(1)).has("r")).toBe(true);
+        expect(new URLSearchParams(b.hash.slice(1)).has("r")).toBe(true);
+      }
+      const was = { ...a, hash: normal(a.hash, false, key === "a") },
+        now = { ...b, hash: normal(b.hash, true, key === "a") };
       if (JSON.stringify(was) !== JSON.stringify(now)) different.push(`after ${key}: original ${JSON.stringify(was)} / now ${JSON.stringify(now)}`);
       // keep both on the canvas for the next key
       if (!(await page.evaluate(() => document.getElementById("ol-keys")?.open))) await page.locator("#ol-canvas").focus();
@@ -149,6 +155,10 @@ test.describe("B49 each holder of the focus consumes its own keys", () => {
     const rows = page.locator("#ol-table-body tr");
     await expect.poll(() => rows.count(), { message: "the table lists cells", timeout: 60000 }).toBeGreaterThan(3);
     await expect(rows.first(), "one row is the table's tab stop").toHaveAttribute("tabindex", "0");
+    // Opening the drawer changes the available plot and can select a new Auto
+    // grid. Compare keyboard effects after that layout/calibration has settled.
+    await S.atRest(page, fake, probe);
+    await probe.waitForQuiet({ quietMs: 500, timeout: 60000 });
     await rows.first().focus();
     const before = await snapshot(page);
     await page.keyboard.press("ArrowDown");

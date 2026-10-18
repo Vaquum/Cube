@@ -10,6 +10,6 @@
   "expected": {
     "volume": [24750, 25500],
     "candles": [24985, 25165],
-    "historicalVolume": [24500, 25750]
+    "historicalVolume": [24750, 25500]
   }
 }

@@ -40,8 +40,11 @@ async function advance({ page, fake, surface }, ms, { stop = () => false } = {})
 }
 
 // Open a calibrated page, choose Auto colour, and hand the clock over to the test.
-async function startAuto(ctx, hash = "#w=7d") {
+async function startAuto(ctx, hash = "#w=7d&r=6,0") {
   const { page, fake, probe, surface } = ctx;
+  // Colour cadence is per resolution context. Keep this fixture's grid fixed
+  // while time-window defaults independently choose their near-square levels.
+  if (!new URLSearchParams(hash.slice(1)).has("r")) hash += "&r=6,0";
   await page.clock.install({ time: Date.now() });
   await page.goto(`${ctx.fake.url}/${hash}`);
   await calm(ctx);
@@ -97,8 +100,8 @@ test("Auto colour: nothing commits inside a gesture or before the settle time", 
 test("Auto colour: updates are at least 500 ms apart, and the first one after idle waits for nothing", async ({ page, fakeFor, probe, surface }) => {
   const fake = await fakeFor("standard");
   const ctx = { page, fake, probe, surface };
-  // 1h, 30m and 15m are windows of one context on this viewport (B06).
-  const start = await startAuto(ctx, "#w=1h");
+  // Lock the base grid so 1h, 30m and 15m share one colour context (B06).
+  const start = await startAuto(ctx, "#w=1h&r=0,0");
   const landing = async (key, from) => {
     await page.keyboard.press(key);
     const at = await page.evaluate(() => performance.now());
@@ -120,7 +123,7 @@ test("Explore never refits from same-pack navigation, Auto does", async ({ page,
   const fake = await fakeFor("standard");
   const ctx = { page, fake, probe, surface };
   // Explore first: a page with the default policy.
-  await page.goto(`${fake.url}/#w=7d`);
+  await page.goto(`${fake.url}/#w=7d&r=6,0`);
   const explore = await calm(ctx);
   expect(explore.policy).toBe("explore");
   await wheel(page, -8);
@@ -168,7 +171,7 @@ test("the Columns axis leaves updating with no further input", async ({ page, fa
   const fake = await fakeFor("standard");
   const ctx = { page, fake, probe, surface };
   await page.clock.install({ time: Date.now() });
-  await page.goto(`${fake.url}/#w=7d`);
+  await page.goto(`${fake.url}/#w=7d&r=6,0`);
   await calm(ctx);
   const before = (await surface.chip("axis")).data;
   await probe.waitForQuiet({ quietMs: 600 });

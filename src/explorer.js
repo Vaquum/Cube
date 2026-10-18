@@ -3237,10 +3237,9 @@
     S.replay = false;
     windowRange(key);
     transition = null; Flow.cancelMotion(canvas, "cells");
-    // The window's own level, for about a hundred columns; auto level then
-    // fits it to the screen.
-    S.n = w.n;
-    S.m = w.m;
+    // Seed automatic fitting before the destination data arrives. A manual
+    // resolution remains locked across timeframe choices.
+    if (S.auto) { S.n = w.n; S.m = S.diagonal ? diagonalM(w.n) : w.m; }
     chooseSource();
     fit();
     limits();
@@ -7173,7 +7172,8 @@
     chooseSource();
     // Data/status updates retain their grid. Camera and internal plot-layout
     // changes choose it again; outer resizes are handled by the canvas observer.
-    const context = [S.auto, S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, eventKinds().length].join(":");
+    const sourceFloor = !PACK.live && S.mode !== "candles" ? `${displaySource()?.n}:${displaySource()?.m}` : "";
+    const context = [S.auto, S.window, S.mode === "candles", S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, sourceFloor, eventKinds().length].join(":");
     if (context !== autoContext) {
       autoContext = context;
       if (S.auto) autoLevel();
@@ -18508,17 +18508,57 @@
     const r = canvas.getBoundingClientRect();
     return layoutNow(r.width, r.height);
   }
+  let windowGridCoverage = null;
+  function windowGridTimeLimit() {
+    const source = displaySource(), [start, end] = viewRange();
+    if (!source) return N_MAX;
+    const cached = windowGridCoverage;
+    if (cached?.cells === source.cells && cached.start === start && cached.end === end) return cached.max;
+    const step = 2 ** source.n;
+    let first = Infinity, max = N_MAX;
+    for (const cell of source.cells) {
+      const t = cell.c * step;
+      if (t < end && t + step > start) first = Math.min(first, t);
+    }
+    // Keep a completed occupied column for calibration. With sparse history,
+    // making every trade part of one open column would remove all colour.
+    if (Number.isFinite(first)) while (max > 0 && (Math.floor(first / 2 ** max) + 1) * 2 ** max > end) max--;
+    windowGridCoverage = { cells: source.cells, start, end, max };
+    return max;
+  }
   function autoLevel(animate = true) {
     // A whole-window command interrupts old presentation even at a locked or
     // unchanged level. Its destination never inherits the departed grid.
     if (!animate) { transition = null; subdivisionStop(); Flow.cancelMotion(canvas, "cells"); }
     if (comparisonModel.expanded || !canvas.getClientRects().length || canvas.getBoundingClientRect().height <= 0 || !S.auto || !(S.tB > S.tA) || !(S.pB > S.pA)) return false;
-    const g = navGeometry(),
-      n = pixelLevel(S.n, S.tB - S.tA, g.w, N_MAX),
-      m = S.diagonal ? diagonalM(n) : pixelLevel(S.m, S.pB - S.pA, g.h, M_MAX),
-      changed = n !== S.n || m !== S.m;
+    const g = navGeometry();
+    if (!(g.w > 0 && g.h > 0)) return false;
+    let n, m;
+    if (S.window && S.mode !== "candles") {
+      let nMin = 0, mMin = 0;
+      if (PACK.live) {
+        const [a, b] = viewRange();
+        while (nMin < N_MAX && Math.ceil(b / 2 ** nMin) - Math.floor(a / 2 ** nMin) > TILE_COLUMNS) nMin++;
+      } else {
+        const source = displaySource();
+        nMin = source?.n || 0; mMin = source?.m || 0;
+      }
+      const level = E.util.windowLevel({ timeSpan: S.tB - S.tA, priceSpan: S.pB - S.pA,
+        width: g.w, height: g.h, nMin, mMin, nMax: Math.max(nMin, windowGridTimeLimit()), mMax: M_MAX,
+        diagonal: S.diagonal ? { a: ISO_A, b: ISO_B } : null });
+      if (!level) return false;
+      ({ n, m } = level);
+    } else {
+      n = pixelLevel(S.n, S.tB - S.tA, g.w, N_MAX);
+      m = S.diagonal ? diagonalM(n) : pixelLevel(S.m, S.pB - S.pA, g.h, M_MAX);
+    }
+    const changed = n !== S.n || m !== S.m;
     if (changed) {
-      if (animate) beginLevelMorph();
+      const animateCamera = subdivision.actor?.animateCamera;
+      if (animate) {
+        beginLevelMorph();
+        if (animateCamera && subdivision.actor) subdivision.actor.animateCamera = true;
+      }
       S.n = n;
       S.m = m;
     }
@@ -18750,6 +18790,16 @@
     }
     return out;
   }
+  function refreshWindowGridAfterStatus() {
+    if (!ready || !S.auto || !S.window || S.mode === "candles" || !el("loading").hidden) return;
+    const pendingFit = pendingWindowPriceFit?.context === windowPriceFitContext() ? pendingWindowPriceFit : null;
+    // An unchanged grid must not capture into the active actor's retained
+    // surface. A changed grid captures once in beginLevelMorph, keeping camera intent.
+    if (!autoLevel()) return;
+    update();
+    save();
+    if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
+  }
   function setLoadingHidden(hidden) {
     const node = el("loading");
     if (node.hidden === hidden || (ready && drawingDrag)) return;
@@ -18757,6 +18807,9 @@
     node.hidden = hidden;
     if (ready) applyPanels();
     const after = canvas.getBoundingClientRect();
+    // A fast read can show and hide status before ResizeObserver delivers any
+    // changed size. Recompute after the enclosing update, at the reclaimed size.
+    if (hidden && ready && S.auto && S.window && S.mode !== "candles") queueMicrotask(refreshWindowGridAfterStatus);
     // Only a status change from the last observed size may bypass Auto. A
     // concurrent viewport or panel resize must retain its normal behavior.
     loadingResize = observedCanvasSize?.width === before.width && observedCanvasSize.height === before.height &&
@@ -24345,9 +24398,13 @@
         loadingResize = null;
         observedCanvasSize = { width: rect.width, height: rect.height };
         if (drawingDrag && !statusOnly) drawingCancelOperation();
+        const pendingFit = pendingWindowPriceFit?.context === windowPriceFitContext() ? pendingWindowPriceFit : null;
         geometry(false);
-        if (S.auto && !statusOnly) autoLevel();
+        // Status appearance keeps the current grid. Once it disappears a
+        // timeframe may use the reclaimed plot, without oscillating per read.
+        if (S.auto && (!statusOnly || (S.window && S.mode !== "candles" && el("loading").hidden))) autoLevel();
         update();
+        if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
         noteGesture();
         requestDraw();
       }

@@ -396,7 +396,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
     // the action is exercised through a button with the warning's own markup: what the popover's click handler does with
     // a `warn-open-lens` action is what is tested here, and the markup a real warning carries is checked in legend.test.js.
     const fake = await fakeFor("mini");
-    await load(page, fake, probe, VIEW);
+    await load(page, fake, probe, VIEW + "&r=4,0");
     await focusSetting(page, "#ol-legend");
     await page.keyboard.press("Enter");
     const before = await page.locator("#ol-legend").getAttribute("data-context");

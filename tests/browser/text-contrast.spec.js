@@ -106,7 +106,7 @@ test.describe("B43 every text of the composed chart reads against the pixels it 
   test("the continuation's labels, the lens caption and the replay's labels", async ({ page, probe, fakeFor, pane }) => {
     const fake = await fakeFor("standard");
     await page.setViewportSize({ width: 1500, height: 950 });
-    await page.goto(`${fake.url}/#w=24h&vis=2`);
+    await page.goto(`${fake.url}/#w=24h&r=4,0&vis=2`);
     await S.atRest(page, fake, probe);
     await page.keyboard.press("c"); // Continuations is explicit, never enabled by the Pan click.
     const box = await page.locator("#ol-canvas").boundingBox();

@@ -52,14 +52,14 @@ test("scrubbing back never paints a mapping fitted after the edge; leaving repla
   const fake = await fakeFor("standard");
   const ctx = { page, fake, probe, surface };
   await withEdges(page);
-  await page.goto(`${fake.url}/#w=24h`);
+  await page.goto(`${fake.url}/#w=24h&r=4,0`);
   const live = await calm(ctx);
   expect(live.workspace).toBe("live");
 
   // Into replay, at a chosen anchor, inside the same page (the live workspace must survive it): the replay workspace has no
   // mapping yet, so it is calibrated from what existed then.
   await page.evaluate(() => {
-    location.hash = "#w=24h&replay=1&at=2026-09-24T06:00Z";
+    location.hash = "#w=24h&r=4,0&replay=1&at=2026-09-24T06:00Z";
   });
   const first = await calm(ctx);
   expect(first.workspace).toBe("replay");
@@ -126,7 +126,7 @@ test("Play commits nothing after the first calibration of the replay context", a
   const ctx = { page, fake, probe, surface };
   await withEdges(page);
   await page.clock.install({ time: Date.now() });
-  await page.goto(`${fake.url}/#w=24h&replay=1&at=2026-09-24T06:00Z`);
+  await page.goto(`${fake.url}/#w=24h&r=4,0&replay=1&at=2026-09-24T06:00Z`);
   const start = await calm(ctx);
   await probe.waitForQuiet({ quietMs: 600 });
   await page.clock.pauseAt(Date.now() + 200);
@@ -147,7 +147,7 @@ test("Play commits nothing after the first calibration of the replay context", a
 test("scrubbing across Monday changes the calendar identity of Rows", async ({ page, fakeFor, probe, surface }) => {
   const fake = await fakeFor("standard");
   const ctx = { page, fake, probe, surface };
-  await page.goto(`${fake.url}/#w=7d&rows=volume&period=wk&replay=1&at=2026-09-21T06:00Z`);
+  await page.goto(`${fake.url}/#w=7d&r=7,0&rows=volume&period=wk&replay=1&at=2026-09-21T06:00Z`);
   const monday = await calm(ctx, { channel: "rows" });
   expect(monday.context).toContain("cal:wk:2026-09-21");
   // Six 2-hour columns back: Sunday evening, the previous calendar week.

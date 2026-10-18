@@ -25,13 +25,14 @@ async function open(page, fakeFor, probe, mode, follow = "free", prices = "20000
   const source = historical ? { ...profile, name: "timeframe-price-fit-historical", trades: profile.trades.map((trade, i) =>
     i < 2 ? { ...trade, t_ms: Date.parse(`2026-08-10T${13 + i}:00:00Z`) - EPOCH_MS } : trade) } : profile;
   const fake = await fakeFor(source, { next: 3 });
-  await page.goto(`${fake.url}/#t=2026-09-23T12:00Z~2026-09-24T12:00Z&p=${prices}&r=6,0&mode=${mode}&follow=${follow}`);
+  await page.goto(`${fake.url}/#t=2026-09-23T12:00Z~2026-09-24T12:00Z&p=${prices}&r=6,0&mode=${mode}&f=${follow}`);
   await probe.waitForReady();
   await expect.poll(() => page.evaluate(() => typeof window.cubeAgent?.export)).toBe("function");
   return fake;
 }
 async function fitted(page, mode, key = "24h") {
   await expect.poll(async () => (await camera(page)).window).toBe(key);
+  // Manual n6,m0 survives the menu choice: the fetched historical fit uses 125-USDT rows.
   const expected = mode === "volume" && key === "2026-08-11" ? fixture.expected.historicalVolume : fixture.expected[mode];
   await expect.poll(async () => (await camera(page)).price).toEqual(expected);
 }
@@ -119,16 +120,16 @@ for (const mode of ["volume", "candles"]) {
   });
 }
 
-test("Since fits the already-loaded finer reference instead of the previous coarse tile", async ({ page, fakeFor, probe }) => {
+test("Since fits the preserved manual grid instead of resetting its level", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor(profile);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(`${fake.url}/#t=2026-09-10T00:00Z~2026-09-24T12:00Z&p=10000~50000&r=3,3&mode=volume&follow=free`);
+  await page.goto(`${fake.url}/#t=2026-09-10T00:00Z~2026-09-24T12:00Z&p=10000~50000&r=3,3&mode=volume&f=free`);
   await probe.waitForReady();
   await expect.poll(() => page.evaluate(() => typeof window.cubeAgent?.export)).toBe("function");
   expect(fake.log().some(row => row.path === "/cube/tile" && row.query.n === "3" && row.query.m === "3")).toBe(true);
   await choose(page, "2026-09-10");
-  // All four trades: 125-USDT cell edges 20000..40125, plus 17 rows on each side.
-  await expect.poll(async () => (await camera(page)).price).toEqual([17875, 42250]);
+  // The locked 1000-USDT rows cover 20000..41000, plus three rows on each side.
+  await expect.poll(async () => (await camera(page)).price).toEqual([17000, 44000]);
   const before = await camera(page);
   await page.locator("#ol-canvas").focus();
   await page.keyboard.press("f");

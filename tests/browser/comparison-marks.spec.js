@@ -27,7 +27,7 @@ test.describe("B41 the historical comparison is neutral: a square for the matchi
   test("the cone, its medians, its anchor line and its legend use the neutral hue and the two shapes", async ({ page, probe, fakeFor, pane }) => {
     const fake = await fakeFor("standard");
     await page.setViewportSize({ width: 1500, height: 950 });
-    await page.goto(`${fake.url}/#w=24h&vis=2`);
+    await page.goto(`${fake.url}/#w=24h&r=4,0&vis=2`);
     await S.atRest(page, fake, probe);
     const box = await page.locator("#ol-canvas").boundingBox();
     await page.keyboard.press("c");

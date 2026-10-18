@@ -20,7 +20,7 @@ const S = require("./rows-support.js");
 
 const test = base;
 
-const ADDRESS = "#w=24h&vis=2&lines=7d,30d&level=25100";
+const ADDRESS = "#w=24h&r=4,0&vis=2&lines=7d,30d&level=25100";
 
 async function open(page, fake, probe, hash = ADDRESS) {
   await page.setViewportSize({ width: 1500, height: 950 });
