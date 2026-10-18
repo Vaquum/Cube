@@ -155,6 +155,10 @@ test.describe("B49 each holder of the focus consumes its own keys", () => {
     const rows = page.locator("#ol-table-body tr");
     await expect.poll(() => rows.count(), { message: "the table lists cells", timeout: 60000 }).toBeGreaterThan(3);
     await expect(rows.first(), "one row is the table's tab stop").toHaveAttribute("tabindex", "0");
+    // Opening the drawer changes the available plot and can select a new Auto
+    // grid. Compare keyboard effects after that layout/calibration has settled.
+    await S.atRest(page, fake, probe);
+    await probe.waitForQuiet({ quietMs: 500, timeout: 60000 });
     await rows.first().focus();
     const before = await snapshot(page);
     await page.keyboard.press("ArrowDown");
