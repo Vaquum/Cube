@@ -53,6 +53,14 @@ completing after pending bars or finer tiles arrive. The time
 change and price fit share one history entry. New navigation cancels an obsolete
 fit, and whole-window changes release the previous cell morph before painting.
 
+Automatic timeframe grids choose time and price levels together after the price
+fit. The closest available cell aspect ratio wins; equally square grids choose
+the geometric mean nearest 12 CSS pixels. The rule uses the actual plot size,
+respects source resolution, tile capacity and the empirical diagonal, and runs
+again after destination data or a layout change. Base resolution can require
+larger cells in short windows. Explicit grid locks survive timeframe changes;
+ordinary free-camera navigation retains its existing density hysteresis.
+
 Reference guidance uses bounded scrolling that follows the live target and
 yields to wheel, pointer, touch and keyboard input. Tall targets settle when
 covering the viewport. Native scrolling and input behavior remain direct.

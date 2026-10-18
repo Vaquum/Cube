@@ -3237,10 +3237,9 @@
     S.replay = false;
     windowRange(key);
     transition = null; Flow.cancelMotion(canvas, "cells");
-    // The window's own level, for about a hundred columns; auto level then
-    // fits it to the screen.
-    S.n = w.n;
-    S.m = w.m;
+    // Seed automatic fitting before the destination data arrives. A manual
+    // resolution remains locked across timeframe choices.
+    if (S.auto) { S.n = w.n; S.m = S.diagonal ? diagonalM(w.n) : w.m; }
     chooseSource();
     fit();
     limits();
@@ -7173,7 +7172,8 @@
     chooseSource();
     // Data/status updates retain their grid. Camera and internal plot-layout
     // changes choose it again; outer resizes are handled by the canvas observer.
-    const context = [S.auto, S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, eventKinds().length].join(":");
+    const sourceFloor = !PACK.live && S.mode !== "candles" ? `${displaySource()?.n}:${displaySource()?.m}` : "";
+    const context = [S.auto, S.window, S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, sourceFloor, eventKinds().length].join(":");
     if (context !== autoContext) {
       autoContext = context;
       if (S.auto) autoLevel();
@@ -18513,10 +18513,30 @@
     // unchanged level. Its destination never inherits the departed grid.
     if (!animate) { transition = null; subdivisionStop(); Flow.cancelMotion(canvas, "cells"); }
     if (comparisonModel.expanded || !canvas.getClientRects().length || canvas.getBoundingClientRect().height <= 0 || !S.auto || !(S.tB > S.tA) || !(S.pB > S.pA)) return false;
-    const g = navGeometry(),
-      n = pixelLevel(S.n, S.tB - S.tA, g.w, N_MAX),
-      m = S.diagonal ? diagonalM(n) : pixelLevel(S.m, S.pB - S.pA, g.h, M_MAX),
-      changed = n !== S.n || m !== S.m;
+    const g = navGeometry();
+    if (!(g.w > 0 && g.h > 0)) return false;
+    let n, m;
+    if (S.window) {
+      let nMin = 0, mMin = 0;
+      if (S.mode !== "candles") {
+        if (PACK.live) {
+          const [a, b] = viewRange();
+          while (nMin < N_MAX && Math.ceil(b / 2 ** nMin) - Math.floor(a / 2 ** nMin) > TILE_COLUMNS) nMin++;
+        } else {
+          const source = displaySource();
+          nMin = source?.n || 0; mMin = source?.m || 0;
+        }
+      }
+      const level = E.grid.windowLevel({ timeSpan: S.tB - S.tA, priceSpan: S.pB - S.pA,
+        width: g.w, height: g.h, nMin, mMin, nMax: N_MAX, mMax: M_MAX,
+        diagonal: S.diagonal ? { a: ISO_A, b: ISO_B } : null });
+      if (!level) return false;
+      ({ n, m } = level);
+    } else {
+      n = pixelLevel(S.n, S.tB - S.tA, g.w, N_MAX);
+      m = S.diagonal ? diagonalM(n) : pixelLevel(S.m, S.pB - S.pA, g.h, M_MAX);
+    }
+    const changed = n !== S.n || m !== S.m;
     if (changed) {
       if (animate) beginLevelMorph();
       S.n = n;
@@ -24345,9 +24365,11 @@
         loadingResize = null;
         observedCanvasSize = { width: rect.width, height: rect.height };
         if (drawingDrag && !statusOnly) drawingCancelOperation();
+        const pendingFit = pendingWindowPriceFit?.context === windowPriceFitContext() ? pendingWindowPriceFit : null;
         geometry(false);
         if (S.auto && !statusOnly) autoLevel();
         update();
+        if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
         noteGesture();
         requestDraw();
       }

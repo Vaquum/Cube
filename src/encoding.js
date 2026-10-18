@@ -12039,6 +12039,29 @@
     return points;
   }
 
+  // Choose a window's dyadic grid from its fitted plot, without changing either axis.
+  // Aspect error wins; equal shapes choose the geometric mean nearest 12 CSS px.
+  // Source floors and an optional empirical diagonal constrain the candidate set.
+  function gridWindowLevel({ timeSpan, priceSpan, width, height, nMin = 0, mMin = 0,
+    nMax = 20, mMax = 9, diagonal = null }) {
+    if (![timeSpan, priceSpan, width, height].every(value => Number.isFinite(value) && value > 0)) return null;
+    const x = Math.log2(width / timeSpan), y = Math.log2(height / priceSpan), target = Math.log2(12);
+    let best = null, shape = Infinity, density = Infinity;
+    for (let n = nMin; n <= nMax; n++) {
+      const first = diagonal ? Math.max(0, Math.min(mMax, Math.round(diagonal.a + diagonal.b * n))) : mMin,
+        last = diagonal ? first : mMax;
+      for (let m = first; m <= last; m++) {
+        if (m < mMin) continue;
+        const aspect = Math.abs(x + n - y - m), size = Math.abs((x + n + y + m) / 2 - target);
+        if (aspect < shape - 1e-9 || (Math.abs(aspect - shape) <= 1e-9 && size < density - 1e-9)) {
+          best = { n, m }; shape = aspect; density = size;
+        }
+      }
+    }
+    return best;
+  }
+  API.grid = Object.freeze({ windowLevel: gridWindowLevel });
+
   // == §99-footer ==
   // @part 99-footer
   // @requires
