@@ -746,10 +746,13 @@
       for (const cell of field.cells) {
         if (cell.outline || !cell.css) return null;
         const count = Math.ceil((cell.end - cell.t) / ts) * Math.ceil((cell.high - cell.p) / ps);
-        if (count + keys.size > limit) return null;
+        if (count > limit) return null;
         map.set(`${Math.floor(cell.t / ft)},${Math.floor(cell.p / fp)}`, cell);
         for (let c = Math.floor(cell.t / ts); c < Math.ceil(cell.end / ts); c++)
-          for (let r = Math.floor(cell.p / ps); r < Math.ceil(cell.high / ps); r++) keys.add(`${c},${r}`);
+          for (let r = Math.floor(cell.p / ps); r < Math.ceil(cell.high / ps); r++) {
+            keys.add(`${c},${r}`);
+            if (keys.size > limit) return null;
+          }
       }
     }
     const count = keys.size, boxes = new Float64Array(count * 4), edges = new Uint8Array(count * 2),

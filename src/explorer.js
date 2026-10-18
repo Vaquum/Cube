@@ -924,14 +924,14 @@
     return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null, width: G.w, height: G.h };
   }
   function subdivisionStop() {
+    if (subdivision.actor) { Flow.cancelMotion(canvas, "cells"); Flow.cancelMotion(canvas, "cells-camera"); }
     subdivision.actor = null;
-    Flow.cancelMotion(canvas, "cells"); Flow.cancelMotion(canvas, "cells-camera");
     delete canvas.dataset.subdivision; delete canvas.dataset.subdivisionTiles;
     canvas.removeAttribute("aria-busy");
   }
   function subdivisionStart(before, animateCamera = false) {
     if (!before) return false;
-    subdivisionStop(); transition = null;
+    subdivisionStop(); transition = null; Flow.cancelMotion(canvas, "cells");
     const actor = { before, camera: 0, detail: 0, cameraDone: false, detailDone: false,
       target: null, plan: null, goal: null, animateCamera, targetId: null };
     subdivision.actor = actor;
@@ -1032,6 +1032,7 @@
   }
   function beginLevelMorph() {
     if (S.mode === "volume" && subdivisionStart(subdivisionCapture())) return;
+    subdivisionStop();
     if (Flow.stationary() || S.mode === "candles") { Flow.cancelMotion(canvas, "cells"); transition = null; return; }
     const previous = transition ? { ...transition } : null;
     const actor = { n: renderN(), m: renderM(), previous, progress: 0 };

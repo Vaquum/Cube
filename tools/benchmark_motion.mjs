@@ -34,6 +34,11 @@ const cases = [
   { id: 'disclosure', hash: '#w=24h&mode=path', action: 'details' },
   { id: 'phone-sheet', hash: '#w=24h', action: 'sheet', phone: true },
 ];
+if (process.argv.includes('--subdivision')) cases.splice(0, cases.length,
+  { id: 'subdivision-level-reversal', hash: '#w=24h', action: 'levels' },
+  { id: 'subdivision-dense', hash: '#w=7d', action: 'levels' },
+  { id: 'subdivision-time-selector', hash: '#w=24h', action: 'windows' },
+  { id: 'subdivision-phone', hash: '#w=24h', action: 'levels', phone: true });
 if(profile) cases.splice(1); // A separately registered CPU diagnostic, never the UX guard.
 const p95 = xs => xs.length ? [...xs].sort((a,b)=>a-b)[Math.ceil(xs.length*.95)-1] : 0;
 const median = xs => { const a=[...xs].sort((a,b)=>a-b); return (a[Math.floor((a.length-1)/2)]+a[Math.floor(a.length/2)])/2; };
@@ -90,6 +95,12 @@ async function trial(browser, build, definition) {
       await page.mouse.down();
       for(let i=0;i<20;i++){await page.mouse.move(x+Math.sin(i/19*Math.PI)*200,y+i*3);await page.waitForTimeout(16);}
       await page.mouse.up();
+    } else if(definition.action==='windows') {
+      for (const window of ['4h','24h','7d','24h','1h','24h']) {
+        await page.locator('#ol-window').click();
+        await page.locator(`[data-window="${window}"]`).click();
+        await page.waitForTimeout(650);
+      }
     } else if(definition.action==='levels') {
       await page.locator('#ol-canvas').focus();
       for(let i=0;i<12;i++){await page.keyboard.press(i%2?'[':']');await page.waitForTimeout(50);}
