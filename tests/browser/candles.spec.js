@@ -12,7 +12,8 @@ test("Candles replaces cells and K restores the prior mode without moving the ca
 test("exact OHLC table and Inspect read the same candle, including live partial coverage",async({page,fakeFor})=>{
  const fake=await fakeFor("micro:bars");await page.goto(fake.url+"/#t=2021-01-01T00:00Z~2021-01-01T00:20Z&p=24800~25400&r=2,0&mode=candles");await expect(page.locator("#ol-candle-legend")).toHaveAttribute("data-state","ready");
  await page.keyboard.press("t");const rows=page.locator("#ol-candle-table tbody tr");await expect(rows).toHaveCount(4);await expect(rows.first()).toContainText("25,000");await expect(rows.first()).toContainText("25,375");await expect(rows.last()).toContainText("So far");
- await rows.first().focus();await expect(page.locator("#ol-inspect-readout")).toContainText("Open");await expect(page.locator("#ol-tip")).toHaveAttribute("data-open","25000");await expect(page.locator("#ol-tip")).toHaveAttribute("data-low","24875");
+ // Bars can populate this table before the drawer's delayed build makes it visible.
+ await expect(rows.first()).toBeVisible();await rows.first().focus();await expect(page.locator("#ol-inspect-readout")).toContainText("Open");await expect(page.locator("#ol-tip")).toHaveAttribute("data-open","25000");await expect(page.locator("#ol-tip")).toHaveAttribute("data-low","24875");
 });
 for(const theme of ["light","dark"])test(`candle raster ${theme}: hollow up, filled down, neutral doji; no row snapping`,async({page,fakeFor},info)=>{
  const fake=await fakeFor("mini");await page.emulateMedia({colorScheme:theme});await page.goto(fake.url+"/#w=24h&mode=candles");await expect(page.locator("#ol-candle-legend")).toHaveAttribute("data-state","ready");

@@ -25055,11 +25055,11 @@
     S.replay = false;
     windowRange(key);
     transition = null; Flow.cancelMotion(canvas, "cells");
-    chooseSource();
     // The window's own level, for about a hundred columns; auto level then
     // fits it to the screen.
     S.n = w.n;
     S.m = w.m;
+    chooseSource();
     fit();
     limits();
     if (S.auto && G.w) autoLevel(false);
@@ -43882,9 +43882,7 @@
     drawingCancelOperation(); drawingKeyContext = false;
     if (pop.open?.panel === el("window-menu")) closePop(true);
     setWindow(w);
-    recordView("Window");
-    update();
-    save();
+    fitPrice("Window", null, true);
   }
   function setMode(mode) {
     drawingCancelOperation(); drawingKeyContext = false;
@@ -43946,6 +43944,7 @@
     : PACK.live && Boolean(viewTileSpec());
   function fitPrice(label, padding, waitForData = false) {
     pendingWindowPriceFit = null;
+    chooseSource();
     fit(padding);
     if (S.auto) autoLevel(!waitForData);
     recordView(label);
@@ -44229,6 +44228,8 @@
     for (const id of TIERS)
       if (body.blocks?.[id]) parts[id] = await unpack(body.blocks[id], id);
     if (beforeCommit) beforeCommit();
+    const windowFit = S.window && pendingWindowPriceFit?.context === windowPriceFitContext() &&
+      pendingWindowPriceFit.entry === hist.entries[hist.index]?.id ? pendingWindowPriceFit : null;
     comparisonSourceRevision++;
     if (whole) {
       for (const id of Object.keys(sources))
@@ -44310,7 +44311,15 @@
     groups.clear();
     evidenceCache.clear();
     rebuildReference();
-    if (!comparisonModel.expanded) { followCutoff(was); chooseSource(); limits(); }
+    if (!comparisonModel.expanded) {
+      followCutoff(was); chooseSource(); limits();
+      // Following the live cutoff continues the same timeframe choice. Manual
+      // navigation has already invalidated its camera or history entry above.
+      if (windowFit && pendingWindowPriceFit === windowFit) {
+        windowFit.context = windowPriceFitContext();
+        finishWindowPriceFit();
+      }
+    }
     update();
     title();
     scaleArm();

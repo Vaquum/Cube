@@ -1,0 +1,15 @@
+{
+  "name": "timeframe-price-fit",
+  "cutoffIso": "2026-09-24T12:00:00Z",
+  "trades": [
+    { "time": "2026-09-22T12:00:00Z", "price": 20000 },
+    { "time": "2026-09-22T13:00:00Z", "price": 40000 },
+    { "time": "2026-09-24T11:50:00Z", "price": 25000 },
+    { "time": "2026-09-24T11:55:00Z", "price": 25150 }
+  ],
+  "expected": {
+    "volume": [24750, 25500],
+    "candles": [24985, 25165],
+    "historicalVolume": [24500, 25750]
+  }
+}
