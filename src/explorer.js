@@ -3086,7 +3086,7 @@
     // fits it to the screen.
     S.n = w.n;
     S.m = w.m;
-    fit();
+    fit(0.05);
     limits();
     if (S.auto && G.w) autoLevel(false);
     hover = null;
@@ -22359,7 +22359,8 @@
       S.tA += CUT - was;
       S.tB += CUT - was;
     }
-    if (S.window || (S.refit && !S.coupled && !S.diagonal)) fit();
+    if (S.window) fit(0.05);
+    else if (S.refit && !S.coupled && !S.diagonal) fit();
     confine();
     if (S.auto) autoLevel();
     hover = null;

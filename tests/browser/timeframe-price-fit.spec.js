@@ -61,6 +61,20 @@ for (const mode of ["volume", "candles"]) {
     await fitted(page, mode, "2026-09-24");
   });
 
+  test(`completed timeframe ${mode} fit keeps its padding after live data advances`, async ({ page, fakeFor, probe }) => {
+    const fake = await open(page, fakeFor, probe, mode);
+    await choose(page, "24h");
+    await fitted(page, mode);
+    const before = await camera(page);
+    fake.advance({ minutes: 2, trades: [] });
+    await expect.poll(async () => (await camera(page)).time[1]).toBeGreaterThan(before.time[1]);
+    await fitted(page, mode);
+    await page.reload();
+    await probe.waitForReady();
+    await expect.poll(() => page.evaluate(() => typeof window.cubeAgent?.export)).toBe("function");
+    await fitted(page, mode);
+  });
+
   test(`timeframe ${mode} fit completes after a held destination read`, async ({ page, fakeFor, probe }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     const fake = await open(page, fakeFor, probe, mode, "free", "20000~40000", true);
