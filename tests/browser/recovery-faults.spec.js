@@ -191,7 +191,8 @@ test("equivalent reads keep the same mapping id under Auto colour", async ({ pag
 
 test("provisional minutes replaced by the archive are said so; empty answers calibrate nothing", async ({ page, fakeFor, probe, surface }) => {
   const fake = await fakeFor("standard");
-  await page.goto(`${fake.url}/#w=30d`);
+  // Hold one calibration context while the archive and its details change.
+  await page.goto(`${fake.url}/#w=30d&r=9,0`);
   const before = await calm({ page, fake, probe, surface });
   fake.setCanonicalThrough("2026-09-24T06:00Z");
   fake.advance({ minutes: 1 });
