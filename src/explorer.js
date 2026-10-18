@@ -18768,6 +18768,18 @@
     }
     return out;
   }
+  function refreshWindowGridAfterStatus() {
+    if (!ready || !S.auto || !S.window || S.mode === "candles" || !el("loading").hidden) return;
+    const pendingFit = pendingWindowPriceFit?.context === windowPriceFitContext() ? pendingWindowPriceFit : null,
+      before = subdivision.actor?.animateCamera ? subdivisionCapture() : null;
+    if (!autoLevel()) return;
+    subdivisionStart(before, true);
+    update();
+    save();
+    if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
+    else if (windowPriceFitPending())
+      pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding: null };
+  }
   function setLoadingHidden(hidden) {
     const node = el("loading");
     if (node.hidden === hidden || (ready && drawingDrag)) return;
@@ -18775,6 +18787,9 @@
     node.hidden = hidden;
     if (ready) applyPanels();
     const after = canvas.getBoundingClientRect();
+    // A fast read can show and hide status before ResizeObserver delivers any
+    // changed size. Recompute after the enclosing update, at the reclaimed size.
+    if (hidden && ready && S.auto && S.window && S.mode !== "candles") queueMicrotask(refreshWindowGridAfterStatus);
     // Only a status change from the last observed size may bypass Auto. A
     // concurrent viewport or panel resize must retain its normal behavior.
     loadingResize = observedCanvasSize?.width === before.width && observedCanvasSize.height === before.height &&

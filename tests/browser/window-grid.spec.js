@@ -116,3 +116,23 @@ test("short candlestick windows retain readable time density", async ({ page, fa
   expect(s.n).toBe(0);
   expect(s.viewport[1] - s.viewport[0]).toBeGreaterThan(60);
 });
+
+test("fast status changes choose the idle grid even without a resize delivery", async ({ page, fakeFor, probe }) => {
+  await page.addInitScript(() => {
+    const Native = window.ResizeObserver;
+    window.ResizeObserver = class extends Native {
+      constructor(callback) { super((records, observer) => {
+        // Model show/hide in one frame: no intermediate canvas size is delivered.
+        if (window.__holdStatusResize && records.some(record => record.target.id === "ol-canvas")) return;
+        callback(records, observer);
+      }); }
+    };
+  });
+  const fake = await fakeFor("standard", { cutoff: "2026-09-24T12:00:00Z" });
+  await page.goto(`${fake.url}/#w=180d&vis=2`); await settled(page, probe);
+  await page.evaluate(() => { window.__holdStatusResize = true; });
+  await choose(page, "270d"); await settled(page, probe);
+  const s = await state(page);
+  expect(s.window).toBe("270d");
+  assertBest(s);
+});

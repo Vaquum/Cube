@@ -9,7 +9,8 @@ information 8 px. There are no repeating decorative animations.
 Startup status uses a bounded, scrollable row outside the plot while a message
 is active, including in expanded Compare. An idle chart reclaims that row.
 Status appearance retains Auto resolution; a timeframe recomputes once the row
-is hidden and the plot reclaims its height. Visibility changes wait
+is hidden and the plot reclaims its height, including reads that finish before
+ResizeObserver delivers a changed size. Visibility changes wait
 for an active drawing gesture to commit or cancel before resizing its surface.
 Controls start transparent
 before the first paint; the chart enters in place through the same spring after
