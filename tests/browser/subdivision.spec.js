@@ -1,13 +1,13 @@
 "use strict";
 // Pixel oracle: old calibrated volume survives a held destination calibration.
 const {test,expect}=require('./fixtures.js'),S=require('./rows-support.js');
-async function pixels(page){return page.locator('#ol-canvas').evaluate(canvas=>{
+async function pixels(page,fraction=1){return page.locator('#ol-canvas').evaluate((canvas,fraction)=>{
  const [x,y,w,h]=canvas.dataset.layout.split(',').map(Number),d=devicePixelRatio;
- const a=canvas.getContext('2d').getImageData(Math.ceil(x*d),Math.ceil(y*d),Math.floor(w*d),Math.floor(h*d)).data;
+ const a=canvas.getContext('2d').getImageData(Math.ceil(x*d),Math.ceil(y*d),Math.floor(w*d*fraction),Math.floor(h*d)).data;
  let blue=0,opaque=0,hash=2166136261;
  for(let i=0;i<a.length;i+=4){if(a[i+2]>a[i]+8)blue++;if(a[i+3]===255)opaque++;for(let k=0;k<3;k++)hash=Math.imul(hash^a[i+k],16777619);}
  return {blue,opaque,count:a.length/4,hash:hash>>>0};
-});}
+},fraction);}
 async function open(page,fakeFor,probe){
  await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerEncoding',{get:()=>api,set:value=>{
   api={...value,util:{...value.util,windowLevel:spec=>window.__subdivisionGrid||value.util.windowLevel(spec)},lifecycle:{...value.lifecycle,coherent:(...args)=>window.__holdSubdivisionCalibration?{ok:false,reason:'pending'}:value.lifecycle.coherent(...args)},
@@ -41,6 +41,33 @@ test('native time selection and rapid reversal settle to the same volume field',
  await expect(page.locator('#ol-canvas')).not.toHaveAttribute('data-subdivision',/.+/);
  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
  await expect.poll(async()=>(await pixels(page)).hash).toBe(before.hash);
+});
+test('newly revealed history stays coloured through a held wider-window tile and calibration',async({page,fakeFor,probe})=>{
+ const fake=await open(page,fakeFor,probe), before=await pixels(page);
+ const gate=fake.on({route:'/cube/tile'}).gate();
+ const choose=async key=>{await page.locator('#ol-window').click();await page.locator(`[data-window="${key}"]`).click();};
+ try {
+  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;});
+  await choose('180d');await gate.arrived();
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive()),{timeout:2500}).toBe(false);
+  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision','waiting');
+  // The outgoing day occupies <1% of this view, at the right edge. Whole-plot
+  // counts miss the regression: require colour in the newly exposed history.
+  const historical=await pixels(page,.75);
+  expect(historical.blue).toBeGreaterThan(1000);expect(historical.opaque).toBe(historical.count);
+  gate.open();await fake.idle();
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive()),{timeout:2500}).toBe(false);
+  expect((await pixels(page,.75)).blue).toBeGreaterThan(1000);
+  await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;document.querySelector('#ol-poc').click();});
+  await expect(page.locator('#ol-canvas')).not.toHaveAttribute('data-subdivision',/.+/);
+  expect((await pixels(page,.75)).blue).toBeGreaterThan(1000);
+  await page.evaluate(()=>{window.__subdivisionGrid=null;});
+  await choose('24h');await S.atRest(page,fake,probe);
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
+  // Restore the test's POC toggle before comparing the native settled field.
+  await page.locator('#ol-poc').evaluate(node=>node.click());await S.atRest(page,fake,probe);
+  await expect.poll(async()=>(await pixels(page)).hash).toBe(before.hash);
+ } finally {gate.open();await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;});}
 });
 test('multiple inputs before the first paint retain the last coloured field',async({page,fakeFor,probe})=>{
  await open(page,fakeFor,probe);const before=await pixels(page);
