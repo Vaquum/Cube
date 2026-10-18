@@ -27,6 +27,7 @@ test('empty child support fades to surface and cutoff remains exclusive',()=>{
  assert.equal(paint(sparse,1).filter(r=>r.css==='rgb(255,255,255)').length,3);
 });
 test('large jumps and typed states use the bounded raster path',()=>{
+ assert.equal(Flow.subdivisionPlan({...parent,cut:.5},{...children,cut:1},'#ffffff'),null);
  assert.equal(Flow.subdivisionPlan({n:20,m:9,cells:[cell(0,2**20,0,2**9)]},children,'#ffffff'),null);
  assert.equal(Flow.subdivisionPlan(parent,children,'#ffffff',3),null);assert.equal(Flow.subdivisionPlan(null,children,'#ffffff'),null);
  assert.equal(Flow.subdivisionPlan(parent,{...children,cells:[{...children.cells[0],outline:true}]},'#ffffff'),null);

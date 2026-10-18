@@ -149,13 +149,24 @@ test("a rapid timeframe replacement owns the final fit", async ({ page, fakeFor,
 });
 
 test("a deferred timeframe refit continues the coloured subdivision", async ({ page, fakeFor, probe }) => {
+  await page.addInitScript(() => {
+    let api; window.__subdivisionCameraStarts = 0;
+    Object.defineProperty(window, "explorerMotion", { get: () => api, set: motion => {
+      api = { ...motion, spring(owner, name, options) {
+        if (name === "cells-camera") window.__subdivisionCameraStarts++;
+        return motion.spring(owner, name, options);
+      } };
+    } });
+  });
   const fake = await open(page, fakeFor, probe, "volume", "free", "20000~40000", true);
+  await expect(page.locator("#ol-legend")).toHaveAttribute("data-state", "ready");
   const gate = fake.on({ route: "/cube/tile" }).gate();
   try {
     await choose(page, "2026-08-11"); await gate.arrived();
     await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", /.+/);
+    const starts = await page.evaluate(() => window.__subdivisionCameraStarts);
     gate.open(); await fitted(page, "volume", "2026-08-11");
-    await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", /.+/);
+    expect(await page.evaluate(() => window.__subdivisionCameraStarts)).toBeGreaterThan(starts);
     await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-subdivision", /.+/);
   } finally { gate.open(); }
 });

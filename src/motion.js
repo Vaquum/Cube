@@ -738,6 +738,9 @@
   // allocation and colour parse; painting visits flat arrays with cached inks.
   function subdivisionPlan(before, after, ground, limit = 8192) {
     if (!before || !after) return null;
+    // Different causal edges need independent clipped rasters, not a parent
+    // colour extended into support that the earlier frame never observed.
+    if (before.cut !== undefined && after.cut !== undefined && before.cut !== after.cut) return null;
     const ts = 2 ** Math.min(before.n, after.n), ps = 2 ** Math.min(before.m, after.m);
     const keys = new Set(), maps = [];
     for (const field of [before, after]) {

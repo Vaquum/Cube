@@ -41,6 +41,17 @@ test('native time selection and rapid reversal settle to the same volume field',
  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
  await expect.poll(async()=>(await pixels(page)).hash).toBe(before.hash);
 });
+test('multiple inputs before the first paint retain the last coloured field',async({page,fakeFor,probe})=>{
+ await open(page,fakeFor,probe);const before=await pixels(page);
+ await page.evaluate(()=>{
+  window.__holdSubdivisionCalibration=true;
+  document.querySelector('#ol-tplus').click();document.querySelector('#ol-tplus').click();
+ });
+ await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision','waiting');
+ expect((await pixels(page)).blue).toBeGreaterThan(before.blue*.9);
+ await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;document.querySelector('#ol-poc').click();});
+ await expect(page.locator('#ol-canvas')).not.toHaveAttribute('data-subdivision',/.+/);
+});
 test('reduced motion, direct navigation and mode changes release presentation',async({page,fakeFor,probe})=>{
  await open(page,fakeFor,probe);await page.locator('#ol-canvas').focus();await page.keyboard.press(']');
  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision',/.+/);

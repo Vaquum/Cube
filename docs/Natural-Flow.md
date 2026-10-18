@@ -43,8 +43,10 @@ the settled frame uses the native renderer. Reversal takes the presented raster.
 Preparation is bounded to 8,192 tiles; larger changes use retained raster layers.
 Flat geometry and cached colour pairs avoid per-cell lookup/allocation during
 animation. Three reusable surfaces retain at most two million pixels each.
-Pending data does not keep an idle frame loop alive. Direct navigation, layout,
-mode changes and reduced motion release presentation ownership.
+Pending data does not keep an idle frame loop alive. Loading-status resizing
+retains the field through the new geometry. Direct navigation, mode changes and
+reduced motion release presentation ownership. Inputs before the first paint
+retain the original source; they never capture an unpainted temporary surface.
 
 Timeframe choices fit the destination prices with the existing Fit margin,
 completing after pending bars or finer tiles arrive. The time

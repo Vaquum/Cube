@@ -888,7 +888,7 @@
   function subdivisionSurface(surface) {
     // Three reusable surfaces together retain at most 24 MB of pixel storage.
     const ratio = Math.min(devicePixelRatio || 1, Math.sqrt(2000000 / Math.max(1, G.w * G.h))),
-      width = Math.max(1, Math.round(G.w * ratio)), height = Math.max(1, Math.round(G.h * ratio));
+      width = Math.max(1, Math.floor(G.w * ratio)), height = Math.max(1, Math.floor(G.h * ratio));
     if (surface.width !== width) surface.width = width;
     if (surface.height !== height) surface.height = height;
     return ratio;
@@ -911,17 +911,18 @@
       cells.push({ t, end: Math.min(t + ts, frame.cut), p, high: p + ps, css: encoded.css,
         pattern: encoded.pattern, outline: encoded.role === ROLE_ZERO || encoded.role === ROLE_OCCUPANCY });
     }
-    return { n: frame.n, m: frame.m, cells };
+    return { n: frame.n, m: frame.m, cut: frame.cut, cells };
   }
   function subdivisionCapture() {
     if (!ready || Flow.stationary() || S.mode !== "volume" || S.selection || !subdivision.scene || comparisonModel.expanded) return null;
     const previous = subdivision.actor;
     if (previous) {
+      if (!previous.hasPaint) return previous.before;
       subdivisionCopy(subdivision.retained, subdivision.presented);
-      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null, width: G.w, height: G.h };
+      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
     }
     const scene = subdivision.scene;
-    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null, width: G.w, height: G.h };
+    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null };
   }
   function subdivisionStop() {
     if (subdivision.actor) { Flow.cancelMotion(canvas, "cells"); Flow.cancelMotion(canvas, "cells-camera"); }
@@ -933,7 +934,7 @@
     if (!before) return false;
     subdivisionStop(); transition = null; Flow.cancelMotion(canvas, "cells");
     const actor = { before, camera: 0, detail: 0, cameraDone: false, detailDone: false,
-      target: null, plan: null, goal: null, animateCamera, cameraFrom: before.camera, targetId: null };
+      target: null, plan: null, goal: null, animateCamera, cameraFrom: before.camera, targetId: null, hasPaint: false };
     subdivision.actor = actor;
     canvas.dataset.subdivision = "waiting"; canvas.setAttribute("aria-busy", "true");
     Flow.spring(canvas, "cells-camera", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
@@ -952,7 +953,6 @@
     if (!actor) return;
     const goal = subdivisionGoal();
     if (Flow.stationary() || S.mode !== "volume" || S.selection ||
-        Math.abs(G.w - actor.before.width) > .5 || Math.abs(G.h - actor.before.height) > .5 ||
         actor.goal !== null && actor.goal !== goal) { subdivisionStop(); return; }
     actor.goal = goal;
     if (!actor.animateCamera) return;
@@ -993,7 +993,7 @@
       // from the presented raster instead of jumping to newly encoded colours.
       if (actor.target) {
         subdivisionCopy(subdivision.retained, subdivision.presented);
-        actor.before = { camera: [...G.X.domain(), ...G.Y.domain()], field: null, width: G.w, height: G.h };
+        actor.before = { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
       }
       actor.targetId = targetId;
       actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });
@@ -1027,6 +1027,7 @@
       }
     }
     ctx.drawImage(subdivision.presented, G.x, G.y, G.w, G.h);
+    actor.hasPaint = true;
     passFrame = null;
     if (!actor.target) chartLabel("Refining grid · previous colours held", G.x + 8, G.y + 12);
   }
