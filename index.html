@@ -23045,13 +23045,21 @@
       shown = { cells: [...map.values()] }; n = nextN; m = nextM;
     }
     const eff = E.policy.effective(S.scale, "volume"), bounds = [a, b, camera[2], camera[3]],
-      cohort = E.cohort.cells({ cells: shown.cells, mode: "volume", basis: eff.basis,
-        b: bounds, cut, CUT, level: { n, m }, geom: { BASE, PR }, read: { state: "recorded" } }),
-      fit = eff.transform === "rank" ? E.scale.fitRank(cohort)
-        : E.scale.fitValue(cohort, { signed: false, linear: eff.curve === "linear" });
-    if (fit.state !== "ok") return;
+      context = E.context.cellsKey({ measure: "volume", basis: eff.basis, pathBasis: eff.pathBasis,
+        transform: eff.transform, curve: eff.curve, n, m, workspace: scaleWorkspace(), instrument: INSTRUMENT }),
+      mapping = E.policy.resolve({ channel: "c", kind: "unbounded", ctx: context, scale: S.scale,
+        store: scaleRt.store, workspace: scaleWorkspace(), cutMs: E.time.baseToMs(cut, T0, BASE) });
+    let desc = mapping.desc;
+    if (!desc) {
+      const cohort = E.cohort.cells({ cells: shown.cells, mode: "volume", basis: eff.basis,
+          b: bounds, cut, CUT, level: { n, m }, geom: { BASE, PR }, read: { state: "recorded" } }),
+        fit = eff.transform === "rank" ? E.scale.fitRank(cohort)
+          : E.scale.fitValue(cohort, { signed: false, linear: eff.curve === "linear" });
+      if (fit.state !== "ok") return;
+      desc = fit.descriptor;
+    }
     const cells = E.readout.cellsFrame({ mode: "volume", basis: eff.basis, level: { n, m },
-      bounds, cut, CUT, geom: { BASE, PR }, mapping: { state: "ok", desc: fit.descriptor },
+      bounds, cut, CUT, geom: { BASE, PR }, mapping: { state: "ok", desc },
       lut: lutFor(scaleRt.appearance, scaleRt.theme) }),
       field = subdivisionField({ camera, cut, n, m, shown, sc: { cells } });
     if (!field.cells.length) return;

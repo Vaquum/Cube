@@ -96,7 +96,7 @@ async function trial(browser, build, definition) {
       for(let i=0;i<20;i++){await page.mouse.move(x+Math.sin(i/19*Math.PI)*200,y+i*3);await page.waitForTimeout(16);}
       await page.mouse.up();
     } else if(definition.action==='windows') {
-      for (const window of ['4h','24h','7d','24h','1h','24h']) {
+      for (const window of ['4h','24h','180d','24h','1h','24h']) {
         await page.locator('#ol-window').click();
         await page.locator(`[data-window="${window}"]`).click();
         await page.waitForTimeout(650);

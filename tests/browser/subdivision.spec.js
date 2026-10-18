@@ -1,6 +1,7 @@
 "use strict";
 // Pixel oracle: old calibrated volume survives a held destination calibration.
 const {test,expect}=require('./fixtures.js'),S=require('./rows-support.js');
+const {popoverAction}=require('./scale-helpers.js');
 async function pixels(page,fraction=1){return page.locator('#ol-canvas').evaluate((canvas,fraction)=>{
  const [x,y,w,h]=canvas.dataset.layout.split(',').map(Number),d=devicePixelRatio;
  const a=canvas.getContext('2d').getImageData(Math.ceil(x*d),Math.ceil(y*d),Math.floor(w*d*fraction),Math.floor(h*d)).data;
@@ -11,6 +12,7 @@ async function pixels(page,fraction=1){return page.locator('#ol-canvas').evaluat
 async function open(page,fakeFor,probe){
  await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerEncoding',{get:()=>api,set:value=>{
   api={...value,util:{...value.util,windowLevel:spec=>window.__subdivisionGrid||value.util.windowLevel(spec)},lifecycle:{...value.lifecycle,coherent:(...args)=>window.__holdSubdivisionCalibration?{ok:false,reason:'pending'}:value.lifecycle.coherent(...args)},
+   scale:{...value.scale,fitValue(...args){if(window.__watchPreviewFits)window.__previewFits++;return value.scale.fitValue(...args);},fitRank(...args){if(window.__watchPreviewFits)window.__previewFits++;return value.scale.fitRank(...args);}},
    readout:{...value.readout,cellsFrame(...args){const frame=value.readout.cellsFrame(...args);return window.__replaceSubdivisionMapping?{...frame,mappingId:frame.mappingId+':next'}:frame;}}};
  }});});
  const fake=await fakeFor('standard');await page.goto(fake.url+'/#w=24h&vis=2');await S.atRest(page,fake,probe);
@@ -68,6 +70,19 @@ test('newly revealed history stays coloured through a held wider-window tile and
   await page.locator('#ol-poc').evaluate(node=>node.click());await S.atRest(page,fake,probe);
   await expect.poll(async()=>(await pixels(page)).hash).toBe(before.hash);
  } finally {gate.open();await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;});}
+});
+test('wider-window preview honours a held comparison mapping without fitting',async({page,fakeFor,probe,surface})=>{
+ const fake=await open(page,fakeFor,probe);
+ await popoverAction(page,surface,'cells','Comparison lock');await S.atRest(page,fake,probe);
+ const held=(await surface.chip('cells')).data.mappingId, gate=fake.on({route:'/cube/tile'}).gate();
+ try {
+  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;window.__previewFits=0;window.__watchPreviewFits=true;});
+  await page.locator('#ol-window').click();await page.locator('[data-window="180d"]').click();await gate.arrived();
+  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive()),{timeout:2500}).toBe(false);
+  expect((await pixels(page,.75)).blue).toBeGreaterThan(1000);
+  expect(await page.evaluate(()=>window.__previewFits)).toBe(0);
+  expect((await surface.chip('cells')).data.mappingId).toBe(held);
+ } finally {gate.open();await page.evaluate(()=>{window.__watchPreviewFits=false;window.__holdSubdivisionCalibration=false;});}
 });
 test('multiple inputs before the first paint retain the last coloured field',async({page,fakeFor,probe})=>{
  await open(page,fakeFor,probe);const before=await pixels(page);
