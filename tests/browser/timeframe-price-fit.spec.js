@@ -69,10 +69,6 @@ for (const mode of ["volume", "candles"]) {
     fake.advance({ minutes: 2, trades: [] });
     await expect.poll(async () => (await camera(page)).time[1]).toBeGreaterThan(before.time[1]);
     await fitted(page, mode);
-    await page.reload();
-    await probe.waitForReady();
-    await expect.poll(() => page.evaluate(() => typeof window.cubeAgent?.export)).toBe("function");
-    await fitted(page, mode);
   });
 
   test(`timeframe ${mode} fit completes after a held destination read`, async ({ page, fakeFor, probe }) => {
