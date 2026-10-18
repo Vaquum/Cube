@@ -956,14 +956,22 @@
     actor.previewSource = src.cells;
     const [start, end] = sourceRange(src), a = Math.max(0, camera[0]), b = Math.min(camera[1], cut);
     if (start > a || end < b) return;
-    let n = renderN(), m = renderM(),
-      shown = aggregate(src, n, m, outwardBounds([a, b, camera[2], camera[3]]));
+    let n = renderN(), m = renderM();
+    const wholeCells = () => {
+      const ts = 2 ** n, ps = 2 ** m,
+        bounds = [Math.floor(a / ts) * ts, Math.ceil(b / ts) * ts,
+          Math.floor(camera[2] / ps) * ps, Math.ceil(camera[3] / ps) * ps],
+        all = aggregate(src, n, m, bounds);
+      // A parent at a block edge can lack children. Do not give a partial sum
+      // the exposure of a whole parent; the live open column has its own cutoff.
+      return { cells: all.cells.filter(z => z.c * ts >= start && ((z.c + 1) * ts <= end || end >= cut)) };
+    };
+    let shown = wholeCells();
     // Coarsen measured sums, never sample or invent cells. Both the fit and the
     // retained field are bounded; repeated frames only composite the raster.
     while (shown.cells.length > 8192 && (n < N_MAX || m < M_MAX)) {
-      const nextN = n < N_MAX ? n + 1 : n, nextM = m < M_MAX ? m + 1 : m, map = new Map();
-      sumCells(map, { cells: shown.cells, n, m }, nextN, nextM, null, 0, shown.cells.length);
-      shown = { cells: [...map.values()] }; n = nextN; m = nextM;
+      n = Math.min(N_MAX, n + 1); m = Math.min(M_MAX, m + 1);
+      shown = wholeCells();
     }
     const eff = E.policy.effective(S.scale, "volume"), bounds = [a, b, camera[2], camera[3]],
       context = E.context.cellsKey({ measure: "volume", basis: eff.basis, pathBasis: eff.pathBasis,
@@ -979,8 +987,10 @@
       if (fit.state !== "ok") return;
       desc = fit.descriptor;
     }
+    // Loaded cells contain their whole source support. The camera crops their
+    // pixels, never the denominator of Intensity; only the open cutoff clips it.
     const cells = E.readout.cellsFrame({ mode: "volume", basis: eff.basis, level: { n, m },
-      bounds, cut, CUT, geom: { BASE, PR }, mapping: { state: "ok", desc },
+      bounds: null, cut, CUT, geom: { BASE, PR }, mapping: { state: "ok", desc },
       lut: lutFor(scaleRt.appearance, scaleRt.theme) }),
       field = subdivisionField({ camera, cut, n, m, shown, sc: { cells } });
     if (!field.cells.length) return;

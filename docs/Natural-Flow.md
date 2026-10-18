@@ -45,6 +45,8 @@ mapping uses the held or cached calibration when available; otherwise it is
 fitted once from that complete block at its displayed level, using
 the selected basis and transform; it never enters the native calibration store,
 legend or readouts. Over 8,192 cells, measured sums are coarsened before fitting.
+Preview sums include whole parent cells; the camera clips pixels rather than
+Intensity exposure. Incomplete source-edge parents are omitted.
 The layer is rasterised once per source arrival, behind the outgoing field;
 the final calibration rebases from the complete presented image.
 Temporary colour interpolation is presentation only; readouts stay exact and

@@ -13,7 +13,12 @@ async function open(page,fakeFor,probe){
  await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerEncoding',{get:()=>api,set:value=>{
   api={...value,util:{...value.util,windowLevel:spec=>window.__subdivisionGrid||value.util.windowLevel(spec)},lifecycle:{...value.lifecycle,coherent:(...args)=>window.__holdSubdivisionCalibration?{ok:false,reason:'pending'}:value.lifecycle.coherent(...args)},
    scale:{...value.scale,fitValue(...args){if(window.__watchPreviewFits)window.__previewFits++;return value.scale.fitValue(...args);},fitRank(...args){if(window.__watchPreviewFits)window.__previewFits++;return value.scale.fitRank(...args);}},
-   readout:{...value.readout,cellsFrame(...args){const frame=value.readout.cellsFrame(...args);return window.__replaceSubdivisionMapping?{...frame,mappingId:frame.mappingId+':next'}:frame;}}};
+   readout:{...value.readout,cellsFrame(...args){const frame=value.readout.cellsFrame(...args),spec=args[0];
+    if(window.__previewSamples&&spec.mode==='volume'&&spec.basis==='intensity'&&spec.cutMs===undefined)return {...frame,encode(z,out){
+     frame.encode(z,out);const {n,m}=spec.level,ts=2**n,left=window.__previewLeft;
+     if(z.c*ts<left&&(z.c+1)*ts>left)window.__previewSamples.push({n,m,c:z.c,r:z.r,v:z.v,value:out.value});return out;
+    }};
+    return window.__replaceSubdivisionMapping?{...frame,mappingId:frame.mappingId+':next'}:frame;}}};
  }});});
  const fake=await fakeFor('standard');await page.goto(fake.url+'/#w=24h&vis=2');await S.atRest(page,fake,probe);
  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
@@ -83,6 +88,26 @@ test('wider-window preview honours a held comparison mapping without fitting',as
   expect(await page.evaluate(()=>window.__previewFits)).toBe(0);
   expect((await surface.chip('cells')).data.mappingId).toBe(held);
  } finally {gate.open();await page.evaluate(()=>{window.__watchPreviewFits=false;window.__holdSubdivisionCalibration=false;});}
+});
+test('Intensity preview crops pixels without inflating a boundary cell rate',async({page,fakeFor,probe})=>{
+ const fake=await open(page,fakeFor,probe);
+ await page.locator('#ol-mode').click();await page.locator('#ol-mode-menu [data-mode-step="basis"]').click();
+ await page.getByRole('menuitemradio',{name:/^Intensity/}).click();await page.keyboard.press('Escape');await S.atRest(page,fake,probe);
+ const gate=fake.on({route:'/cube/tile'}).gate();
+ try {
+  await page.evaluate(()=>{
+   window.__holdSubdivisionCalibration=true;window.__subdivisionGrid={n:10,m:2};window.__previewSamples=[];
+   window.__previewLeft=(Date.parse('2026-09-24T12:02:00Z')/1000-1609459200)/56.25-180*1536;
+  });
+  await page.locator('#ol-window').click();await page.locator('[data-window="180d"]').click();await gate.arrived();
+  const samples=await page.evaluate(()=>window.__previewSamples);expect(samples.length).toBeGreaterThan(0);
+  for(const s of samples){
+   const ts=2**s.n,ps=2**s.m,source=fake.cube.read(s.n,s.m,s.c*ts,(s.c+1)*ts,s.r*ps,(s.r+1)*ps).cells;
+   expect(source.vol.length).toBe(1);expect(s.v).toBeCloseTo(source.vol[0],7);
+   // Independent units: USDT / (minutes × number of 125-USDT price bands).
+   expect(s.value).toBeCloseTo(source.vol[0]/(56.25*ts/60*ps),9);
+  }
+ } finally {gate.open();await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;window.__previewSamples=null;});}
 });
 test('multiple inputs before the first paint retain the last coloured field',async({page,fakeFor,probe})=>{
  await open(page,fakeFor,probe);const before=await pixels(page);
