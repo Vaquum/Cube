@@ -95,7 +95,7 @@ for (const theme of ["light", "dark"])
     test("one mark for each signed cell of 12 px or more, the right shape, centred, and none for a smaller cell", async ({ page, probe, fakeFor, pane }) => {
       const fake = await fakeFor("standard");
       await page.setViewportSize({ width: 1500, height: 950 });
-      await open(page, fake, probe, "#w=4h&vis=2&mode=delta", theme);
+      await open(page, fake, probe, "#w=4h&r=2,0&vis=2&mode=delta", theme);
       const frame = await pane.last(),
         roles = roleTable(theme),
         cells = cellsOf(frame, roles),
@@ -130,7 +130,7 @@ for (const theme of ["light", "dark"])
     test("the fill is kept around the mark, the mark covers at most a fifth of its cell, and what is rendered is 3:1 over the fill", async ({ page, probe, fakeFor, pane }) => {
       const fake = await fakeFor("standard");
       await page.setViewportSize({ width: 1500, height: 950 });
-      await open(page, fake, probe, "#w=4h&vis=2&mode=delta", theme);
+      await open(page, fake, probe, "#w=4h&r=2,0&vis=2&mode=delta", theme);
       // the column POCs' line crosses the centre of its row's cells: it is a reference over the cell, not part of the mark or of the fill, so it is off here
       await page.evaluate(() => {
         const box = document.getElementById("ol-poc");
@@ -194,12 +194,12 @@ for (const theme of ["light", "dark"])
       const fake = await fakeFor("standard");
       await page.setViewportSize({ width: 1500, height: 950 });
       const key = page.locator("#ol-key-sign");
-      await open(page, fake, probe, "#w=4h&vis=2&mode=delta", theme);
+      await open(page, fake, probe, "#w=4h&r=2,0&vis=2&mode=delta", theme);
       await expect(key, "a mark is on the plot: its key is").toBeVisible();
       await expect(key).toContainText("ring at the midpoint");
       expect(await page.locator('#ol-key-sign [data-stroke-role="sign"] canvas').count(), "the key's swatch is painted by the plot's painter").toBe(1);
       // a wide window: the same measure's cells are 9 px wide; there is no mark, and the key says so and where the sign is
-      await open(page, fake, probe, "#w=24h&vis=2&mode=delta", theme);
+      await open(page, fake, probe, "#w=24h&r=4,0&vis=2&mode=delta", theme);
       expect(marksOf(await pane.last()).length, "no mark on a cell narrower than 12 px").toBe(0);
       await expect(key, "the detail limit is stated").toBeVisible();
       await expect(key).toContainText("Sign not marked under 12 px: read it in the readout, the table or Inspect");

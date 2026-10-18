@@ -208,7 +208,7 @@ test.describe("B52 portable state after the final changes", () => {
     const fake = await fakeFor("standard");
     await context.grantPermissions(CLIPBOARD, { origin: fake.url });
     await page.setViewportSize({ width: 1500, height: 950 });
-    await page.goto(`${fake.url}/#w=7d&vis=2&ap=${P.AP}&lines=1d,7d,30d`);
+    await page.goto(`${fake.url}/#w=7d&r=7,0&vis=2&ap=${P.AP}&lines=1d,7d,30d`);
     await S.atRest(page, fake, probe);
     await probe.waitForQuiet({ quietMs: 800, timeout: 60000 });
     const plain = await copyBoth(page);

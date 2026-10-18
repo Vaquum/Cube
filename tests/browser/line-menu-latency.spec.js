@@ -2,7 +2,7 @@
 const { test, expect } = require("./fixtures.js");
 test.use({ reducedMotion: "reduce" });
 const bars = (fake, n) => fake.log().filter((r) => r.path === "/cube/bars" && Number(r.query.n) === n);
-const VIEW = "#w=24h&rows=off&lines=&marks=none";
+const VIEW = "#w=24h&r=4,0&rows=off&lines=&marks=none";
 
 test("browsing averages prepares shared daily bars; toggles reuse them without reads", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("deep", { next: 300 });

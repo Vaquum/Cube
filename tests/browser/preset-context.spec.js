@@ -38,8 +38,8 @@ async function contextsOfIds(probe) {
 test("a preset that keeps the context keeps the mapping; Fit and Auto are what change it", async ({ page, fakeFor, probe, surface }) => {
   const fake = await fakeFor("standard");
   const ctx = { page, fake, probe, surface };
-  // 1h, 30m and 15m are three windows of one effective level on this viewport.
-  await page.goto(`${fake.url}/#w=1h`);
+  // Explicitly lock one effective level across 1h, 30m and 15m.
+  await page.goto(`${fake.url}/#w=1h&r=0,0`);
   const first = await calm(ctx);
   for (const name of ["2", "1"]) {
     await surface.pressPreset(name);

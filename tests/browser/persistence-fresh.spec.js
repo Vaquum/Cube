@@ -248,7 +248,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     // the knots contain runs of equal values (the case a rounding restore would break)
     const knots = rank.desc.params.knots;
     expect(new Set(knots).size).toBeLessThan(knots.length / 4);
-    const made = S.address({ scale: { transform: "rank" } }, [rank]);
+    const made = S.address({ auto: false, n: 4, m: 0, scale: { transform: "rank" } }, [rank]);
     expect(made.level).toBe(0);
     await page.goto(fake.url + "/" + made.hash);
     await fake.idle();

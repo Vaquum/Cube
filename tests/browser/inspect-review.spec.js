@@ -48,7 +48,7 @@ const TRADES = (() => {
   }
   return out;
 })();
-const ADDRESS = "#w=24h&vis=2&lines=7d,30d&level=25100";
+const ADDRESS = "#w=24h&r=4,0&vis=2&lines=7d,30d&level=25100";
 
 async function open(page, fake, probe, hash = ADDRESS) {
   await page.setViewportSize({ width: 1500, height: 950 });
@@ -299,7 +299,7 @@ test.describe("B55 Inspect: the review of PR #53", () => {
   });
 
   // a view with many kinds of reference on: the three curves of two Bollinger bands, the days of the session VWAP, swings and their equal pairs, crosses, calendar lines
-  const RICH = "#w=30d&vis=2&lines=bb4h,bb1d,svwap,swing4h,swing1d,gdcross,cme,7d,30d,cday,funding";
+  const RICH = "#w=30d&r=9,0&vis=2&lines=bb4h,bb1d,svwap,swing4h,swing1d,gdcross,cme,7d,30d,cday,funding";
   async function openRich(page, fake, probe) {
     await open(page, fake, probe, RICH);
     await page.keyboard.press("e");

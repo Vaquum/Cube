@@ -116,7 +116,7 @@ test.describe("B47 Inspect and touch", () => {
   // the gap rectangle the plot draws (a 1 px outline at 70%): the one that is tall and wide enough for its middle to be farther than a finger's reach from every edge.
   // (Each of the two taps below is on a page of its own: the readout a first tap leaves lies where the second would land.)
   async function openGap(page, fake, probe, pane) {
-    await open(page, fake, probe, "#w=30d&vis=2&lines=cme");
+    await open(page, fake, probe, "#w=30d&r=9,0&vis=2&lines=cme");
     const { box } = await plot(page),
       // A centre more than 26 px from every edge remains beyond the 22 px touch reach.
       gap = (await pane.last()).strokeRects.find((r) => r.alpha === 0.7 && r.width === 1 && r.w > 52 && r.h > 52);

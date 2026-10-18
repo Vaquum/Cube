@@ -18795,8 +18795,6 @@
     update();
     save();
     if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
-    else if (windowPriceFitPending())
-      pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding: null };
   }
   function setLoadingHidden(hidden) {
     const node = el("loading");
@@ -24403,8 +24401,6 @@
         if (S.auto && (!statusOnly || (S.window && S.mode !== "candles" && el("loading").hidden))) autoLevel();
         update();
         if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
-        else if (S.auto && S.window && windowPriceFitPending())
-          pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding: null };
         noteGesture();
         requestDraw();
       }
