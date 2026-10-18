@@ -1,6 +1,6 @@
 "use strict";
 // Issue #183. Oracle: the fixture's two visible trades and hand-calculated
-// 5% margins; browser history, exported viewports and shared motion ownership.
+// existing Fit margins; browser history, exported viewports and shared motion ownership.
 const { test, expect } = require("./fixtures.js");
 const { EPOCH_MS } = require("../support/profiles.js");
 const fixture = require("../fixtures/regressions/timeframe-price-fit/profile.json");
@@ -32,7 +32,8 @@ async function open(page, fakeFor, probe, mode, follow = "free", prices = "20000
 }
 async function fitted(page, mode, key = "24h") {
   await expect.poll(async () => (await camera(page)).window).toBe(key);
-  await expect.poll(async () => (await camera(page)).price).toEqual(fixture.expected[mode]);
+  const expected = mode === "volume" && key === "2026-08-11" ? fixture.expected.historicalVolume : fixture.expected[mode];
+  await expect.poll(async () => (await camera(page)).price).toEqual(expected);
 }
 
 for (const mode of ["volume", "candles"]) {
@@ -43,9 +44,10 @@ for (const mode of ["volume", "candles"]) {
       const before = await camera(page);
       await choose(page, "24h");
       await fitted(page, mode);
-      const after = await camera(page), box = await page.locator("#ol-canvas").boundingBox();
-      await page.mouse.dblclick(box.x + 20, box.y + 100);
-      expect(await camera(page), "the price-axis fit has nothing further to change").toEqual(after);
+      const after = await camera(page);
+      await page.locator("#ol-canvas").focus();
+      await page.keyboard.press("f");
+      expect(await camera(page), "the Fit price command has nothing further to change").toEqual(after);
       await page.goBack();
       await probe.waitForReady();
       expect(await camera(page)).toEqual(before);
@@ -125,11 +127,12 @@ test("Since fits the already-loaded finer reference instead of the previous coar
   await expect.poll(() => page.evaluate(() => typeof window.cubeAgent?.export)).toBe("function");
   expect(fake.log().some(row => row.path === "/cube/tile" && row.query.n === "3" && row.query.m === "3")).toBe(true);
   await choose(page, "2026-09-10");
-  // All four trades: 125-USDT cell edges 20000..40125, plus 1006.25 on each side.
-  await expect.poll(async () => (await camera(page)).price).toEqual([18993.75, 41131.25]);
-  const before = await camera(page), box = await page.locator("#ol-canvas").boundingBox();
-  await page.mouse.dblclick(box.x + 20, box.y + 100);
-  expect(await camera(page), "a subsequent price-axis fit has nothing further to change").toEqual(before);
+  // All four trades: 125-USDT cell edges 20000..40125, plus 17 rows on each side.
+  await expect.poll(async () => (await camera(page)).price).toEqual([17875, 42250]);
+  const before = await camera(page);
+  await page.locator("#ol-canvas").focus();
+  await page.keyboard.press("f");
+  expect(await camera(page), "a subsequent Fit price command has nothing further to change").toEqual(before);
 });
 
 test("a rapid timeframe replacement owns the final fit", async ({ page, fakeFor, probe }) => {

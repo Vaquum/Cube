@@ -35,8 +35,8 @@ replay stepping and live data remain authoritative and immediate. Replay speeds,
 hover intent, settle/calibration clocks, query debounce and polling keep their
 operational timing. Motion never generates intermediate market values.
 
-Timeframe choices fit the destination prices with the same 5% margin as a
-price-axis fit, completing after pending bars or finer tiles arrive. The time
+Timeframe choices fit the destination prices with the existing Fit margin,
+completing after pending bars or finer tiles arrive. The time
 change and price fit share one history entry. New navigation cancels an obsolete
 fit, and whole-window changes release the previous cell morph before painting.
 

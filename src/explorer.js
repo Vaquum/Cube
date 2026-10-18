@@ -3086,7 +3086,7 @@
     S.n = w.n;
     S.m = w.m;
     chooseSource();
-    fit(0.05);
+    fit();
     limits();
     if (S.auto && G.w) autoLevel(false);
     hover = null;
@@ -21908,7 +21908,7 @@
     drawingCancelOperation(); drawingKeyContext = false;
     if (pop.open?.panel === el("window-menu")) closePop(true);
     setWindow(w);
-    fitPrice("Window", 0.05, true);
+    fitPrice("Window", null, true);
   }
   function setMode(mode) {
     drawingCancelOperation(); drawingKeyContext = false;
@@ -22360,8 +22360,7 @@
       S.tA += CUT - was;
       S.tB += CUT - was;
     }
-    if (S.window) fit(0.05);
-    else if (S.refit && !S.coupled && !S.diagonal) fit();
+    if (S.window || (S.refit && !S.coupled && !S.diagonal)) fit();
     confine();
     if (S.auto) autoLevel();
     hover = null;

@@ -5,5 +5,5 @@
   "seed": null,
   "extractedOn": null,
   "source": "Hand-authored trades for issue #183",
-  "notes": "Visible candle prices 25000..25150 plus 5% of 150; occupied 125 USDT rows span 25000..25250 plus 5% of 250. Older 20000 and 40000 trades are outside every destination. Historical read cases move those outliers to 10 August 13:00 and 14:00 UTC, within the overview column crossing the Since boundary. Timeframe choices fit destination data, including delayed bars and finer tiles, as one reversible navigation action. A live pack advancing the cutoff by two minutes with no new trades retains those same expected prices."
+  "notes": "The existing Fit margin: candle prices 25000..25150 plus 10% of 150 (15 per side). Recent cell edges 25000..25250 plus at least two 125-USDT rows (250 per side). Historical reads return 250-USDT cells with the same edges and a two-row 500-USDT margin. Historical cases move the older outliers to 10 August 13:00 and 14:00 UTC, within the overview column crossing the Since boundary. A live pack advancing the cutoff by two minutes with no new trades retains the expected prices. The two-week source-switch case includes all four trades: 125-USDT edges 20000..40125, with a 10% margin rounded up to 17 rows (2125 per side)."
 }
