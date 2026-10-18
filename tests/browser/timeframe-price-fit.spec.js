@@ -1,15 +1,16 @@
 "use strict";
 // Issue #183. Oracle: the fixture's two visible trades and hand-calculated
-// 5% margins; browser history, public addresses and shared motion ownership.
+// 5% margins; browser history, exported viewports and shared motion ownership.
 const { test, expect } = require("./fixtures.js");
 const { EPOCH_MS } = require("../support/profiles.js");
 const fixture = require("../fixtures/regressions/timeframe-price-fit/profile.json");
 const profile = { ...fixture, trades: fixture.trades.map(({ time, price }) => ({
   t_ms: Date.parse(time) - EPOCH_MS, price: price * 100, qty: 100000000, takerBuy: true,
 })) };
-const camera = page => page.evaluate(() => {
+const camera = page => page.evaluate(async () => {
   const params = new URLSearchParams(location.hash.slice(1));
-  return { window: params.get("w"), time: params.get("t"), price: params.get("p")?.split("~").map(Number) };
+  const { viewport } = (await window.cubeAgent.export()).scene.view;
+  return { window: params.get("w"), time: viewport.slice(0, 2), price: viewport.slice(2).map(value => value * 125) };
 });
 async function choose(page, key) {
   await page.locator("#ol-window").click();
@@ -19,6 +20,7 @@ async function open(page, fakeFor, probe, mode, follow = "free", prices = "20000
   const fake = await fakeFor(profile);
   await page.goto(`${fake.url}/#t=2026-09-23T12:00Z~2026-09-24T12:00Z&p=${prices}&r=6,0&mode=${mode}&follow=${follow}`);
   await probe.waitForReady();
+  await expect.poll(() => page.evaluate(() => typeof window.cubeAgent?.export)).toBe("function");
   return fake;
 }
 async function fitted(page, mode, key = "24h") {
