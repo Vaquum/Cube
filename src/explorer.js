@@ -7173,7 +7173,7 @@
     // Data/status updates retain their grid. Camera and internal plot-layout
     // changes choose it again; outer resizes are handled by the canvas observer.
     const sourceFloor = !PACK.live && S.mode !== "candles" ? `${displaySource()?.n}:${displaySource()?.m}` : "";
-    const context = [S.auto, S.window, S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, sourceFloor, eventKinds().length].join(":");
+    const context = [S.auto, S.window, S.mode === "candles", S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, sourceFloor, eventKinds().length].join(":");
     if (context !== autoContext) {
       autoContext = context;
       if (S.auto) autoLevel();
@@ -18516,16 +18516,14 @@
     const g = navGeometry();
     if (!(g.w > 0 && g.h > 0)) return false;
     let n, m;
-    if (S.window) {
+    if (S.window && S.mode !== "candles") {
       let nMin = 0, mMin = 0;
-      if (S.mode !== "candles") {
-        if (PACK.live) {
-          const [a, b] = viewRange();
-          while (nMin < N_MAX && Math.ceil(b / 2 ** nMin) - Math.floor(a / 2 ** nMin) > TILE_COLUMNS) nMin++;
-        } else {
-          const source = displaySource();
-          nMin = source?.n || 0; mMin = source?.m || 0;
-        }
+      if (PACK.live) {
+        const [a, b] = viewRange();
+        while (nMin < N_MAX && Math.ceil(b / 2 ** nMin) - Math.floor(a / 2 ** nMin) > TILE_COLUMNS) nMin++;
+      } else {
+        const source = displaySource();
+        nMin = source?.n || 0; mMin = source?.m || 0;
       }
       const level = E.util.windowLevel({ timeSpan: S.tB - S.tA, priceSpan: S.pB - S.pA,
         width: g.w, height: g.h, nMin, mMin, nMax: N_MAX, mMax: M_MAX,
@@ -24369,7 +24367,7 @@
         geometry(false);
         // Status appearance keeps the current grid. Once it disappears a
         // timeframe may use the reclaimed plot, without oscillating per read.
-        if (S.auto && (!statusOnly || (S.window && el("loading").hidden))) autoLevel();
+        if (S.auto && (!statusOnly || (S.window && S.mode !== "candles" && el("loading").hidden))) autoLevel();
         update();
         if (pendingFit && pendingWindowPriceFit === pendingFit) pendingFit.context = windowPriceFitContext();
         else if (S.auto && S.window && windowPriceFitPending())

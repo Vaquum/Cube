@@ -105,3 +105,14 @@ test("recorded history defaults respect the available source resolution", async 
   await page.goto(`${fake.url}/#w=all&vis=2`); await settled(page, probe);
   assertBest(await state(page), 12, 3);
 });
+
+// Candle bodies have no price-row height. Their time density must stay independent.
+test("short candlestick windows retain readable time density", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor(profile);
+  await page.goto(`${fake.url}/#w=24h&mode=candles&vis=2`); await settled(page, probe);
+  await choose(page, "1h"); await settled(page, probe);
+  const s = await state(page);
+  expect(s.mode).toBe("candles");
+  expect(s.n).toBe(0);
+  expect(s.viewport[1] - s.viewport[0]).toBeGreaterThan(60);
+});

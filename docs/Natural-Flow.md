@@ -61,6 +61,7 @@ respects source resolution, tile capacity and the empirical diagonal, and runs
 again after destination data or a layout change. Base resolution can require
 larger cells in short windows. Explicit grid locks survive timeframe changes;
 ordinary free-camera navigation retains its existing density hysteresis.
+Candlesticks retain independent time density because bars have no price-row height.
 
 Reference guidance uses bounded scrolling that follows the live target and
 yields to wheel, pointer, touch and keyboard input. Tall targets settle when
