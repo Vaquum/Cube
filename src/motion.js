@@ -734,6 +734,83 @@
       }});
     }).observe(element,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['hidden','open']});
   }
+  // A bounded union of two real dyadic fields. Preparation owns every lookup,
+  // allocation and colour parse; painting visits flat arrays with cached inks.
+  function subdivisionPlan(before, after, ground, limit = 8192) {
+    if (!before || !after) return null;
+    const ts = 2 ** Math.min(before.n, after.n), ps = 2 ** Math.min(before.m, after.m);
+    const keys = new Set(), maps = [];
+    for (const field of [before, after]) {
+      const map = new Map(); maps.push(map);
+      const ft = 2 ** field.n, fp = 2 ** field.m;
+      for (const cell of field.cells) {
+        if (cell.outline || !cell.css) return null;
+        const count = Math.ceil((cell.end - cell.t) / ts) * Math.ceil((cell.high - cell.p) / ps);
+        if (count + keys.size > limit) return null;
+        map.set(`${Math.floor(cell.t / ft)},${Math.floor(cell.p / fp)}`, cell);
+        for (let c = Math.floor(cell.t / ts); c < Math.ceil(cell.end / ts); c++)
+          for (let r = Math.floor(cell.p / ps); r < Math.ceil(cell.high / ps); r++) keys.add(`${c},${r}`);
+      }
+    }
+    const count = keys.size, boxes = new Float64Array(count * 4), edges = new Uint8Array(count * 2),
+      inks = new Uint16Array(count), colours = [], pairs = new Map(), parsed = new Map();
+    function rgb(css) {
+      if (parsed.has(css)) return parsed.get(css);
+      const values = /^rgb\(\s*(\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)\s*\)$/.exec(css);
+      const hex = /^#([0-9a-f]{6})$/i.exec(css);
+      const result = values ? values.slice(1).map(Number) : hex ? [0, 2, 4].map(i => parseInt(hex[1].slice(i, i + 2), 16)) : null;
+      parsed.set(css, result); return result;
+    }
+    let index = 0;
+    for (const key of keys) {
+      const comma = key.indexOf(','), t = Number(key.slice(0, comma)) * ts, p = Number(key.slice(comma + 1)) * ps;
+      const a = maps[0].get(`${Math.floor(t / 2 ** before.n)},${Math.floor(p / 2 ** before.m)}`),
+        b = maps[1].get(`${Math.floor(t / 2 ** after.n)},${Math.floor(p / 2 ** after.m)}`),
+        end = Math.min(t + ts, Math.max(a?.end ?? -Infinity, b?.end ?? -Infinity)), high = p + ps;
+      boxes.set([t, end, p, high], index * 4);
+      for (let side = 0; side < 2; side++) {
+        const cell = side ? b : a;
+        edges[index * 2 + side] = cell ? (t === cell.t ? 1 : 0) | (end === cell.end ? 2 : 0) |
+          (high === cell.high ? 4 : 0) | (p === cell.p ? 8 : 0) : 0;
+      }
+      const ac = a?.css ?? ground, bc = b?.css ?? ground, pair = `${ac}|${bc}`;
+      let ink = pairs.get(pair);
+      if (ink === undefined) {
+        const av = rgb(ac), bv = rgb(bc);
+        if (!av || !bv) return null;
+        ink = colours.length; pairs.set(pair, ink);
+        colours.push({ a: av, d: bv.map((value, i) => value - av[i]), start: ac, end: bc, bucket: -1, css: ac });
+      }
+      inks[index++] = ink;
+    }
+    return { count, boxes, edges, inks, colours, beforeN: before.n, beforeM: before.m,
+      afterN: after.n, afterM: after.m, refining: after.n + after.m <= before.n + before.m };
+  }
+  function paintSubdivision(context, plan, progress, X, Y, gap = 1) {
+    const ease = value => { const p = bounded(value); return p * p * p * (p * (p * 6 - 15) + 10); };
+    const detail = ease(plan.refining ? (progress - .08) / .92 : progress / .8),
+      seams = ease(plan.refining ? progress / .8 : (progress - .15) / .85), bucket = Math.round(detail * 128),
+      oldGap = X(2 ** plan.beforeN) - X(0) > 4 && Y(0) - Y(2 ** plan.beforeM) > 4 ? gap / 2 : 0,
+      newGap = X(2 ** plan.afterN) - X(0) > 4 && Y(0) - Y(2 ** plan.afterM) > 4 ? gap / 2 : 0;
+    for (const ink of plan.colours) if (ink.bucket !== bucket) {
+      ink.bucket = bucket;
+      ink.css = bucket === 0 ? ink.start : bucket === 128 ? ink.end :
+        `rgb(${Math.round(ink.a[0] + ink.d[0] * bucket / 128)},${Math.round(ink.a[1] + ink.d[1] * bucket / 128)},${Math.round(ink.a[2] + ink.d[2] * bucket / 128)})`;
+    }
+    const from = oldGap * (1 - seams), to = newGap * seams;
+    let previous = -1;
+    for (let i = 0; i < plan.count; i++) {
+      const j = i * 4, a = plan.edges[i * 2], b = plan.edges[i * 2 + 1];
+      const x = X(plan.boxes[j]) + (a & 1 ? from : 0) + (b & 1 ? to : 0),
+        y = Y(plan.boxes[j + 3]) + (a & 4 ? from : 0) + (b & 4 ? to : 0),
+        w = X(plan.boxes[j + 1]) - (a & 2 ? from : 0) - (b & 2 ? to : 0) - x,
+        h = Y(plan.boxes[j + 2]) - (a & 8 ? from : 0) - (b & 8 ? to : 0) - y,
+        ink = plan.inks[i];
+      if (w <= 0 || h <= 0) continue;
+      if (ink !== previous) context.fillStyle = plan.colours[ink].css;
+      previous = ink; context.fillRect(x, y, w, h);
+    }
+  }
   function scrollAxis(element, destination, axis = 'y') {
     const property=axis==='x'?'scrollLeft':'scrollTop', size=axis==='x'?'scrollWidth':'scrollHeight', client=axis==='x'?'clientWidth':'clientHeight';
     if (document.hidden) return;
@@ -744,7 +821,7 @@
       write:({x,y})=>{element.scrollLeft=x;element.scrollTop=y;},complete:()=>cancelMotion(element,'scroll')});
   }
 
-  const api = Object.freeze({ stationary: () => presentationHeld || reducedMotion() || document.hidden, replaceChildren, html, captureSize, captureGrid, observeSize, scrollAxis, MOTION, SPRING, MOTION_CSS, integrate, reducedMotion, motionActive, motionValue, spring, cancelMotion, finishMotion, onMotionFrame, reveal, layout, retire, intrinsicHeight, disclosure, resizeContent, watchPanel, scroll, scrollToActor, initMotion });
+  const api = Object.freeze({ subdivisionPlan, paintSubdivision, stationary: () => presentationHeld || reducedMotion() || document.hidden, replaceChildren, html, captureSize, captureGrid, observeSize, scrollAxis, MOTION, SPRING, MOTION_CSS, integrate, reducedMotion, motionActive, motionValue, spring, cancelMotion, finishMotion, onMotionFrame, reveal, layout, retire, intrinsicHeight, disclosure, resizeContent, watchPanel, scroll, scrollToActor, initMotion });
   if (typeof module === "object" && module.exports) module.exports = api;
   else scope.explorerMotion = api;
 })(typeof window === "undefined" ? globalThis : window);
