@@ -117,6 +117,21 @@ for (const mode of ["volume", "candles"]) {
   });
 }
 
+test("Since fits the already-loaded finer reference instead of the previous coarse tile", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor(profile);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${fake.url}/#t=2026-09-10T00:00Z~2026-09-24T12:00Z&p=10000~50000&r=3,3&mode=volume&follow=free`);
+  await probe.waitForReady();
+  await expect.poll(() => page.evaluate(() => typeof window.cubeAgent?.export)).toBe("function");
+  expect(fake.log().some(row => row.path === "/cube/tile" && row.query.n === "3" && row.query.m === "3")).toBe(true);
+  await choose(page, "2026-09-10");
+  // All four trades: 125-USDT cell edges 20000..40125, plus 1006.25 on each side.
+  await expect.poll(async () => (await camera(page)).price).toEqual([18993.75, 41131.25]);
+  const before = await camera(page), box = await page.locator("#ol-canvas").boundingBox();
+  await page.mouse.dblclick(box.x + 20, box.y + 100);
+  expect(await camera(page), "a subsequent price-axis fit has nothing further to change").toEqual(before);
+});
+
 test("a rapid timeframe replacement owns the final fit", async ({ page, fakeFor, probe }) => {
   const fake = await open(page, fakeFor, probe, "candles");
   const gate = fake.on({ route: "/cube/bars" }).gate();

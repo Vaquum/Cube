@@ -3081,11 +3081,11 @@
     S.replay = false;
     windowRange(key);
     transition = null; Flow.cancelMotion(canvas, "cells");
-    chooseSource();
     // The window's own level, for about a hundred columns; auto level then
     // fits it to the screen.
     S.n = w.n;
     S.m = w.m;
+    chooseSource();
     fit(0.05);
     limits();
     if (S.auto && G.w) autoLevel(false);
@@ -21970,6 +21970,7 @@
     : PACK.live && Boolean(viewTileSpec());
   function fitPrice(label, padding, waitForData = false) {
     pendingWindowPriceFit = null;
+    chooseSource();
     fit(padding);
     if (S.auto) autoLevel(!waitForData);
     recordView(label);
