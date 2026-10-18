@@ -23,7 +23,9 @@ test('uncached resolution retains colour and rests while calibration waits',asyn
  for(let i=0;i<8;i++){const now=await pixels(page);expect(now.blue).toBeGreaterThan(before.blue*.9);expect(now.opaque).toBe(now.count);await page.waitForTimeout(30);}
  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive()),{timeout:2500}).toBe(false);
  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision','waiting');
- await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;});
+ // A real data arrival calls update/scaleArm. This test-only coherence hold
+ // releases through an unchanged-grid native update, without polling in motion.
+ await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;document.querySelector('#ol-poc').click();});
  await expect(page.locator('#ol-canvas')).not.toHaveAttribute('data-subdivision',/.+/);
  await expect(page.locator('#ol-legend')).toHaveAttribute('data-state','ready');expect((await pixels(page)).blue).toBeGreaterThan(1000);
 });
