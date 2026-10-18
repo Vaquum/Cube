@@ -24,7 +24,7 @@ async function open(page, fakeFor, probe, mode, follow = "free", prices = "20000
   // Since that day must fetch a finer tile; the recent tier already covers 15m.
   const source = historical ? { ...profile, name: "timeframe-price-fit-historical", trades: profile.trades.map((trade, i) =>
     i < 2 ? { ...trade, t_ms: Date.parse(`2026-08-10T${13 + i}:00:00Z`) - EPOCH_MS } : trade) } : profile;
-  const fake = await fakeFor(source);
+  const fake = await fakeFor(source, { next: 3 });
   await page.goto(`${fake.url}/#t=2026-09-23T12:00Z~2026-09-24T12:00Z&p=${prices}&r=6,0&mode=${mode}&follow=${follow}`);
   await probe.waitForReady();
   await expect.poll(() => page.evaluate(() => typeof window.cubeAgent?.export)).toBe("function");
@@ -87,6 +87,22 @@ for (const mode of ["volume", "candles"]) {
       gate.open();
       await probe.waitForReady();
       expect(await camera(page)).toEqual(manual);
+    } finally { gate.open(); }
+  });
+
+  test(`pending timeframe ${mode} fit survives a newer live pack`, async ({ page, fakeFor, probe, allowConsole }) => {
+    const fake = await open(page, fakeFor, probe, mode, "free", "20000~40000", true);
+    const gate = fake.on({ route: mode === "candles" ? "/cube/bars" : "/cube/tile" }).gate();
+    try {
+      await choose(page, "2026-08-11");
+      await gate.arrived();
+      allowConsole(/Failed to load resource.*409/);
+      fake.holdPacks(1);
+      fake.advance({ minutes: 2, trades: [] });
+      const token = fake.info().packToken;
+      await expect.poll(() => fake.log().some(row => row.path === "/cube/pack" && row.query.since === token)).toBe(true);
+      gate.open();
+      await fitted(page, mode, "2026-08-11");
     } finally { gate.open(); }
   });
 }
