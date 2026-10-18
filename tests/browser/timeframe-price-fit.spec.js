@@ -43,7 +43,6 @@ for (const mode of ["volume", "candles"]) {
       const before = await camera(page);
       await choose(page, "24h");
       await fitted(page, mode);
-      await probe.waitForReady();
       const after = await camera(page), box = await page.locator("#ol-canvas").boundingBox();
       await page.mouse.dblclick(box.x + 20, box.y + 100);
       expect(await camera(page), "the price-axis fit has nothing further to change").toEqual(after);
@@ -72,7 +71,6 @@ for (const mode of ["volume", "candles"]) {
       expect(gate.held).toBeGreaterThan(0);
       gate.open();
       await fitted(page, mode, "2026-08-11");
-      await probe.waitForReady();
       expect(await page.evaluate(() => window.explorerMotion.motionValue(document.querySelector("#ol-canvas"), "cells"))).toBeNull();
     } finally { gate.open(); }
   });
@@ -102,7 +100,6 @@ test("a rapid timeframe replacement owns the final fit", async ({ page, fakeFor,
     await choose(page, "15m");
     gate.open();
     await fitted(page, "candles", "15m");
-    await probe.waitForReady();
     expect((await camera(page)).price).toEqual(fixture.expected.candles);
   } finally { gate.open(); }
 });
@@ -123,6 +120,5 @@ test("a timeframe choice releases an active cell spring before its destination p
   await choose(page, "24h");
   expect(await page.evaluate(() => window.explorerMotion.motionValue(document.querySelector("#ol-canvas"), "cells"))).toBeNull();
   await fitted(page, "volume");
-  await probe.waitForReady();
   expect(await page.evaluate(() => window.explorerMotion.motionValue(document.querySelector("#ol-canvas"), "cells"))).toBeNull();
 });
