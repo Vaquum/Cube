@@ -22253,6 +22253,8 @@
     for (const id of TIERS)
       if (body.blocks?.[id]) parts[id] = await unpack(body.blocks[id], id);
     if (beforeCommit) beforeCommit();
+    const windowFit = S.window && pendingWindowPriceFit?.context === windowPriceFitContext() &&
+      pendingWindowPriceFit.entry === hist.entries[hist.index]?.id ? pendingWindowPriceFit : null;
     comparisonSourceRevision++;
     if (whole) {
       for (const id of Object.keys(sources))
@@ -22334,7 +22336,15 @@
     groups.clear();
     evidenceCache.clear();
     rebuildReference();
-    if (!comparisonModel.expanded) { followCutoff(was); chooseSource(); limits(); }
+    if (!comparisonModel.expanded) {
+      followCutoff(was); chooseSource(); limits();
+      // Following the live cutoff continues the same timeframe choice. Manual
+      // navigation has already invalidated its camera or history entry above.
+      if (windowFit && pendingWindowPriceFit === windowFit) {
+        windowFit.context = windowPriceFitContext();
+        finishWindowPriceFit();
+      }
+    }
     update();
     title();
     scaleArm();

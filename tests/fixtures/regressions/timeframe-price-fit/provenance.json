@@ -5,5 +5,5 @@
   "seed": null,
   "extractedOn": null,
   "source": "Hand-authored trades for issue #183",
-  "notes": "Visible candle prices 25000..25150 plus 5% of 150; occupied 125 USDT rows span 25000..25250 plus 5% of 250. Older 20000 and 40000 trades are outside every destination. Timeframe choices fit destination data, including delayed bars and finer tiles, as one reversible navigation action."
+  "notes": "Visible candle prices 25000..25150 plus 5% of 150; occupied 125 USDT rows span 25000..25250 plus 5% of 250. Older 20000 and 40000 trades are outside every destination. Historical read cases move those outliers to 10 August 13:00 and 14:00 UTC, within the overview column crossing the Since boundary. Timeframe choices fit destination data, including delayed bars and finer tiles, as one reversible navigation action. A live pack advancing the cutoff by two minutes with no new trades retains those same expected prices."
 }
