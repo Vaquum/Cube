@@ -29,10 +29,10 @@ function score(s, n, m) {
   const x = 2 ** n * width / (b - a), y = 2 ** m * height / (q - p);
   return [Math.abs(Math.log2(x / y)), Math.abs(Math.log2(Math.sqrt(x * y) / 12))];
 }
-function assertBest(s, nMin = 0, mMin = 0, diagonal = false) {
+function assertBest(s, nMin = 0, mMin = 0, diagonal = false, nMax = 20) {
   const chosen = score(s, s.n, s.m);
   expect(s.n).toBeGreaterThanOrEqual(nMin); expect(s.m).toBeGreaterThanOrEqual(mMin);
-  for (let n = nMin; n <= 20; n++) for (let m = mMin; m <= 9; m++) {
+  for (let n = nMin; n <= nMax; n++) for (let m = mMin; m <= 9; m++) {
     if (diagonal && m !== Math.max(0, Math.min(9, Math.round(-1.06 + 0.486 * n)))) continue;
     const other = score(s, n, m);
     expect(chosen[0], `shape n${s.n},m${s.m} vs n${n},m${m}`).toBeLessThanOrEqual(other[0] + 1e-8);
@@ -96,7 +96,7 @@ test("automatic diagonal time defaults remain on the empirical path", async ({ p
     await choose(page, key); await settled(page, probe);
     const s = await state(page);
     expect(s.m).toBe(Math.max(0, Math.min(9, Math.round(-1.06 + 0.486 * s.n))));
-    assertBest(s, key === "all" ? 10 : key === "7d" ? 2 : 0, 0, true);
+    assertBest(s, key === "all" ? 10 : key === "7d" ? 2 : 0, 0, true, 12);
   }
 });
 
@@ -135,4 +135,15 @@ test("fast status changes choose the idle grid even without a resize delivery", 
   const s = await state(page);
   expect(s.window).toBe("270d");
   assertBest(s);
+});
+
+for (const mode of ["volume", "path"]) test(`sparse full history keeps a completed ${mode} column for colour`, async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini");
+  await page.goto(`${fake.url}/#w=all&mode=${mode}&vis=2`); await settled(page, probe);
+  await expect(page.locator("#ol-legend")).toHaveAttribute("data-state", "ready");
+  const s = await state(page);
+  // The oldest trades precede the 22 Sep 16:00 UTC level-12 edge. At n13
+  // every trade is inside the unfinished 20 Sep 00:00..25 Sep 08:00 column.
+  expect(s.n).toBeLessThanOrEqual(12);
+  assertBest(s, 10, 0, false, 12);
 });

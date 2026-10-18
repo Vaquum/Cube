@@ -120,7 +120,7 @@ test("the mapping id is the id of the displayed numbers", async ({ page, fakeFor
 test("same-context actions never change the mapping or the counter", async ({ page, fakeFor, probe, surface }) => {
   const fake = await fakeFor("standard");
   const ctx = { page, fake, probe, surface };
-  await page.goto(`${fake.url}/#w=24h`);
+  await page.goto(`${fake.url}/#w=24h&r=4,0`);
   const base = identity(await calm(ctx));
   const box = await page.locator("#ol-canvas").boundingBox();
   const cx = box.x + box.width / 2;

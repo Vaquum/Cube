@@ -18508,6 +18508,24 @@
     const r = canvas.getBoundingClientRect();
     return layoutNow(r.width, r.height);
   }
+  let windowGridCoverage = null;
+  function windowGridTimeLimit() {
+    const source = displaySource(), [start, end] = viewRange();
+    if (!source) return N_MAX;
+    const cached = windowGridCoverage;
+    if (cached?.cells === source.cells && cached.start === start && cached.end === end) return cached.max;
+    const step = 2 ** source.n;
+    let first = Infinity, max = N_MAX;
+    for (const cell of source.cells) {
+      const t = cell.c * step;
+      if (t < end && t + step > start) first = Math.min(first, t);
+    }
+    // Keep a completed occupied column for calibration. With sparse history,
+    // making every trade part of one open column would remove all colour.
+    if (Number.isFinite(first)) while (max > 0 && (Math.floor(first / 2 ** max) + 1) * 2 ** max > end) max--;
+    windowGridCoverage = { cells: source.cells, start, end, max };
+    return max;
+  }
   function autoLevel(animate = true) {
     // A whole-window command interrupts old presentation even at a locked or
     // unchanged level. Its destination never inherits the departed grid.
@@ -18526,7 +18544,7 @@
         nMin = source?.n || 0; mMin = source?.m || 0;
       }
       const level = E.util.windowLevel({ timeSpan: S.tB - S.tA, priceSpan: S.pB - S.pA,
-        width: g.w, height: g.h, nMin, mMin, nMax: N_MAX, mMax: M_MAX,
+        width: g.w, height: g.h, nMin, mMin, nMax: Math.max(nMin, windowGridTimeLimit()), mMax: M_MAX,
         diagonal: S.diagonal ? { a: ISO_A, b: ISO_B } : null });
       if (!level) return false;
       ({ n, m } = level);

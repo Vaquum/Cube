@@ -59,7 +59,9 @@ Automatic timeframe grids choose time and price levels together after the price
 fit. The closest available cell aspect ratio wins; equally square grids choose
 the geometric mean nearest 12 CSS pixels (`E.util.windowLevel`). The rule uses the actual plot size,
 respects source resolution, tile capacity and the empirical diagonal, and runs
-again after destination data or a layout change. Base resolution can require
+again after destination data or a layout change. Sparse histories retain a
+completed occupied column so the chosen grid can calibrate its colours; coverage
+scans are cached across layout frames. Base resolution can require
 larger cells in short windows. Explicit grid locks survive timeframe changes;
 ordinary free-camera navigation retains its existing density hysteresis.
 Candlesticks retain independent time density because bars have no price-row height.
