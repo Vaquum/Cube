@@ -22987,7 +22987,7 @@
     if (!before) return false;
     subdivisionStop(); transition = null; Flow.cancelMotion(canvas, "cells");
     const actor = { before, camera: 0, detail: 0, cameraDone: false, detailDone: false,
-      target: null, plan: null, goal: null, animateCamera, targetId: null };
+      target: null, plan: null, goal: null, animateCamera, cameraFrom: before.camera, targetId: null };
     subdivision.actor = actor;
     canvas.dataset.subdivision = "waiting"; canvas.setAttribute("aria-busy", "true");
     Flow.spring(canvas, "cells-camera", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
@@ -23010,7 +23010,7 @@
         actor.goal !== null && actor.goal !== goal) { subdivisionStop(); return; }
     actor.goal = goal;
     if (!actor.animateCamera) return;
-    const from = actor.before.camera, p = actor.camera;
+    const from = actor.cameraFrom, p = actor.camera;
     G.X.domain([from[0] + (S.tA - from[0]) * p, from[1] + (S.tB - from[1]) * p]);
     G.Y.domain([from[2] + (S.pA - from[2]) * p, from[3] + (S.pB - from[3]) * p]);
   }

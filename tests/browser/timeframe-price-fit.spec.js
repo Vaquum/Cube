@@ -148,6 +148,17 @@ test("a rapid timeframe replacement owns the final fit", async ({ page, fakeFor,
   } finally { gate.open(); }
 });
 
+test("a deferred timeframe refit continues the coloured subdivision", async ({ page, fakeFor, probe }) => {
+  const fake = await open(page, fakeFor, probe, "volume", "free", "20000~40000", true);
+  const gate = fake.on({ route: "/cube/tile" }).gate();
+  try {
+    await choose(page, "2026-08-11"); await gate.arrived();
+    await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", /.+/);
+    gate.open(); await fitted(page, "volume", "2026-08-11");
+    await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", /.+/);
+    await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-subdivision", /.+/);
+  } finally { gate.open(); }
+});
 test("a timeframe choice replaces an active cell spring with its own subdivision", async ({ page, fakeFor, probe }) => {
   await page.addInitScript(() => {
     let api, generation = 0;
