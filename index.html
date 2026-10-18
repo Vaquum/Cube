@@ -23110,6 +23110,26 @@
       else pen.fillRect(x + gap / 2, y + gap / 2, Math.max(.1, w - gap), Math.max(.1, h - gap));
     }
   }
+  function subdivisionRebase(actor) {
+    const from = [...G.X.domain(), ...G.Y.domain()],
+      to = actor.target ? subdivisionCamera() : actor.preview.camera,
+      camera = [Math.min(from[0], to[0]), Math.max(from[1], to[1]),
+        Math.min(from[2], to[2]), Math.max(from[3], to[3])];
+    subdivisionSurface(subdivision.retained);
+    const pen = subdivision.retained.getContext("2d"), w = subdivision.retained.width, h = subdivision.retained.height,
+      layer = (surface, view) => pen.drawImage(surface,
+        (view[0] - camera[0]) * w / (camera[1] - camera[0]),
+        (camera[3] - view[3]) * h / (camera[3] - camera[2]),
+        (view[1] - view[0]) * w / (camera[1] - camera[0]),
+        (view[3] - view[2]) * h / (camera[3] - camera[2]));
+    pen.setTransform(1, 0, 0, 1, 0, 0); pen.globalAlpha = 1;
+    pen.fillStyle = colors.surface; pen.fillRect(0, 0, w, h);
+    // Keep the full destination beneath the visible snapshot. A calibration can
+    // arrive mid-camera: pixels outside that snapshot must already have colour.
+    // Reuse the same three surfaces, including on a later calibration rebase.
+    layer(subdivision.target, to); layer(subdivision.presented, from);
+    actor.before = { camera, field: null };
+  }
   function subdivisionPaint(sc, shown, cut) {
     const actor = subdivision.actor;
     if (!actor) {
@@ -23126,8 +23146,7 @@
       // The first ready frame is sampled once. A later colour calibration rebases
       // from the presented raster instead of jumping to newly encoded colours.
       if (actor.target || actor.preview && actor.hasPaint) {
-        subdivisionCopy(subdivision.retained, subdivision.presented);
-        actor.before = { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
+        subdivisionRebase(actor);
       }
       actor.targetId = targetId;
       actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });

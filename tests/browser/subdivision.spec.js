@@ -76,6 +76,36 @@ test('newly revealed history stays coloured through a held wider-window tile and
   await expect.poll(async()=>(await pixels(page)).hash).toBe(before.hash);
  } finally {gate.open();await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;});}
 });
+test('a calibration arriving mid-camera keeps colour beyond the presented viewport',async({page,fakeFor,probe})=>{
+ await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerMotion',{get:()=>api,set:motion=>{
+  api={...motion,spring(owner,name,options){
+   const camera=name==='cells-camera',detail=name==='cells';
+   return motion.spring(owner,name,camera||detail?{...options,
+    canComplete:()=>camera?window.__cameraProgress==null:!window.__holdDetail,
+    write(value){options.write(camera&&window.__cameraProgress!=null?{progress:window.__cameraProgress}:detail&&window.__holdDetail?{progress:0}:value);}
+   }:options);
+  }};
+ }});});
+ const fake=await open(page,fakeFor,probe),gate=fake.on({route:'/cube/tile'}).gate();
+ try {
+  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;window.__cameraProgress=.35;window.__holdDetail=true;});
+  await page.locator('#ol-window').click();await page.locator('[data-window="180d"]').click();await gate.arrived();
+  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision','waiting');
+  await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;});gate.open();
+  await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision',/dividing|joining|blending/);
+  // The final detail is still at alpha zero. Advance only the camera to expose
+  // the history outside the viewport captured when calibration landed.
+  await page.evaluate(()=>{window.__cameraProgress=1;});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  expect((await pixels(page,.15)).blue).toBeGreaterThan(1000);
+  // A subsequent mapping handoff must keep that full coverage too.
+  await page.evaluate(()=>{window.__cameraProgress=.8;window.__replaceSubdivisionMapping=true;document.querySelector('#ol-poc').click();});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.evaluate(()=>{window.__cameraProgress=1;});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  expect((await pixels(page,.15)).blue).toBeGreaterThan(1000);
+ } finally {gate.open();await page.evaluate(()=>{window.__cameraProgress=null;window.__holdDetail=false;window.__holdSubdivisionCalibration=false;});}
+});
 test('wider-window preview honours a held comparison mapping without fitting',async({page,fakeFor,probe,surface})=>{
  const fake=await open(page,fakeFor,probe);
  await popoverAction(page,surface,'cells','Comparison lock');await S.atRest(page,fake,probe);
