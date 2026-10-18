@@ -5,7 +5,7 @@ const {test,expect}=require("./fixtures.js");
 const {atRest}=require("./rows-support.js");
 const KEY="market-state-cube-explorer:comparison:v2:BTC/USDT";
 async function open(page,fake,probe,extra="") {
-  await page.goto(`${fake.url}/#w=24h&vis=2&n=4&m=0&auto=0&poc=0&lines=${extra}`);
+  await page.goto(`${fake.url}/#w=24h&vis=2&r=4,0&poc=0&lines=${extra}`);
   await atRest(page,fake,probe);await probe.waitForQuiet({quietMs:300,timeout:60000});
 }
 async function point(page) {
