@@ -9,7 +9,7 @@ async function pixels(page,fraction=1){return page.locator('#ol-canvas').evaluat
  for(let i=0;i<a.length;i+=4){if(a[i+2]>a[i]+8)blue++;if(a[i+3]===255)opaque++;for(let k=0;k<3;k++)hash=Math.imul(hash^a[i+k],16777619);}
  return {blue,opaque,count:a.length/4,hash:hash>>>0};
 },fraction);}
-async function open(page,fakeFor,probe){
+async function open(page,fakeFor,probe,hash='#w=24h&vis=2'){
  await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerEncoding',{get:()=>api,set:value=>{
   api={...value,util:{...value.util,windowLevel:spec=>window.__subdivisionGrid||value.util.windowLevel(spec)},lifecycle:{...value.lifecycle,coherent:(...args)=>window.__holdSubdivisionCalibration?{ok:false,reason:'pending'}:value.lifecycle.coherent(...args)},
    scale:{...value.scale,fitValue(...args){if(window.__watchPreviewFits)window.__previewFits++;return value.scale.fitValue(...args);},fitRank(...args){if(window.__watchPreviewFits)window.__previewFits++;return value.scale.fitRank(...args);}},
@@ -20,7 +20,7 @@ async function open(page,fakeFor,probe){
     }};
     return window.__replaceSubdivisionMapping?{...frame,mappingId:frame.mappingId+':next'}:frame;}}};
  }});});
- const fake=await fakeFor('standard');await page.goto(fake.url+'/#w=24h&vis=2');await S.atRest(page,fake,probe);
+ const fake=await fakeFor('standard');await page.goto(fake.url+'/'+hash);await S.atRest(page,fake,probe);
  await expect.poll(()=>page.evaluate(()=>window.explorerMotion.motionActive())).toBe(false);
  return fake;
 }
@@ -107,9 +107,12 @@ test('a calibration arriving mid-camera keeps colour beyond the presented viewpo
  } finally {gate.open();await page.evaluate(()=>{window.__cameraProgress=null;window.__holdDetail=false;window.__holdSubdivisionCalibration=false;});}
 });
 test('wider-window preview honours a held comparison mapping without fitting',async({page,fakeFor,probe,surface})=>{
- const fake=await open(page,fakeFor,probe);
+ // Keep the calibration context stable while the scale dialog changes layout.
+ const fake=await open(page,fakeFor,probe,'#w=24h&vis=2&r=7,0');
  await popoverAction(page,surface,'cells','Comparison lock');await S.atRest(page,fake,probe);
+ expect((await surface.chip('cells')).data.policy).toBe('comparison');
  const held=(await surface.chip('cells')).data.mappingId, gate=fake.on({route:'/cube/tile'}).gate();
+ expect(held).not.toBe('');
  try {
   await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;window.__previewFits=0;window.__watchPreviewFits=true;});
   await page.locator('#ol-window').click();await page.locator('[data-window="180d"]').click();await gate.arrived();
