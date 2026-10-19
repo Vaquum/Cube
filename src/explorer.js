@@ -9804,7 +9804,9 @@
         summary = `${ROWS_INFO[measure].name} · ${periodLabel(period)}`;
       button.dataset[id] = measure;
       button.dataset.period = period;
-      if (el(`${id}-text`).textContent !== summary) el(`${id}-text`).textContent = summary;
+      const text = el(`${id}-text`);
+      if (text.textContent !== summary || !text.querySelector(".ol-row-selector-period"))
+        text.replaceChildren(uiEl("span", "ol-row-selector-measure", ROWS_INFO[measure].name), uiEl("span", "ol-row-selector-period", ` · ${periodLabel(period)}`));
       const label = `${spec.name}: ${summary}`;
       if (button.getAttribute("aria-label") !== label) button.setAttribute("aria-label", label);
       qsa(`#ol-${id}-menu [data-${id}]`).forEach(choice =>

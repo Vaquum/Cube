@@ -110,7 +110,7 @@ test("Visible range is first and follows time navigation, persists on reload and
   const view = [196, 214], cols = [S.END_COL - S.DAY_COLS, S.END_COL];
   await page.goto(`${fake.url}/${S.address({ cols, rows: view, rowsKind: "relvol", period: "visible", extra: "&r=0,0&vis=2" })}`);
   await S.atRest(page, fake, probe);
-  await expect(page.locator("#ol-background-text")).toHaveText("Relative volume · Visible range");
+  await expect(page.locator("#ol-background-text")).toHaveText("Row volume versus mean traded row · Visible range");
   await page.locator("#ol-background").click();
   await page.locator('#ol-background-menu [data-background-step="period"]').click();
   await expect(page.locator("#ol-background-menu [data-period]").first()).toHaveAttribute("data-period", "visible");
@@ -131,6 +131,6 @@ test("Visible range is first and follows time navigation, persists on reload and
   expect(Number(details.fields.rowFrom.value)).toBe(Date.parse("2021-01-01T00:00:00Z") + stream.early[0] * S.BASE_MS);
   await page.reload();
   await S.atRest(page, fake, probe);
-  await expect(page.locator("#ol-background-text")).toHaveText("Relative volume · Visible range");
+  await expect(page.locator("#ol-background-text")).toHaveText("Row volume versus mean traded row · Visible range");
   expect(Number((await reading(page, 200, view)).value)).toBeCloseTo(current, 10);
 });

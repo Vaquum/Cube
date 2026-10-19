@@ -32,6 +32,19 @@ test("a marked fresh view has independent defaults, and its link always writes r
   assert.deepEqual(controls(C.parseAddress(address, {}).view), fresh);
 });
 
+test("rc=1 governs row controls without opting an unversioned address into newer colour settings", () => {
+  assert.deepEqual(controls(C.parseAddress("#w=24h&rc=1", {}).view), fresh);
+  const parsed = C.parseAddress("#w=24h&rc=1&rows=delta&background=volume&backgroundPeriod=7d&rt=r&rp=a", {});
+  assert.equal(parsed.kind, "legacy");
+  assert.deepEqual(controls(parsed.view), { ...fresh, rows: "delta", background: "volume", backgroundPeriod: "7d" });
+  assert.equal(parsed.view.scale.rowsTransform, "value");
+  assert.equal(parsed.view.scale.rows, "explore");
+  assert.deepEqual(parsed.dropped.map((item) => item.key).sort(), ["rp", "rt"]);
+  const invalid = C.parseAddress("#w=24h&rc=1&background=time", { rowsChoices: ["off", "volume", "delta", "relvol"] });
+  assert.equal(invalid.view.background, "off");
+  assert.deepEqual(invalid.dropped.map((item) => item.key), ["background"]);
+});
+
 test("legacy links and raw saved views copy the old measure and actual or implicit period into both controls", () => {
   for (const period of [undefined, "7d", "visible", "2026-09-01"]) {
     const raw = { window: "24h", rows: "delta", ...(period === undefined ? {} : { period }) }, before = structuredClone(raw);

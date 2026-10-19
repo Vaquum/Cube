@@ -406,9 +406,30 @@
 /* Independent Background and Rows selectors share one responsive placement. */
 #origo-lens .ol-background-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-1);
   position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+#origo-lens .ol-background-controls > .ol-group,
+#origo-lens .ol-background-controls .ol-pick {
+  min-width: 0;
+  max-width: 100%;
+}
+#origo-lens :is(#ol-background-text, #ol-rows-text) {
+  display: inline-flex;
+  min-width: 0;
+}
+#origo-lens .ol-row-selector-measure {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#origo-lens .ol-row-selector-period,
+#origo-lens .ol-background-controls .ol-label {
+  flex: none;
 }
 /* Every measurement selector names the surface it controls. */
 #origo-lens :is(#ol-mode, #ol-pane, #ol-background, #ol-rows) > .ol-label {

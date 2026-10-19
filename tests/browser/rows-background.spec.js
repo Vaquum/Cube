@@ -186,3 +186,68 @@ test("Background colour transform cannot alter the Rows profile's drawn lengths"
   expect(after.bars).toEqual(before.bars);
   expect(after.strip).not.toEqual(before.strip);
 });
+
+for (const width of [375, 960]) test(`${width}px: both concentration summaries retain their custom period within the viewport`, async ({ page, fakeFor, probe }) => {
+  await page.setViewportSize({ width, height: 812 });
+  await open(page, fakeFor, probe, address().replace("rows=delta&period=visible", "rows=relvol&period=2021-01-01").replace("background=volume&backgroundPeriod=7d", "background=relvol&backgroundPeriod=2026-01-01"));
+  if (width <= 760) await page.locator("#ol-sheet-toggle").click();
+  for (const id of ["rows", "background"]) {
+    const button = page.locator(`#ol-${id}`), period = button.locator(".ol-row-selector-period");
+    await expect(button).toBeVisible();
+    await expect(button).toHaveAttribute("aria-label", new RegExp(`^${id === "rows" ? "Rows" : "Background"}: Row volume versus mean traded row · Since `));
+    await expect(period).toContainText("Since");
+    const outer = await button.boundingBox(), inner = await period.boundingBox();
+    expect(inner.x).toBeGreaterThanOrEqual(outer.x);
+    expect(inner.x + inner.width).toBeLessThanOrEqual(outer.x + outer.width);
+    expect(outer.x + outer.width).toBeLessThanOrEqual(width);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
+
+test("Time Visible range never reuses the previous viewport's dwell bars while the new read waits", async ({ page, fakeFor, probe, pane }) => {
+  const stream = S.disjoint();
+  const fake = await open(page, fakeFor, probe, address().replace("rows=delta", "rows=time").replace("background=volume", "background=off"));
+  expect((await snapshot(page, pane)).bars.length).toBeGreaterThan(0);
+  const gate = fake.on({ route: "/cube/query", when: q => q.motion === "1" && Number(q.b0) === stream.early[0] && Number(q.b1) === stream.early[1] }).gate();
+  try {
+    const next = S.address({ cols: stream.early, rows: view, rowsKind: "time", period: "visible", extra: "&rc=1&vis=2&background=off" });
+    await page.evaluate(hash => { location.hash = hash; }, next);
+    await gate.arrived();
+    await expect(page.locator("#ol-rows-text")).toHaveText("Time at price · Visible range");
+    await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-reference-domain", "No data");
+    await expect.poll(async () => (await snapshot(page, pane)).bars.length).toBe(0);
+  } finally { gate.open(); }
+  await S.atRest(page, fake, probe);
+  expect((await snapshot(page, pane)).bars.length).toBeGreaterThan(0);
+});
+
+test("ready Time profile reports a pending period-volume companion while its independent cube read waits", async ({ page, fakeFor, probe }) => {
+  const stream = S.disjoint(), fake = await fakeFor({ name: stream.name, trades: stream.trades, cutoffIso: stream.cutoffIso });
+  const gate = fake.on({ route: "/cube/query", when: q => q.motion !== "1" && q.r0 === undefined && Number(q.b1) - Number(q.b0) > 60 * S.DAY_COLS }).gate();
+  try {
+    await page.goto(`${fake.url}/${address().replace("rows=delta&period=visible", "rows=time&period=90d").replace("background=volume", "background=off")}`);
+    await gate.arrived();
+    await expect.poll(() => page.locator("#ol-profile-chip").getAttribute("data-reference-domain")).not.toBe("No data");
+    await page.keyboard.press("e");
+    await page.locator('button[data-surface="rows"]').click();
+    const card = page.locator("#ol-inspect-readout");
+    await expect.poll(async () => (await observation(card)).formula).toBe("rows.time.seconds@1");
+    expect((await observation(card)).result.tag).toBe("finite");
+    const companion = card.locator(".ol-core-stats .ol-cell-stat").filter({ hasText: "Period row volume · separate cutoff" }).locator("dd");
+    await expect(companion).toHaveAttribute("data-canonical", "pending");
+  } finally { gate.open(); }
+  await S.atRest(page, fake, probe);
+});
+
+test("legacy JSON import with omitted Rows explicitly clears both independent measurements", async ({ page, fakeFor, probe }) => {
+  const fake = await open(page, fakeFor, probe);
+  const P = require("./persistence-support.js");
+  await P.importCode(page, JSON.stringify({ query: { t1: S.stamp(cols[0]), t2: S.stamp(cols[1]), p1: view[0] * 125, p2: view[1] * 125, tR: S.BASE_MS / 1000, pR: 125 }, view: { mode: "volume" } }));
+  await expect(page.locator("#ol-copy-status")).toHaveText("View restored");
+  await S.atRest(page, fake, probe);
+  await expect(page.locator("#ol-rows-text")).toHaveText("Off · 90 days");
+  await expect(page.locator("#ol-background-text")).toHaveText("Off · 90 days");
+  await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-tracks", "1");
+  const layout = await page.locator("#ol-canvas").evaluate(n => n.dataset.layout.split(",").map(Number));
+  expect(layout[5]).toBe(0);
+});

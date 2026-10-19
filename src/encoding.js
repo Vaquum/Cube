@@ -10385,10 +10385,14 @@
   }
 
   // The raw fields a stored v4/v5 view, a code or an address hands to the validator, read through the table.
+  function cdcReadsField(entry, q, withSettings) {
+    // The row-controls marker versions its own fields; it does not opt an old address into visual settings.
+    return entry.legacy || withSettings || (q.get("rc") === "1" && ["rowControlsVersion", "background", "backgroundPeriod"].indexOf(entry.id) >= 0);
+  }
   function cdcReadFields(q, env, withSettings) {
     const raw = {};
     for (const entry of cdcVisualKeys) {
-      if (!entry.legacy && !withSettings) continue;
+      if (!cdcReadsField(entry, q, withSettings)) continue;
       const part = entry.read(q.get(entry.param), env);
       for (const path of Object.keys(part)) cdcPathSet(raw, path, part[path]);
     }
@@ -11032,7 +11036,7 @@
     // What the page could not show: a value that changed on its way through the validator is a drop.
     const dropIf = (param, reason) => res.dropped.push({ key: param, reason });
     for (const entry of cdcVisualKeys) {
-      if (!q.has(entry.param) || (!v2 && !entry.legacy)) continue;
+      if (!q.has(entry.param) || !cdcReadsField(entry, q, v2)) continue;
       const a = {};
       const b = {};
       for (const path of entry.fields) {
@@ -11048,7 +11052,7 @@
     if (q.get("replay") === "1" && !view.replay) dropIf("replay", "a replay needs an anchor on this page");
     if (!v2) {
       for (const key of ["ap", "sc"]) if (q.has(key)) dropIf(key, "needs vis=2");
-      for (const entry of cdcVisualKeys) if (!entry.legacy && q.has(entry.param)) dropIf(entry.param, "needs vis=2");
+      for (const entry of cdcVisualKeys) if (!cdcReadsField(entry, q, false) && q.has(entry.param)) dropIf(entry.param, "needs vis=2");
       return res;
     }
     if (q.has("ap") && view.appearance === null) dropIf("ap", "not an appearance id");
