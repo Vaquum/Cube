@@ -453,7 +453,7 @@ test("checkView uses the page's own predicates from env and validates the nested
   assert.deepEqual(plain(v.lines), ["a"]);
   assert.equal(v.n, 5);
   assert.equal(v.m, 2);
-  assert.deepEqual(seen, ["7d", "lines"]);
+  assert.deepEqual(seen, ["7d", "7d", "7d", "7d", "lines"], "both migrated controls validate their own period");
   assert.equal(C.checkView({ window: "24h" }, env), null, "this page's windowKey does not know 24h");
   const s = C.checkView({ window: "special", mode: "flow", scale: { basis: "intensity", transform: "bogus", curve: "linear", local: true, lock: "yes", window: [0.2, 0.9] } }, { ...env, modes: () => ["flow"] });
   assert.equal(s.scale.basis, "intensity");

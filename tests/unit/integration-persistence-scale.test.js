@@ -137,7 +137,7 @@ test("(c) all ten scale settings and every legacy key away from their defaults a
   const written = E.codec.formatAddress(view, ENV);
   assert.equal(
     written.hash,
-    "#w=24h&vis=2&ap=" + AP + "&f=coupled&mode=flow&pane=rsi4h&rows=time&period=1y&level=65000.5&marks=area&lines=1d,7d&tab=continuations&outcome=barrier&h=8&dist=4&bs=i&pb=u&tr=r&cv=l&rt=r&cp=a&rp=a&lc=1&sw=0.25~0.75&lk=1",
+    "#w=24h&vis=2&ap=" + AP + "&rc=1&f=coupled&mode=flow&pane=rsi4h&rows=time&period=1y&level=65000.5&marks=area&lines=1d,7d&tab=continuations&outcome=barrier&h=8&dist=4&bs=i&pb=u&tr=r&cv=l&rt=r&cp=a&rp=a&lc=1&sw=0.25~0.75&lk=1",
   );
   const parsed = E.codec.parseAddress(written.hash, ENV);
   assert.deepEqual(plain(parsed.view.scale), plain(view.scale));
@@ -155,7 +155,7 @@ test("(c) a raw window preference travels through a measure that cannot read it 
   const s = Object.assign(fresh(), { window: [0.25, 0.75] });
   const view = viewOf({ mode: "volume" }, s);
   const written = E.codec.formatAddress(view, ENV);
-  assert.equal(written.hash, "#w=24h&vis=2&ap=" + AP + "&sw=0.25~0.75");
+  assert.equal(written.hash, "#w=24h&vis=2&ap=" + AP + "&rc=1&sw=0.25~0.75");
   assert.deepEqual(plain(written.dropped), []);
   const restored = E.policy.restore({ scale: E.codec.parseAddress(written.hash, ENV).view.scale });
   assert.deepEqual(plain(restored.scale.window), [0.25, 0.75]);
@@ -165,7 +165,7 @@ test("(c) a raw window preference travels through a measure that cannot read it 
   assert.deepEqual(plain(E.policy.effective(restored.scale, "dwell").window), [0.25, 0.75]);
   // a Taker flow window must stay symmetric about 0.5: an asymmetric one is refused where it would be used
   const bad = E.codec.formatAddress(viewOf({ mode: "flow" }, { window: [0.2, 0.6] }), ENV);
-  assert.equal(bad.hash, "#w=24h&vis=2&ap=" + AP + "&mode=flow");
+  assert.equal(bad.hash, "#w=24h&vis=2&ap=" + AP + "&rc=1&mode=flow");
   assert.deepEqual(bad.dropped.map((d) => d.key), ["sw"]);
 });
 
