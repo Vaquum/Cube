@@ -310,7 +310,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
     await page.keyboard.press("Escape");
   });
 
-  test("a measure that offers no scale choice says why, and Rows separates its scale steps", async ({ page, fakeFor, probe }) => {
+  test("fixed measures explain unavailable scale actions; measurement selectors keep Background colour controls separate", async ({ page, fakeFor, probe }) => {
     const fake = await fakeFor("mini");
     await load(page, fake, probe, "#w=24h&mode=flow&rows=delta");
     await page.focus("#ol-mode");
@@ -322,16 +322,38 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
     // Taker flow has a fixed domain: no Transform group at all (the two Values are for unbounded measures).
     expect(await page.locator('#ol-mode-menu [data-scale-item^="transform"]').count()).toBe(0);
     await page.keyboard.press("Escape");
-    await page.focus("#ol-rows");
-    await page.keyboard.press("Enter");
-    const names = [];
-    for (const step of ["transform", "policy", "options"]) {
-      await page.locator(`#ol-rows-menu [data-rows-step="${step}"]`).click();
-      names.push(...await page.locator('#ol-rows-menu [data-scale-item]').evaluateAll((items) => items.map((item) => item.dataset.scaleItem)));
+    for (const id of ["rows", "background"]) {
+      await page.focus(`#ol-${id}`);
+      await page.keyboard.press("Enter");
+      const menu = page.locator(`#ol-${id}-menu`);
+      expect(await menu.locator(`[data-${id}-step]`).evaluateAll((nodes, id) => nodes.map(n => n.dataset[`${id}Step`]), id)).toEqual(["dataset", "period"]);
+      for (const step of ["dataset", "period"]) {
+        await menu.locator(`[data-${id}-step="${step}"]`).click();
+        await expect(menu.locator("[data-scale-item]")).toHaveCount(0);
+      }
+      await page.keyboard.press("Escape");
+      await expect(page.locator(`#ol-${id}`)).toBeFocused();
     }
-    // Rows Delta: Values only (no Relative rank for a signed measure), the policies, the lock and Fit; no Local contrast.
-    expect(names).toEqual(["transform:log", "transform:linear", "policy:explore", "policy:auto", "lock", "fit"]);
-    await page.keyboard.press("Escape");    await fake.idle({ quietMs: 400, timeoutMs: 20000 });
+    await focusSetting(page, "#ol-rows-legend");
+    await page.keyboard.press("Enter");
+    const background = page.locator("#ol-rows-legend-pop");
+    await expect(background.getByRole("group", { name: "Background colour transform", exact: true })).toBeVisible();
+    await expect(background.getByRole("group", { name: "Scale actions", exact: true })).toBeVisible();
+    // Signed Background Delta offers Values only; rank and Local contrast are unavailable.
+    expect(await background.locator('[data-action="colour-transform"]').evaluateAll(nodes => nodes.map(n => ({ value: n.dataset.value, tag: n.tagName, type: n.type, name: n.textContent.trim() })))).toEqual([
+      { value: "log", tag: "BUTTON", type: "button", name: "Value (log)" },
+      { value: "linear", tag: "BUTTON", type: "button", name: "Value (linear)" },
+    ]);
+    await expect(background.locator('[data-action="colour-transform"][data-value="rank"]')).toHaveCount(0);
+    for (const [action, name] of [["fit", "Fit scale"], ["auto", "Auto color"], ["lock", "Comparison lock"]]) {
+      const button = background.locator(`[data-action="${action}"]`);
+      await expect(button).toHaveAccessibleName(name);
+      await expect(button).toHaveAttribute("type", "button");
+      await expect(button).toBeEnabled();
+    }
+    await expect(background.locator('[data-action="local"]')).toBeHidden();
+    await page.keyboard.press("Escape");
+    await fake.idle({ quietMs: 400, timeoutMs: 20000 });
   });
 
   test("Fit, Auto color, Comparison lock and Local contrast are native controls with names; nothing is named by a title alone", async ({ page, fakeFor, probe }) => {
@@ -590,7 +612,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
         expect(await smallControls(page.locator("#ol-mode-menu")), "Cells controls under 24 css px").toEqual([]);
       }
       await page.keyboard.press("Escape");
-      for (const [id, steps] of [["rows", ["dataset", "transform", "period", "policy", "options"]], ["pane", ["dataset", "timeframe"]]]) {
+      for (const [id, steps] of [["rows", ["dataset", "period"]], ["background", ["dataset", "period"]], ["pane", ["dataset", "timeframe"]]]) {
         await page.locator(`#ol-${id}`).click();
         if (id === "pane") await page.locator('#ol-pane-menu [data-pane="rsi"]').click();
         for (const step of steps) {
