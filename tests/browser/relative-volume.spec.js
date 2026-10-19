@@ -42,7 +42,7 @@ for (const period of ["1d", "1y", "3y", "all"]) {
       expect(got.text).toContain("Average traded row");
     }
     // Narrow selection excludes the period's peak; coarser canvas bins must not merge the background's rows.
-    await go(page, S.address({ cols: [S.END_COL - 7 * S.DAY_COLS, S.END_COL], rows: view, rowsKind: "relvol", selection: { cols: stream.early, rows: [199, 202] }, extra: "&r=8,3" }));
+    await go(page, S.address({ cols: [S.END_COL - 7 * S.DAY_COLS, S.END_COL], rows: view, rowsKind: "relvol", period, selection: { cols: stream.early, rows: [199, 202] }, extra: "&r=8,3" }));
     await S.atRest(page, fake, probe);
     for (const row of samples) {
       const got = await reading(page, row.r, view);
@@ -73,7 +73,7 @@ for (const kind of ["volume", "delta", "time", "relvol"]) {
     const before = await snapshot(view);
     expect(before.length).toBeGreaterThan(0);
     const baseline = (await surface.chip("rows")).data;
-    await go(page, S.address({ cols: [S.END_COL - 7 * S.DAY_COLS, S.END_COL], rows: [190, 220], rowsKind: kind, extra: "&r=8,4" }));
+    await go(page, S.address({ cols: [S.END_COL - 7 * S.DAY_COLS, S.END_COL], rows: [190, 220], rowsKind: kind, period: "3y", extra: "&r=8,4" }));
     await S.atRest(page, fake, probe);
     expect(await snapshot([190, 220])).toEqual(before);
     expect((await surface.chip("rows")).data.rowSize).toBe("0");
@@ -117,10 +117,10 @@ test("Visible range is first and follows time navigation, persists on reload and
   await expect(page.locator('#ol-background-menu [data-period="visible"]')).toHaveCount(1);
   await page.keyboard.press("Escape");
   const before = Number((await reading(page, 200, view)).value);
-  await go(page, S.address({ cols, rows: view, rowsKind: "relvol", selection: { cols: [cols[1] - 300, cols[1] - 100], rows: [199, 202] }, extra: "&r=8,3" }));
+  await go(page, S.address({ cols, rows: view, rowsKind: "relvol", period: "visible", selection: { cols: [cols[1] - 300, cols[1] - 100], rows: [199, 202] }, extra: "&r=8,3" }));
   await S.atRest(page, fake, probe);
   expect(Number((await reading(page, 200, view)).value)).toBeCloseTo(before, 10);
-  await go(page, S.address({ cols: stream.early, rows: view, rowsKind: "relvol", extra: "&r=0,0" }));
+  await go(page, S.address({ cols: stream.early, rows: view, rowsKind: "relvol", period: "visible", extra: "&r=0,0" }));
   await S.atRest(page, fake, probe);
   const period = reference.periodRows(stream.trades, { b0: stream.early[0], b1: stream.early[1], m: 0 });
   const mean = period.reduce((sum, x) => sum + x.v, 0) / period.length;

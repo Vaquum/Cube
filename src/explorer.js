@@ -3818,7 +3818,7 @@
           mode = v.mode === "density" ? "volume" : v.mode;
         if (modes().includes(mode) || mode === "candles") S.mode = mode;
         if (panes().includes(v.pane)) S.pane = v.pane;
-        if (rowsChoices().includes(v.rows)) S.rows = S.background = v.rows;
+        S.rows = S.background = rowsChoices().includes(v.rows) ? v.rows : "off";
         S.period = S.backgroundPeriod = validPeriod(v.period) ? v.period : "90d";
         if (v.level === null || (Number.isFinite(v.level) && v.level > 0)) S.level = v.level;
         for (const k of ["poc", "area", "untested", "replay"])
@@ -4307,7 +4307,7 @@
     const bands = period ? u.bands : last.query;
     if (!bands) return;
     const m = bands.m, row = Math.floor(p.p / 2 ** m), band = bands.rows.find((x) => x.r === row) ?? { r: row, v: 0, bv: 0, w: 0 };
-    const q = period ? u.volBands ?? bands : bands;
+    const volumeReady = !period || Boolean(u.volBands), q = period ? u.volBands ?? bands : bands;
     const time = period ? [u.res.span[0], u.through] : [last.b[0], Math.min(last.b[1], last.cut)];
     const priceBand = [row * 2 ** m * PR, (row + 1) * 2 ** m * PR], kind = period ? u.kind : "volume";
     const rv = kind === "relvol" ? u.relvol ?? periodRelvolFor(q, u.vol) : null;
@@ -4317,20 +4317,21 @@
     const compared = u ?? last.reference ?? last.under,
       comparison = compared?.volBands ? relvolFor(compared.volBands, compared.vol, compared.rect) : null;
     const profileShare = comparison ? comparison.at(Math.floor(p.p / 2 ** comparison.support.bm)) : E.result.make("unsupported", { reason: "Period comparison unavailable" });
-    const volumeRow = Math.floor(p.p / 2 ** q.m), volume = q.rows.find((x) => x.r === volumeRow)?.v ?? 0, total = q.v;
+    const volumeRow = Math.floor(p.p / 2 ** q.m), volume = q.rows.find((x) => x.r === volumeRow)?.v ?? 0, total = q.v,
+      volumeResult = volumeReady ? E.result.finite(volume) : E.result.make(u.vol.state === "failed" ? "failed" : "pending", { reason: "The period volume has not been measured yet" });
     const observation = cardObservation(result, formula, unit, time, priceBand, { level: { n: q.n ?? renderN(), m },
       denominators: [{ formula: "rows.relvol@3", time, value: rv?.meanVolume ?? null }, { formula: "rows.relvol@2", time: last.b.slice(0, 2), support: comparison?.support ?? null, result: profileShare }] });
     const companions = kind === "time" ? [
       { label: "Share of row-attributed dwell", unit: "share", result: bands.w > 0 ? E.result.finite(band.w / bands.w) : E.result.make("undefined", { denominator: "row-attributed dwell" }) },
       { label: "Share of supported covered time", unit: "share", result: E.measure.dwellCheck(band.w, Math.max(0, time[1] - time[0]) * BASE) ?? E.result.finite(band.w / ((time[1] - time[0]) * BASE)) },
-      { label: "Period row volume · separate cutoff", unit: "usdt", result: E.result.finite(volume) },
+      { label: "Period row volume · separate cutoff", unit: "usdt", result: volumeResult },
     ] : [
       { label: period ? "Period row volume" : "Drawn row volume", unit: "usdt", result: E.result.finite(volume) },
       { label: "Share of declared profile", unit: "share", result: total > 0 ? E.result.finite(volume / total) : E.result.make("undefined", { denominator: "profile volume" }) },
       { label: "Profile-share log₂ ratio", unit: "log2-ratio", formula: "rows.relvol@2", result: profileShare, field: "profileShare" },
     ];
     coreCardPresentation(tip, { primary: { label: kind === "relvol" ? "Row volume versus mean traded row" : kind === "time" ? "Time at price" : kind === "delta" ? "Delta · taker-buy minus taker-sell USDT" : "Row volume", unit, result, field: "value" },
-      companions, observation, profile: readingProfile(q, 2 ** q.m * PR, volumeRow), detailed: Boolean(p.inspect) });
+      companions, observation, profile: volumeReady ? readingProfile(q, 2 ** q.m * PR, volumeRow) : null, detailed: Boolean(p.inspect) });
     const context = tip.querySelector(".ol-cell-context");
     context.textContent += ` · ${period ? `${owner === "background" ? "Background" : "Rows"} · ${periodLabel(u.period)}` : S.selection ? "Selection" : "In view"} · ${2 ** m * PR} USDT rows`;
     if (readout?.coordinate?.clip === "low" || readout?.coordinate?.clip === "high") context.textContent += ` · Numeric clipping: ${readout.coordinate.clip === "low" ? E.text.key.below : E.text.key.above}`;
@@ -14240,6 +14241,8 @@
       hit = dwellResults.get(id);
     if (hit) return hit;
     if (motion.failed.has(id)) return { key, span, state: "failed", error: motion.failed.get(id) };
+    // A moving viewport has no stale substitute: the previous viewport is a different measurement.
+    if (key === "visible") return { key, span, state: "pending" };
     const was = dwellLatest.get(key);
     return was && was.span[1] <= cutEdge() ? { ...was, stale: true } : { key, span, state: "pending" };
   }
