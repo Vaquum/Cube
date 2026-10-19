@@ -226,7 +226,7 @@ test("canvas spotlights follow resized layout and hidden features give a truthfu
   await open(page, fakeFor, probe);
   await page.locator("#ol-reference-topic").selectOption("rows");
   await page.getByRole("button", { name: "Show row strip", exact: true }).click();
-  await expect(page.locator("#ol-reference-status")).toContainText("Rows is off");
+  await expect(page.locator("#ol-reference-status")).toContainText("Background is off");
   await expect(page.locator("#ol-reference-spotlight")).toBeHidden();
   await page.locator("#ol-reference-topic").selectOption("grid");
   await page.getByRole("button", { name: "Show grid", exact: true }).click();

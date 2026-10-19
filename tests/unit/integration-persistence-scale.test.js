@@ -38,7 +38,7 @@ const ENV = { T0: 1609459200, BASE: 56.25, PR: 125, CUT: 3214083 };
 
 const VIEW_DEFAULTS = {
   window: "24h", tA: NaN, tB: NaN, pA: NaN, pB: NaN, auto: true, n: null, m: null, selection: null, anchor: null, replay: false,
-  follow: "refit", mode: "volume", pane: "cells", rows: "off", period: "90d", level: null, poc: false, area: false, untested: false,
+  follow: "refit", mode: "volume", pane: "cells", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", level: null, poc: false, area: false, untested: false,
   lines: [], tab: "context", evidenceKind: "poc", horizon: 1, barrier: 1, profileCmp: "independent", profileOpen: false, appearance: AP, scales: [], axes: [],
 };
 const SCALE_FIELDS = ["basis", "pathBasis", "transform", "curve", "rowsTransform", "cells", "rows", "local", "window", "lock"];
@@ -53,11 +53,14 @@ function viewOf(top, scalePrefs) {
 // id -> [{view fields, scale prefs, text}]: the default first, then every legal non-default value. `text` is
 // the address fragment by the literal grammar of B.15 (null for the default: omitted).
 const LEGS = {
+  rowControlsVersion: [[{ rowControlsVersion: 1 }, null, null]],
+  background: ["off", "volume", "delta", "relvol", "time"].map((r) => [{ background: r }, null, r === "off" ? null : "background=" + r]),
+  backgroundPeriod: [[{ backgroundPeriod: "90d" }, null, null], [{ backgroundPeriod: "visible" }, null, "backgroundPeriod=visible"], [{ backgroundPeriod: "7d" }, null, "backgroundPeriod=7d"]],
   follow: [[{ follow: "refit" }, null, null], [{ follow: "coupled" }, null, "f=coupled"]],
   mode: Object.keys({ volume: 1, flow: 1, delta: 1, cascade: 1, trades: 1, flowtrades: 1, size: 1, path: 1, dwell: 1, geometry: 1 }).map((m) => [{ mode: m }, null, m === "volume" ? null : "mode=" + m]),
   pane: ["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"].map((p) => [{ pane: p }, null, p === "cells" ? null : "pane=" + p]),
   rows: ["off", "volume", "delta", "relvol", "time"].map((r) => [{ rows: r }, null, r === "off" ? null : "rows=" + r]),
-  period: [[{ period: "90d" }, null, null], [{ period: "1y" }, null, "period=1y"], [{ period: "7d" }, null, "period=7d"], [{ period: "2026-09-01" }, null, "period=2026-09-01"]],
+  period: [[{ period: "visible" }, null, null], [{ period: "90d" }, null, "period=90d"], [{ period: "1y" }, null, "period=1y"], [{ period: "7d" }, null, "period=7d"], [{ period: "2026-09-01" }, null, "period=2026-09-01"]],
   level: [[{ level: null }, null, null], [{ level: 520.004 }, null, "level=65000.5"]],
   marks: [[{ poc: false, area: false, untested: false }, null, null], [{ poc: true, area: false, untested: false }, null, "marks=poc"], [{ poc: false, area: true, untested: false }, null, "marks=area"], [{ poc: true, area: true, untested: true }, null, "marks=poc,area,untested"]],
   lines: [[{ lines: [] }, null, null], [{ lines: ["1d", "7d"] }, null, "lines=1d,7d"]],
@@ -101,7 +104,7 @@ for (const id of Object.keys(LEGS)) {
       const view = viewOf(top, prefs);
       const written = E.codec.formatAddress(view, ENV, { budget: true });
       assert.deepEqual(plain(written.dropped), [], tag);
-      const expected = "#w=24h&vis=2&ap=" + AP + (text === null ? "" : "&" + text);
+      const expected = "#w=24h&vis=2&ap=" + AP + "&rc=1" + (text === null ? "" : "&" + text);
       assert.equal(written.hash, expected, tag);
       const parsed = E.codec.parseAddress(written.hash, ENV);
       assert.equal(parsed.kind, "v2", tag);

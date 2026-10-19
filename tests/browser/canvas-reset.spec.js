@@ -10,7 +10,7 @@ async function defaults(page) {
   await expect(page.locator("#ol-window-text")).toHaveText("24h");
   await expect(page.locator("#ol-mode-text")).toHaveText("Volume");
   await expect(page.locator("#ol-pane-text")).toHaveText("Same as cells");
-  await expect(page.locator("#ol-rows-text")).toHaveText("Off");
+  await expect(page.locator("#ol-rows-text")).toHaveText("Off · Visible range");
   await expect(page.locator("#ol-follow")).toHaveAttribute("data-mode", "refit");
   await expect(page.locator("#ol-replay")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator('[data-tool="pan"]')).toHaveAttribute("aria-pressed", "true");
@@ -40,7 +40,7 @@ test("Reset canvas restores the default chart and persists it without a dialog w
   await D.ready(page);
   await expect(page.locator("#ol-window-text")).toHaveText("24h");
   await expect(page.locator("#ol-mode-text")).toHaveText("Volume");
-  await expect(page.locator("#ol-rows-text")).toHaveText("Off");
+  await expect(page.locator("#ol-rows-text")).toHaveText("Off · Visible range");
   await expect(page.locator("#ol-replay")).toHaveAttribute("aria-pressed", "false");
   await expect.poll(async () => (await comparison(page))?.captures.length).toBe(0);
 });

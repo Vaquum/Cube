@@ -81,25 +81,27 @@ for (const kind of ["volume", "delta", "time", "relvol"]) {
   });
 }
 
-test("background menus share a labelled group and changing the period changes the profile", async ({ page, probe, fakeFor }) => {
+test("Background period changes its strip independently of the Rows profile", async ({ page, probe, fakeFor }) => {
   const stream = S.disjoint(), fake = await fakeFor({ name: stream.name, trades: stream.trades, cutoffIso: stream.cutoffIso });
   await page.goto(`${fake.url}/${S.address({ cols: [S.END_COL - S.DAY_COLS, S.END_COL], rows: [196, 214], rowsKind: "relvol", period: "1d", extra: "&r=0,0" })}`);
   await S.atRest(page, fake, probe);
-  const group = page.getByRole("group", { name: "Rows", exact: true });
-  await expect(group.locator("#ol-rows")).toBeVisible();
-  await expect(group.locator("#ol-period")).toBeVisible();
+  await expect(page.locator("#ol-background")).toBeVisible();
+  await expect(page.locator("#ol-period")).toHaveCount(0);
+  const rowsBefore = await page.locator("#ol-rows-text").textContent();
   const before = Number((await reading(page, 200, [196, 214])).value);
-  await page.locator("#ol-period").click();
-  await page.locator('#ol-period-list [data-period="all"]').click();
+  await page.locator("#ol-background").click();
+  await page.locator('#ol-background-menu [data-background-step="period"]').click();
+  await page.locator('#ol-background-menu [data-period="all"]').click();
   await S.atRest(page, fake, probe);
   expect(Number((await reading(page, 200, [196, 214])).value)).not.toBeCloseTo(before, 3);
+  await expect(page.locator("#ol-rows-text")).toHaveText(rowsBefore);
   await page.keyboard.press("Escape");
   await page.mouse.move(10, 10);
   await page.screenshot({ path: "reports/fixed-period-background-desktop.png" });
   await page.setViewportSize({ width: 375, height: 812 });
   await page.locator("#ol-sheet-toggle").click();
-  await expect(group.locator("#ol-rows")).toBeVisible();
-  await expect(group.locator("#ol-period")).toBeVisible();
+  await expect(page.locator("#ol-background")).toBeVisible();
+  await expect(page.locator("#ol-rows")).toBeVisible();
   await page.screenshot({ path: "reports/fixed-period-background-mobile.png" });
 });
 
@@ -108,10 +110,11 @@ test("Visible range is first and follows time navigation, persists on reload and
   const view = [196, 214], cols = [S.END_COL - S.DAY_COLS, S.END_COL];
   await page.goto(`${fake.url}/${S.address({ cols, rows: view, rowsKind: "relvol", period: "visible", extra: "&r=0,0&vis=2" })}`);
   await S.atRest(page, fake, probe);
-  await expect(page.locator("#ol-period-text")).toHaveText("Visible range");
-  await page.locator("#ol-period").click();
-  await expect(page.locator("#ol-period-list input").first()).toHaveAttribute("data-period", "visible");
-  await expect(page.locator('#ol-period-list [data-period="visible"]')).toHaveCount(1);
+  await expect(page.locator("#ol-background-text")).toHaveText("Relative volume · Visible range");
+  await page.locator("#ol-background").click();
+  await page.locator('#ol-background-menu [data-background-step="period"]').click();
+  await expect(page.locator("#ol-background-menu [data-period]").first()).toHaveAttribute("data-period", "visible");
+  await expect(page.locator('#ol-background-menu [data-period="visible"]')).toHaveCount(1);
   await page.keyboard.press("Escape");
   const before = Number((await reading(page, 200, view)).value);
   await go(page, S.address({ cols, rows: view, rowsKind: "relvol", selection: { cols: [cols[1] - 300, cols[1] - 100], rows: [199, 202] }, extra: "&r=8,3" }));
@@ -128,6 +131,6 @@ test("Visible range is first and follows time navigation, persists on reload and
   expect(Number(details.fields.rowFrom.value)).toBe(Date.parse("2021-01-01T00:00:00Z") + stream.early[0] * S.BASE_MS);
   await page.reload();
   await S.atRest(page, fake, probe);
-  await expect(page.locator("#ol-period-text")).toHaveText("Visible range");
+  await expect(page.locator("#ol-background-text")).toHaveText("Relative volume · Visible range");
   expect(Number((await reading(page, 200, view)).value)).toBeCloseTo(current, 10);
 });

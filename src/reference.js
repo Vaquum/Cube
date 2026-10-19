@@ -36,13 +36,13 @@
     { id: "scales", group: "Read the market", title: "Colour scales & comparison",
       purpose: "Establish what a shade means before comparing cells or rows.",
       read: "Value preserves amounts on a linear or log1p scale; Relative rank approximates position in fitted observations. Explore holds a fit per context; Auto color refits after settled changes. Fit calibrates once. Comparison lock holds colour and axes across compatible contexts; Local contrast belongs to the lens. Later replay cutoffs can invalidate a fit.",
-      use: "Expand Cell colour scale or Rows colour scale below for ticks, fitted data and controls. Fit recalibrates once. Use Comparison lock when comparing across resolutions or periods; check out-of-range and low-discrimination notices. Local contrast applies only to the lens.",
+      use: "Expand Cell colour scale or Background colour scale below for ticks, fitted data and controls. Fit recalibrates once. Use Comparison lock when comparing across resolutions or periods; check out-of-range and low-discrimination notices. Local contrast applies only to the lens.",
       targets: [{"label":"Show cells","region":"cells"},{"label":"Show row strip","region":"rows"}], colour: "cells" },
-    { id: "rows", group: "Read the market", title: "Rows & reference period",
-      purpose: "Place the view or selection against a longer history at each price level.",
-      read: "Rows has its own period. Its narrow strip shows full-strength values; its faint backdrop extends behind the grid. Volume and Delta are period totals; Time at price is period dwell. Row volume versus mean traded row compares a row's period volume with the mean of all traded rows in that period: 0 is average, +1 is double, −1 is half. Untraded rows have no concentration band. The strip retains the period’s native row width; the drawn profile may use coarser bins. Profile-share log₂ ratio separately compares overlapping clipped bins on common support; Shared row share uses wholly-in-view bins. Each profile has its own amount axis unless a supported shared axis is selected.",
-      use: "Turn Rows on, choose a measure and set its period. All history is the available reference history. Fixed periods ignore navigation and selections; Visible range follows the chart's time window. A selection changes Profile-share log₂ ratio, while Rows values retain their period basis.",
-      targets: [{"label":"Show Rows control","selector":"#ol-rows"},{"label":"Show row strip","region":"rows"}], colour: "rows" },
+    { id: "rows", group: "Read the market", title: "Rows & Background",
+      purpose: "Choose the second profile and price-row background independently.",
+      read: "Rows controls the second vertical profile and defaults to Off · Visible range. Background controls the native-row strip and faint backdrop and defaults to Off · 90 days. Both selectors offer the same measures, periods and source restrictions, with independent selections. Volume and Delta are period totals; Time at price is covered dwell. Relative volume is log₂(row period volume / mean traded-row volume): 0 is average, +1 double, −1 half. Background colours and profile lengths have separate scales.",
+      use: "Choose Measure and Period inside Rows or Background; each closed selector names both. Visible range follows the chart's time window, ignoring selection and price crop. Fixed periods ignore navigation and selection. Both end at the data or replay edge. Use Background colour scale for colours and Profiles for length axes and comparison.",
+      targets: [{"label":"Show Rows control","selector":"#ol-rows"},{"label":"Show Background control","selector":"#ol-background"},{"label":"Show Background strip","region":"rows"}], colour: "rows" },
     { id: "profiles", group: "Read the market", title: "Profile tracks",
       purpose: "Compare how activity is distributed across price levels.",
       read: "The current track is view or selection volume, with taker-buy volume inset; the reference track uses the Rows measure and period. Independent axes scales each separately. Shared absolute makes equal lengths equal amounts. Shared row share makes each row a percentage of its own track's total over the common price window: 20% versus 10% is twice the concentration.",
@@ -141,7 +141,7 @@
       targets: [{"label":"Show state key","selector":"#ol-key-guide"},{"label":"Show data status","selector":"#ol-state-pill"},{"label":"Show Inspect","selector":"#ol-inspect-tool"}], colour: "states" },
     { id: "selection", group: "Work with the view", title: "Select a region",
       purpose: "Measure a time-and-price rectangle within the chart.",
-      read: "The right context pane and current volume profile describe the selection while it exists. Partial edge cells contribute their observed portion. Rows keeps its independent reference period.",
+      read: "The right context pane and current volume profile describe the selection while it exists. Partial edge cells contribute their observed portion. Rows and Background each keep their independent period; Visible range follows the chart time window rather than the selection.",
       use: "Choose Select and drag a rectangle. Inspect cells for detail; use Clear or Escape to return the summaries to the whole view. Selection alone does not anchor an evidence query.",
       targets: [{"label":"Show Select tool","selector":"#ol-select"},{"label":"Show selection","region":"selection"}], colour: "selection" },
     { id: "inspect", group: "Work with the view", title: "Inspect & context",
@@ -333,7 +333,7 @@
       const raw = bounds(active), doc = main.dataset.referenceReveal ? {left:-1,top:-1,right:-1,bottom:-1,width:0,height:0} : pane.getBoundingClientRect();
       if (!raw) {
         overlay.style.display = "none";
-        const reasons = { rows: "Rows is off. Use Rows to enable the strip.", selection: "No selection. Choose Select and drag a rectangle.", events: "No event lanes. Enable an event family in Lines.", columns: "The column pane is unavailable in this view.", profiles: "Profile tracks are folded. Use Profiles to reveal them." };
+        const reasons = { rows: "Background is off. Use Background to enable the strip.", selection: "No selection. Choose Select and drag a rectangle.", events: "No event lanes. Enable an event family in Lines.", columns: "The column pane is unavailable in this view.", profiles: "Profile tracks are folded. Use Profiles to reveal them." };
         el("status").textContent = reasons[active.region] || "This part is not visible. Open its panel or control, then Show again."; return;
       }
       let left = Math.max(0, raw.left - 4), top = Math.max(0, raw.top - 4), right = Math.min(innerWidth, raw.right + 4), bottom = Math.min(innerHeight, raw.bottom + 4);

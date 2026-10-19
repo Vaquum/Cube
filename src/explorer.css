@@ -403,26 +403,15 @@
   gap: var(--sp-1);
   position: relative;
 }
-/* One visible group for the background measure and its independent period. */
+/* Independent Background and Rows selectors share one responsive placement. */
 #origo-lens .ol-background-controls {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--sp-1);
   position: relative;
-  border: 1px solid var(--ol-line);
-  border-radius: 6px;
-  padding: 1px 3px;
 }
-#origo-lens .ol-background-label {
-  font-size: 11px;
-  color: var(--ol-muted);
-  padding: 0 4px;
-}
-#origo-lens .ol-background-controls .ol-period-group {
-  border-left: 1px solid var(--ol-line);
-}
-/* Cells and Columns name themselves in the chart header, as the Rows group does. */
-#origo-lens :is(#ol-mode, #ol-pane) > .ol-label {
+/* Every measurement selector names the surface it controls. */
+#origo-lens :is(#ol-mode, #ol-pane, #ol-background, #ol-rows) > .ol-label {
   position: static;
   width: auto;
   height: auto;
@@ -433,12 +422,10 @@
   color: var(--ol-muted);
 }
 @container (max-width: 1100px) {
-  #origo-lens .ol-background-label { display: none; }
   #origo-lens .ol-surfaces :is(#ol-mode, #ol-pane) > .ol-label { display: none; }
 }
 @container (max-width: 600px) {
   #origo-lens .ol-background-controls { flex-wrap: wrap; }
-  #origo-lens .ol-background-label { display: inline; }
   #origo-lens .ol-background-controls > .ol-group { flex-wrap: wrap; }
 }
 /* A thin rule between the groups, in the middle of the gap. */
@@ -679,10 +666,6 @@
   width: 320px;
   max-height: min(78vh, 640px);
   overflow: auto;
-}
-/* The Rows period: one to pick, or a day to start from. */
-#origo-lens .ol-period-pop {
-  width: 270px;
 }
 #origo-lens .ol-lines-note {
   margin: 0 0 var(--sp-2);
@@ -2876,6 +2859,10 @@
   background: var(--ol-on);
   border-color: var(--ol-accent);
   font-weight: 500;
+}
+#origo-lens .ol-legend-transforms > .ol-legend-note {
+  flex-basis: 100%;
+  margin: 0;
 }
 #origo-lens .ol-legend-form {
   display: flex;

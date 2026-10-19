@@ -55,6 +55,8 @@
       case "view:v4":
         if (!isObject(value)) return { status: "unreadable", reason: "not an object" };
         if (foreign) return { status: "unknown-version", reason: foreign };
+        if (value.rowControlsVersion !== undefined && value.rowControlsVersion !== 1)
+          return { status: "unknown-version", reason: "row controls version " + JSON.stringify(value.rowControlsVersion) + " is not one this page reads" };
         if (key === "view:v4" ? value.version !== 4 : value.version !== 4 && value.version !== 5)
           return { status: "unknown-version", reason: "version " + JSON.stringify(value.version) + " is not one this page reads" };
         return null;

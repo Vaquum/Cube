@@ -596,7 +596,7 @@
   function actorKey(node, index) {
     if (node.nodeType !== 1) return `${node.nodeType}:${index}`;
     if (node.id) return `id:${node.id}`;
-    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'section', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep', 'modeNav', 'paneNav', 'rowsNav', 'scaleItem', 'mode', 'pane', 'rows', 'period', 'timeframe']) {
+    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'section', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep', 'backgroundStep', 'modeNav', 'paneNav', 'rowsNav', 'backgroundNav', 'scaleItem', 'mode', 'pane', 'rows', 'background', 'period', 'timeframe']) {
       if (node.dataset[name] !== undefined) return `${node.tagName}:${name}:${node.dataset[name]}:${node.dataset.drawingId ?? node.dataset.id ?? node.dataset.value ?? ''}`;
     }
     return `${node.nodeType}:${node.nodeName}:${index}`;

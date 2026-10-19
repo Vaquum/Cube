@@ -10098,6 +10098,16 @@
   // w t p r sel at replay stay explicit code (place()).
   const cdcKeys = [
     {
+      id: "rowControlsVersion",
+      param: "rc",
+      fields: ["rowControlsVersion"],
+      legacy: false,
+      defaults: { rowControlsVersion: 1 },
+      read: (text) => ({ rowControlsVersion: text === undefined ? undefined : text === "1" ? 1 : "?" + text }),
+      check: () => ({ rowControlsVersion: 1 }),
+      write: () => "1",
+    },
+    {
       id: "follow",
       param: "f",
       fields: ["follow"],
@@ -10142,10 +10152,30 @@
       param: "period",
       fields: ["period"],
       legacy: true,
-      defaults: { period: "90d" },
-      read: (text) => ({ period: text || "90d" }),
-      check: (raw, env) => ({ period: env.validPeriod(raw.period) ? raw.period : "90d" }),
-      write: (view) => (typeof view.period === "string" && view.period !== "90d" ? view.period : null),
+      defaults: { period: "visible" },
+      read: (text) => ({ period: text }),
+      check: (raw, env) => ({ period: env.validPeriod(raw.period) ? raw.period : "visible" }),
+      write: (view) => (typeof view.period === "string" && view.period !== "visible" ? view.period : null),
+    },
+    {
+      id: "background",
+      param: "background",
+      fields: ["background"],
+      legacy: false,
+      defaults: { background: "off" },
+      read: (text) => ({ background: text || "off" }),
+      check: (raw, env) => ({ background: env.rowsChoices.indexOf(raw.background) >= 0 ? raw.background : "off" }),
+      write: (view) => (typeof view.background === "string" && view.background !== "off" ? view.background : null),
+    },
+    {
+      id: "backgroundPeriod",
+      param: "backgroundPeriod",
+      fields: ["backgroundPeriod"],
+      legacy: false,
+      defaults: { backgroundPeriod: "90d" },
+      read: (text) => ({ backgroundPeriod: text || "90d" }),
+      check: (raw, env) => ({ backgroundPeriod: env.validPeriod(raw.backgroundPeriod) ? raw.backgroundPeriod : "90d" }),
+      write: (view) => (typeof view.backgroundPeriod === "string" && view.backgroundPeriod !== "90d" ? view.backgroundPeriod : null),
     },
     {
       id: "level",
@@ -10293,6 +10323,21 @@
   // the appearance and the descriptors.
   const cdcFixedKeys = Object.freeze(["vis", "ap", "sc"]);
 
+  // Unmarked views used one Rows choice for both presentations, including an implicit 90-day period.
+  // Stamp only after copying those choices, so a later save cannot reinterpret an old default as Visible range.
+  function cdcSplitRowControls(raw) {
+    if (raw.rowControlsVersion !== undefined && raw.rowControlsVersion !== 1) throw new TypeError("unsupported row controls version");
+    const legacy = raw.rowControlsVersion === undefined;
+    const period = raw.period === undefined ? (legacy ? "90d" : "visible") : raw.period;
+    return Object.assign({}, raw, {
+      rowControlsVersion: 1,
+      rows: raw.rows === undefined ? "off" : raw.rows,
+      period,
+      background: legacy ? (raw.rows === undefined ? "off" : raw.rows) : (raw.background === undefined ? "off" : raw.background),
+      backgroundPeriod: legacy ? period : (raw.backgroundPeriod === undefined ? "90d" : raw.backgroundPeriod),
+    });
+  }
+
   // ---- checkView (the baseline's validator behind an env) ---------------------------------------------
   // checkView (explorer.js 1865-1923) moved with its page inputs supplied by `env`. Returns a View whose
   // every part can be shown here, or null without a window or a rectangle. Parts that cannot be are
@@ -10300,6 +10345,11 @@
   // through the same table: `scale` (defaults for what is absent or invalid) and `appearance`.
   function cdcCheckView(v, env) {
     if (!cdcIsObject(v)) return null;
+    if (v.rowControlsVersion !== undefined && v.rowControlsVersion !== 1) return null;
+    const legacyRows = v.rowControlsVersion === undefined;
+    v = cdcSplitRowControls(v);
+    if (!env.validPeriod(v.period)) v.period = legacyRows ? "90d" : "visible";
+    if (!env.validPeriod(v.backgroundPeriod)) v.backgroundPeriod = "90d";
     const ok = (...x) => x.every(Number.isFinite);
     const candidate = env.windowKey(v.window),
       w = cdcDayPattern.test(candidate) && !(cdcTime(candidate + "T00:00:00Z", env) < env.CUT) ? "" : candidate;
@@ -10808,6 +10858,7 @@
   function cdcFormatAddress(state, env, opts) {
     const e = cdcEnv(env);
     if (!cdcIsObject(state)) throw new TypeError("formatAddress needs a state object");
+    state = cdcSplitRowControls(state);
     if (typeof state.appearance !== "string" || !cdcAppearancePattern.test(state.appearance)) throw new TypeError("formatAddress needs state.appearance, the appearance id: ap= is always written");
     const scales = Array.isArray(state.scales) ? state.scales : [];
     const axes = Array.isArray(state.axes) ? state.axes : [];
@@ -10941,6 +10992,11 @@
       }
     }
     const v2 = q.has("vis");
+    if ((q.has("rc") && q.get("rc") !== "1") || malformed.has("rc")) {
+      res.kind = "reject";
+      res.reasons.push("unsupported row controls version in the address");
+      return res;
+    }
     const known = new Set(cdcNavKeys.concat(cdcFixedKeys, cdcVisualKeys.map((entry) => entry.param)));
     for (const key of q.keys()) if (!known.has(key)) res.dropped.push({ key, reason: "unknown key" });
     const fields = cdcReadFields(q, e, v2);
@@ -11036,7 +11092,7 @@
     "drawings.objects[].a": ["timeMs", "priceCents"],
     "drawings.objects[].b": ["timeMs", "priceCents"],
     query: ["t1", "t2", "p1", "p2", "tR", "pR"],
-    view: ["mode", "pane", "poc", "area", "untested", "rows", "period", "level", "lines", "tab", "replay", "anchor", "horizon", "evidenceKind", "barrier", "follow", "auto", "window", "viewport", "selection", "scale", "profileCmp", "profileOpen"],
+    view: ["mode", "pane", "poc", "area", "untested", "rows", "period", "rowControlsVersion", "background", "backgroundPeriod", "level", "lines", "tab", "replay", "anchor", "horizon", "evidenceKind", "barrier", "follow", "auto", "window", "viewport", "selection", "scale", "profileCmp", "profileOpen"],
     "view.scale": ["basis", "pathBasis", "transform", "curve", "rowsTransform", "cells", "rows", "local", "window", "lock"],
     appearance: ["id"],
     "scales[]": ["channel", "policy", "external", "origin", "desc", "ctx", "cohort", "obsEndMs", "cutMs", "canonicalThroughMs", "token"],
@@ -11118,6 +11174,7 @@
     if (!cdcIsObject(payload)) throw new TypeError("encodePortable needs a payload object");
     const body = {};
     for (const key of Object.keys(payload)) if (key !== "id") body[key] = payload[key];
+    if (cdcIsObject(body.view)) body.view = cdcSplitRowControls(body.view);
     const full = Object.assign({}, body, { id: API.hash.id96(body) });
     const checked = cdcValidatePortable(full, {});
     if (!checked.ok) {
@@ -11409,7 +11466,8 @@
     if (view.anchor !== undefined && view.anchor !== null && !cdcIsFinite(view.anchor)) return fail("view.anchor is a number or null");
     if (view.level !== undefined && view.level !== null && !cdcIsFinite(view.level)) return fail("view.level is a number or null");
     if (view.lines !== undefined && (!Array.isArray(view.lines) || !view.lines.every((s) => typeof s === "string"))) return fail("view.lines is a list of text");
-    for (const name of ["mode", "pane", "rows", "period", "tab", "evidenceKind", "follow"]) if (view[name] !== undefined && typeof view[name] !== "string") return fail("view." + name + " is text");
+    for (const name of ["mode", "pane", "rows", "period", "background", "backgroundPeriod", "tab", "evidenceKind", "follow"]) if (view[name] !== undefined && typeof view[name] !== "string") return fail("view." + name + " is text");
+    if (view.rowControlsVersion !== undefined && view.rowControlsVersion !== 1) return fail("unsupported row controls version");
     if (view.follow !== undefined && cdcFollows.indexOf(view.follow) < 0) return fail("unknown follow mode");
     if (view.profileCmp !== undefined && view.profileCmp !== "independent" && view.profileCmp !== "absolute" && view.profileCmp !== "share") return fail("view.profileCmp is independent, absolute or share");
     if (view.profileOpen !== undefined && typeof view.profileOpen !== "boolean") return fail("view.profileOpen is true or false");
@@ -11470,7 +11528,10 @@
         mode: view.mode === undefined ? "volume" : view.mode,
         pane: view.pane === undefined ? "cells" : view.pane,
         rows: view.rows === undefined ? "off" : view.rows,
-        period: view.period === undefined ? "90d" : view.period,
+        period: view.period,
+        rowControlsVersion: view.rowControlsVersion,
+        background: view.background,
+        backgroundPeriod: view.backgroundPeriod,
         level: view.level === undefined ? null : view.level,
         poc: view.poc,
         area: view.area,
@@ -11491,7 +11552,7 @@
       e,
     );
     if (checkedView === null) return fail("the view names no window and no usable rectangle");
-    for (const name of ["mode", "pane", "rows", "period"]) if (view[name] !== undefined && view[name] !== checkedView[name]) dropped.push({ key: name, reason: "not available on this page; the default is used" });
+    for (const name of ["mode", "pane", "rows", "period", "background", "backgroundPeriod"]) if (view[name] !== undefined && view[name] !== checkedView[name]) dropped.push({ key: name, reason: "not available on this page; the default is used" });
     if (Array.isArray(view.lines) && view.lines.length > checkedView.lines.length) dropped.push({ key: "lines", reason: "some lines are not available on this page" });
     if (view.replay === true && !checkedView.replay) dropped.push({ key: "replay", reason: "a replay needs an anchor on this page" });
     if (view.anchor !== undefined && view.anchor !== null && checkedView.anchor === null) dropped.push({ key: "anchor", reason: "the anchor is not on this page" });
@@ -11529,8 +11590,7 @@
   // and what it is now). Order: mode, rows, pane, efficiency.
   function cdcMigrateLegacy(raw) {
     if (!cdcIsObject(raw)) throw new TypeError("migrateLegacy needs a view");
-    const view = {};
-    for (const key of Object.keys(raw)) view[key] = raw[key];
+    const view = cdcSplitRowControls(raw);
     view.scale = cdcDefaultScale();
     view.appearance = null;
     const changes = [];

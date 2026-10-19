@@ -109,7 +109,8 @@ test.describe("B28 the Rows strip", () => {
     // the default period is 90 days: a view that names Rows and no period shows "90 days"
     await page.goto(`${fake.url}/#w=24h&vis=2&rows=volume`);
     await S.atRest(page, fake, probe);
-    await expect(page.locator("#ol-period-text, #ol-period").first()).toContainText(/90/);
+    await expect(page.locator("#ol-background-text")).toHaveText("Volume · 90 days");
+    await expect(page.locator("#ol-rows-text")).toHaveText("Volume · 90 days");
   });
 
   test("each block is the LUT entry the Rows mapping gives its row, opaque and as tall as its row; a change of the time step alone changes nothing", async ({ page, probe, fakeFor, pane, surface }) => {
