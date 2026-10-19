@@ -426,9 +426,30 @@
 /* Independent Background and Rows selectors share one responsive placement. */
 #origo-lens .ol-background-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-1);
   position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+#origo-lens .ol-background-controls > .ol-group,
+#origo-lens .ol-background-controls .ol-pick {
+  min-width: 0;
+  max-width: 100%;
+}
+#origo-lens :is(#ol-background-text, #ol-rows-text) {
+  display: inline-flex;
+  min-width: 0;
+}
+#origo-lens .ol-row-selector-measure {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#origo-lens .ol-row-selector-period,
+#origo-lens .ol-background-controls .ol-label {
+  flex: none;
 }
 /* Every measurement selector names the surface it controls. */
 #origo-lens :is(#ol-mode, #ol-pane, #ol-background, #ol-rows) > .ol-label {
@@ -17230,10 +17251,14 @@
   }
 
   // The raw fields a stored v4/v5 view, a code or an address hands to the validator, read through the table.
+  function cdcReadsField(entry, q, withSettings) {
+    // The row-controls marker versions its own fields; it does not opt an old address into visual settings.
+    return entry.legacy || withSettings || (q.get("rc") === "1" && ["rowControlsVersion", "background", "backgroundPeriod"].indexOf(entry.id) >= 0);
+  }
   function cdcReadFields(q, env, withSettings) {
     const raw = {};
     for (const entry of cdcVisualKeys) {
-      if (!entry.legacy && !withSettings) continue;
+      if (!cdcReadsField(entry, q, withSettings)) continue;
       const part = entry.read(q.get(entry.param), env);
       for (const path of Object.keys(part)) cdcPathSet(raw, path, part[path]);
     }
@@ -17877,7 +17902,7 @@
     // What the page could not show: a value that changed on its way through the validator is a drop.
     const dropIf = (param, reason) => res.dropped.push({ key: param, reason });
     for (const entry of cdcVisualKeys) {
-      if (!q.has(entry.param) || (!v2 && !entry.legacy)) continue;
+      if (!q.has(entry.param) || !cdcReadsField(entry, q, v2)) continue;
       const a = {};
       const b = {};
       for (const path of entry.fields) {
@@ -17893,7 +17918,7 @@
     if (q.get("replay") === "1" && !view.replay) dropIf("replay", "a replay needs an anchor on this page");
     if (!v2) {
       for (const key of ["ap", "sc"]) if (q.has(key)) dropIf(key, "needs vis=2");
-      for (const entry of cdcVisualKeys) if (!entry.legacy && q.has(entry.param)) dropIf(entry.param, "needs vis=2");
+      for (const entry of cdcVisualKeys) if (!cdcReadsField(entry, q, false) && q.has(entry.param)) dropIf(entry.param, "needs vis=2");
       return res;
     }
     if (q.has("ap") && view.appearance === null) dropIf("ap", "not an appearance id");
@@ -18019,7 +18044,6 @@
     if (!cdcIsObject(payload)) throw new TypeError("encodePortable needs a payload object");
     const body = {};
     for (const key of Object.keys(payload)) if (key !== "id") body[key] = payload[key];
-    if (cdcIsObject(body.view)) body.view = cdcSplitRowControls(body.view);
     const full = Object.assign({}, body, { id: API.hash.id96(body) });
     const checked = cdcValidatePortable(full, {});
     if (!checked.ok) {
@@ -25924,7 +25948,7 @@
           mode = v.mode === "density" ? "volume" : v.mode;
         if (modes().includes(mode) || mode === "candles") S.mode = mode;
         if (panes().includes(v.pane)) S.pane = v.pane;
-        if (rowsChoices().includes(v.rows)) S.rows = S.background = v.rows;
+        S.rows = S.background = rowsChoices().includes(v.rows) ? v.rows : "off";
         S.period = S.backgroundPeriod = validPeriod(v.period) ? v.period : "90d";
         if (v.level === null || (Number.isFinite(v.level) && v.level > 0)) S.level = v.level;
         for (const k of ["poc", "area", "untested", "replay"])
@@ -26413,7 +26437,7 @@
     const bands = period ? u.bands : last.query;
     if (!bands) return;
     const m = bands.m, row = Math.floor(p.p / 2 ** m), band = bands.rows.find((x) => x.r === row) ?? { r: row, v: 0, bv: 0, w: 0 };
-    const q = period ? u.volBands ?? bands : bands;
+    const volumeReady = !period || Boolean(u.volBands), q = period ? u.volBands ?? bands : bands;
     const time = period ? [u.res.span[0], u.through] : [last.b[0], Math.min(last.b[1], last.cut)];
     const priceBand = [row * 2 ** m * PR, (row + 1) * 2 ** m * PR], kind = period ? u.kind : "volume";
     const rv = kind === "relvol" ? u.relvol ?? periodRelvolFor(q, u.vol) : null;
@@ -26423,20 +26447,21 @@
     const compared = u ?? last.reference ?? last.under,
       comparison = compared?.volBands ? relvolFor(compared.volBands, compared.vol, compared.rect) : null;
     const profileShare = comparison ? comparison.at(Math.floor(p.p / 2 ** comparison.support.bm)) : E.result.make("unsupported", { reason: "Period comparison unavailable" });
-    const volumeRow = Math.floor(p.p / 2 ** q.m), volume = q.rows.find((x) => x.r === volumeRow)?.v ?? 0, total = q.v;
+    const volumeRow = Math.floor(p.p / 2 ** q.m), volume = q.rows.find((x) => x.r === volumeRow)?.v ?? 0, total = q.v,
+      volumeResult = volumeReady ? E.result.finite(volume) : E.result.make(u.vol.state === "failed" ? "failed" : "pending", { reason: "The period volume has not been measured yet" });
     const observation = cardObservation(result, formula, unit, time, priceBand, { level: { n: q.n ?? renderN(), m },
       denominators: [{ formula: "rows.relvol@3", time, value: rv?.meanVolume ?? null }, { formula: "rows.relvol@2", time: last.b.slice(0, 2), support: comparison?.support ?? null, result: profileShare }] });
     const companions = kind === "time" ? [
       { label: "Share of row-attributed dwell", unit: "share", result: bands.w > 0 ? E.result.finite(band.w / bands.w) : E.result.make("undefined", { denominator: "row-attributed dwell" }) },
       { label: "Share of supported covered time", unit: "share", result: E.measure.dwellCheck(band.w, Math.max(0, time[1] - time[0]) * BASE) ?? E.result.finite(band.w / ((time[1] - time[0]) * BASE)) },
-      { label: "Period row volume · separate cutoff", unit: "usdt", result: E.result.finite(volume) },
+      { label: "Period row volume · separate cutoff", unit: "usdt", result: volumeResult },
     ] : [
       { label: period ? "Period row volume" : "Drawn row volume", unit: "usdt", result: E.result.finite(volume) },
       { label: "Share of declared profile", unit: "share", result: total > 0 ? E.result.finite(volume / total) : E.result.make("undefined", { denominator: "profile volume" }) },
       { label: "Profile-share log₂ ratio", unit: "log2-ratio", formula: "rows.relvol@2", result: profileShare, field: "profileShare" },
     ];
     coreCardPresentation(tip, { primary: { label: kind === "relvol" ? "Row volume versus mean traded row" : kind === "time" ? "Time at price" : kind === "delta" ? "Delta · taker-buy minus taker-sell USDT" : "Row volume", unit, result, field: "value" },
-      companions, observation, profile: readingProfile(q, 2 ** q.m * PR, volumeRow), detailed: Boolean(p.inspect) });
+      companions, observation, profile: volumeReady ? readingProfile(q, 2 ** q.m * PR, volumeRow) : null, detailed: Boolean(p.inspect) });
     const context = tip.querySelector(".ol-cell-context");
     context.textContent += ` · ${period ? `${owner === "background" ? "Background" : "Rows"} · ${periodLabel(u.period)}` : S.selection ? "Selection" : "In view"} · ${2 ** m * PR} USDT rows`;
     if (readout?.coordinate?.clip === "low" || readout?.coordinate?.clip === "high") context.textContent += ` · Numeric clipping: ${readout.coordinate.clip === "low" ? E.text.key.below : E.text.key.above}`;
@@ -31909,7 +31934,9 @@
         summary = `${ROWS_INFO[measure].name} · ${periodLabel(period)}`;
       button.dataset[id] = measure;
       button.dataset.period = period;
-      if (el(`${id}-text`).textContent !== summary) el(`${id}-text`).textContent = summary;
+      const text = el(`${id}-text`);
+      if (text.textContent !== summary || !text.querySelector(".ol-row-selector-period"))
+        text.replaceChildren(uiEl("span", "ol-row-selector-measure", ROWS_INFO[measure].name), uiEl("span", "ol-row-selector-period", ` · ${periodLabel(period)}`));
       const label = `${spec.name}: ${summary}`;
       if (button.getAttribute("aria-label") !== label) button.setAttribute("aria-label", label);
       qsa(`#ol-${id}-menu [data-${id}]`).forEach(choice =>
@@ -36346,6 +36373,8 @@
       hit = dwellResults.get(id);
     if (hit) return hit;
     if (motion.failed.has(id)) return { key, span, state: "failed", error: motion.failed.get(id) };
+    // A moving viewport has no stale substitute: the previous viewport is a different measurement.
+    if (key === "visible") return { key, span, state: "pending" };
     const was = dwellLatest.get(key);
     return was && was.span[1] <= cutEdge() ? { ...was, stale: true } : { key, span, state: "pending" };
   }
