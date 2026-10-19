@@ -562,10 +562,11 @@ test.describe("B25 the adjacent profile tracks", () => {
     await open(page, fake, probe, pane, S.address({ cols, rows: [192, 224], rowsKind: "volume", period: "1d", extra: "&vis=2&rc=1&r=0,3" }));
     await page.keyboard.press("e");
     await page.locator('#ol-inspect-surfaces [data-surface="rows"]').click();
-    const layout = await page.locator("#ol-canvas").evaluate(c => c.dataset.layout.split(",").map(Number)),
-      box = await page.locator("#ol-canvas").boundingBox(), y = priceAxis(await pane.last());
-    await page.mouse.click(box.x + layout[8] + 8, box.y + y(201.5 * 125));
     const inspector = page.locator("#ol-inspect"), readout = page.locator("#ol-inspect-readout");
+    await inspector.focus();
+    await page.keyboard.press("End");
+    for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowUp");
+    await expect(inspector).toHaveAttribute("data-r", "201");
     await expect(inspector).toHaveAttribute("data-ps", "1");
     expect((await cardObservation(readout)).result.value).toBeCloseTo(nativeValue, 5);
     const profiles = await popover(page);
