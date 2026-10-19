@@ -4391,6 +4391,15 @@
       { label: "Share of declared profile", unit: "share", result: total > 0 ? E.result.finite(volume / total) : E.result.make("undefined", { denominator: "profile volume" }) },
       { label: "Profile-share log₂ ratio", unit: "log2-ratio", formula: "rows.relvol@2", result: profileShare, field: "profileShare" },
     ];
+    if (owner === "current" && shared && m !== native.m) {
+      const raw = tip.querySelector(".ol-tip-rows"), nativeRow = Math.floor(p.p / 2 ** native.m),
+        edges = [nativeRow * 2 ** native.m * PR, (nativeRow + 1) * 2 ** native.m * PR],
+        label = Object.assign(document.createElement("dt"), { textContent: "Additional current-profile details bin" }),
+        value = Object.assign(document.createElement("dd"), { textContent: `${edges.map(edge => price(edge)).join("–")} USDT · native row` });
+      value.dataset.field = "nativeDetailPrice";
+      value.dataset.canonical = JSON.stringify(edges);
+      raw?.prepend(label, value);
+    }
     coreCardPresentation(tip, { primary: { label: kind === "relvol" ? "Row volume versus mean traded row" : kind === "time" ? "Time at price" : kind === "delta" ? "Delta · taker-buy minus taker-sell USDT" : "Row volume", unit, result, field: "value" },
       companions, observation, profile: volumeReady ? readingProfile(q, 2 ** q.m * PR, volumeRow) : null, detailed: Boolean(p.inspect) });
     const context = tip.querySelector(".ol-cell-context");
@@ -6324,9 +6333,12 @@
   function rowReadoutStamp() {
     const frames = [last?.reference, last?.under].map(frame => frame ?
       [frame.kind, frame.period, frame.res.state, frame.through, frame.stale, frame.bands?.m,
-        frame.bands ? objId(frame.bands.rows) : ""].join(":") : "off");
+        frame.bands ? objId(frame.bands.rows) : ""].join(":") : "off"),
+      plan = profileUi.plan,
+      axes = [profileUi.cur, profileUi.ref].map(axis => axis ?
+        [axis.id, axis.policy, axis.hold, axis.external, axis.domain?.join(","), axis.provenance?.through].join(":") : "off");
     return [S.rows, S.period, S.background, S.backgroundPeriod, ...frames, profileUi.plan?.mode,
-      profileUi.plan?.state, profileUi.cur?.domain?.join(","), profileUi.ref?.domain?.join(",")].join("|");
+      plan?.state, plan?.m, plan?.window?.first, plan?.window?.last, plan?.denominators?.cur, plan?.denominators?.ref, ...axes].join("|");
   }
   function refreshTip() {
     const tip = el("tip");
@@ -7120,7 +7132,7 @@
   // A draw that changed what the cursor stands on (the view, the level, the data) reads it again, so a pan or a refresh never leaves a stale readout.
   function inspectSync() {
     if (!inspect.on) return;
-    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
+    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", rowReadoutStamp(), comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
     if (sig === inspect.sig) return;
     inspect.sig = sig;
     inspectRender(false, false);

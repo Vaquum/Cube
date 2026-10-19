@@ -555,6 +555,36 @@ test.describe("B25 the adjacent profile tracks", () => {
     await expect(tip.locator(".ol-cell-context")).toContainText("Profile axis frozen");
   });
 
+  test("an open Rows inspector refreshes its bin, share and frozen-axis disclosure when Profiles changes", async ({ page, probe, fakeFor, pane }) => {
+    const stream = S.identical(), fake = await fakeFor(stream), cols = [S.END_COL - S.DAY_COLS, S.END_COL],
+      native = reference.periodRows(stream.trades, { b0: cols[0], b1: cols[1] }),
+      nativeValue = native.find(row => row.r === 201).v, total = native.reduce((sum, row) => sum + row.v, 0);
+    await open(page, fake, probe, pane, S.address({ cols, rows: [200, 216], rowsKind: "volume", period: "1d", extra: "&vis=2&rc=1&r=0,3" }));
+    await page.keyboard.press("e");
+    await page.locator('#ol-inspect-surfaces [data-surface="rows"]').click();
+    const layout = await page.locator("#ol-canvas").evaluate(c => c.dataset.layout.split(",").map(Number)),
+      box = await page.locator("#ol-canvas").boundingBox(), y = priceAxis(await pane.last());
+    await page.mouse.click(box.x + layout[8] + 8, box.y + y(201.5 * 125));
+    const inspector = page.locator("#ol-inspect"), readout = page.locator("#ol-inspect-readout");
+    await expect(inspector).toHaveAttribute("data-ps", "1");
+    expect((await cardObservation(readout)).result.value).toBeCloseTo(nativeValue, 5);
+    const profiles = await popover(page);
+    await profiles.locator('[data-action="profile-cmp"][data-value="share"]').click();
+    await expect(inspector).toHaveAttribute("data-ps", "8");
+    await expect.poll(async () => (await cardObservation(readout)).result.value).toBeCloseTo(total, 5);
+    await expect(readout.locator('[data-field="drawnShare"]')).toHaveAttribute("data-canonical", "1");
+    await settings(page, "columns");
+    await page.locator("#ol-axis-chip").click();
+    await page.locator('#ol-axis-pop button[data-action="lock"]').click();
+    await expect(readout.locator(".ol-cell-context")).toContainText("Profile axis frozen");
+    await settings(page, "profiles");
+    await page.locator("#ol-profile-chip").click();
+    await page.locator('#ol-profile-pop [data-action="profile-cmp"][data-value="independent"]').click();
+    await expect(inspector).toHaveAttribute("data-ps", "1");
+    await expect.poll(async () => (await cardObservation(readout)).result.value).toBeCloseTo(nativeValue, 5);
+    await expect(readout.locator('[data-field="drawnShare"]')).toHaveCount(0);
+  });
+
   test("recorded profile cards declare coarse quality and the native columns actually measured", async ({ page, probe, fakeFor, pane }) => {
     const fake = await fakeFor("recorded"), cols = [3000001, 3020001],
       measured = [Math.ceil(cols[0] / 4096) * 4096, Math.floor(cols[1] / 4096) * 4096];
@@ -568,5 +598,13 @@ test.describe("B25 the adjacent profile tracks", () => {
     await expect(tip.locator(".ol-cell-context")).toContainText("Approximate (approx-rows:8)");
     await expect(tip.locator(".ol-cell-context")).toContainText("Requested");
     await expect(tip.locator(".ol-cell-context")).toContainText("measured");
+    // A coarse recorded reference also coarsens the fine current profile's shared bar; retained
+    // current trade-counter details declare their smaller native price support explicitly.
+    await open(page, fake, probe, pane, S.address({ cols: [S.END_COL - S.DAY_COLS, S.END_COL], rows: [400, 800], rowsKind: "volume", period: "90d", extra: "&vis=2&rc=1&r=0,0&pc=a" }));
+    await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-comparison", "absolute");
+    const current = await hoverTrack(page, pane, "current", 70000);
+    expect((await cardObservation(current)).price).toEqual([70000, 71000]);
+    await expect(current.locator('[data-field="nativeDetailPrice"]')).toHaveAttribute("data-canonical", "[70000,70125]");
+    await expect(current.locator('[data-field="nativeDetailPrice"]')).toContainText("native row");
   });
 });
