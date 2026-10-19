@@ -302,8 +302,8 @@ test("the bare-root rule (DR-14) from its inputs: stored v2 restores silently, s
   assert.equal(decide("#w=7d", { [P + "view:v5"]: v2 }).kind, "legacy");
   // #vis=2 alone names no place: it is a bare root, not a link
   assert.equal(decide("#vis=2", { [P + "view:v5"]: v2 }).path, "stored-v2");
-  // the default view written after the first open is the v2 default
-  assert.equal(C.formatAddress({ window: "24h", appearance: AP }, ENV, { budget: true }).hash, "#w=24h&vis=2&ap=slate2-8f7890f7");
+  // A fresh default declares split controls; an unmarked view retains the old implicit 90 days.
+  assert.equal(C.formatAddress({ window: "24h", rowControlsVersion: 1, appearance: AP }, ENV, { budget: true }).hash, "#w=24h&vis=2&ap=slate2-8f7890f7&rc=1");
 });
 
 test("a legacy code is migrated like a legacy address: classify names it, the decoded view goes through checkView and migrateLegacy", async () => {

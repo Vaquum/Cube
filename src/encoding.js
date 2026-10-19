@@ -11178,7 +11178,6 @@
     if (!cdcIsObject(payload)) throw new TypeError("encodePortable needs a payload object");
     const body = {};
     for (const key of Object.keys(payload)) if (key !== "id") body[key] = payload[key];
-    if (cdcIsObject(body.view)) body.view = cdcSplitRowControls(body.view);
     const full = Object.assign({}, body, { id: API.hash.id96(body) });
     const checked = cdcValidatePortable(full, {});
     if (!checked.ok) {

@@ -91,7 +91,8 @@ test("v2 and complete v3 codes persist independent controls and migrate old wire
       assert.deepEqual(controls(C.validatePortable(old, {}).value.view), expected);
       assert.deepEqual(old, before);
       const rewritten = await C.decodePortable(await C.encodePortable(old));
-      assert.deepEqual(controls(rewritten.payload.view), expected);
+      assert.deepEqual(plain(rewritten.payload), old, "encoding preserves the sealed source payload and its identity");
+      assert.deepEqual(controls(C.validatePortable(rewritten.payload, {}).value.view), expected);
     }
   }
 });

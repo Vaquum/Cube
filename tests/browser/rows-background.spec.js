@@ -38,7 +38,7 @@ async function snapshot(page, pane) {
   const profile = await page.locator("#ol-profile-chip").evaluate(n => ({ reference: n.dataset.reference, domain: n.dataset.referenceDomain, tracks: n.dataset.tracks }));
   return { strip, bars, profile, layout };
 }
-const observation = locator => locator.evaluate(n => JSON.parse(n.dataset.observation));
+const observation = locator => locator.evaluate(n => n.dataset.observation ? JSON.parse(n.dataset.observation) : {});
 
 for (const source of ["mini", "recorded"]) test(`${source}: Rows and Background share their complete measure and period catalog`, async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor(source);
@@ -207,7 +207,7 @@ for (const width of [375, 960]) test(`${width}px: both concentration summaries r
 test("Time Visible range never reuses the previous viewport's dwell bars while the new read waits", async ({ page, fakeFor, probe, pane }) => {
   const stream = S.disjoint();
   const fake = await open(page, fakeFor, probe, address().replace("rows=delta", "rows=time").replace("background=volume", "background=off"));
-  expect((await snapshot(page, pane)).bars.length).toBeGreaterThan(0);
+  await expect.poll(async () => (await snapshot(page, pane)).bars.length).toBeGreaterThan(0);
   const gate = fake.on({ route: "/cube/query", when: q => q.motion === "1" && Number(q.b0) === stream.early[0] && Number(q.b1) === stream.early[1] }).gate();
   try {
     const next = S.address({ cols: stream.early, rows: view, rowsKind: "time", period: "visible", extra: "&rc=1&vis=2&background=off" });
@@ -218,7 +218,7 @@ test("Time Visible range never reuses the previous viewport's dwell bars while t
     await expect.poll(async () => (await snapshot(page, pane)).bars.length).toBe(0);
   } finally { gate.open(); }
   await S.atRest(page, fake, probe);
-  expect((await snapshot(page, pane)).bars.length).toBeGreaterThan(0);
+  await expect.poll(async () => (await snapshot(page, pane)).bars.length).toBeGreaterThan(0);
 });
 
 test("ready Time profile reports a pending period-volume companion while its independent cube read waits", async ({ page, fakeFor, probe }) => {
@@ -227,7 +227,7 @@ test("ready Time profile reports a pending period-volume companion while its ind
   try {
     await page.goto(`${fake.url}/${address().replace("rows=delta&period=visible", "rows=time&period=90d").replace("background=volume", "background=off")}`);
     await gate.arrived();
-    await expect.poll(() => page.locator("#ol-profile-chip").getAttribute("data-reference-domain")).not.toBe("No data");
+    await expect.poll(() => page.locator("#ol-profile-chip").getAttribute("data-reference-domain")).toMatch(/^0[–-]/);
     await page.keyboard.press("e");
     await page.locator('button[data-surface="rows"]').click();
     const card = page.locator("#ol-inspect-readout");
