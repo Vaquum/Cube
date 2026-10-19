@@ -24110,7 +24110,7 @@
       if (original) { const copy = original.querySelector(".ol-status-key-list").cloneNode(true); copy.classList.add("ol-status-keys"); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
         copy.querySelectorAll("canvas").forEach((canvas,index)=>canvas.getContext("2d").drawImage(originals[index],0,0));
         copy.style.flexWrap="wrap";copy.style.width="auto";copy.style.overflow="visible";container.append(copy); }
-      container.append(uiEl("p","ol-muted",topic.id === "state-glossary" ? "Cells/Rows non-value key, with the Columns diamond. Inspect names the exact reason; these are definitions, not counts of the current view." : "The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
+      container.append(uiEl("p","ol-muted",topic.id === "state-glossary" ? "Cells/Background non-value key, with the Columns diamond. Inspect names the exact reason; these are definitions, not counts of the current view." : "The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
     }
   }
   async function comparisonImport(file) {
