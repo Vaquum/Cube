@@ -423,26 +423,36 @@
   gap: var(--sp-1);
   position: relative;
 }
-/* One visible group for the background measure and its independent period. */
+/* Independent Background and Rows selectors share one responsive placement. */
 #origo-lens .ol-background-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 2px;
+  gap: var(--sp-1);
   position: relative;
-  border: 1px solid var(--ol-line);
-  border-radius: 6px;
-  padding: 1px 3px;
+  min-width: 0;
+  max-width: 100%;
 }
-#origo-lens .ol-background-label {
-  font-size: 11px;
-  color: var(--ol-muted);
-  padding: 0 4px;
+#origo-lens .ol-background-controls > .ol-group,
+#origo-lens .ol-background-controls .ol-pick {
+  min-width: 0;
+  max-width: 100%;
 }
-#origo-lens .ol-background-controls .ol-period-group {
-  border-left: 1px solid var(--ol-line);
+#origo-lens :is(#ol-background-text, #ol-rows-text) {
+  display: inline-flex;
+  min-width: 0;
 }
-/* Cells and Columns name themselves in the chart header, as the Rows group does. */
-#origo-lens :is(#ol-mode, #ol-pane) > .ol-label {
+#origo-lens .ol-row-selector-measure {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#origo-lens .ol-row-selector-period,
+#origo-lens .ol-background-controls .ol-label {
+  flex: none;
+}
+/* Every measurement selector names the surface it controls. */
+#origo-lens :is(#ol-mode, #ol-pane, #ol-background, #ol-rows) > .ol-label {
   position: static;
   width: auto;
   height: auto;
@@ -453,12 +463,10 @@
   color: var(--ol-muted);
 }
 @container (max-width: 1100px) {
-  #origo-lens .ol-background-label { display: none; }
   #origo-lens .ol-surfaces :is(#ol-mode, #ol-pane) > .ol-label { display: none; }
 }
 @container (max-width: 600px) {
   #origo-lens .ol-background-controls { flex-wrap: wrap; }
-  #origo-lens .ol-background-label { display: inline; }
   #origo-lens .ol-background-controls > .ol-group { flex-wrap: wrap; }
 }
 /* A thin rule between the groups, in the middle of the gap. */
@@ -699,10 +707,6 @@
   width: 320px;
   max-height: min(78vh, 640px);
   overflow: auto;
-}
-/* The Rows period: one to pick, or a day to start from. */
-#origo-lens .ol-period-pop {
-  width: 270px;
 }
 #origo-lens .ol-lines-note {
   margin: 0 0 var(--sp-2);
@@ -1453,9 +1457,6 @@
 #origo-lens .ol-inspect-navigation [role="tab"] {
   min-width: 0;
   font-size: var(--fs-m);
-}
-#origo-lens .ol-inspect-navigation [data-surface="references"] {
-  grid-column: span 2;
 }
 #origo-lens .ol-main[data-inspect="true"] .ol-side-tabs,
 #origo-lens .ol-main[data-inspect="true"] .ol-side-body {
@@ -2896,6 +2897,10 @@
   background: var(--ol-on);
   border-color: var(--ol-accent);
   font-weight: 500;
+}
+#origo-lens .ol-legend-transforms > .ol-legend-note {
+  flex-basis: 100%;
+  margin: 0;
 }
 #origo-lens .ol-legend-form {
   display: flex;
@@ -4572,16 +4577,16 @@
             type="button"
             class="ol-legend ol-legend-chip ol-rows-legend cursor-interaction"
             id="ol-rows-legend"
-            data-hint-label="Rows colour scale"
+            data-hint-label="Background colour scale"
             data-hint="Details, calibration and scale settings"
             data-channel="rows"
             aria-haspopup="dialog"
             aria-expanded="false"
             aria-controls="ol-rows-legend-pop"
-            aria-label="Rows scale"
+            aria-label="Background scale"
             hidden
           >
-            <strong>Rows colour scale</strong>
+            <strong>Background colour scale</strong>
             <canvas class="ol-ramp" id="ol-rows-ramp" width="36" height="8" aria-hidden="true"></canvas>
             <span id="ol-rows-legend-text" class="ol-num"></span>
           </button>
@@ -4589,7 +4594,7 @@
             class="ol-pop ol-legend-pop"
             id="ol-rows-legend-pop"
             role="dialog"
-            aria-label="Rows scale details"
+            aria-label="Background scale details"
             tabindex="-1"
             hidden
           ></div>
@@ -4737,8 +4742,35 @@
               hidden
             ></div>
           </div>
-          <div class="ol-background-controls" role="group" aria-label="Rows" id="ol-background-controls">
-          <span class="ol-background-label">Rows</span>
+          <div class="ol-background-controls" role="group" aria-label="Price-row measurements" id="ol-background-controls">
+          <div class="ol-group ol-mode-group">
+            <button
+              type="button"
+              id="ol-background"
+              class="ol-pick cursor-interaction"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="ol-background-menu"
+              aria-label="Background: Off · 90 days"
+              data-hint="The measure and period for the backdrop behind the cells and its colour strip; independent of Rows"
+            >
+              <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M2.5 3.5h11M2.5 6.5h11M2.5 9.5h11M2.5 12.5h11" />
+              </svg>
+              <span class="ol-label">Background:</span>
+              <span id="ol-background-text">Off · 90 days</span>
+              <svg class="ol-icon ol-caret" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="m4.5 6.5 3.5 3.5 3.5-3.5" />
+              </svg>
+            </button>
+            <div data-temporary="popover"
+              class="ol-pop ol-menu ol-mode-menu ol-flow-menu"
+              id="ol-background-menu"
+              role="menu"
+              aria-label="Background"
+              hidden
+            ></div>
+          </div>
           <div class="ol-group ol-mode-group">
             <button
               type="button"
@@ -4747,16 +4779,16 @@
               aria-haspopup="menu"
               aria-expanded="false"
               aria-controls="ol-rows-menu"
-              aria-label="Rows: Off"
+              aria-label="Rows: Off · Visible range"
               aria-keyshortcuts="U"
               data-keys="U"
-              data-hint="What the backdrop behind the cells and the second profile show for each price row, over a period of their own; U steps to the next, Shift+U back"
+              data-hint="The measure and period for the second vertical profile; independent of Background. Visible range follows chart time, while selections affect the first profile; U steps to the next measure, Shift+U back"
             >
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
                 <path d="M2.5 3.5h7M2.5 6.5h11M2.5 9.5h9M2.5 12.5h5" />
               </svg>
               <span class="ol-label">Rows:</span>
-              <span id="ol-rows-text">Off</span>
+              <span id="ol-rows-text">Off · Visible range</span>
               <svg class="ol-icon ol-caret" viewBox="0 0 16 16" aria-hidden="true">
                 <path d="m4.5 6.5 3.5 3.5 3.5-3.5" />
               </svg>
@@ -4768,60 +4800,6 @@
               aria-label="Rows"
               hidden
             ></div>
-          </div>
-          <div class="ol-group ol-period-group" hidden>
-            <button
-              type="button"
-              id="ol-period"
-              class="ol-pick cursor-interaction"
-              aria-haspopup="dialog"
-              aria-expanded="false"
-              aria-controls="ol-period-pop"
-              aria-label="Rows' period: 90 days"
-              data-hint="The period for Rows, independent of canvas zoom; up to the latest data or the replay's edge"
-            >
-              <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
-                <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
-                <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" />
-              </svg>
-              <span class="ol-label">Period:</span>
-              <span id="ol-period-text">90 days</span>
-              <svg class="ol-icon ol-caret" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="m4.5 6.5 3.5 3.5 3.5-3.5" />
-              </svg>
-            </button>
-            <div data-temporary="popover"
-              class="ol-pop ol-lines-pop ol-period-pop"
-              id="ol-period-pop"
-              role="dialog"
-              aria-labelledby="ol-period-title"
-              hidden
-            >
-              <div class="ol-pop-head">
-                <span id="ol-period-title">Rows' period</span>
-              </div>
-              <p class="ol-lines-note">
-                Fixed periods are independent of canvas zoom. Visible range follows
-                the canvas time window. Each ends at the data or replay edge.
-              </p>
-              <div
-                class="ol-lines-list"
-                id="ol-period-list"
-                role="radiogroup"
-                aria-labelledby="ol-period-title"
-              ></div>
-              <form class="ol-lines-add" id="ol-period-add">
-                <input
-                  type="date"
-                  id="ol-period-date"
-                  aria-label="A day in UTC: the period runs from that day to the latest data"
-                  required
-                /><button type="submit" class="ol-action ol-s cursor-interaction">
-                  Since this day
-                </button>
-              </form>
-              <div class="ol-lines-status" id="ol-period-status" role="status"></div>
-            </div>
           </div>
           </div>
 
@@ -5478,7 +5456,8 @@
           <div class="ol-inspect-navigation">
             <div class="ol-seg" role="tablist" aria-label="What to inspect" id="ol-inspect-surfaces">
               <button type="button" role="tab" data-surface="cells" aria-selected="true" class="cursor-interaction">Cells</button
-              ><button type="button" role="tab" data-surface="rows" aria-selected="false" tabindex="-1" class="cursor-interaction">Rows</button
+              ><button type="button" role="tab" data-surface="rows" aria-selected="false" tabindex="-1" class="cursor-interaction" data-hint="Inspect the second vertical profile using its own measure and period">Rows</button
+              ><button type="button" role="tab" data-surface="background" aria-selected="false" tabindex="-1" class="cursor-interaction" data-hint="Inspect the backdrop and its native colour-strip rows using the Background measure and period">Background</button
               ><button type="button" role="tab" data-surface="columns" aria-selected="false" tabindex="-1" class="cursor-interaction">Columns</button
               ><button type="button" role="tab" data-surface="references" aria-selected="false" tabindex="-1" class="cursor-interaction">References</button
               ><button type="button" role="tab" data-surface="lens" aria-selected="false" tabindex="-1" class="cursor-interaction">Lens</button>
@@ -5949,7 +5928,7 @@
               <dd><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dd>
             </div>
             <div>
-              <dt>Rows: next higher or lower row. Columns: previous or next column</dt>
+              <dt>Rows and Background: next higher or lower row. Columns: previous or next column</dt>
               <dd><kbd>↑</kbd> <kbd>↓</kbd> and <kbd>←</kbd> <kbd>→</kbd></dd>
             </div>
             <div>
@@ -6124,25 +6103,52 @@
     isObject(x) && x.visualVersion !== undefined && x.visualVersion !== VISUAL_VERSION
       ? "visual version " + JSON.stringify(x.visualVersion) + " was written by a newer or unknown version"
       : null;
+  // Last views and history carry their row-controls version inside their chart address.
+  // Match the codec's decoded, last-duplicate-wins parameter rule before a storage write can replace it.
+  const rowControlHashProblem = (hash) => {
+    if (typeof hash !== "string") return null;
+    let version;
+    for (const part of hash.replace(/^#/, "").split("&")) {
+      const at = part.indexOf("=");
+      if (at < 0 || part.slice(0, at) !== "rc") continue;
+      try { version = decodeURIComponent(part.slice(at + 1)); }
+      catch { return { status: "unreadable", reason: "the saved row controls version is malformed" }; }
+    }
+    return version !== undefined && version !== "1"
+      ? { status: "unknown-version", reason: "row controls version " + JSON.stringify(version) + " is not one this page reads" }
+      : null;
+  };
   // What a parsed payload of each key must look like: {status, reason} for a payload that cannot be
   // used, null for one that can. `unknown-version` means "from a newer build: keep it, never overwrite".
   const problem = (key, value) => {
     const foreign = newer(value);
     switch (key) {
       case "view:v5":
-      case "view:v4":
+      case "view:v4": {
         if (!isObject(value)) return { status: "unreadable", reason: "not an object" };
         if (foreign) return { status: "unknown-version", reason: foreign };
+        if (value.rowControlsVersion !== undefined && value.rowControlsVersion !== 1)
+          return { status: "unknown-version", reason: "row controls version " + JSON.stringify(value.rowControlsVersion) + " is not one this page reads" };
+        const hashIssue = rowControlHashProblem(value.view);
+        if (hashIssue) return hashIssue;
         if (key === "view:v4" ? value.version !== 4 : value.version !== 4 && value.version !== 5)
           return { status: "unknown-version", reason: "version " + JSON.stringify(value.version) + " is not one this page reads" };
         return null;
+      }
       case "views:v1":
         if (Array.isArray(value)) return null;
         return foreign ? { status: "unknown-version", reason: foreign } : { status: "unreadable", reason: "not a list of views" };
       case "history:v1":
       case "notice:v2":
         if (!isObject(value) && !(key === "notice:v2" && typeof value === "boolean")) return { status: "unreadable", reason: "not an object" };
-        return foreign ? { status: "unknown-version", reason: foreign } : null;
+        if (foreign) return { status: "unknown-version", reason: foreign };
+        if (key === "history:v1" && Array.isArray(value.entries)) {
+          for (const entry of value.entries) {
+            const issue = rowControlHashProblem(entry?.hash);
+            if (issue) return issue;
+          }
+        }
+        return null;
       case "scales:v1":
         if (!isObject(value)) return { status: "unreadable", reason: "not an object" };
         if (foreign) return { status: "unknown-version", reason: foreign };
@@ -16980,6 +16986,16 @@
   // w t p r sel at replay stay explicit code (place()).
   const cdcKeys = [
     {
+      id: "rowControlsVersion",
+      param: "rc",
+      fields: ["rowControlsVersion"],
+      legacy: false,
+      defaults: { rowControlsVersion: 1 },
+      read: (text) => ({ rowControlsVersion: text === undefined ? undefined : text === "1" ? 1 : "?" + text }),
+      check: () => ({ rowControlsVersion: 1 }),
+      write: () => "1",
+    },
+    {
       id: "follow",
       param: "f",
       fields: ["follow"],
@@ -17024,10 +17040,30 @@
       param: "period",
       fields: ["period"],
       legacy: true,
-      defaults: { period: "90d" },
-      read: (text) => ({ period: text || "90d" }),
-      check: (raw, env) => ({ period: env.validPeriod(raw.period) ? raw.period : "90d" }),
-      write: (view) => (typeof view.period === "string" && view.period !== "90d" ? view.period : null),
+      defaults: { period: "visible" },
+      read: (text) => ({ period: text }),
+      check: (raw, env) => ({ period: env.validPeriod(raw.period) ? raw.period : "visible" }),
+      write: (view) => (typeof view.period === "string" && view.period !== "visible" ? view.period : null),
+    },
+    {
+      id: "background",
+      param: "background",
+      fields: ["background"],
+      legacy: false,
+      defaults: { background: "off" },
+      read: (text) => ({ background: text || "off" }),
+      check: (raw, env) => ({ background: env.rowsChoices.indexOf(raw.background) >= 0 ? raw.background : "off" }),
+      write: (view) => (typeof view.background === "string" && view.background !== "off" ? view.background : null),
+    },
+    {
+      id: "backgroundPeriod",
+      param: "backgroundPeriod",
+      fields: ["backgroundPeriod"],
+      legacy: false,
+      defaults: { backgroundPeriod: "90d" },
+      read: (text) => ({ backgroundPeriod: text || "90d" }),
+      check: (raw, env) => ({ backgroundPeriod: env.validPeriod(raw.backgroundPeriod) ? raw.backgroundPeriod : "90d" }),
+      write: (view) => (typeof view.backgroundPeriod === "string" && view.backgroundPeriod !== "90d" ? view.backgroundPeriod : null),
     },
     {
       id: "level",
@@ -17175,6 +17211,21 @@
   // the appearance and the descriptors.
   const cdcFixedKeys = Object.freeze(["vis", "ap", "sc"]);
 
+  // Unmarked views used one Rows choice for both presentations, including an implicit 90-day period.
+  // Stamp only after copying those choices, so a later save cannot reinterpret an old default as Visible range.
+  function cdcSplitRowControls(raw) {
+    if (raw.rowControlsVersion !== undefined && raw.rowControlsVersion !== 1) throw new TypeError("unsupported row controls version");
+    const legacy = raw.rowControlsVersion === undefined;
+    const period = raw.period === undefined ? (legacy ? "90d" : "visible") : raw.period;
+    return Object.assign({}, raw, {
+      rowControlsVersion: 1,
+      rows: raw.rows === undefined ? "off" : raw.rows,
+      period,
+      background: legacy ? (raw.rows === undefined ? "off" : raw.rows) : (raw.background === undefined ? "off" : raw.background),
+      backgroundPeriod: legacy ? period : (raw.backgroundPeriod === undefined ? "90d" : raw.backgroundPeriod),
+    });
+  }
+
   // ---- checkView (the baseline's validator behind an env) ---------------------------------------------
   // checkView (explorer.js 1865-1923) moved with its page inputs supplied by `env`. Returns a View whose
   // every part can be shown here, or null without a window or a rectangle. Parts that cannot be are
@@ -17182,6 +17233,11 @@
   // through the same table: `scale` (defaults for what is absent or invalid) and `appearance`.
   function cdcCheckView(v, env) {
     if (!cdcIsObject(v)) return null;
+    if (v.rowControlsVersion !== undefined && v.rowControlsVersion !== 1) return null;
+    const legacyRows = v.rowControlsVersion === undefined;
+    v = cdcSplitRowControls(v);
+    if (!env.validPeriod(v.period)) v.period = legacyRows ? "90d" : "visible";
+    if (!env.validPeriod(v.backgroundPeriod)) v.backgroundPeriod = "90d";
     const ok = (...x) => x.every(Number.isFinite);
     const candidate = env.windowKey(v.window),
       w = cdcDayPattern.test(candidate) && !(cdcTime(candidate + "T00:00:00Z", env) < env.CUT) ? "" : candidate;
@@ -17217,10 +17273,14 @@
   }
 
   // The raw fields a stored v4/v5 view, a code or an address hands to the validator, read through the table.
+  function cdcReadsField(entry, q, withSettings) {
+    // The row-controls marker versions its own fields; it does not opt an old address into visual settings.
+    return entry.legacy || withSettings || (q.get("rc") === "1" && ["rowControlsVersion", "background", "backgroundPeriod"].indexOf(entry.id) >= 0);
+  }
   function cdcReadFields(q, env, withSettings) {
     const raw = {};
     for (const entry of cdcVisualKeys) {
-      if (!entry.legacy && !withSettings) continue;
+      if (!cdcReadsField(entry, q, withSettings)) continue;
       const part = entry.read(q.get(entry.param), env);
       for (const path of Object.keys(part)) cdcPathSet(raw, path, part[path]);
     }
@@ -17690,6 +17750,7 @@
   function cdcFormatAddress(state, env, opts) {
     const e = cdcEnv(env);
     if (!cdcIsObject(state)) throw new TypeError("formatAddress needs a state object");
+    state = cdcSplitRowControls(state);
     if (typeof state.appearance !== "string" || !cdcAppearancePattern.test(state.appearance)) throw new TypeError("formatAddress needs state.appearance, the appearance id: ap= is always written");
     const scales = Array.isArray(state.scales) ? state.scales : [];
     const axes = Array.isArray(state.axes) ? state.axes : [];
@@ -17823,6 +17884,11 @@
       }
     }
     const v2 = q.has("vis");
+    if ((q.has("rc") && q.get("rc") !== "1") || malformed.has("rc")) {
+      res.kind = "reject";
+      res.reasons.push("unsupported row controls version in the address");
+      return res;
+    }
     const known = new Set(cdcNavKeys.concat(cdcFixedKeys, cdcVisualKeys.map((entry) => entry.param)));
     for (const key of q.keys()) if (!known.has(key)) res.dropped.push({ key, reason: "unknown key" });
     const fields = cdcReadFields(q, e, v2);
@@ -17858,7 +17924,7 @@
     // What the page could not show: a value that changed on its way through the validator is a drop.
     const dropIf = (param, reason) => res.dropped.push({ key: param, reason });
     for (const entry of cdcVisualKeys) {
-      if (!q.has(entry.param) || (!v2 && !entry.legacy)) continue;
+      if (!q.has(entry.param) || !cdcReadsField(entry, q, v2)) continue;
       const a = {};
       const b = {};
       for (const path of entry.fields) {
@@ -17874,7 +17940,7 @@
     if (q.get("replay") === "1" && !view.replay) dropIf("replay", "a replay needs an anchor on this page");
     if (!v2) {
       for (const key of ["ap", "sc"]) if (q.has(key)) dropIf(key, "needs vis=2");
-      for (const entry of cdcVisualKeys) if (!entry.legacy && q.has(entry.param)) dropIf(entry.param, "needs vis=2");
+      for (const entry of cdcVisualKeys) if (!cdcReadsField(entry, q, false) && q.has(entry.param)) dropIf(entry.param, "needs vis=2");
       return res;
     }
     if (q.has("ap") && view.appearance === null) dropIf("ap", "not an appearance id");
@@ -17918,7 +17984,7 @@
     "drawings.objects[].a": ["timeMs", "priceCents"],
     "drawings.objects[].b": ["timeMs", "priceCents"],
     query: ["t1", "t2", "p1", "p2", "tR", "pR"],
-    view: ["mode", "pane", "poc", "area", "untested", "rows", "period", "level", "lines", "tab", "replay", "anchor", "horizon", "evidenceKind", "barrier", "follow", "auto", "window", "viewport", "selection", "scale", "profileCmp", "profileOpen"],
+    view: ["mode", "pane", "poc", "area", "untested", "rows", "period", "rowControlsVersion", "background", "backgroundPeriod", "level", "lines", "tab", "replay", "anchor", "horizon", "evidenceKind", "barrier", "follow", "auto", "window", "viewport", "selection", "scale", "profileCmp", "profileOpen"],
     "view.scale": ["basis", "pathBasis", "transform", "curve", "rowsTransform", "cells", "rows", "local", "window", "lock"],
     appearance: ["id"],
     "scales[]": ["channel", "policy", "external", "origin", "desc", "ctx", "cohort", "obsEndMs", "cutMs", "canonicalThroughMs", "token"],
@@ -18291,7 +18357,8 @@
     if (view.anchor !== undefined && view.anchor !== null && !cdcIsFinite(view.anchor)) return fail("view.anchor is a number or null");
     if (view.level !== undefined && view.level !== null && !cdcIsFinite(view.level)) return fail("view.level is a number or null");
     if (view.lines !== undefined && (!Array.isArray(view.lines) || !view.lines.every((s) => typeof s === "string"))) return fail("view.lines is a list of text");
-    for (const name of ["mode", "pane", "rows", "period", "tab", "evidenceKind", "follow"]) if (view[name] !== undefined && typeof view[name] !== "string") return fail("view." + name + " is text");
+    for (const name of ["mode", "pane", "rows", "period", "background", "backgroundPeriod", "tab", "evidenceKind", "follow"]) if (view[name] !== undefined && typeof view[name] !== "string") return fail("view." + name + " is text");
+    if (view.rowControlsVersion !== undefined && view.rowControlsVersion !== 1) return fail("unsupported row controls version");
     if (view.follow !== undefined && cdcFollows.indexOf(view.follow) < 0) return fail("unknown follow mode");
     if (view.profileCmp !== undefined && view.profileCmp !== "independent" && view.profileCmp !== "absolute" && view.profileCmp !== "share") return fail("view.profileCmp is independent, absolute or share");
     if (view.profileOpen !== undefined && typeof view.profileOpen !== "boolean") return fail("view.profileOpen is true or false");
@@ -18352,7 +18419,10 @@
         mode: view.mode === undefined ? "volume" : view.mode,
         pane: view.pane === undefined ? "cells" : view.pane,
         rows: view.rows === undefined ? "off" : view.rows,
-        period: view.period === undefined ? "90d" : view.period,
+        period: view.period,
+        rowControlsVersion: view.rowControlsVersion,
+        background: view.background,
+        backgroundPeriod: view.backgroundPeriod,
         level: view.level === undefined ? null : view.level,
         poc: view.poc,
         area: view.area,
@@ -18373,7 +18443,7 @@
       e,
     );
     if (checkedView === null) return fail("the view names no window and no usable rectangle");
-    for (const name of ["mode", "pane", "rows", "period"]) if (view[name] !== undefined && view[name] !== checkedView[name]) dropped.push({ key: name, reason: "not available on this page; the default is used" });
+    for (const name of ["mode", "pane", "rows", "period", "background", "backgroundPeriod"]) if (view[name] !== undefined && view[name] !== checkedView[name]) dropped.push({ key: name, reason: "not available on this page; the default is used" });
     if (Array.isArray(view.lines) && view.lines.length > checkedView.lines.length) dropped.push({ key: "lines", reason: "some lines are not available on this page" });
     if (view.replay === true && !checkedView.replay) dropped.push({ key: "replay", reason: "a replay needs an anchor on this page" });
     if (view.anchor !== undefined && view.anchor !== null && checkedView.anchor === null) dropped.push({ key: "anchor", reason: "the anchor is not on this page" });
@@ -18411,8 +18481,7 @@
   // and what it is now). Order: mode, rows, pane, efficiency.
   function cdcMigrateLegacy(raw) {
     if (!cdcIsObject(raw)) throw new TypeError("migrateLegacy needs a view");
-    const view = {};
-    for (const key of Object.keys(raw)) view[key] = raw[key];
+    const view = cdcSplitRowControls(raw);
     view.scale = cdcDefaultScale();
     view.appearance = null;
     const changes = [];
@@ -19839,7 +19908,9 @@
   function configure(document, patch) {
     const d = validate(document);
     d.scene.query = { ...d.scene.query };
-    if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "lines", "selection", "replay", "anchor", "scale", "readMode"])) fail("Unknown scene setting");
+    const rowControls = E.codec.validatePortable(d.scene, {}).value.view;
+    for (const key of ["rowControlsVersion", "rows", "period", "background", "backgroundPeriod"]) d.scene.view[key] = rowControls[key];
+    if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "background", "backgroundPeriod", "lines", "selection", "replay", "anchor", "scale", "readMode"])) fail("Unknown scene setting");
     if (patch.readMode !== undefined) { if (!["captured", "live"].includes(patch.readMode)) fail("Read mode is captured or live"); d.mode = patch.readMode; }
     Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport", "readMode"].includes(key))));
     if (patch.viewport) { d.scene.view.viewport = patch.viewport; d.scene.view.window = ""; Object.assign(d.scene.query, { t1: patch.viewport[0], t2: patch.viewport[1], p1: patch.viewport[2], p2: patch.viewport[3] }); }
@@ -19868,7 +19939,7 @@
       const capture = { instrument: "BTC/USDT", level: { n: q.n, m: q.m }, origin: f.origin, c: z.c, r: z.r, nominal: { t0: ms(z.c * ts), t1: ms((z.c + 1) * ts), low: z.r * ps * f.basePrice, high: (z.r + 1) * ps * f.basePrice }, observed: { t0: ms(t0), t1: ms(t1), low: low * f.basePrice, high: high * f.basePrice, seconds: (t1 - t0) * f.baseSeconds, width: (high - low) * f.basePrice }, capturedAt: Date.now(), measuredThrough: ms(t1), source: f.source + " · " + f.token, completeness: whole ? "Complete" : "Portion", metrics, detail: [["Buyer-initiated USDT", z.bv, "usdt"], ["Seller-initiated USDT", z.v - z.bv, "usdt"], ["Buyer-initiated trades", z.bt, "trades"]].map(([label, value, unit]) => ({ label, value, unit, tag: "finite", supportEnd: ms(t1), knownThrough: ms(t1) })), contextOrigin: "legacy-structural", context: { supports: {}, histories: [], originatingObservation: null }, originatingObservation: null };
       capture.id = C.identity(capture); return capture;
     });
-    const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
+    const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
     return validate(seal({ schema: SCHEMA, instrument: "BTC/USDT", createdAt: Date.now(), mode: "captured", scene, snapshot, comparison: { comparisonVersion: 2, instrument: "BTC/USDT", selectedMetric: "volume", captures, focus: captures[0]?.id ?? null, reference: null, basis: "auto", sort: { key: "time", direction: "asc" }, view: "grid", page: 0, poc: null, expanded: false, restoreLayout: null }, selection: { query: { ...scene.query }, metrics: summary, source: f.source, measuredThrough: f.cutoffMs, state: "exact" }, focus: null }));
   }
   return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, redact, configure, annotate, fromQuery, forExport });
@@ -19912,13 +19983,13 @@
     { id: "scales", group: "Read the market", title: "Colour scales & comparison",
       purpose: "Establish what a shade means before comparing cells or rows.",
       read: "Value preserves amounts on a linear or log1p scale; Relative rank approximates position in fitted observations. Explore holds a fit per context; Auto color refits after settled changes. Fit calibrates once. Comparison lock holds colour and axes across compatible contexts; Local contrast belongs to the lens. Later replay cutoffs can invalidate a fit.",
-      use: "Expand Cell colour scale or Rows colour scale below for ticks, fitted data and controls. Fit recalibrates once. Use Comparison lock when comparing across resolutions or periods; check out-of-range and low-discrimination notices. Local contrast applies only to the lens.",
+      use: "Expand Cell colour scale or Background colour scale below for ticks, fitted data and controls. Fit recalibrates once. Use Comparison lock when comparing across resolutions or periods; check out-of-range and low-discrimination notices. Local contrast applies only to the lens.",
       targets: [{"label":"Show cells","region":"cells"},{"label":"Show row strip","region":"rows"}], colour: "cells" },
-    { id: "rows", group: "Read the market", title: "Rows & reference period",
-      purpose: "Place the view or selection against a longer history at each price level.",
-      read: "Rows has its own period. Its narrow strip shows full-strength values; its faint backdrop extends behind the grid. Volume and Delta are period totals; Time at price is period dwell. Row volume versus mean traded row compares a row's period volume with the mean of all traded rows in that period: 0 is average, +1 is double, −1 is half. Untraded rows have no concentration band. The strip retains the period’s native row width; the drawn profile may use coarser bins. Profile-share log₂ ratio separately compares overlapping clipped bins on common support; Shared row share uses wholly-in-view bins. Each profile has its own amount axis unless a supported shared axis is selected.",
-      use: "Turn Rows on, choose a measure and set its period. All history is the available reference history. Fixed periods ignore navigation and selections; Visible range follows the chart's time window. A selection changes Profile-share log₂ ratio, while Rows values retain their period basis.",
-      targets: [{"label":"Show Rows control","selector":"#ol-rows"},{"label":"Show row strip","region":"rows"}], colour: "rows" },
+    { id: "rows", group: "Read the market", title: "Rows & Background",
+      purpose: "Choose the second profile and price-row background independently.",
+      read: "Rows controls the second vertical profile and defaults to Off · Visible range. Background controls the native-row strip and faint backdrop and defaults to Off · 90 days. Both selectors offer the same measures, periods and source restrictions, with independent selections. Volume and Delta are period totals; Time at price is covered dwell. Relative volume is log₂(row period volume / mean traded-row volume): 0 is average, +1 double, −1 half. Background colours and profile lengths have separate scales.",
+      use: "Choose Measure and Period inside Rows or Background; each closed selector names both. Visible range follows the chart's time window, ignoring selection and price crop. Fixed periods ignore navigation and selection. Both end at the data or replay edge. Use Background colour scale for colours and Profiles for length axes and comparison.",
+      targets: [{"label":"Show Rows control","selector":"#ol-rows"},{"label":"Show Background control","selector":"#ol-background"},{"label":"Show Background strip","region":"rows"}], colour: "rows" },
     { id: "profiles", group: "Read the market", title: "Profile tracks",
       purpose: "Compare how activity is distributed across price levels.",
       read: "The current track is view or selection volume, with taker-buy volume inset; the reference track uses the Rows measure and period. Independent axes scales each separately. Shared absolute makes equal lengths equal amounts. Shared row share makes each row a percentage of its own track's total over the common price window: 20% versus 10% is twice the concentration.",
@@ -20017,7 +20088,7 @@
       targets: [{"label":"Show state key","selector":"#ol-key-guide"},{"label":"Show data status","selector":"#ol-state-pill"},{"label":"Show Inspect","selector":"#ol-inspect-tool"}], colour: "states" },
     { id: "selection", group: "Work with the view", title: "Select a region",
       purpose: "Measure a time-and-price rectangle within the chart.",
-      read: "The right context pane and current volume profile describe the selection while it exists. Partial edge cells contribute their observed portion. Rows keeps its independent reference period.",
+      read: "The right context pane and current volume profile describe the selection while it exists. Partial edge cells contribute their observed portion. Rows and Background each keep their independent period; Visible range follows the chart time window rather than the selection.",
       use: "Choose Select and drag a rectangle. Inspect cells for detail; use Clear or Escape to return the summaries to the whole view. Selection alone does not anchor an evidence query.",
       targets: [{"label":"Show Select tool","selector":"#ol-select"},{"label":"Show selection","region":"selection"}], colour: "selection" },
     { id: "inspect", group: "Work with the view", title: "Inspect & context",
@@ -20209,7 +20280,7 @@
       const raw = bounds(active), doc = main.dataset.referenceReveal ? {left:-1,top:-1,right:-1,bottom:-1,width:0,height:0} : pane.getBoundingClientRect();
       if (!raw) {
         overlay.style.display = "none";
-        const reasons = { rows: "Rows is off. Use Rows to enable the strip.", selection: "No selection. Choose Select and drag a rectangle.", events: "No event lanes. Enable an event family in Lines.", columns: "The column pane is unavailable in this view.", profiles: "Profile tracks are folded. Use Profiles to reveal them." };
+        const reasons = { rows: "Background is off. Use Background to enable the strip.", selection: "No selection. Choose Select and drag a rectangle.", events: "No event lanes. Enable an event family in Lines.", columns: "The column pane is unavailable in this view.", profiles: "Profile tracks are folded. Use Profiles to reveal them." };
         el("status").textContent = reasons[active.region] || "This part is not visible. Open its panel or control, then Show again."; return;
       }
       let left = Math.max(0, raw.left - 4), top = Math.max(0, raw.top - 4), right = Math.min(innerWidth, raw.right + 4), bottom = Math.min(innerHeight, raw.bottom + 4);
@@ -21480,7 +21551,7 @@
   function actorKey(node, index) {
     if (node.nodeType !== 1) return `${node.nodeType}:${index}`;
     if (node.id) return `id:${node.id}`;
-    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'section', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep', 'modeNav', 'paneNav', 'rowsNav', 'scaleItem', 'mode', 'pane', 'rows', 'period', 'timeframe']) {
+    for (const name of ['flowKey', 'cellKey', 'captureId', 'drawingRow', 'rallyId', 'refKey', 'focusKey', 'line', 'lineRemove', 'metric', 'field', 'section', 'comparisonAction', 'drawingAction', 'modeStep', 'paneStep', 'rowsStep', 'backgroundStep', 'modeNav', 'paneNav', 'rowsNav', 'backgroundNav', 'scaleItem', 'mode', 'pane', 'rows', 'background', 'period', 'timeframe']) {
       if (node.dataset[name] !== undefined) return `${node.tagName}:${name}:${node.dataset[name]}:${node.dataset.drawingId ?? node.dataset.id ?? node.dataset.value ?? ''}`;
     }
     return `${node.nodeType}:${node.nodeName}:${index}`;
@@ -21808,12 +21879,14 @@
   terms("net taker imbalance|imbalance", "Buyer-initiated minus seller-initiated USDT, divided by total traded USDT in this region.");
   terms("share of all price volume same time|columnShare", "This price band's traded USDT divided by all-price traded USDT over the same measured time.");
   terms("seasonal activity all price usdt|seasonal", "All-price traded USDT relative to eligible earlier comparison windows with matching seasonal timing.");
-  const valueLabels = { "window-text": "Time window", "res-text": "Cell size", tr: "Time cell duration", pr: "Price row width", "legend-text": "Cell colour scale", "rows-legend-text": "Rows colour scale", "profile-chip-text": "Profile comparison", "axis-chip-text": "Column and profile axes", "data-through": "Data through" };
+  const valueLabels = { "window-text": "Time window", "res-text": "Cell size", tr: "Time cell duration", pr: "Price row width", "legend-text": "Cell colour scale", "rows-legend-text": "Background colour scale", "rows-text": "Rows measure and period", "background-text": "Background measure and period", "profile-chip-text": "Profile comparison", "axis-chip-text": "Column and profile axes", "data-through": "Data through" };
   const fields = {
     "window-text": "Time span currently covered by the chart; calendar windows follow their UTC dates.",
     "res-text": "Duration of one time column and width of one price row; Auto chooses the level from screen cell size.",
     "legend-text": "Cell measure, basis, transform and fitted colour domain; equal values need the same mapping for equal colours.",
-    "rows-legend-text": "Row measure, reference period and fitted colour domain used behind the cells.",
+    "rows-legend-text": "Background measure, period and fitted colour domain used behind the cells and in the native colour strip.",
+    "rows-text": "The second vertical profile's measure and period; selections affect the first profile while Visible range follows chart time.",
+    "background-text": "The backdrop and native colour strip's measure and period, independent of the second vertical profile.",
     "profile-chip-text": "The current and reference profiles, their comparison mode and numeric drawing domains.",
     "axis-chip-text": "Numeric axes and domains used to draw the Columns pane and profile tracks.",
     "hist-back": "Return to the previous view in this tab's navigation history.",
@@ -22283,9 +22356,12 @@
       poc: false,
       area: false,
       untested: false,
-      // The row underlay behind the cells (Rows, U), over a period of its own.
+      // Independent price-row measurements: the second profile and the background projection.
+      rowControlsVersion: 1,
       rows: "off",
-      period: "90d",
+      period: "visible",
+      background: "off",
+      backgroundPeriod: "90d",
       // The level line (X): one price, in base rows, or none.
       level: null,
       // The profile tracks (PRD-0002 S2): how the current and the reference track are compared (independent, absolute, share), and whether
@@ -23232,7 +23308,7 @@
     return S.rows !== "off" ? 2 : 1;
   }
   function layoutNow(width, height) {
-    return layout(width, height, eventKinds().length, S.rows !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen);
+    return layout(width, height, eventKinds().length, S.background !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen);
   }
   function geometry(paint = true) {
     if (comparisonModel.expanded) return;
@@ -23893,7 +23969,7 @@
           kind: "unbounded",
           cutMs: sc.cutMs,
           // what a count of the drawn bands depends on besides the mapping
-          memo: () => [under.kind, under.through, under.stale, under.bands?.m, S.period, under.rect.state].join(","),
+          memo: () => [under.kind, under.through, under.stale, under.bands?.m, under.period, under.rect.state].join(","),
           passive: true,
           failed,
         });
@@ -24575,7 +24651,7 @@
   function scaleSet(action) {
     const out = E.policy.reduce(S.scale, action, {
       mode: S.mode,
-      rows: S.rows === "off" ? "volume" : S.rows,
+      rows: S.background === "off" ? "volume" : S.background,
       live: Boolean(PACK.live),
       active: { cells: scaleRt.cur.cells?.resolved?.record ?? null, rows: scaleRt.cur.rows?.resolved?.record ?? null },
       axes: scaleShownAxes(),
@@ -24655,7 +24731,7 @@
     // Cascade's parents: the level one coarser in both time and price.
     if (S.mode === "cascade") levelCascade(full, src, sum);
     // The row underlay, while it shows.
-    const under = underlayFrame(meas);
+    const under = underlayFrame(meas), reference = rowReferenceFrame(meas);
     // Rows' frame, from the package that owns it (none: no Rows frame). It resolves its mapping through
     // `scaleResolve`, which leaves what it found in `scaleRt.cur.rows`; the stamp then names that mapping too.
     if (sc !== INERT_SC) {
@@ -24891,7 +24967,7 @@
     const ro = readouts(cut);
     axes(ro);
     paintRowsStrip(under, sc.rows, sc);
-    profile(query, b, meas.state, under, sc);
+    profile(query, b, meas.state, reference, sc);
     activity(shown, cut, mv, full, sc);
     paintEvents(cut);
     crosshair(ro);
@@ -24924,18 +25000,18 @@
     }
     strokeKeysCommit();
     referenceKeysCommit();
-    inspectSync();
     // A failure noted for a tile says itself while that tile is what the view or the lens needs: a tool that opens or closes changes that without
     // an update, so the line is decided again with the frame (nothing is noted on a healthy page, and then there is nothing to decide).
     if (noted.size || loadingLine.blocks.size) renderLoading();
     const cf = lensShown() ? lensFrame() : null, cp = cf?.src ? lensParts(cf) : null;
     const comparisonLens = cp ? { ...cp, bounds:cp.lensBounds, sourceEnd:cp.end,
       motion:lensMotionParts(cp), box:{x:cf.x,y:cf.y,w:cf.w,h:cf.h} } : null;
-    last = { full, query, shown, meas, b, cut, mv, under, sc, src, comparisonLens, n:renderN(), m:renderM(),
+    last = { full, query, shown, meas, b, cut, mv, under, reference, sc, src, comparisonLens, n:renderN(), m:renderM(),
       sourceEnd: sourceRange(src)[1], token:PACK.state_token ?? null, generation:live.generation,
       sourceVersion:sourcesKey(), sourceRevision:comparisonSourceRevision, contextBarsVersion:barsVersion,
       camera:[S.tA,S.tB,S.pA,S.pB,S.n,S.m,S.replay,S.anchor],
       motionEnd:mv?.src?.end ?? null, canon:CANON, dataCut:CUT };
+    inspectSync();
     selectionPresentation(meas, mv, selectionContext.seasonal, selectionContext.response);
     comparisonRefresh();
     rallyController.sync();
@@ -25894,8 +25970,8 @@
           mode = v.mode === "density" ? "volume" : v.mode;
         if (modes().includes(mode) || mode === "candles") S.mode = mode;
         if (panes().includes(v.pane)) S.pane = v.pane;
-        if (rowsChoices().includes(v.rows)) S.rows = v.rows;
-        if (validPeriod(v.period)) S.period = v.period;
+        S.rows = S.background = rowsChoices().includes(v.rows) ? v.rows : "off";
+        S.period = S.backgroundPeriod = validPeriod(v.period) ? v.period : "90d";
         if (v.level === null || (Number.isFinite(v.level) && v.level > 0)) S.level = v.level;
         for (const k of ["poc", "area", "untested", "replay"])
           if (typeof v[k] === "boolean") S[k] = v[k];
@@ -26373,36 +26449,126 @@
     const index = seasonalSource(n), result = index?.at(...time);
     return result?.tag === "finite" ? { v: result.value } : null;
   }
+  // A profile bar may sum several native rows. Its card and Inspect cursor use that same partition;
+  // Background keeps the native colour strip's rows, independently of the profile comparison.
+  const rowCardProfiles = new WeakMap();
+  function rowCardProfile(profile, m) {
+    if (!profile || m === profile.m) return profile;
+    let memo = rowCardProfiles.get(profile);
+    if (!memo) rowCardProfiles.set(profile, (memo = new Map()));
+    if (memo.has(m)) return memo.get(m);
+    const k = 2 ** (m - profile.m), rows = [];
+    for (const x of profile.rows) {
+      const r = Math.floor(x.r / k);
+      let target = rows.at(-1);
+      if (!target || target.r !== r) rows.push((target = { r, v: 0, bv: 0, w: 0 }));
+      target.v += x.v ?? 0;
+      target.bv += x.bv ?? 0;
+      target.w += x.w ?? 0;
+    }
+    let poc = null, best = 0;
+    for (const x of rows) if (x.v > best) { poc = x.r; best = x.v; }
+    const result = { ...profile, m, rows, poc };
+    memo.set(m, result);
+    return result;
+  }
+  function rowProfileLevel(owner, fallback) {
+    const plan = profileUi.plan;
+    return owner !== "background" && plan?.mode !== "independent" && Number.isInteger(plan?.m) ? plan.m : fallback;
+  }
+  function rowCardTime(u) {
+    const requested = u.res.span.slice(), columns = u.res.columns ?? 1;
+    let start = requested[0], end = Math.min(u.through ?? requested[1], activeCutoff());
+    if (u.res.exact === false) {
+      start = Math.ceil(start / columns) * columns;
+      // A historical end excludes the incomplete native column; the source's open edge retains its
+      // observed portion, exactly as lineResult's aggregate did.
+      if (requested[1] < activeCutoff()) end = Math.floor(requested[1] / columns) * columns;
+    }
+    return { requested, actual: [start, Math.max(start, end)], approximate: u.res.exact === false,
+      quality: u.quality, rowUsdt: u.rowPrice * PR };
+  }
   function coreRowsPresentation(tip, p) {
-    const u = last.under, period = Boolean(u?.bands && (p.inspect || p.x < G.x + G.w + G.sw));
-    const bands = period ? u.bands : last.query;
-    if (!bands) return;
-    const m = bands.m, row = Math.floor(p.p / 2 ** m), band = bands.rows.find((x) => x.r === row) ?? { r: row, v: 0, bv: 0, w: 0 };
-    const q = period ? u.volBands ?? bands : bands;
-    const time = period ? [u.res.span[0], u.through] : [last.b[0], Math.min(last.b[1], last.cut)];
+    const owner = rowPointerOwner(p), u = owner === "background" ? last.under : owner === "rows" ? last.reference : null,
+      period = Boolean(u);
+    if (["background", "rows"].includes(owner) && !u) {
+      tipRows(tip, owner === "background" ? "Background" : "Rows", "", [], "This measurement is off");
+      return;
+    }
+    if (period && !u.bands) {
+      tipRows(tip, `${owner === "background" ? "Background" : "Rows"} · ${ROWS_INFO[u.kind].name}`, periodLabel(u.period), [], underlayWhy(u.res));
+      return;
+    }
+    const native = period ? u.bands : last.query;
+    if (!native) return;
+    const m = rowProfileLevel(owner, native.m), bands = rowCardProfile(native, m),
+      row = Math.floor(p.p / 2 ** m), band = bands.rows.find((x) => x.r === row) ?? { r: row, v: 0, bv: 0, w: 0 },
+      plan = owner === "background" ? null : profileUi.plan,
+      shared = plan?.mode !== "independent" && Number.isInteger(plan?.m),
+      side = owner === "rows" ? "ref" : "cur",
+      drawn = shared ? plan[side]?.find(x => x.r === row) : null,
+      inWindow = !shared || Boolean(plan.window && row >= plan.window.first && row <= plan.window.last),
+      drawnResult = shared && (plan.state !== "ok" || !inWindow)
+        ? E.result.make(plan.state === "undefined" ? "undefined" : "outside-support", { reason: plan.state === "undefined" ? "The shared profile total is zero" : "Outside the displayed profile comparison window" }) : null;
+    const volumeReady = !period || Boolean(u.volBands), q = rowCardProfile(period ? u.volBands ?? native : native, m),
+      support = period ? rowCardTime(u) : null;
+    const time = support ? support.actual : [last.b[0], Math.min(last.b[1], last.cut)];
     const priceBand = [row * 2 ** m * PR, (row + 1) * 2 ** m * PR], kind = period ? u.kind : "volume";
     const rv = kind === "relvol" ? u.relvol ?? periodRelvolFor(q, u.vol) : null;
-    const readout = period && kind !== "relvol" && last.sc?.rows ? last.sc.rows.readout(band) : null;
-    const result = kind === "relvol" ? rv.at(Math.floor(p.p / 2 ** rv.support.bm)) : readout?.typed ?? E.result.finite(kind === "delta" ? 2 * band.bv - band.v : kind === "time" ? band.w : band.v);
+    const readout = owner === "background" && kind !== "relvol" && last.sc?.rows ? last.sc.rows.readout(band) : null;
+    const amount = shared ? drawn?.v ?? 0 : kind === "delta" ? 2 * band.bv - band.v : kind === "time" ? band.w : band.v,
+      result = drawnResult ?? (kind === "relvol" ? rv.at(Math.floor(p.p / 2 ** rv.support.bm)) : readout?.typed ?? E.result.finite(amount));
     const unit = kind === "relvol" ? "log2-ratio" : kind === "time" ? "seconds" : "usdt", formula = kind === "relvol" ? "rows.relvol@3" : kind === "time" ? "rows.time.seconds@1" : `rows.${kind}.amount@1`;
-    const comparison = u?.volBands ? relvolFor(u.volBands, u.vol, u.rect) : null;
+    const compared = u ?? last.reference,
+      comparison = compared?.volBands ? relvolFor(compared.volBands, compared.vol, compared.rect) : null;
     const profileShare = comparison ? comparison.at(Math.floor(p.p / 2 ** comparison.support.bm)) : E.result.make("unsupported", { reason: "Period comparison unavailable" });
-    const volumeRow = Math.floor(p.p / 2 ** q.m), volume = q.rows.find((x) => x.r === volumeRow)?.v ?? 0, total = q.v;
+    const volumeRow = Math.floor(p.p / 2 ** q.m), volume = q.rows.find((x) => x.r === volumeRow)?.v ?? 0, total = q.v,
+      volumeResult = volumeReady ? E.result.finite(volume) : E.result.make(u.vol.state === "failed" ? "failed" : "pending", { reason: "The period volume has not been measured yet" });
+    const shareMode = shared && plan.mode === "share", denominator = shareMode ? plan.denominators?.[side] ?? 0 : null,
+      shareResult = drawnResult ?? (denominator > 0 ? E.result.finite(drawn?.t ?? 0) : E.result.make("undefined", { denominator: "Track total over W" })),
+      denominatorSupport = shareMode && plan.window ? [{ formula: "profile.shared.share", time, price: [plan.window.first * 2 ** m * PR, (plan.window.last + 1) * 2 ** m * PR], value: denominator, unit, role: "track-total-over-W" }] : [];
     const observation = cardObservation(result, formula, unit, time, priceBand, { level: { n: q.n ?? renderN(), m },
-      denominators: [{ formula: "rows.relvol@3", time, value: rv?.meanVolume ?? null }, { formula: "rows.relvol@2", time: last.b.slice(0, 2), support: comparison?.support ?? null, result: profileShare }] });
-    const companions = kind === "time" ? [
+      precision: support?.approximate ? `Approximate recorded support (${support.quality}); ${support.rowUsdt} USDT source rows` : "Float64",
+      denominators: [{ formula: "rows.relvol@3", time, value: rv?.meanVolume ?? null }, { formula: "rows.relvol@2", time: last.b.slice(0, 2), support: comparison?.support ?? null, result: profileShare }, ...denominatorSupport] });
+    const companions = shareMode ? [
+      { label: "Drawn share over W", unit: "share", result: shareResult, formula: "profile.shared.share", field: "drawnShare" },
+      { label: "Track total over W", unit, result: denominator > 0 ? E.result.finite(denominator) : E.result.make("undefined", { denominator: "Track total over W" }), field: "windowTotal" },
+      kind === "time" ? { label: "Period row volume · separate cutoff", unit: "usdt", result: volumeResult } : { label: "Profile-share log₂ ratio", unit: "log2-ratio", formula: "rows.relvol@2", result: profileShare, field: "profileShare" },
+    ] : kind === "time" ? [
       { label: "Share of row-attributed dwell", unit: "share", result: bands.w > 0 ? E.result.finite(band.w / bands.w) : E.result.make("undefined", { denominator: "row-attributed dwell" }) },
       { label: "Share of supported covered time", unit: "share", result: E.measure.dwellCheck(band.w, Math.max(0, time[1] - time[0]) * BASE) ?? E.result.finite(band.w / ((time[1] - time[0]) * BASE)) },
-      { label: "Period row volume · separate cutoff", unit: "usdt", result: E.result.finite(volume) },
+      { label: "Period row volume · separate cutoff", unit: "usdt", result: volumeResult },
     ] : [
       { label: period ? "Period row volume" : "Drawn row volume", unit: "usdt", result: E.result.finite(volume) },
       { label: "Share of declared profile", unit: "share", result: total > 0 ? E.result.finite(volume / total) : E.result.make("undefined", { denominator: "profile volume" }) },
       { label: "Profile-share log₂ ratio", unit: "log2-ratio", formula: "rows.relvol@2", result: profileShare, field: "profileShare" },
     ];
+    if (owner === "current" && shared && m !== native.m) {
+      const raw = tip.querySelector(".ol-tip-rows"), nativeRow = Math.floor(p.p / 2 ** native.m),
+        edges = [nativeRow * 2 ** native.m * PR, (nativeRow + 1) * 2 ** native.m * PR],
+        label = Object.assign(document.createElement("dt"), { textContent: "Additional current-profile details bin" }),
+        value = Object.assign(document.createElement("dd"), { textContent: `${edges.map(edge => price(edge)).join("–")} USDT · native row` });
+      value.dataset.field = "nativeDetailPrice";
+      value.dataset.canonical = JSON.stringify(edges);
+      raw?.prepend(label, value);
+    }
     coreCardPresentation(tip, { primary: { label: kind === "relvol" ? "Row volume versus mean traded row" : kind === "time" ? "Time at price" : kind === "delta" ? "Delta · taker-buy minus taker-sell USDT" : "Row volume", unit, result, field: "value" },
-      companions, observation, profile: readingProfile(q, 2 ** q.m * PR, volumeRow), detailed: Boolean(p.inspect) });
+      companions, observation, profile: volumeReady ? readingProfile(q, 2 ** q.m * PR, volumeRow) : null, detailed: Boolean(p.inspect) });
     const context = tip.querySelector(".ol-cell-context");
-    context.textContent += ` · ${period ? periodLabel(u.period) : S.selection ? "Selection" : "In view"} · ${2 ** m * PR} USDT rows`;
+    context.textContent += ` · ${period ? `${owner === "background" ? "Background" : "Rows"} · ${periodLabel(u.period)}` : S.selection ? "Selection" : "In view"} · ${2 ** m * PR} USDT rows`;
+    if (support?.approximate) context.textContent += ` · Approximate (${support.quality}); ${price(support.rowUsdt)} USDT source rows`;
+    if (support && support.requested.some((v, i) => v !== time[i])) context.textContent += ` · Requested ${range(...support.requested)} UTC; measured ${range(...time)} UTC`;
+    if (u?.stale) context.textContent += " · Updating: last measured period support";
+    if (shared && plan.window) context.textContent += ` · ${shareMode ? "Shared row share" : "Shared absolute"}; Window W [${price(plan.window.first * 2 ** m * PR)}, ${price((plan.window.last + 1) * 2 ** m * PR)}) USDT; raw amount retained`;
+    const axis = owner === "rows" ? profileUi.ref : owner === "current" ? profileUi.cur : null;
+    if (axis && !drawnResult && result.tag === "finite") {
+      const coordinate = { t: 0, clip: 0 };
+      E.axis.coordinate(axis, shareMode ? drawn?.t ?? 0 : result.value, coordinate);
+      if (coordinate.clip === E.scale.CLIP.LOW || coordinate.clip === E.scale.CLIP.HIGH)
+        context.textContent += ` · Profile bar clipped ${coordinate.clip === E.scale.CLIP.LOW ? "below" : "above"} axis; raw amount retained`;
+      if (axis.policy === "frozen") context.textContent += " · Profile axis frozen";
+      if (axis.external) context.textContent += " · External comparison axis: fitted after the replay edge";
+    }
     if (readout?.coordinate?.clip === "low" || readout?.coordinate?.clip === "high") context.textContent += ` · Numeric clipping: ${readout.coordinate.clip === "low" ? E.text.key.below : E.text.key.above}`;
     if (rv && Number.isFinite(rv.meanVolume)) context.textContent += ` · Average traded row ${usdt(rv.meanVolume)} USDT`;
     if (rv?.support.first !== null && rv?.support.first !== undefined) context.textContent += ` · Period price range ${price(rv.support.first * 2 ** q.m * PR)}–${price((rv.support.last + 1) * 2 ** q.m * PR)} USDT`;
@@ -27916,7 +28082,7 @@
   // through the same frame), and a relative volume that is not a number says
   // which case it is: outside the comparison range, no current volume, no
   // reference volume, or neither traded.
-  function rowSection(r, money, share, exact, withRow = true, atPrice = hover?.p ?? r * 2 ** renderM()) {
+  function rowSection(r, money, share, exact, withRow = true, atPrice = hover?.p ?? r * 2 ** renderM(), u = last.under) {
     const out = [],
       q = last.query,
       where = S.selection ? "selection" : "view";
@@ -27932,13 +28098,12 @@
             : `No trades in the ${where}`,
       ]);
     }
-    const u = last.under;
     if (!u) return out;
     const label = `${ROWS_INFO[u.kind].name} · ${periodLabel(u.period)}`,
       { approx, from } = underlayBasis(u.res);
     if (!u.bands) return [...out, [label, underlayWhy(u.res)]];
     if (from) out.push(["Period's rows", from]);
-    const frame = last.sc?.rows ?? null,
+    const frame = u.owner === "background" ? last.sc?.rows ?? null : null,
       baseRow = atPrice,
       band = u.bands.map.get(Math.floor(baseRow / 2 ** u.bands.m)),
       readout = frame && band && u.kind !== "relvol" ? frame.readout(band) : null,
@@ -28020,8 +28185,8 @@
     return b;
   }
   // Over the profile: whether the row is the period's POC, or in its 70% area.
-  function underlayMarks(r) {
-    const vb = last.under?.volBands;
+  function underlayMarks(r, frame = last.under) {
+    const vb = frame?.volBands;
     if (!vb) return "";
     const br = Math.floor((hover?.p ?? r * 2 ** renderM()) / 2 ** vb.m);
     return br === vb.poc
@@ -28032,6 +28197,12 @@
   }
   function onProfile(p) {
     return p.x >= G.x + G.w && p.x <= G.x + G.w + G.sw + G.profile && p.y >= G.y && p.y <= G.y + G.h;
+  }
+  function rowPointerOwner(p) {
+    if (p.rowOwner) return p.rowOwner;
+    if (!onProfile(p)) return null;
+    if (G.sw && p.x < G.x + G.w + G.sw) return "background";
+    return G.tracks > 1 && p.x >= G.tx[1] - 2 ? "rows" : "current";
   }
   // ---- The readout consumers (PRD-0002 S1) ----
   // The tooltip, the Cells table and the inspector say what a cell measures by reading the ONE readout of
@@ -28311,9 +28482,19 @@
   // stale, so the tip is derived again (without scheduling a frame: it is inside one), and the marker on the
   // legend follows the tip and the table row whatever hid them. Not for a null hover (tooltip(null) throws),
   // and not for a hidden tip (tooltip always ends by showing it).
+  function rowReadoutStamp() {
+    const frames = [last?.reference, last?.under].map(frame => frame ?
+      [frame.kind, frame.period, frame.res.state, frame.through, frame.stale, frame.bands?.m,
+        frame.bands ? objId(frame.bands.rows) : ""].join(":") : "off"),
+      plan = profileUi.plan,
+      axes = [profileUi.cur, profileUi.ref].map(axis => axis ?
+        [axis.id, axis.policy, axis.hold, axis.external, axis.domain?.join(","), axis.provenance?.through].join(":") : "off");
+    return [S.rows, S.period, S.background, S.backgroundPeriod, ...frames, profileUi.plan?.mode,
+      plan?.state, plan?.m, plan?.window?.first, plan?.window?.last, plan?.denominators?.cur, plan?.denominators?.ref, ...axes].join("|");
+  }
   function refreshTip() {
     const tip = el("tip");
-    if (hover && !tip.hidden && last?.sc && (scaleRt.tipStamp !== last.sc.stamp || drawingTipRevision !== drawingStore.revision)) tooltip(hover, { redraw: false });
+    if (hover && !tip.hidden && last?.sc && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision)) tooltip(hover, { redraw: false });
     // The readout key is named on the tip only while the tip shows (the pointer leaving, a pan or a tool hides
     // it without going through tooltip()); the attribute stays, empty, so a reader can always find it.
     if (tip.hidden && tip.dataset.readout) tip.dataset.readout = "";
@@ -28329,6 +28510,7 @@
     hover = p;
     drawingTipRevision = drawingStore.revision;
     scaleRt.tipStamp = last?.sc?.stamp ?? "";
+    scaleRt.tipRowsStamp = rowReadoutStamp();
     scaleRt.tipReadout = null;
     const tip = el("tip"),
       exact = nav.shift,
@@ -28370,13 +28552,18 @@
       clockTip(tip, onClock);
       calendarReferencePresentation(tip, onClock);
       syncRowHover(null);
-    } else if (last && onProfile(p)) {
+    } else if (last && ["background", "rows"].includes(rowPointerOwner(p))) {
+      const owner = rowPointerOwner(p), u = owner === "background" ? last.under : last.reference;
+      syncRowHover(null);
+      tipRows(tip, owner === "background" ? "Background" : "Rows", u ? periodLabel(u.period) : "", [], u ? "" : "This measurement is off");
+      coreRowsPresentation(tip, p);
+    } else if (last && (onProfile(p) || p.rowOwner === "current")) {
       const r = Math.floor(p.p / ps),
         row = last.query.rows.find((x) => x.r === r),
         waiting = last.meas.state === "pending" || last.meas.state === "failed",
         // The underlay's value for the row and its relative volume, while it shows.
-        times = rowSection(r, money, share, exact, false),
-        marks = underlayMarks(r);
+        times = rowSection(r, money, share, exact, false, p.p, last.reference),
+        marks = underlayMarks(r, last.reference);
       // A profile row is no one cell: the Cells drawer shows none as hovered.
       syncRowHover(null);
       // It names the row it reads out (D.18: "row:<r>"), at the level drawn, unless it has nothing to read.
@@ -28409,7 +28596,7 @@
           ],
           note,
         );
-      if (!waiting || last.under?.bands && p.x < G.x + G.w + G.sw) coreRowsPresentation(tip, p);
+      if (!waiting) coreRowsPresentation(tip, p);
     } else if (last && inStrip(p) && eventAt(p)) {
       eventTip(tip, eventAt(p));
       stripReferencePresentation(tip, eventAt(p));
@@ -28548,14 +28735,16 @@
   const INSPECT_SURFACES = [
     { id: "cells", name: "Cells" },
     { id: "rows", name: "Rows" },
+    { id: "background", name: "Background" },
     { id: "columns", name: "Columns" },
     { id: "references", name: "References" },
     { id: "lens", name: "Lens" },
   ];
-  const inspect = { on: false, surface: "cells", t: null, p: null, ref: null, prev: "pan", detail: false, boundary: "", sig: "", lens: null, readout: null, forced: null, listKey: "", list: [] };
+  const inspect = { on: false, surface: "cells", rowTrack: null, t: null, p: null, ref: null, prev: "pan", detail: false, boundary: "", sig: "", lens: null, readout: null, forced: null, listKey: "", list: [] };
   const inspectSurfaceOn = (id) =>
     id === "cells" ||
     (id === "rows" && Boolean(G.tracks)) ||
+    (id === "background" && S.background !== "off") ||
     (id === "columns" && Boolean(paneShown) && G.ah > 0) ||
     (id === "references" && inspectReferences().length > 0) ||
     (id === "lens" && inspectLensOn());
@@ -28662,7 +28851,8 @@
       // an oscillator's columns are its own bars (a day, or four hours), not the Cells grid's
       bar = surface === "columns" && paneShown?.measure?.osc ? (paneShown.key === "rsi4h" ? DAYS / 6 : DAYS) : null,
       ts = lens ? lens.ts : bar ?? stepT(),
-      ps = lens ? lens.ps : surface === "rows" && last?.under?.bands ? 2 ** last.under.bands.m : stepP(),
+      rowFrame = surface === "background" ? last?.under : surface === "rows" && inspect.rowTrack !== "current" ? last?.reference : null,
+      ps = lens ? lens.ps : surface === "rows" ? 2 ** rowProfileLevel(inspect.rowTrack === "current" ? "current" : "rows", rowFrame?.bands?.m ?? renderM()) : rowFrame?.bands ? 2 ** rowFrame.bands.m : stepP(),
       lo = Math.max(lens ? lens.lensBounds[0] : 0, S.tA),
       hi = Math.min(lens ? lens.lensBounds[1] : cutEdge(), S.tB, cutEdge()),
       pLo = Math.max(0, lens ? lens.lensBounds[2] : S.pA),
@@ -28676,7 +28866,8 @@
       p = inspect.p ?? (S.pA + S.pB) / 2,
       x = G.X(t),
       y = G.Y(p);
-    if (s === "rows") return { x: G.x + G.w + Math.max(1, G.sw / 2), y, t, p, inspect: true };
+    if (s === "background") return { x: G.x + G.w + Math.max(1, G.sw / 2), y, t, p, inspect: true, rowOwner: "background" };
+    if (s === "rows") return { x: G.tx[G.tracks > 1 ? 1 : 0] + 1, y, t, p, inspect: true, rowOwner: inspect.rowTrack ?? (S.rows !== "off" ? "rows" : "current") };
     if (s === "columns") return { x: clamp(x, G.x, G.x + G.w), y: G.ay + G.ah / 2, t, p, inspect: true };
     if (s === "references") return { x: G.x + G.w - 24, y: clamp(y, G.y + 8, G.y + G.h - 8), t, p, inspect: true };
     return { x: clamp(x, G.x, G.x + G.w), y: clamp(y, G.y, G.y + G.h), t, p, inspect: true };
@@ -28689,12 +28880,13 @@
       r = Math.floor((inspect.p ?? 0) / sp.ps),
       inT = c >= sp.c0 && c <= sp.c1,
       inP = r >= sp.r0 && r <= sp.r1;
-    return { sp, c, r, inside: s === "rows" ? inP : s === "columns" ? inT : s === "references" ? true : inT && inP };
+    return { sp, c, r, inside: ["rows", "background"].includes(s) ? inP : s === "columns" ? inT : s === "references" ? true : inT && inP };
   }
   const inspectText = {
     cells: (w) => `${range(w.c * w.sp.ts, (w.c + 1) * w.sp.ts)} UTC · ${price(w.r * w.sp.ps * PR)}–${price((w.r + 1) * w.sp.ps * PR)} USDT`,
     lens: (w) => `Lens · ${range(w.c * w.sp.ts, (w.c + 1) * w.sp.ts)} UTC · ${price(w.r * w.sp.ps * PR)}–${price((w.r + 1) * w.sp.ps * PR)} USDT`,
     rows: (w) => `Row ${price(w.r * w.sp.ps * PR)}–${price((w.r + 1) * w.sp.ps * PR)} USDT`,
+    background: (w) => `Background ${price(w.r * w.sp.ps * PR)}–${price((w.r + 1) * w.sp.ps * PR)} USDT`,
     columns: (w) => `${w.sp.bar ? "Bar" : "Column"} ${range(w.c * w.sp.ts, (w.c + 1) * w.sp.ts)} UTC`,
   };
   function inspectEntry() {
@@ -28937,6 +29129,7 @@
       inspect.p = (Math.floor(clamp(inspect.p, sp.lens?.lensBounds[2] ?? inspect.p, sp.lens?.lensBounds[3] ?? inspect.p) / sp.ps) + 0.5) * sp.ps;
     } else if (id !== "lens") inspect.lens = null;
     inspect.surface = id;
+    if (id === "rows") inspect.rowTrack = S.rows !== "off" ? "rows" : "current";
     inspect.boundary = "";
     // the lens's controls come and go with the held lens
     update();
@@ -28959,11 +29152,11 @@
       inspectRender(true);
       return true;
     }
-    if ((s === "rows" && horizontal) || (s === "columns" && !horizontal)) return false;
+    if ((["rows", "background"].includes(s) && horizontal) || (s === "columns" && !horizontal)) return false;
     const sp = inspectSpan(s),
       // the axes this surface reads: Rows read prices only, Columns read time only, so the coordinate the surface ignores (a time that a pan has carried out of the
       // view, say) neither blocks a step nor is changed by it
-      useT = s !== "rows",
+      useT = !["rows", "background"].includes(s),
       useP = s !== "columns";
     let c = Math.floor((inspect.t ?? 0) / sp.ts),
       r = Math.floor((inspect.p ?? 0) / sp.ps);
@@ -29003,7 +29196,7 @@
       if (list.length) inspect.ref = (end ? list[list.length - 1] : list[0]).id;
     } else {
       const sp = inspectSpan(s);
-      if (s === "rows") inspect.p = ((end ? sp.r0 : sp.r1) + 0.5) * sp.ps;
+      if (["rows", "background"].includes(s)) inspect.p = ((end ? sp.r0 : sp.r1) + 0.5) * sp.ps;
       else {
         inspect.t = inspectColumnT(sp, end ? sp.c1 : sp.c0);
         if (!inspectWhere().inside || (s !== "columns" && Math.floor(inspect.p / sp.ps) < sp.r0)) inspect.p = clamp(inspect.p ?? (sp.r0 + sp.r1) / 2, (sp.r0 + 0.5) * sp.ps, (sp.r1 + 0.5) * sp.ps);
@@ -29069,7 +29262,8 @@
       const n = Math.round(Math.log2(w.sp.ts)), bar = candleRange(n, w.c * w.sp.ts, (w.c + 1) * w.sp.ts).bars.find((r) => r.c === w.c);
       if (bar) { const g = E.candles.project(bar, G.X, G.Y, PR, candleScratch); box = [g.x - Math.max(8,g.width)/2, g.high - 3, Math.max(8,g.width), g.low - g.high + 6]; }
     } else if (s === "cells" || s === "lens") box = [G.X(w.c * w.sp.ts), G.Y((w.r + 1) * w.sp.ps), G.X((w.c + 1) * w.sp.ts) - G.X(w.c * w.sp.ts), G.Y(w.r * w.sp.ps) - G.Y((w.r + 1) * w.sp.ps)];
-    else if (s === "rows" && G.tracks) box = [G.tx[0] - 2, G.Y((w.r + 1) * w.sp.ps), (G.tracks > 1 ? G.tx[1] - G.tx[0] : 0) + TRACK_BARS + 4, G.Y(w.r * w.sp.ps) - G.Y((w.r + 1) * w.sp.ps)];
+    else if (s === "rows" && G.profile) box = [G.tx[inspect.rowTrack === "current" || G.tracks < 2 ? 0 : 1] - 2, G.Y((w.r + 1) * w.sp.ps), TRACK_BARS + 4, G.Y(w.r * w.sp.ps) - G.Y((w.r + 1) * w.sp.ps)];
+    else if (s === "background" && G.sw) box = [G.sx, G.Y((w.r + 1) * w.sp.ps), G.sw, G.Y(w.r * w.sp.ps) - G.Y((w.r + 1) * w.sp.ps)];
     else if (s === "columns" && G.ah > 0) box = [G.X(w.c * w.sp.ts), G.ay, G.X((w.c + 1) * w.sp.ts) - G.X(w.c * w.sp.ts), G.ah];
     else if (s === "references") {
       const e = inspectEntry(),
@@ -29090,7 +29284,7 @@
   // A draw that changed what the cursor stands on (the view, the level, the data) reads it again, so a pan or a refresh never leaves a stale readout.
   function inspectSync() {
     if (!inspect.on) return;
-    const sig = [inspect.surface, inspect.t, inspect.p, inspect.ref, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
+    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", rowReadoutStamp(), comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
     if (sig === inspect.sig) return;
     inspect.sig = sig;
     inspectRender(false, false);
@@ -29204,8 +29398,10 @@
       inspect.surface = "references";
       inspect.ref = hit.id;
       inspect.lens = null;
-    } else if (G.tracks && onProfile(p)) {
-      inspect.surface = "rows";
+    } else if (onProfile(p)) {
+      const owner = rowPointerOwner(p);
+      inspect.surface = owner === "background" ? "background" : "rows";
+      inspect.rowTrack = owner;
       inspect.p = p.p;
       inspect.lens = null;
     } else if (paneShown && inActivity(p)) {
@@ -29330,7 +29526,7 @@
     // Data/status updates retain their grid. Camera and internal plot-layout
     // changes choose it again; outer resizes are handled by the canvas observer.
     const sourceFloor = !PACK.live && S.mode !== "candles" ? `${displaySource()?.n}:${displaySource()?.m}` : "";
-    const context = [S.auto, S.window, S.mode === "candles", S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.profileOpen, S.diagonal, sourceFloor, eventKinds().length].join(":");
+    const context = [S.auto, S.window, S.mode === "candles", S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.background !== "off", S.profileOpen, S.diagonal, sourceFloor, eventKinds().length].join(":");
     if (context !== autoContext) {
       autoContext = context;
       if (S.auto) autoLevel();
@@ -29438,7 +29634,7 @@
     // Latest appears when the cutoff is out of view, beside the price profile.
     el("latest").hidden = S.replay || (S.tA < CUT && S.tB >= CUT);
     el("latest").style.right =
-      GUTTER + profileWidth(canvas.clientWidth, profileTrackCount(), S.profileOpen) + (S.rows !== "off" ? ROWS_STRIP : 0) + 8 + "px";
+      GUTTER + profileWidth(canvas.clientWidth, profileTrackCount(), S.profileOpen) + (S.background !== "off" ? ROWS_STRIP : 0) + 8 + "px";
     applyPanels();
     updateNavigation();
     requestDraw();
@@ -29791,7 +29987,15 @@
 
   // Popovers: one open at a time; outside clicks and Escape close them.
   const pop = { open: null };
-  const menuFlows = { mode: { step: "dataset" }, pane: { step: "dataset", rsi: "rsi1d" }, rows: { step: "dataset" } };
+  const menuFlows = { mode: { step: "dataset" }, pane: { step: "dataset", rsi: "rsi1d" }, rows: { step: "dataset" }, background: { step: "dataset" } };
+  const rowSelectorSpecs = {
+    background: { name: "Background", measure: () => S.background, period: () => S.backgroundPeriod,
+      setMeasure: value => setBackground(value), setPeriod: value => setBackgroundPeriod(value),
+      description: "What each price row shows behind the cells and in its colour strip." },
+    rows: { name: "Rows", measure: () => S.rows, period: () => S.period,
+      setMeasure: value => setRows(value), setPeriod: value => setPeriod(value),
+      description: "What each price row shows in the second vertical profile." },
+  };
   // restoreFocus gives the focus back to the popover's button when the focus was in it (hidden, it would drop it) or nowhere (a pointer
   // press that focuses no button, as Safari's). A focus it never had stays where it is, so the keys there keep their meaning: H opens
   // History without taking the focus from the chart or the navigator, and a menu the focus leaves by keyboard stays open
@@ -29827,8 +30031,8 @@
     if (!open) closePop();
   }
   // On a phone the controls open in a sheet, and the chart header's newer
-  // menus with them (Columns, Rows and its period), before POC lines; wider,
-  // they sit after Cells in the chart header, the Rows legend after them.
+  // menus with them (Columns, Background and Rows), before POC lines; wider,
+  // they sit after Cells in the chart header.
   const PHONE = matchMedia("(max-width: 760px)");
   function placeMenus() {
     const groups = [el("pane").parentElement, el("background-controls")],
@@ -29958,7 +30162,7 @@
       sc[channel] ?? "",
       sc.local ? "l" : "",
       scaleRt.playing ? "p" : "",
-      channel === "rows" ? S.rows + S.period : S.mode,
+      channel === "rows" ? S.background + S.backgroundPeriod : S.mode,
       sc.basis,
       sc.pathBasis,
       sc.transform,
@@ -30051,7 +30255,7 @@
       legend: E.legend.build(input, chip ? chip.warn : (scaleRt.warn[channel]?.report ?? null), uiFmt, {
         ...base,
         channel,
-        measureLabel: channel === "rows" ? (ROWS_INFO[S.rows]?.name ?? S.rows) : MODE_NAMES[S.mode],
+        measureLabel: channel === "rows" ? (ROWS_INFO[S.background]?.name ?? S.background) : MODE_NAMES[S.mode],
         shortExposure: scaleRt.warn[channel]?.shortExposure,
       }),
     };
@@ -30156,7 +30360,7 @@
       add("rowTrimmed", "Coarse rows start", uiUtcMs(E.time.baseToMs(info.trimmedFromBase, T0, BASE)), E.time.baseToMs(info.trimmedFromBase, T0, BASE));
     if (info.throughBase !== null && info.throughBase !== undefined)
       add("rowThrough", "Read through", uiUtcMs(E.time.baseToMs(info.throughBase, T0, BASE)), E.time.baseToMs(info.throughBase, T0, BASE));
-    if (info.stale) add("rowStale", "Rows", "Updating", true);
+    if (info.stale) add("rowStale", "Background", "Updating", true);
     if (info.time) {
       add("rowTimeCovered", "Seconds covered", dur(info.time.coveredSeconds), info.time.coveredSeconds);
       add("rowTimeAttributed", "Seconds attributed to rows", dur(info.time.attributedSeconds), info.time.attributedSeconds);
@@ -30560,7 +30764,7 @@
   // The static skeleton of a colour popover: parts the builder fills and two it builds once.
   function uiPopSkeleton(panel, channel) {
     const head = uiEl("div", "ol-pop-head");
-    head.append(uiEl("span", "", channel === "rows" ? E.text.ui.scale + " · Rows" : E.text.ui.details));
+    head.append(uiEl("span", "", channel === "rows" ? E.text.ui.scale + " · Background" : E.text.ui.details));
     panel.append(head);
     const part = (name) => {
       const node = uiEl("div", "ol-legend-part");
@@ -30569,7 +30773,7 @@
       return node;
     };
     // What a person came for comes first: the bar, the warnings and the actions; the long details last
-    panel.append(part("bar"), part("warnings"));
+    panel.append(part("bar"), part("warnings"), part("transform"));
     const actions = uiEl("div", "ol-legend-actions");
     actions.dataset.part = "actions";
     actions.setAttribute("role", "group");
@@ -30602,10 +30806,10 @@
   // and k (U alone when linear), a manual share window takes a low and a high.
   function uiPopActions(panel, channel) {
     const cells = channel !== "rows",
-      subject = cells ? S.mode : S.rows,
+      subject = cells ? S.mode : S.background,
       part = (name) => panel.querySelector(`[data-part="${name}"]`);
     if (!subject || subject === "off" || (cells && E.measure.MODES[subject].kind === "occupancy")) {
-      part("actions").hidden = part("why").hidden = part("manual").hidden = true;
+      part("actions").hidden = part("why").hidden = part("manual").hidden = part("transform").hidden = true;
       return;
     }
     const offers = E.policy.offers(cells ? "cells" : "rows", subject, S.scale, Boolean(PACK.live), cells ? MODE_NAMES[subject] : ROWS_INFO[subject].name),
@@ -30619,6 +30823,32 @@
         button.hidden = enabled === null;
         if (!enabled && reason) reasons.push(reason);
       };
+    const transform = part("transform"),
+      transformChoices = cells || !offers.transform.length ? [] : [
+        ["log", E.text.transform.valueLog], ["linear", E.text.transform.valueLinear],
+        ...(offers.transform.includes("rank") ? [["rank", E.text.transform.rank]] : []),
+      ];
+    transform.hidden = transformChoices.length === 0;
+    transform.classList.add("ol-legend-actions", "ol-legend-transforms");
+    transform.setAttribute("role", "group");
+    transform.setAttribute("aria-label", "Background colour transform");
+    const transformKey = transformChoices.map(([value]) => value).join("|");
+    if (transform.dataset.choices !== transformKey) {
+      transform.dataset.choices = transformKey;
+      transform.replaceChildren(uiEl("p", "ol-legend-note", "Colour transform"), ...transformChoices.map(([value, label]) => {
+        const button = uiEl("button", "ol-action ol-s cursor-interaction", label);
+        button.type = "button";
+        button.dataset.action = "colour-transform";
+        button.dataset.value = value;
+        button.dataset.channel = "rows";
+        button.dataset.scaleChannel = "rows";
+        button.dataset.scaleItem = `transform:${value}`;
+        button.dataset.hint = "How the Background values map to colour in the backdrop and its strip.";
+        return button;
+      }));
+    }
+    for (const button of transform.querySelectorAll("button"))
+      button.setAttribute("aria-pressed", String(uiScaleChecked("rows", `transform:${button.dataset.value}`)));
     part("actions").hidden = false;
     set("fit", { enabled: offers.fit, reason: offers.reasons.fit });
     set("auto", {
@@ -30742,6 +30972,7 @@
     if (name === "profile-cmp") {
       if (button.getAttribute("aria-disabled") !== "true") profileSet("profileCmp", button.dataset.value);
     } else if (name === "profile-open") profileSet("profileOpen", !S.profileOpen);
+    else if (name === "colour-transform") uiScaleChoose(channel, `transform:${button.dataset.value}`);
     else if (name === "warn-open-lens") {
       closePop();
       if (PHONE.matches && root.dataset.sheet !== "open") setSheet(true);
@@ -30970,6 +31201,7 @@
       row("cellsMeasure", "Cells", MODE_NAMES[S.mode], S.mode),
       row("columnsMeasure", "Columns", PANE_INFO[S.pane].name, S.pane),
     ];
+    if (S.background !== "off") view.push(row("backgroundMeasure", "Background", `${ROWS_INFO[S.background].name} ${periodPhrase(S.backgroundPeriod)}`, `${S.background}:${S.backgroundPeriod}`));
     if (S.rows !== "off") view.push(row("rowsMeasure", "Rows", `${ROWS_INFO[S.rows].name} ${periodPhrase(S.period)}`, `${S.rows}:${S.period}`));
     view.push(row("dataCutoff", "Data through", uiUtcMs(cutMs), cutMs));
     if (canonMs !== null) view.push(row("canonicalThrough", "Canonical through", uiUtcMs(canonMs), canonMs));
@@ -30986,7 +31218,7 @@
     );
     view.push(row("appearance", "Appearance", `${E.text.fill(E.text.ui.appearance, { id: appearanceId() })} · version ${E.lut.APPEARANCES[scaleRt.appearance].version}`, appearanceId()));
     add("view", E.text.ui.summaryView, view);
-    const names = { cells: "Cells", rows: "Rows", lens: "Lens", pane: "Columns" };
+    const names = { cells: "Cells", rows: "Background", lens: "Lens", pane: "Columns" };
     for (const channel of ["cells", "rows", "lens", "pane"]) {
       const legend = scaleUi.models[channel];
       if (!legend) continue;
@@ -31180,14 +31412,14 @@
     update();
     save();
   }
-  // ---- the Scale sections of the Cells and Rows menus ----
+  // ---- the Cells Scale section and shared colour preferences ----
   // One item of the Scale section: a native button with an accessible name and, when there is one, a
   // description (why it is not offered, what an approximation is). A disabled item stays in the list and
   // says why, so nothing is explained by a hover.
   function uiScaleItem(spec) {
     const children = [svgIcon("check", "ol-icon ol-check"), itemText(spec.id, spec.name, spec.desc ?? "")],
       choose = () => { if (!spec.disabled) uiScaleChoose(spec.channel, spec.key); },
-      b = flowChoiceItem(spec.channel === "cells" ? "mode" : "rows", spec.role, children, choose, spec.disabled);
+      b = flowChoiceItem(spec.channel === "cells" ? "mode" : "background", spec.role, children, choose, spec.disabled);
     b.setAttribute("aria-labelledby", `ol-${spec.id}-name`);
     if (spec.desc) b.setAttribute("aria-describedby", `ol-${spec.id}-desc`);
     b.setAttribute("aria-checked", String(Boolean(spec.checked)));
@@ -31201,7 +31433,7 @@
   // rank), Scale policy, and the lock, Local contrast and Fit. No item has a shortcut of its own.
   function uiScaleSection(channel) {
     const cells = channel === "cells",
-      subject = cells ? S.mode : S.rows;
+      subject = cells ? S.mode : S.background;
     if (!subject || subject === "off" || (cells && E.measure.MODES[subject].kind === "occupancy")) return [];
     const name = cells ? MODE_NAMES[subject] : ROWS_INFO[subject].name,
       offers = E.policy.offers(channel, subject, S.scale, Boolean(PACK.live), name);
@@ -31267,7 +31499,7 @@
   // Whether a Scale item is on, from the raw preferences through what the measure reads of them.
   function uiScaleChecked(channel, key) {
     const cells = channel === "cells",
-      subject = cells ? S.mode : S.rows,
+      subject = cells ? S.mode : S.background,
       [group, value] = key.split(":");
     if (group === "lock") return S.scale.lock;
     if (group === "local") return S.scale.local;
@@ -31302,21 +31534,21 @@
   // hangs on one key of the preferences, so a pointer move that changes none of them does a string join.
   function renderScaleUi() {
     const s = S.scale,
-      key = [S.mode, S.pane, S.rows, S.period, PACK.live ? 1 : 0, S.lens ? 1 : 0, s.basis, s.pathBasis, s.transform, s.curve, s.rowsTransform, s.cells, s.rows, s.local ? 1 : 0, s.lock ? 1 : 0, s.window?.join("~")].join("|");
+      key = [S.mode, S.pane, S.rows, S.period, S.background, S.backgroundPeriod, PACK.live ? 1 : 0, S.lens ? 1 : 0, s.basis, s.pathBasis, s.transform, s.curve, s.rowsTransform, s.cells, s.rows, s.local ? 1 : 0, s.lock ? 1 : 0, s.window?.join("~")].join("|");
     if (key === scaleUi.menuKey) return;
     scaleUi.menuKey = key;
     // Local contrast is the lens's: offered, and shown, only where the measure has a scale to fit
     const toggle = el("lens-local");
     el("lens-local-label").hidden = S.mode === "candles" || !E.policy.offers("cells", S.mode, s, Boolean(PACK.live)).local;
     if (toggle.checked !== s.local) toggle.checked = s.local;
-    for (const b of qsa("#ol-mode-menu [data-scale-item], #ol-rows-menu [data-scale-item]")) {
+    for (const b of qsa("#ol-mode-menu [data-scale-item]")) {
       const on = String(uiScaleChecked(b.dataset.scaleChannel, b.dataset.scaleItem));
       if (b.getAttribute("aria-checked") !== on) b.setAttribute("aria-checked", on);
     }
     if (pop.open) {
       const panel = pop.open.panel;
       // A menu that is open while its measure changes (a shortcut) is rebuilt, the focused item kept
-      const flow = ["mode", "pane", "rows"].find(id => panel === el(`${id}-menu`));
+      const flow = ["mode", "pane", "rows", "background"].find(id => panel === el(`${id}-menu`));
       if (flow) {
         const at = document.activeElement,
           inside = panel.contains(at),
@@ -31606,17 +31838,15 @@
   }
   function flowSteps(id) {
     const dataset = { id: "dataset", name: "Measure", title: "Choose a measure", desc: {
-      mode: "What the cells show.", pane: "What each column shows below the prices.", rows: "What each price row shows behind the cells.",
-    }[id] };
+      mode: "What the cells show.", pane: "What each column shows below the prices.",
+    }[id] ?? rowSelectorSpecs[id]?.description };
     if (id === "mode") return [dataset, ...scaleSteps("cells")];
     if (id === "pane") return [dataset, ...(S.pane.startsWith("rsi") ? [{
       id: "timeframe", name: "Timeframe", title: "Choose a timeframe", desc: "The bars used to calculate RSI 14.", group: paneTimeframes(),
     }] : [])];
-    if (S.rows === "off") return [dataset];
-    const scale = scaleSteps("rows");
-    return [dataset, ...scale.filter(step => step.id === "transform"),
-      { id: "period", name: "Period", title: "Choose a period", desc: "Sum the rows over this period, up to the latest data or the replay's edge.", group: rowsPeriodChoices() },
-      ...scale.filter(step => step.id !== "transform")];
+    if (rowSelectorSpecs[id].measure() === "off") return [dataset];
+    return [dataset,
+      { id: "period", name: "Period", title: "Choose a period", desc: "Fixed periods ignore navigation and selections. Visible range follows chart time. Each ends at the data or replay edge.", group: rowSelectorPeriodChoices(id) }];
   }
   function flowShowStep(id, step) {
     menuFlows[id].step = step;
@@ -31698,35 +31928,37 @@
     }
     return group;
   }
-  function rowsDatasetItems() {
-    return ROWS.map(key => flowDatasetItem("rows", key, ROWS_INFO[key], S.rows === key, rowsChoices().includes(key), () => setRows(key)));
+  function rowSelectorDatasetItems(id) {
+    const spec = rowSelectorSpecs[id];
+    return ROWS.map(key => flowDatasetItem(id, key, ROWS_INFO[key], spec.measure() === key, rowsChoices().includes(key), () => spec.setMeasure(key)));
   }
-  function rowsPeriodChoices() {
-    const group = uiEl("div"), keys = [...PERIODS, ...(isDay(S.period) ? [S.period] : [])];
+  function rowSelectorPeriodChoices(id) {
+    const spec = rowSelectorSpecs[id], period = spec.period(),
+      group = uiEl("div"), keys = [...PERIODS, ...(isDay(period) ? [period] : [])];
     group.setAttribute("role", "group");
     for (const key of keys) {
-      const b = flowChoiceItem("rows", "menuitemradio", [svgIcon("check", "ol-icon ol-check"),
-        itemText(`rows-period-${key}`, periodLabel(key), periodPhrase(key))], () => setPeriod(key));
+      const b = flowChoiceItem(id, "menuitemradio", [svgIcon("check", "ol-icon ol-check"),
+        itemText(`${id}-period-${key}`, periodLabel(key), periodPhrase(key))], () => spec.setPeriod(key));
       b.dataset.period = key;
-      b.setAttribute("aria-labelledby", `ol-rows-period-${key}-name`);
-      b.setAttribute("aria-describedby", `ol-rows-period-${key}-desc`);
-      b.setAttribute("aria-checked", String(S.period === key));
+      b.setAttribute("aria-labelledby", `ol-${id}-period-${key}-name`);
+      b.setAttribute("aria-describedby", `ol-${id}-period-${key}-desc`);
+      b.setAttribute("aria-checked", String(period === key));
       group.append(b);
     }
     const form = uiEl("form", "ol-lines-add ol-flow-date"), label = uiEl("label", "", "Since a UTC day"),
       input = uiEl("input"), error = uiEl("p", "ol-lines-status");
     form.noValidate = true;
     input.type = "date";
-    input.id = "ol-rows-period-date";
+    input.id = `ol-${id}-period-date`;
     input.min = "2021-01-01";
     input.max = date(Math.max(0, activeCutoff() - 1e-6)).toISOString().slice(0, 10);
-    input.value = menuFlows.rows.day ?? (isDay(S.period) ? S.period : "");
+    input.value = menuFlows[id].day ?? (isDay(period) ? period : "");
     label.htmlFor = input.id;
-    error.id = "ol-rows-period-error";
+    error.id = `ol-${id}-period-error`;
     error.setAttribute("role", "status");
     error.hidden = true;
-    const apply = flowChoiceItem("rows", "menuitem", ["Since this day"], () => {
-      const liveInput = el("rows-period-date"), liveError = el("rows-period-error"),
+    const apply = flowChoiceItem(id, "menuitem", ["Since this day"], () => {
+      const liveInput = el(`${id}-period-date`), liveError = el(`${id}-period-error`),
         key = liveInput.value, start = dayStart(key);
       if (!isDay(key) || start < 0 || start >= activeCutoff()) {
         liveError.textContent = `Choose a day from 1 Jan 2021 to ${day(Math.max(0, activeCutoff() - 1e-6))}.`;
@@ -31736,12 +31968,12 @@
         liveInput.focus();
         return false;
       }
-      menuFlows.rows.day = key;
-      setPeriod(key);
+      menuFlows[id].day = key;
+      spec.setPeriod(key);
     });
     apply.className = "ol-action cursor-interaction";
     input.addEventListener("input", () => {
-      menuFlows.rows.day = input.value;
+      menuFlows[id].day = input.value;
       input.removeAttribute("aria-invalid");
       input.removeAttribute("aria-describedby");
       error.hidden = true;
@@ -31753,7 +31985,7 @@
   }
   function buildFlowMenu(id) {
     const panel = el(`${id}-menu`), steps = flowSteps(id), state = menuFlows[id],
-      name = { mode: "Cells", pane: "Columns", rows: "Rows" }[id];
+      name = { mode: "Cells", pane: "Columns" }[id] ?? rowSelectorSpecs[id]?.name;
     let at = steps.findIndex(step => step.id === state.step);
     if (at < 0) { at = 0; state.step = "dataset"; }
     const step = steps[at], header = uiEl("div", "ol-flow-head"),
@@ -31775,7 +32007,7 @@
     }
     const selected = steps.slice(1).flatMap(entry => [...entry.group.querySelectorAll('[aria-checked="true"]')])
       .map(b => b.querySelector(".ol-item-text > span")?.textContent).filter(Boolean),
-      datasetName = id === "mode" ? MODE_NAMES[S.mode] : id === "pane" ? (S.pane.startsWith("rsi") ? "RSI 14" : PANE_INFO[S.pane].name) : ROWS_INFO[S.rows].name;
+      datasetName = id === "mode" ? MODE_NAMES[S.mode] : id === "pane" ? (S.pane.startsWith("rsi") ? "RSI 14" : PANE_INFO[S.pane].name) : ROWS_INFO[rowSelectorSpecs[id].measure()].name;
     // A menu with one step is a plain list: no step count and no stepper.
     if (steps.length > 1) header.append(uiEl("div", "ol-flow-caption", `${name} · Step ${at + 1} of ${steps.length}`), progress,
       uiEl("div", "ol-flow-summary", [datasetName, ...selected].join(" · ")));
@@ -31785,7 +32017,7 @@
     body.setAttribute("role", "group");
     body.setAttribute("aria-labelledby", heading.id);
     body.append(heading, uiEl("p", "ol-flow-desc", step.desc));
-    if (step.id === "dataset") body.append(...{ mode: modeDatasetItems, pane: paneDatasetItems, rows: rowsDatasetItems }[id]());
+    if (step.id === "dataset") body.append(...(rowSelectorSpecs[id] ? rowSelectorDatasetItems(id) : { mode: modeDatasetItems, pane: paneDatasetItems }[id]()));
     else {
       // The step title names this group; omit the duplicated old section caption.
       step.group.querySelector(".ol-menu-cap")?.remove();
@@ -31808,94 +32040,23 @@
   }
   const buildModeMenu = () => buildFlowMenu("mode"),
     buildPaneMenu = () => buildFlowMenu("pane"),
-    buildRowsMenu = () => buildFlowMenu("rows");
-  // The Rows menu's button, and its period's, written only when they change:
-  // update() runs on every input. The period shows while the underlay does.
+    buildRowsMenu = () => buildFlowMenu("rows"),
+    buildBackgroundMenu = () => buildFlowMenu("background");
+  // Each closed selector declares its own measure and period, including while Off.
   function renderRows() {
-    const name = S.rows === "off" ? "Off" : ROWS_INFO[S.rows].name;
-    if (el("rows").dataset.rows !== S.rows) {
-      el("rows").dataset.rows = S.rows;
-      el("rows-text").textContent = name;
-      el("rows").setAttribute("aria-label", `Rows: ${name}`);
-      qsa("#ol-rows-menu [data-rows]").forEach((b) =>
-        b.setAttribute("aria-checked", String(b.dataset.rows === S.rows)),
-      );
+    for (const [id, spec] of Object.entries(rowSelectorSpecs)) {
+      const measure = spec.measure(), period = spec.period(), button = el(id),
+        summary = `${ROWS_INFO[measure].name} · ${periodLabel(period)}`;
+      button.dataset[id] = measure;
+      button.dataset.period = period;
+      const text = el(`${id}-text`);
+      if (text.textContent !== summary || !text.querySelector(".ol-row-selector-period"))
+        text.replaceChildren(uiEl("span", "ol-row-selector-measure", ROWS_INFO[measure].name), uiEl("span", "ol-row-selector-period", ` · ${periodLabel(period)}`));
+      const label = `${spec.name}: ${summary}`;
+      if (button.getAttribute("aria-label") !== label) button.setAttribute("aria-label", label);
+      qsa(`#ol-${id}-menu [data-${id}]`).forEach(choice =>
+        choice.setAttribute("aria-checked", String(choice.dataset[id] === measure)));
     }
-    const group = el("period").parentElement,
-      label = periodLabel(S.period);
-    if (group.hidden !== (S.rows === "off")) group.hidden = S.rows === "off";
-    if (el("period-text").textContent !== label) {
-      el("period-text").textContent = label;
-      el("period").setAttribute("aria-label", `Rows' period: ${label}`);
-    }
-    if (!el("period-pop").hidden) renderPeriods();
-  }
-  // The period's choices: the POC lines' periods and all history, then the
-  // chosen day, if one is.
-  function periodRow(key) {
-    const row = document.createElement("label"),
-      radio = document.createElement("input"),
-      name = document.createElement("span");
-    row.className = "ol-line-row cursor-interaction";
-    row.dataset.flowKey = key;
-    radio.type = "radio";
-    radio.name = "ol-period";
-    radio.dataset.period = key;
-    name.className = "ol-line-name";
-    row.append(radio, name);
-    return row;
-  }
-  function renderPeriods() {
-    const list = el("period-list"),
-      keys = [...PERIODS, ...(isDay(S.period) ? [S.period] : [])];
-    if (list.dataset.keys !== keys.join(",")) {
-      list.dataset.keys = keys.join(",");
-      Flow.replaceChildren(list, ...keys.map(periodRow));
-    }
-    for (const radio of qsa("#ol-period-list input[data-period]")) {
-      const key = radio.dataset.period,
-        name = radio.parentElement.querySelector(".ol-line-name"),
-        label = periodLabel(key);
-      if (radio.checked !== (key === S.period)) radio.checked = key === S.period;
-      if (name.textContent !== label) name.textContent = label;
-    }
-    el("period-date").min = "2021-01-01";
-    el("period-date").max = date(Math.max(0, activeCutoff() - 1e-6)).toISOString().slice(0, 10);
-  }
-  function periodStatus(text) {
-    el("period-status").textContent = text;
-  }
-  function bindPeriods() {
-    bindPop("period", "period-pop", () => {
-      hideHint();
-      periodStatus("");
-      renderPeriods();
-      root.querySelector("#ol-period-list input:checked")?.focus();
-    });
-    el("period-list").addEventListener("change", (e) => {
-      const key = e.target.dataset?.period;
-      if (!key) return;
-      setPeriod(key);
-      periodStatus(`Rows ${periodPhrase(key)}`);
-    });
-    el("period-add").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const key = el("period-date").value;
-      if (!isDay(key)) return periodStatus("Choose a day.");
-      const start = dayStart(key);
-      if (start < 0 || start >= activeCutoff())
-        return periodStatus(`Choose a day from 1 Jan 2021 to ${day(Math.max(0, activeCutoff() - 1e-6))}.`);
-      setPeriod(key);
-      el("period-date").value = "";
-      periodStatus(`Rows ${periodPhrase(key)}`);
-    });
-    el("period-date").addEventListener("input", () => periodStatus(""));
-    // Text fields keep their keys, so the date field closes its popover itself.
-    el("period-date").addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      closePop(true);
-    });
   }
 
   // Labels: a control's name and key, or a read value's meaning, half a second after the
@@ -32129,12 +32290,11 @@
     el("reset-confirm").addEventListener("cancel", (event) => { event.preventDefault(); closeCanvasReset(); });
     bindMenu("window", "window-menu", buildWindowMenu);
     bindMenu("follow", "follow-menu", buildFollowMenu);
-    for (const [id, build] of [["mode", buildModeMenu], ["pane", buildPaneMenu], ["rows", buildRowsMenu]])
+    for (const [id, build] of [["mode", buildModeMenu], ["pane", buildPaneMenu], ["background", buildBackgroundMenu], ["rows", buildRowsMenu]])
       bindMenu(id, `${id}-menu`, build, () => { menuFlows[id].step = "dataset"; });
     addEventListener("resize", () => {
-      for (const id of ["mode", "pane", "rows"]) uiPopPlace(el(`${id}-menu`), el(id), "start");
+      for (const id of ["mode", "pane", "rows", "background"]) uiPopPlace(el(`${id}-menu`), el(id), "start");
     });
-    bindPeriods();
     bindLines();
     bindInspect();
     bindPop("res", "res-pop", () => {
@@ -32151,7 +32311,8 @@
         viewPlace() +
         (S.mode === "volume" ? "" : " · " + MODE_NAMES[S.mode]) +
         (S.pane === "cells" ? "" : ` · ${PANE_INFO[S.pane].name} columns`) +
-        (S.rows === "off" ? "" : ` · ${ROWS_INFO[S.rows].name} rows`);
+        (S.rows === "off" ? "" : ` · ${ROWS_INFO[S.rows].name} rows`) +
+        (S.background === "off" ? "" : ` · ${ROWS_INFO[S.background].name} background`);
     });
     bindPop("evidence-info", "evidence-more");
     document.addEventListener("pointerdown", (e) => {
@@ -33990,10 +34151,10 @@
     const was = lineLatest.get(key);
     return was && r.span && was.span[1] <= cutEdge() ? { ...was, stale: true } : r;
   }
-  // The periods whose rows are read: the lines', and the underlay's while it shows.
+  // Both row measurements share cached period reads; identical periods are requested only once.
   const readPeriods = () => {
     const own = periodLines();
-    return S.rows !== "off" && !own.includes(S.period) ? [...own, S.period] : own;
+    return [...new Set([...own, ...(S.rows !== "off" ? [S.period] : []), ...(S.background !== "off" ? [S.backgroundPeriod] : [])])];
   };
   function linesWant() {
     for (const key of readPeriods()) {
@@ -36281,7 +36442,7 @@
   // second slot. Off by default, and read only while it shows.
   const ROWS = ["off", "volume", "delta", "relvol", "time"],
     ROWS_INFO = {
-      off: { name: "Off", desc: "No backdrop behind the cells" },
+      off: { name: "Off", desc: "Hide this price-row measurement" },
       volume: { name: "Volume", desc: "USDT traded at each price row over the period" },
       delta: { name: "Delta", desc: "Taker-buy minus taker-sell USDT at each price row over the period" },
       relvol: {
@@ -36327,13 +36488,14 @@
       hit = dwellResults.get(id);
     if (hit) return hit;
     if (motion.failed.has(id)) return { key, span, state: "failed", error: motion.failed.get(id) };
+    // A moving viewport has no stale substitute: the previous viewport is a different measurement.
+    if (key === "visible") return { key, span, state: "pending" };
     const was = dwellLatest.get(key);
     return was && was.span[1] <= cutEdge() ? { ...was, stale: true } : { key, span, state: "pending" };
   }
-  function underlayDwellWant() {
-    if (!PACK.live || S.rows !== "time") return null;
-    const key = S.period,
-      span = lineSpan(key);
+  function underlayDwellWant(key) {
+    if (!PACK.live || !key) return null;
+    const span = lineSpan(key);
     if (!span || dwellResults.has(dwellId(span))) return null;
     const id = dwellId(span),
       [a, b] = span,
@@ -36400,12 +36562,11 @@
   // edge they were read to, and whether they are the last period's while a new
   // read is out. These stay on the frame and never on the cached bands, which
   // are keyed by the rows alone.
-  function underlayFrame(meas) {
-    if (S.rows === "off") return null;
-    const kind = S.rows,
-      m = 0,
-      vol = lineShown(S.period),
-      res = kind === "time" ? dwellShown(S.period) : vol,
+  function rowMeasurementFrame(meas, kind, period, owner) {
+    if (kind === "off") return null;
+    const m = 0,
+      vol = lineShown(period),
+      res = kind === "time" ? dwellShown(period) : vol,
       volBands = vol.state === "ready" && vol.rows ? underlayBands(vol, m) : null,
       bands = kind === "time" ? (res.state === "ready" && res.rows ? underlayBands(res, m) : null) : volBands,
       rect = { query: meas.query, b: meas.b, state: meas.state },
@@ -36414,7 +36575,8 @@
       through = !ready ? null : kind === "time" && res.end !== undefined ? res.end : (res.span?.[1] ?? null);
     return {
       kind,
-      period: S.period,
+      period,
+      owner,
       vol,
       res,
       bands,
@@ -36427,6 +36589,14 @@
       through,
       quality: ready ? rowsQuality(res) : "exact",
     };
+  }
+  function underlayFrame(meas) {
+    return rowMeasurementFrame(meas, S.background, S.backgroundPeriod, "background");
+  }
+  function rowReferenceFrame(meas) {
+    const frame = rowMeasurementFrame(meas, S.rows, S.period, "rows");
+    if (frame?.bands && frame.kind === "relvol") frame.relvol = periodRelvolFor(frame.volBands, frame.vol);
+    return frame;
   }
   // ---- The Rows channel of the scale spine (PRD-0002 S1, package R) ----
   // What the row underlay colours with: one mapping for each (measure, period, row size, quality), fitted
@@ -41380,7 +41550,7 @@
   // to be read.
   function motionWant() {
     const viewing = movementOn();
-    if (!(coreBarTarget() || coreContextTarget() || viewing || (PACK.live && (S.rows === "time" || S.lines.includes("vvwap"))) || barLevels().length || viewBarNeeds().length || candleNeeds().length || menuBarsWant()) || cube.stale) return null;
+    if (!(coreBarTarget() || coreContextTarget() || viewing || (PACK.live && (S.rows === "time" || S.background === "time" || S.lines.includes("vvwap"))) || barLevels().length || viewBarNeeds().length || candleNeeds().length || menuBarsWant()) || cube.stale) return null;
     if (["measure", "tile", "lens"].includes(cube.busy?.kind)) return null;
     for (const want of [measureWant(), tileWant(), lensWant()])
       if (want && !cube.failed.has(want.key)) return null;
@@ -41393,7 +41563,7 @@
         cellContextWant(true),
         candleWant(),
         coreBarsWant(),
-        underlayDwellWant(),
+        ...[...new Set([...(S.rows === "time" ? [S.period] : []), ...(S.background === "time" ? [S.backgroundPeriod] : [])])].map(underlayDwellWant),
         visibleVwapWant(),
         barsWant(),
         menuBarsWant(),
@@ -42119,6 +42289,7 @@
     const snapshot = {
       name, live: !S.window && atCutoff(), span: S.tB - S.tA, lead: S.tB - CUT,
       auto: S.auto, mode: S.mode, pane: S.pane, rows: S.rows, period: S.period,
+      rowControlsVersion: 1, background: S.background, backgroundPeriod: S.backgroundPeriod,
       ...summary(), visualVersion: 3,
     }, payload = portablePayload();
     let complete;
@@ -42239,6 +42410,9 @@
       ...(x.pane && x.pane !== "cells" && PANE_INFO[x.pane] ? [`${PANE_INFO[x.pane].name} columns`] : []),
       ...(x.rows && x.rows !== "off" && ROWS_INFO[x.rows] && validPeriod(x.period)
         ? [`${ROWS_INFO[x.rows].name} rows · ${periodName(x.period)}`]
+        : []),
+      ...(x.background && x.background !== "off" && ROWS_INFO[x.background] && validPeriod(x.backgroundPeriod)
+        ? [`${ROWS_INFO[x.background].name} background · ${periodName(x.backgroundPeriod)}`]
         : []),
       // A view saved before visual version 2 opens migrated, and says so in its row.
       ...(x.visualVersion === undefined ? [PERSIST_TEXT.legacyRow] : []),
@@ -42371,7 +42545,7 @@
     from("c", cellsContext());
     // The Rows context is the Rows block's own function (rowsContext), asked for here because the address
     // must carry the mapping the Rows channel is showing; it is a lookup of the state, never a fit.
-    if (S.rows !== "off") from("r", rowsContext());
+    if (S.background !== "off") from("r", rowsContext());
     for (const [key, rec] of Object.entries(S.scale.held ?? {})) add(key.charAt(0) === "r" ? "r" : "c", rec);
     if (scaleRt.local) add("l", scaleRt.local);
     return out;
@@ -44260,7 +44434,7 @@
     scaleRt.noFit = { cells: "", rows: "", lens: "" };
     scaleRt.fitMemo.clear();
     Object.assign(S, structuredClone(initialState));
-    applyView(readView("#w=24h&vis=2"));
+    applyView(readView("#w=24h&vis=2&rc=1"));
     drawingCommit("Reset canvas", E.drawings.empty());
     drawingKeyContext = false;
     comparisonMessage = "";
@@ -44306,6 +44480,20 @@
   function setPeriod(key) {
     if (!validPeriod(key)) return;
     S.period = key;
+    update();
+    save();
+    scaleArm();
+  }
+  function setBackground(kind) {
+    if (!rowsChoices().includes(kind)) return;
+    S.background = kind;
+    update();
+    save();
+    scaleArm();
+  }
+  function setBackgroundPeriod(key) {
+    if (!validPeriod(key)) return;
+    S.backgroundPeriod = key;
     update();
     save();
     scaleArm();
@@ -46015,13 +46203,13 @@
     postNotice({code:"export-table",text:`${table.length} ${panel} records exported · full filtered table`});
   }
   function guiReferenceColourKey(container, topic) {
-    const kind = topic.colour || "none", key = [topic.id,kind,S.mode,S.rows,S.pane,colourEpoch,scaleRt.legendKey.cells,scaleRt.legendKey.rows,scaleUi.keysKey,drawingStore.revision].join("|");
+    const kind = topic.colour || "none", key = [topic.id,kind,S.mode,S.rows,S.background,S.backgroundPeriod,S.pane,colourEpoch,scaleRt.legendKey.cells,scaleRt.legendKey.rows,scaleUi.keysKey,drawingStore.revision].join("|");
     if (container.dataset.key === key) return;
     const focusedFit = container.contains(document.activeElement) && document.activeElement?.dataset.referenceColourAction === "fit";
     container.dataset.key = key; container.replaceChildren(); container.hidden = kind === "none";
     if (kind === "none") return;
     container.append(uiEl("strong", "", "Colour & marks"));
-    if (kind === "rows" && S.rows === "off") container.append(uiEl("p","ol-muted","Rows is off. Enable Rows to read its fitted colour scale."));
+    if (kind === "rows" && S.background === "off") container.append(uiEl("p","ol-muted","Background is off. Enable Background to read its fitted colour scale."));
     const row = (label, colour, mark = "—") => {
       const line = uiEl("div", "ol-reference-colour-row"), swatch = uiEl("i", "ol-reference-colour-swatch", mark);
       swatch.style.setProperty("--ref-ink", colour); swatch.setAttribute("aria-hidden","true"); line.append(swatch,uiEl("span","",label)); container.append(line);
@@ -46074,7 +46262,7 @@
       if (original) { const copy = original.querySelector(".ol-status-key-list").cloneNode(true); copy.classList.add("ol-status-keys"); copy.removeAttribute("id"); for (const element of copy.querySelectorAll("[id]"))element.removeAttribute("id");const originals=original.querySelectorAll("canvas");
         copy.querySelectorAll("canvas").forEach((canvas,index)=>canvas.getContext("2d").drawImage(originals[index],0,0));
         copy.style.flexWrap="wrap";copy.style.width="auto";copy.style.overflow="visible";container.append(copy); }
-      container.append(uiEl("p","ol-muted",topic.id === "state-glossary" ? "Cells/Rows non-value key, with the Columns diamond. Inspect names the exact reason; these are definitions, not counts of the current view." : "The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
+      container.append(uiEl("p","ol-muted",topic.id === "state-glossary" ? "Cells/Background non-value key, with the Columns diamond. Inspect names the exact reason; these are definitions, not counts of the current view." : "The key above follows the marks currently in view. Resolution separates availability from cell size; selection is interface focus."));
     }
   }
   async function comparisonImport(file) {

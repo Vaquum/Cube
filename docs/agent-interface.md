@@ -43,7 +43,8 @@ measurement kernel as the human controls. Scopes are `view`, `selection`, and
 
 Queries use UTC ISO `t1,t2`, USDT `p1,p2`, seconds `tR` and USDT `pR`. Scene patches
 use `viewport:[baseStart,baseEnd,rowStart,rowEnd]`, `resolution:[n,m]` (dyadic
-exponents), `mode,pane,rows,period,lines,selection,replay,anchor,scale`.
+exponents), `mode,pane,rows,period,background,backgroundPeriod,lines,selection,replay,anchor,scale`.
+Rows controls the second profile; Background controls the backdrop and native colour strip. Their measures and periods are independent.
 Use `readMode:"captured"` to hold evidence or `readMode:"live"` to create a view
 that reads the current source, including data needed by newly enabled features. Anchors are
 absolute base-column positions; cell replay floors the edge to its current grid.

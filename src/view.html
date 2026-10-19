@@ -847,16 +847,16 @@
             type="button"
             class="ol-legend ol-legend-chip ol-rows-legend cursor-interaction"
             id="ol-rows-legend"
-            data-hint-label="Rows colour scale"
+            data-hint-label="Background colour scale"
             data-hint="Details, calibration and scale settings"
             data-channel="rows"
             aria-haspopup="dialog"
             aria-expanded="false"
             aria-controls="ol-rows-legend-pop"
-            aria-label="Rows scale"
+            aria-label="Background scale"
             hidden
           >
-            <strong>Rows colour scale</strong>
+            <strong>Background colour scale</strong>
             <canvas class="ol-ramp" id="ol-rows-ramp" width="36" height="8" aria-hidden="true"></canvas>
             <span id="ol-rows-legend-text" class="ol-num"></span>
           </button>
@@ -864,7 +864,7 @@
             class="ol-pop ol-legend-pop"
             id="ol-rows-legend-pop"
             role="dialog"
-            aria-label="Rows scale details"
+            aria-label="Background scale details"
             tabindex="-1"
             hidden
           ></div>
@@ -1012,8 +1012,35 @@
               hidden
             ></div>
           </div>
-          <div class="ol-background-controls" role="group" aria-label="Rows" id="ol-background-controls">
-          <span class="ol-background-label">Rows</span>
+          <div class="ol-background-controls" role="group" aria-label="Price-row measurements" id="ol-background-controls">
+          <div class="ol-group ol-mode-group">
+            <button
+              type="button"
+              id="ol-background"
+              class="ol-pick cursor-interaction"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="ol-background-menu"
+              aria-label="Background: Off · 90 days"
+              data-hint="The measure and period for the backdrop behind the cells and its colour strip; independent of Rows"
+            >
+              <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M2.5 3.5h11M2.5 6.5h11M2.5 9.5h11M2.5 12.5h11" />
+              </svg>
+              <span class="ol-label">Background:</span>
+              <span id="ol-background-text">Off · 90 days</span>
+              <svg class="ol-icon ol-caret" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="m4.5 6.5 3.5 3.5 3.5-3.5" />
+              </svg>
+            </button>
+            <div data-temporary="popover"
+              class="ol-pop ol-menu ol-mode-menu ol-flow-menu"
+              id="ol-background-menu"
+              role="menu"
+              aria-label="Background"
+              hidden
+            ></div>
+          </div>
           <div class="ol-group ol-mode-group">
             <button
               type="button"
@@ -1022,16 +1049,16 @@
               aria-haspopup="menu"
               aria-expanded="false"
               aria-controls="ol-rows-menu"
-              aria-label="Rows: Off"
+              aria-label="Rows: Off · Visible range"
               aria-keyshortcuts="U"
               data-keys="U"
-              data-hint="What the backdrop behind the cells and the second profile show for each price row, over a period of their own; U steps to the next, Shift+U back"
+              data-hint="The measure and period for the second vertical profile; independent of Background. Visible range follows chart time, while selections affect the first profile; U steps to the next measure, Shift+U back"
             >
               <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
                 <path d="M2.5 3.5h7M2.5 6.5h11M2.5 9.5h9M2.5 12.5h5" />
               </svg>
               <span class="ol-label">Rows:</span>
-              <span id="ol-rows-text">Off</span>
+              <span id="ol-rows-text">Off · Visible range</span>
               <svg class="ol-icon ol-caret" viewBox="0 0 16 16" aria-hidden="true">
                 <path d="m4.5 6.5 3.5 3.5 3.5-3.5" />
               </svg>
@@ -1043,60 +1070,6 @@
               aria-label="Rows"
               hidden
             ></div>
-          </div>
-          <div class="ol-group ol-period-group" hidden>
-            <button
-              type="button"
-              id="ol-period"
-              class="ol-pick cursor-interaction"
-              aria-haspopup="dialog"
-              aria-expanded="false"
-              aria-controls="ol-period-pop"
-              aria-label="Rows' period: 90 days"
-              data-hint="The period for Rows, independent of canvas zoom; up to the latest data or the replay's edge"
-            >
-              <svg class="ol-icon" viewBox="0 0 16 16" aria-hidden="true">
-                <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
-                <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" />
-              </svg>
-              <span class="ol-label">Period:</span>
-              <span id="ol-period-text">90 days</span>
-              <svg class="ol-icon ol-caret" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="m4.5 6.5 3.5 3.5 3.5-3.5" />
-              </svg>
-            </button>
-            <div data-temporary="popover"
-              class="ol-pop ol-lines-pop ol-period-pop"
-              id="ol-period-pop"
-              role="dialog"
-              aria-labelledby="ol-period-title"
-              hidden
-            >
-              <div class="ol-pop-head">
-                <span id="ol-period-title">Rows' period</span>
-              </div>
-              <p class="ol-lines-note">
-                Fixed periods are independent of canvas zoom. Visible range follows
-                the canvas time window. Each ends at the data or replay edge.
-              </p>
-              <div
-                class="ol-lines-list"
-                id="ol-period-list"
-                role="radiogroup"
-                aria-labelledby="ol-period-title"
-              ></div>
-              <form class="ol-lines-add" id="ol-period-add">
-                <input
-                  type="date"
-                  id="ol-period-date"
-                  aria-label="A day in UTC: the period runs from that day to the latest data"
-                  required
-                /><button type="submit" class="ol-action ol-s cursor-interaction">
-                  Since this day
-                </button>
-              </form>
-              <div class="ol-lines-status" id="ol-period-status" role="status"></div>
-            </div>
           </div>
           </div>
 
@@ -1753,7 +1726,8 @@
           <div class="ol-inspect-navigation">
             <div class="ol-seg" role="tablist" aria-label="What to inspect" id="ol-inspect-surfaces">
               <button type="button" role="tab" data-surface="cells" aria-selected="true" class="cursor-interaction">Cells</button
-              ><button type="button" role="tab" data-surface="rows" aria-selected="false" tabindex="-1" class="cursor-interaction">Rows</button
+              ><button type="button" role="tab" data-surface="rows" aria-selected="false" tabindex="-1" class="cursor-interaction" data-hint="Inspect the second vertical profile using its own measure and period">Rows</button
+              ><button type="button" role="tab" data-surface="background" aria-selected="false" tabindex="-1" class="cursor-interaction" data-hint="Inspect the backdrop and its native colour-strip rows using the Background measure and period">Background</button
               ><button type="button" role="tab" data-surface="columns" aria-selected="false" tabindex="-1" class="cursor-interaction">Columns</button
               ><button type="button" role="tab" data-surface="references" aria-selected="false" tabindex="-1" class="cursor-interaction">References</button
               ><button type="button" role="tab" data-surface="lens" aria-selected="false" tabindex="-1" class="cursor-interaction">Lens</button>
@@ -2224,7 +2198,7 @@
               <dd><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dd>
             </div>
             <div>
-              <dt>Rows: next higher or lower row. Columns: previous or next column</dt>
+              <dt>Rows and Background: next higher or lower row. Columns: previous or next column</dt>
               <dd><kbd>↑</kbd> <kbd>↓</kbd> and <kbd>←</kbd> <kbd>→</kbd></dd>
             </div>
             <div>

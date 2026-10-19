@@ -150,7 +150,7 @@ function payload(extra) {
     kind: "view",
     query: { t1: 3213840, t2: 3213984, p1: 516, p2: 520, tR: 6, pR: 0 },
     view: {
-      mode: "delta", pane: "volume", poc: true, area: false, untested: false, rows: "off", period: "90d", level: null, lines: ["1d", "7d"], tab: "context", replay: false, anchor: null,
+      mode: "delta", pane: "volume", poc: true, area: false, untested: false, rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", level: null, lines: ["1d", "7d"], tab: "context", replay: false, anchor: null,
       horizon: 1, evidenceKind: "poc", barrier: 1, follow: "refit", auto: false, window: "", viewport: [3213312, 3214080, 512, 528],
       scale: { basis: "intensity", pathBasis: "spans", transform: "value", curve: "log", rowsTransform: "value", cells: "explore", rows: "auto", local: false, window: null, lock: true },
     },

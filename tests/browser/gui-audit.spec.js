@@ -136,10 +136,10 @@ test("reference state keys retain the footer's painted glyphs",async({page,fakeF
   expect(painted.copy).toEqual(painted.source);
 });
 
-test("colour keys explain disabled Rows and retain focus through redraw and Tab",async({page,fakeFor,probe})=>{
+test("colour keys explain disabled Background and retain focus through redraw and Tab",async({page,fakeFor,probe})=>{
   await page.emulateMedia({colorScheme:"light"});await open(page,fakeFor,probe,"&rows=off");
   await page.locator("#ol-reference-toggle").click();await page.locator("#ol-reference-topic").selectOption("rows");
-  await expect(page.locator("#ol-reference-colours")).toContainText("Rows is off. Enable Rows to read its fitted colour scale.");
+  await expect(page.locator("#ol-reference-colours")).toContainText("Background is off. Enable Background to read its fitted colour scale.");
   await page.locator("#ol-reference-topic").selectOption("scales");
   const colours=page.locator("#ol-reference-colours"),action=colours.getByRole("button",{name:"Show fitted colour scale",exact:true});
   await action.focus();await expect(action).toBeFocused();const before=await colours.getAttribute("data-key");

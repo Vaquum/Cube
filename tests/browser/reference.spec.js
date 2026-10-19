@@ -225,8 +225,8 @@ test("spotlight identifies the exact control; dimmed clicks and Escape only dism
 test("canvas spotlights follow resized layout and hidden features give a truthful explanation", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);
   await page.locator("#ol-reference-topic").selectOption("rows");
-  await page.getByRole("button", { name: "Show row strip", exact: true }).click();
-  await expect(page.locator("#ol-reference-status")).toContainText("Rows is off");
+  await page.getByRole("button", { name: "Show Background strip", exact: true }).click();
+  await expect(page.locator("#ol-reference-status")).toContainText("Background is off");
   await expect(page.locator("#ol-reference-spotlight")).toBeHidden();
   await page.locator("#ol-reference-topic").selectOption("grid");
   await page.getByRole("button", { name: "Show grid", exact: true }).click();

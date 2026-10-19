@@ -3,62 +3,48 @@ const { test, expect } = require("./fixtures.js");
 
 test.use({ reducedMotion: "reduce" });
 
-test("Rows advances through its settings, completes on the last choice and preserves them after reload", async ({ page, fakeFor, probe }) => {
+test("Rows chooses measure then period, completes and preserves both after reload", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("mini");
-  await page.goto(fake.url + "/#w=24h");
+  await page.goto(fake.url + "/#w=24h&rc=1");
   await probe.waitForReady();
   const menu = page.locator("#ol-rows-menu");
   await page.locator("#ol-rows").press("ArrowDown");
   await menu.locator('[data-rows="volume"]').click();
-  await expect(menu).toHaveAttribute("data-step", "transform");
-  await menu.locator('[data-scale-item="transform:linear"]').press("Enter");
   await expect(menu).toHaveAttribute("data-step", "period");
+  expect(await menu.locator("[data-rows-step]").evaluateAll(nodes => nodes.map(n => n.dataset.rowsStep))).toEqual(["dataset", "period"]);
   await menu.locator('[data-period="7d"]').click();
-  await expect(menu).toHaveAttribute("data-step", "policy");
-  await menu.locator('[data-scale-item="policy:explore"]').click();
-  await expect(menu).toHaveAttribute("data-step", "options");
-  await menu.locator('[data-scale-item="lock"]').click();
   await expect(menu).toBeHidden();
   await expect(page.locator("#ol-rows")).toBeFocused();
+  await expect(page.locator("#ol-rows-text")).toHaveText("Volume · 7 days");
+  await expect(page.locator("#ol-period")).toHaveCount(0);
   await page.reload();
   await probe.waitForReady();
   await page.locator("#ol-rows").click();
   await expect(menu.locator('[data-rows="volume"]')).toHaveAttribute("aria-checked", "true");
-  for (const [step, selector] of [["transform", '[data-scale-item="transform:linear"]'], ["period", '[data-period="7d"]'], ["policy", '[data-scale-item="policy:explore"]'], ["options", '[data-scale-item="lock"]']]) {
-    await menu.locator(`[data-rows-step="${step}"]`).click();
-    await expect(menu.locator(selector)).toHaveAttribute("aria-checked", "true");
-  }
+  await menu.locator('[data-rows-step="period"]').click();
+  await expect(menu.locator('[data-period="7d"]')).toHaveAttribute("aria-checked", "true");
   await menu.locator('[data-rows-nav="back"]').click();
-  await expect(menu).toHaveAttribute("data-step", "policy");
+  await expect(menu).toHaveAttribute("data-step", "dataset");
 });
 
-test("Rows right-click completes from each step without resetting other settings; Off completes directly", async ({ page, fakeFor, probe }) => {
+test("Rows right-click completes either step and Off preserves its period", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("mini");
-  await page.goto(fake.url + "/#w=24h&rows=volume&period=7d");
+  await page.goto(fake.url + "/#w=24h&rc=1&rows=volume&period=7d");
   await probe.waitForReady();
   const menu = page.locator("#ol-rows-menu");
-  for (const [step, selector] of [["transform", '[data-scale-item="transform:linear"]'], ["period", '[data-period="30d"]'], ["policy", '[data-scale-item="policy:auto"]'], ["options", '[data-scale-item="fit"]'], ["dataset", '[data-rows="delta"]']]) {
+  for (const [step, selector] of [["period", '[data-period="30d"]'], ["dataset", '[data-rows="delta"]']]) {
     await page.locator("#ol-rows").click();
     await menu.locator(`[data-rows-step="${step}"]`).click();
     await menu.locator(selector).click({ button: "right" });
     await expect(menu).toBeHidden();
     await expect(page.locator("#ol-rows")).toBeFocused();
   }
-  await expect(page.locator("#ol-period-text")).toHaveText("30 days");
-  await expect(page.locator("#ol-rows-text")).toHaveText("Delta");
-  await page.locator("#ol-rows").click();
-  for (const [step, key] of [["transform", "transform:linear"], ["policy", "policy:auto"]]) {
-    await menu.locator(`[data-rows-step="${step}"]`).click();
-    await expect(menu.locator(`[data-scale-item="${key}"]`)).toHaveAttribute("aria-checked", "true");
-  }
-  await menu.locator('[data-rows-step="options"]').click();
-  await menu.locator('[data-scale-item="lock"]').click({ button: "right" });
-  await expect(menu).toBeHidden();
+  await expect(page.locator("#ol-rows-text")).toHaveText("Delta · 30 days");
   await page.locator("#ol-rows").click();
   await menu.locator('[data-rows="off"]').click();
   await expect(menu).toBeHidden();
+  await expect(page.locator("#ol-rows-text")).toHaveText("Off · 30 days");
   await page.locator("#ol-rows").click();
-  // Rows off has one step: the menu is a plain list, without a stepper.
   await expect(menu).toHaveAttribute("data-step", "dataset");
   await expect(menu.locator("[data-rows-step]")).toHaveCount(0);
 });
@@ -128,7 +114,7 @@ test("recorded-only restrictions in Columns and Rows cannot advance or finish ei
   const fake = await fakeFor("recorded");
   await page.goto(fake.url + "/#w=24h");
   await probe.waitForReady();
-  for (const [id, key] of [["pane", "choppiness"], ["rows", "time"]]) {
+  for (const [id, key] of [["pane", "choppiness"], ["rows", "time"], ["background", "time"]]) {
     const menu = page.locator(`#ol-${id}-menu`);
     await page.locator(`#ol-${id}`).click();
     const choice = menu.locator(`[data-${id}="${key}"]`);
@@ -148,7 +134,7 @@ for (const width of [375, 1500]) {
     await page.goto(fake.url + "/#w=24h&rows=volume&pane=rsi4h");
     await probe.waitForReady();
     if (width <= 760) await page.locator("#ol-sheet-toggle").click();
-    for (const [id, step] of [["pane", "dataset"], ["pane", "timeframe"], ["rows", "dataset"], ["rows", "period"], ["rows", "options"]]) {
+    for (const [id, step] of [["pane", "dataset"], ["pane", "timeframe"], ["rows", "dataset"], ["rows", "period"], ["background", "dataset"], ["background", "period"]]) {
       const menu = page.locator(`#ol-${id}-menu`);
       await page.locator(`#ol-${id}`).click();
       await menu.locator(`[data-${id}-step="${step}"]`).click();

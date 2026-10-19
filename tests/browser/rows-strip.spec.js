@@ -109,7 +109,8 @@ test.describe("B28 the Rows strip", () => {
     // the default period is 90 days: a view that names Rows and no period shows "90 days"
     await page.goto(`${fake.url}/#w=24h&vis=2&rows=volume`);
     await S.atRest(page, fake, probe);
-    await expect(page.locator("#ol-period-text, #ol-period").first()).toContainText(/90/);
+    await expect(page.locator("#ol-background-text")).toHaveText("Volume · 90 days");
+    await expect(page.locator("#ol-rows-text")).toHaveText("Volume · 90 days");
   });
 
   test("each block is the LUT entry the Rows mapping gives its row, opaque and as tall as its row; a change of the time step alone changes nothing", async ({ page, probe, fakeFor, pane, surface }) => {
@@ -306,7 +307,10 @@ test.describe("B28 the strip under Delta and Time at price", () => {
     const y = priceAxis(frame),
       box = await page.locator("#ol-canvas").boundingBox();
     await page.mouse.move(box.x + layout[4] + 6, box.y + blocks[0].y + blocks[0].h / 2);
-    await expect(page.locator("#ol-tip")).toContainText(/Time at price · /);
+    const tip = page.locator("#ol-tip");
+    await expect(tip.locator('.ol-core-stats [data-primary="true"] dt')).toHaveText("Time at price");
+    await expect(tip).toContainText("Background · 7 days");
+    expect(await tip.evaluate(node => JSON.parse(node.dataset.observation).formula)).toBe("rows.time.seconds@1");
     expect(y).toBeTruthy();
   });
 });

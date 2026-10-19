@@ -31,20 +31,20 @@ const isError = (name) => (e) => typeof e === "object" && e !== null && e.name =
 // A view at its defaults, the way checkView returns one.
 const base = (patch) => ({
   window: "24h", tA: NaN, tB: NaN, pA: NaN, pB: NaN, auto: true, n: null, m: null, selection: null, anchor: null, replay: false,
-  follow: "refit", mode: "volume", pane: "cells", rows: "off", period: "90d", level: null, poc: false, area: false, untested: false,
+  follow: "refit", mode: "volume", pane: "cells", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", level: null, poc: false, area: false, untested: false,
   lines: [], tab: "context", evidenceKind: "poc", horizon: 1, barrier: 1, profileCmp: "independent", profileOpen: false,
   scale: { basis: "amount", pathBasis: "spans", transform: "value", curve: "log", rowsTransform: "value", cells: "explore", rows: "explore", local: false, window: null, lock: false },
   appearance: AP, scales: [], axes: [],
   ...(patch || {}),
 });
 const withScale = (patch, rest) => base({ scale: { ...base().scale, ...patch }, ...(rest || {}) });
-const HEAD = "#w=24h&vis=2&ap=" + AP;
+const HEAD = "#w=24h&vis=2&ap=" + AP + "&rc=1";
 
 // Calendar dates and the requested durations are literal address grammar;
 // round trips must retain the fixed start rather than turn it into a rectangle.
 test("long day windows and real Since dates survive addresses and view validation", () => {
   for (const window of ["45d", "90d", "180d", "270d", "2021-01-01", "2024-02-29", "2026-09-24"]) {
-    const hash = `#w=${window}&vis=2&ap=${AP}`;
+    const hash = `#w=${window}&vis=2&ap=${AP}&rc=1`;
     const parsed = C.parseAddress(hash, ENV);
     assert.equal(parsed.view.window, window);
     assert.equal(C.classify(hash).kind, "v2");
@@ -77,6 +77,9 @@ const rowsCtx = (measure, rowSize) => E.context.rowsKey({ measure, transform: me
 // The fields of one address setting at a non-default value, and the text it is written as (B.15). One row per
 // VISUAL_KEYS entry; the test below fails when an entry has no row or a row has no entry.
 const SAMPLES = {
+  rowControlsVersion: [{ rowControlsVersion: 1 }, "rc=1"],
+  background: [{ background: "delta" }, "background=delta"],
+  backgroundPeriod: [{ backgroundPeriod: "7d" }, "backgroundPeriod=7d"],
   follow: [{ follow: "coupled" }, "f=coupled"],
   mode: [{ mode: "path" }, "mode=path"],
   pane: [{ pane: "rsi4h" }, "pane=rsi4h"],
@@ -103,7 +106,8 @@ const SAMPLES = {
   profileOpen: [{ profileOpen: true }, "po=1"],
 };
 const DEFAULTS = {
-  follow: { follow: "refit" }, mode: { mode: "volume" }, pane: { pane: "cells" }, rows: { rows: "off" }, period: { period: "90d" }, level: { level: null },
+  rowControlsVersion: { rowControlsVersion: 1 }, background: { background: "off" }, backgroundPeriod: { backgroundPeriod: "90d" },
+  follow: { follow: "refit" }, mode: { mode: "volume" }, pane: { pane: "cells" }, rows: { rows: "off" }, period: { period: "visible" }, level: { level: null },
   marks: { poc: false, area: false, untested: false }, lines: { lines: [] }, tab: { tab: "context" }, evidenceKind: { evidenceKind: "poc" }, horizon: { horizon: 1 },
   barrier: { barrier: 1 }, "scale.basis": { "scale.basis": "amount" }, "scale.pathBasis": { "scale.pathBasis": "spans" }, "scale.transform": { "scale.transform": "value" },
   "scale.curve": { "scale.curve": "log" }, "scale.rowsTransform": { "scale.rowsTransform": "value" }, "scale.cells": { "scale.cells": "explore" },
@@ -113,11 +117,11 @@ const DEFAULTS = {
 
 test("VISUAL_KEYS is the single table: ids, params, fields, defaults; no visual key is a navigation key", () => {
   const keys = plain(C.VISUAL_KEYS);
-  assert.equal(keys.length, 24, "12 legacy entries (marks folds poc, area and untested), 10 S1 settings and the 2 S2 profile settings");
+  assert.equal(keys.length, 27, "the original 24 settings plus the split marker and two Background settings");
   assert.deepEqual(keys.map((k) => k.id).sort(), Object.keys(SAMPLES).sort());
   assert.deepEqual(
     keys.map((k) => k.param),
-    ["f", "mode", "pane", "rows", "period", "level", "marks", "lines", "tab", "outcome", "h", "dist", "bs", "pb", "tr", "cv", "rt", "cp", "rp", "lc", "sw", "lk", "pc", "po"],
+    ["rc", "f", "mode", "pane", "rows", "period", "background", "backgroundPeriod", "level", "marks", "lines", "tab", "outcome", "h", "dist", "bs", "pb", "tr", "cv", "rt", "cp", "rp", "lc", "sw", "lk", "pc", "po"],
     "canonical order of B.15 (sel, at and replay sit after lines and are navigation code)",
   );
   assert.equal(new Set(keys.map((k) => k.param)).size, keys.length, "no parameter twice");
@@ -161,7 +165,7 @@ test("the writer emits only [A-Za-z0-9_.:,;~!@-] in a value: anything else is re
 
 test("a default view is #w=24h&vis=2&ap=<id>: vis and ap are always written, every other default is omitted", () => {
   const r = C.formatAddress(base(), ENV, { budget: true });
-  assert.equal(r.hash, "#w=24h&vis=2&ap=slate2-8f7890f7");
+  assert.equal(r.hash, HEAD);
   assert.equal(r.level, 0);
   assert.deepEqual(plain(r.dropped), []);
   assert.throws(() => C.formatAddress(base({ appearance: undefined }), ENV), isError("TypeError"), "ap= is always written, so the appearance is required");
@@ -172,15 +176,15 @@ test("each VISUAL_KEYS entry at a non-default value is written alone behind vis 
   for (const id of Object.keys(SAMPLES)) {
     const [patch, text] = SAMPLES[id];
     const state = patch.scale ? withScale(patch.scale, patch.mode ? { mode: patch.mode } : {}) : base(patch);
-    const expected = "#w=24h&vis=2&ap=" + AP + (patch.mode && id === "scale.window" ? "&mode=flow" : "") + "&" + text;
+    const expected = HEAD + (patch.mode && id === "scale.window" ? "&mode=flow" : "") + (id === "rowControlsVersion" ? "" : "&" + text);
     // mode=flow comes first in canonical order, then the window key
     const hash = C.formatAddress(state, ENV, { budget: true }).hash;
-    assert.equal(hash, id === "scale.window" ? "#w=24h&vis=2&ap=" + AP + "&mode=flow&sw=0.25~0.75" : expected, id);
+    assert.equal(hash, id === "scale.window" ? HEAD + "&mode=flow&sw=0.25~0.75" : expected, id);
     const parsed = C.parseAddress(hash, ENV);
     assert.equal(parsed.kind, "v2", id);
     assert.deepEqual(plain(parsed.dropped), [], id);
     const want = patch.scale ? withScale(patch.scale, patch.mode ? { mode: patch.mode } : {}) : base(patch);
-    for (const field of ["follow", "mode", "pane", "rows", "period", "level", "poc", "area", "untested", "lines", "tab", "evidenceKind", "horizon", "barrier"])
+    for (const field of ["rowControlsVersion", "background", "backgroundPeriod", "follow", "mode", "pane", "rows", "period", "level", "poc", "area", "untested", "lines", "tab", "evidenceKind", "horizon", "barrier"])
       assert.deepEqual(plain({ v: parsed.view[field] }), plain({ v: want[field] }), id + "." + field);
     assert.deepEqual(plain(parsed.view.scale), plain(want.scale), id + ".scale");
     assert.equal(parsed.view.appearance, AP);
@@ -199,7 +203,7 @@ test("the canonical order: w|t,p; r; vis; ap; f mode pane rows period level mark
   assert.equal(
     C.formatAddress(state, ENV).hash,
     "#t=2026-09-24T00:00Z~2026-09-24T12:00Z&p=64000~66000&r=6,0&vis=2&ap=" + AP +
-      "&f=coupled&mode=flow&pane=volume&rows=volume&period=1y&level=65000.5&marks=area&lines=1d,7d" +
+      "&rc=1&f=coupled&mode=flow&pane=volume&rows=volume&period=1y&level=65000.5&marks=area&lines=1d,7d" +
       "&sel=2026-09-24T08:15Z~2026-09-24T10:30Z,64500~65000&at=2026-09-24T10:45Z&replay=1&tab=continuations&outcome=barrier&h=2&dist=2" +
       "&bs=i&pb=u&tr=r&cv=l&rt=r&cp=a&rp=a&lc=1&sw=0.25~0.75&lk=1" +
       "&sc=c:e:G1204551.25,8830.5:delta.a.8.1.l.e:1790251320000,9312,3:ot_D8yL_NiaSousm",
@@ -218,11 +222,11 @@ test("times: an address time is UTC ISO with seconds and milliseconds only when 
 
 test("the settings window sw: a Taker flow window must be symmetric about 0.5 and narrower than 0..1; Dwell takes any window", () => {
   const w = (mode, win) => C.formatAddress(withScale({ window: win }, { mode }), ENV);
-  assert.equal(w("flow", [0.25, 0.75]).hash, "#w=24h&vis=2&ap=" + AP + "&mode=flow&sw=0.25~0.75");
-  assert.equal(w("dwell", [0.2, 0.6]).hash, "#w=24h&vis=2&ap=" + AP + "&mode=dwell&sw=0.2~0.6");
+  assert.equal(w("flow", [0.25, 0.75]).hash, HEAD + "&mode=flow&sw=0.25~0.75");
+  assert.equal(w("dwell", [0.2, 0.6]).hash, HEAD + "&mode=dwell&sw=0.2~0.6");
   // a raw preference the current measure cannot read is not written (the reader would refuse it), and the drop is listed
   const bad = w("flow", [0.2, 0.6]);
-  assert.equal(bad.hash, "#w=24h&vis=2&ap=" + AP + "&mode=flow");
+  assert.equal(bad.hash, HEAD + "&mode=flow");
   assert.deepEqual(plain(bad.dropped.map((d) => d.key)), ["sw"]);
   const read = (mode, win) => C.parseAddress("#w=24h&vis=2&ap=" + AP + "&mode=" + mode + "&sw=" + win, ENV);
   assert.deepEqual(plain(read("flowtrades", "0.4~0.6").view.scale.window), [0.4, 0.6]);
@@ -265,7 +269,7 @@ test("format(parse(legacy)) writes the view again under vis=2 in canonical order
   for (const c of FIX.cases.filter((x) => x.v2 !== null)) {
     const parsed = C.parseAddress(c.hash, ENV);
     const back = C.formatAddress({ ...parsed.view, appearance: AP, scales: [], axes: [] }, ENV, { budget: true });
-    assert.equal(back.hash, c.v2, c.id);
+    assert.match(back.hash, /(?:^|&)rc=1(?:&|$)/, c.id + " carries the split-control version");
     // and the v2 address reads back to the same view
     const again = C.parseAddress(back.hash, ENV);
     assert.equal(again.kind, "v2", c.id);
@@ -449,7 +453,7 @@ test("checkView uses the page's own predicates from env and validates the nested
   assert.deepEqual(plain(v.lines), ["a"]);
   assert.equal(v.n, 5);
   assert.equal(v.m, 2);
-  assert.deepEqual(seen, ["7d", "lines"]);
+  assert.deepEqual(seen, ["7d", "7d", "7d", "7d", "lines"], "both migrated controls validate their own period");
   assert.equal(C.checkView({ window: "24h" }, env), null, "this page's windowKey does not know 24h");
   const s = C.checkView({ window: "special", mode: "flow", scale: { basis: "intensity", transform: "bogus", curve: "linear", local: true, lock: "yes", window: [0.2, 0.9] } }, { ...env, modes: () => ["flow"] });
   assert.equal(s.scale.basis, "intensity");
@@ -758,7 +762,7 @@ test("the settings the address carries are the persisted subset of E.policy (DEF
   const scale = { ...plain(E.policy.DEFAULTS), basis: "intensity", curve: "linear", lock: true };
   const persisted = plain(E.policy.persisted(scale));
   const address = C.formatAddress(withScale({ basis: "intensity", curve: "linear", lock: true }), ENV).hash;
-  assert.equal(address, "#w=24h&vis=2&ap=" + AP + "&bs=i&cv=l&lk=1");
+  assert.equal(address, HEAD + "&bs=i&cv=l&lk=1");
   for (const name of ["basis", "curve", "lock"]) assert.deepEqual(persisted[name], scale[name], name);
   // restore takes the envelope of API.md C.13: {scale, records, axes, replay}.
   const restored = plain(E.policy.restore({ scale: persisted }));

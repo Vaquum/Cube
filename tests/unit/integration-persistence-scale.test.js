@@ -38,7 +38,7 @@ const ENV = { T0: 1609459200, BASE: 56.25, PR: 125, CUT: 3214083 };
 
 const VIEW_DEFAULTS = {
   window: "24h", tA: NaN, tB: NaN, pA: NaN, pB: NaN, auto: true, n: null, m: null, selection: null, anchor: null, replay: false,
-  follow: "refit", mode: "volume", pane: "cells", rows: "off", period: "90d", level: null, poc: false, area: false, untested: false,
+  follow: "refit", mode: "volume", pane: "cells", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", level: null, poc: false, area: false, untested: false,
   lines: [], tab: "context", evidenceKind: "poc", horizon: 1, barrier: 1, profileCmp: "independent", profileOpen: false, appearance: AP, scales: [], axes: [],
 };
 const SCALE_FIELDS = ["basis", "pathBasis", "transform", "curve", "rowsTransform", "cells", "rows", "local", "window", "lock"];
@@ -53,11 +53,14 @@ function viewOf(top, scalePrefs) {
 // id -> [{view fields, scale prefs, text}]: the default first, then every legal non-default value. `text` is
 // the address fragment by the literal grammar of B.15 (null for the default: omitted).
 const LEGS = {
+  rowControlsVersion: [[{ rowControlsVersion: 1 }, null, null]],
+  background: ["off", "volume", "delta", "relvol", "time"].map((r) => [{ background: r }, null, r === "off" ? null : "background=" + r]),
+  backgroundPeriod: [[{ backgroundPeriod: "90d" }, null, null], [{ backgroundPeriod: "visible" }, null, "backgroundPeriod=visible"], [{ backgroundPeriod: "7d" }, null, "backgroundPeriod=7d"]],
   follow: [[{ follow: "refit" }, null, null], [{ follow: "coupled" }, null, "f=coupled"]],
   mode: Object.keys({ volume: 1, flow: 1, delta: 1, cascade: 1, trades: 1, flowtrades: 1, size: 1, path: 1, dwell: 1, geometry: 1 }).map((m) => [{ mode: m }, null, m === "volume" ? null : "mode=" + m]),
   pane: ["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"].map((p) => [{ pane: p }, null, p === "cells" ? null : "pane=" + p]),
   rows: ["off", "volume", "delta", "relvol", "time"].map((r) => [{ rows: r }, null, r === "off" ? null : "rows=" + r]),
-  period: [[{ period: "90d" }, null, null], [{ period: "1y" }, null, "period=1y"], [{ period: "7d" }, null, "period=7d"], [{ period: "2026-09-01" }, null, "period=2026-09-01"]],
+  period: [[{ period: "visible" }, null, null], [{ period: "90d" }, null, "period=90d"], [{ period: "1y" }, null, "period=1y"], [{ period: "7d" }, null, "period=7d"], [{ period: "2026-09-01" }, null, "period=2026-09-01"]],
   level: [[{ level: null }, null, null], [{ level: 520.004 }, null, "level=65000.5"]],
   marks: [[{ poc: false, area: false, untested: false }, null, null], [{ poc: true, area: false, untested: false }, null, "marks=poc"], [{ poc: false, area: true, untested: false }, null, "marks=area"], [{ poc: true, area: true, untested: true }, null, "marks=poc,area,untested"]],
   lines: [[{ lines: [] }, null, null], [{ lines: ["1d", "7d"] }, null, "lines=1d,7d"]],
@@ -101,7 +104,7 @@ for (const id of Object.keys(LEGS)) {
       const view = viewOf(top, prefs);
       const written = E.codec.formatAddress(view, ENV, { budget: true });
       assert.deepEqual(plain(written.dropped), [], tag);
-      const expected = "#w=24h&vis=2&ap=" + AP + (text === null ? "" : "&" + text);
+      const expected = "#w=24h&vis=2&ap=" + AP + "&rc=1" + (text === null ? "" : "&" + text);
       assert.equal(written.hash, expected, tag);
       const parsed = E.codec.parseAddress(written.hash, ENV);
       assert.equal(parsed.kind, "v2", tag);
@@ -134,7 +137,7 @@ test("(c) all ten scale settings and every legacy key away from their defaults a
   const written = E.codec.formatAddress(view, ENV);
   assert.equal(
     written.hash,
-    "#w=24h&vis=2&ap=" + AP + "&f=coupled&mode=flow&pane=rsi4h&rows=time&period=1y&level=65000.5&marks=area&lines=1d,7d&tab=continuations&outcome=barrier&h=8&dist=4&bs=i&pb=u&tr=r&cv=l&rt=r&cp=a&rp=a&lc=1&sw=0.25~0.75&lk=1",
+    "#w=24h&vis=2&ap=" + AP + "&rc=1&f=coupled&mode=flow&pane=rsi4h&rows=time&period=1y&level=65000.5&marks=area&lines=1d,7d&tab=continuations&outcome=barrier&h=8&dist=4&bs=i&pb=u&tr=r&cv=l&rt=r&cp=a&rp=a&lc=1&sw=0.25~0.75&lk=1",
   );
   const parsed = E.codec.parseAddress(written.hash, ENV);
   assert.deepEqual(plain(parsed.view.scale), plain(view.scale));
@@ -152,7 +155,7 @@ test("(c) a raw window preference travels through a measure that cannot read it 
   const s = Object.assign(fresh(), { window: [0.25, 0.75] });
   const view = viewOf({ mode: "volume" }, s);
   const written = E.codec.formatAddress(view, ENV);
-  assert.equal(written.hash, "#w=24h&vis=2&ap=" + AP + "&sw=0.25~0.75");
+  assert.equal(written.hash, "#w=24h&vis=2&ap=" + AP + "&rc=1&sw=0.25~0.75");
   assert.deepEqual(plain(written.dropped), []);
   const restored = E.policy.restore({ scale: E.codec.parseAddress(written.hash, ENV).view.scale });
   assert.deepEqual(plain(restored.scale.window), [0.25, 0.75]);
@@ -162,7 +165,7 @@ test("(c) a raw window preference travels through a measure that cannot read it 
   assert.deepEqual(plain(E.policy.effective(restored.scale, "dwell").window), [0.25, 0.75]);
   // a Taker flow window must stay symmetric about 0.5: an asymmetric one is refused where it would be used
   const bad = E.codec.formatAddress(viewOf({ mode: "flow" }, { window: [0.2, 0.6] }), ENV);
-  assert.equal(bad.hash, "#w=24h&vis=2&ap=" + AP + "&mode=flow");
+  assert.equal(bad.hash, "#w=24h&vis=2&ap=" + AP + "&rc=1&mode=flow");
   assert.deepEqual(bad.dropped.map((d) => d.key), ["sw"]);
 });
 

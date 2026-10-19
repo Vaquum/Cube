@@ -15,13 +15,18 @@
 const { test, expect } = require("./fixtures.js");
 const S = require("./rows-support.js");
 
-// The address as the state it holds, without the keys that only the visual version adds. Column POCs start off in this
-// build and on in the original, so this build's marks are said the way the original writes them.
+// The address as the state it holds, without version/calibration metadata. Resolve
+// the period default before comparing: old omission means 90d, rc=1 omission
+// means visible. This keeps every period difference and all Background fields.
+// Column POCs start off here and on in the original, so normalize that default.
 const normal = (hash, current = false, defaultLevel = false) => {
+  const params = new URLSearchParams(hash.replace(/^#/, "")),
+    period = params.get("period") ?? (params.get("rc") === "1" ? "visible" : "90d");
   let parts = hash
     .replace(/^#/, "")
     .split("&")
-    .filter((p) => p && !/^(vis|ap|sc|pc|po)=/.test(p) && !(defaultLevel && p.startsWith("r=")));
+    .filter((p) => p && !/^(vis|ap|sc|pc|po|rc|period)=/.test(p) && !(defaultLevel && p.startsWith("r=")));
+  parts.push(`period=${period}`);
   if (current) {
     const marks = parts.find((p) => p.startsWith("marks="));
     parts = parts.filter((p) => !p.startsWith("marks="));

@@ -63,6 +63,22 @@ test("configuration and annotation reseal complete scenes; evidence links identi
   assert.equal(A.configure(d, { readMode: "live" }).mode, "live");
   assert.throws(() => A.configure(d, { readMode: "unknown" }), /Read mode/);
 });
+test("agent scenes configure Rows and Background independently with the same available measures and periods", () => {
+  const before = document();
+  assert.equal(before.scene.view.rowControlsVersion, 1);
+  assert.equal(before.scene.view.period, "visible");
+  assert.equal(before.scene.view.backgroundPeriod, "90d");
+  const configured = A.configure(before, { rows: "delta", period: "visible", background: "volume", backgroundPeriod: "7d" });
+  const changedRows = A.configure(configured, { rows: "off", period: "1y" });
+  assert.equal(changedRows.scene.view.background, "volume");
+  assert.equal(changedRows.scene.view.backgroundPeriod, "7d");
+  const changedBackground = A.configure(configured, { background: "off", backgroundPeriod: "30d" });
+  assert.equal(changedBackground.scene.view.rows, "delta");
+  assert.equal(changedBackground.scene.view.period, "visible");
+  assert.equal(before.scene.view.rows, "off");
+  assert.equal(before.scene.view.background, "off");
+  assert.deepEqual(A.parse(A.text(configured)), configured);
+});
 test("explicit refresh diffs changed metrics while retaining the original immutable document", () => {
   const before = document(), next = answer(); next.cells[0].v = 600;
   const after = A.fromQuery(next), changes = A.diff(before, after);

@@ -332,6 +332,47 @@ test("a foreign or unreadable payload is preserved verbatim and copied to backup
   }
 });
 
+test("row-controls versions inside stored chart addresses are validated and backed up before replacement", () => {
+  for (const hash of ["#w=24h", "#w=24h&rc=1", "#w=24h&rc=%31", "#w=24h&rc=2&rc=1"]) {
+    const { win, local } = makeWindow();
+    put(local, "view:v5", { version: 5, visualVersion: 2, view: hash });
+    assert.equal(load(win).state.read("view:v5").status, "ok", hash);
+  }
+  for (const [hash, status] of [["#w=24h&vis=2&rc=2", "unknown-version"], ["#w=24h&rc=", "unknown-version"], ["#w=24h&rc=01", "unknown-version"], ["#w=24h&rc=1&rc=2", "unknown-version"], ["#w=24h&rc=%E0%A4%A", "unreadable"], ["#w=24h&rc=%zz&rc=1", "unreadable"]]) {
+    const { win, local } = makeWindow();
+    const original = JSON.stringify({ version: 5, visualVersion: 2, prefs: {}, view: hash });
+    put(local, "view:v5", original);
+    const { state } = load(win), read = state.read("view:v5");
+    assert.equal(read.status, status, hash);
+    assert.equal(read.value, null);
+    assert.equal(read.raw, original);
+    assert.equal(state.saved, null);
+    assert.match(read.reason, /row controls version/);
+    state.save({ version: 5, prefs: {}, view: "#w=24h&vis=2&rc=1" });
+    assert.equal(raw(local, "backup:view:v5"), original);
+    assert.equal(JSON.parse(raw(local, "view:v5")).view, "#w=24h&vis=2&rc=1");
+  }
+});
+
+test("a history entry with a future or malformed row-controls version preserves the entire original history", () => {
+  for (const [hash, status] of [["#w=24h&rc=2", "unknown-version"], ["#w=24h&rc=%zz", "unreadable"]]) {
+    const { win, session } = makeWindow();
+    const original = JSON.stringify({ visualVersion: 2, entries: [{ id: "past", hash: "#w=7d&rc=1" }, { id: "future", hash }], index: 1 });
+    put(session, "history:v1", original);
+    const { state } = load(win);
+    assert.equal(state.read("history:v1").status, status);
+    assert.equal(state.history(), null);
+    state.saveHistory({ entries: [], index: 0 });
+    assert.equal(raw(session, "backup:history:v1"), original);
+  }
+  const { win, local } = makeWindow(), original = JSON.stringify({ version: 5, view: "#w=24h&rc=2" });
+  put(local, "view:v5", original);
+  const { state } = load(win);
+  local.failWrite = (key) => key === P + "backup:view:v5" ? quota() : null;
+  assert.throws(() => state.save({ version: 5, view: "#w=24h&rc=1" }), /could not be kept before it was replaced/);
+  assert.equal(raw(local, "view:v5"), original);
+});
+
 test("if the backup cannot be written the overwrite is refused: the foreign payload is never lost", () => {
   const { win, local } = makeWindow();
   const foreign = JSON.stringify({ version: 5, visualVersion: 3 });

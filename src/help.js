@@ -90,12 +90,14 @@
   terms("net taker imbalance|imbalance", "Buyer-initiated minus seller-initiated USDT, divided by total traded USDT in this region.");
   terms("share of all price volume same time|columnShare", "This price band's traded USDT divided by all-price traded USDT over the same measured time.");
   terms("seasonal activity all price usdt|seasonal", "All-price traded USDT relative to eligible earlier comparison windows with matching seasonal timing.");
-  const valueLabels = { "window-text": "Time window", "res-text": "Cell size", tr: "Time cell duration", pr: "Price row width", "legend-text": "Cell colour scale", "rows-legend-text": "Rows colour scale", "profile-chip-text": "Profile comparison", "axis-chip-text": "Column and profile axes", "data-through": "Data through" };
+  const valueLabels = { "window-text": "Time window", "res-text": "Cell size", tr: "Time cell duration", pr: "Price row width", "legend-text": "Cell colour scale", "rows-legend-text": "Background colour scale", "rows-text": "Rows measure and period", "background-text": "Background measure and period", "profile-chip-text": "Profile comparison", "axis-chip-text": "Column and profile axes", "data-through": "Data through" };
   const fields = {
     "window-text": "Time span currently covered by the chart; calendar windows follow their UTC dates.",
     "res-text": "Duration of one time column and width of one price row; Auto chooses the level from screen cell size.",
     "legend-text": "Cell measure, basis, transform and fitted colour domain; equal values need the same mapping for equal colours.",
-    "rows-legend-text": "Row measure, reference period and fitted colour domain used behind the cells.",
+    "rows-legend-text": "Background measure, period and fitted colour domain used behind the cells and in the native colour strip.",
+    "rows-text": "The second vertical profile's measure and period; selections affect the first profile while Visible range follows chart time.",
+    "background-text": "The backdrop and native colour strip's measure and period, independent of the second vertical profile.",
     "profile-chip-text": "The current and reference profiles, their comparison mode and numeric drawing domains.",
     "axis-chip-text": "Numeric axes and domains used to draw the Columns pane and profile tracks.",
     "hist-back": "Return to the previous view in this tab's navigation history.",
