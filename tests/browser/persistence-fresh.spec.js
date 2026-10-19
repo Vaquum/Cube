@@ -6,7 +6,7 @@
 //
 // What is asserted, on the page of the working tree against a `mini` fake cube (the persistence paths do not need `standard`'s
 // volume; the fake's cutoff never enters an address):
-//   * the default-only address is #w=24h&vis=2&ap=<id>, and every address the page writes carries vis=2 and ap=;
+//   * the default-only address is #w=24h&vis=2&ap=<id>&rc=1, and every address the page writes carries vis=2 and ap=;
 //   * a customised view (Path, Intensity, Comparison lock, Rows) copied as a link and as a view code restores its address byte for
 //     byte in a FRESH context (storage empty, asserted), with no workspace cache: the active mappings, a frozen axis and the
 //     appearance id come back exactly, and a rank mapping with repeated values in its cohort comes back bit for bit (same id);
@@ -60,7 +60,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await Promise.all(context.pages().map((p) => p.close().catch(() => {})));
   });
 
-  test("the default-only address is #w=24h&vis=2&ap=<id>, and a fresh browser has no workspace cache", async ({ page, fakeFor }) => {
+  test("the default-only address is #w=24h&vis=2&ap=<id>&rc=1, and a fresh browser has no workspace cache", async ({ page, fakeFor }) => {
     // what the browser held when the first script ran: nothing
     await page.context().addInitScript(() => {
       try {
@@ -74,14 +74,14 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await fake.idle();
     expect(await page.evaluate(() => window.__keysAtStart)).toEqual([]);
     // the settings part of the address is the default-only form ...
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP);
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1");
     // ... and once the Explore mapping is fitted it is in the address too (a fresh context restores it from the address alone)
     await expect.poll(async () => S.scOf((await S.where(page)).hash), { timeout: 10000 }).toMatch(/^c:e:/);
     // the workspace cache is written after the commit (debounced), holding the mapping of the live workspace
     await expect.poll(async () => (await S.storage(page)).local["scales:v1"], { timeout: 10000 }).toContain("contexts");
     // a setting changes the address and keeps the two fixed parameters in their place
     await page.keyboard.press("m");
-    await expect.poll(async () => (await S.where(page)).hash).toMatch(/^#w=24h&vis=2&ap=slate2-8f7890f7&mode=/);
+    await expect.poll(async () => (await S.where(page)).hash).toMatch(/^#w=24h&vis=2&ap=slate2-8f7890f7&rc=1&mode=/);
     // a browser with nothing stored is new: nothing changed for it, so no notice
     expect(await S.noticeCodes(page)).toEqual([]);
   });
@@ -273,7 +273,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await seed(context, { "view:v5": { version: 5, visualVersion: 2, prefs: {}, view: V2_VIEW } });
     await page.goto(fake.url + "/");
     await fake.idle();
-    expect(S.withoutSc((await S.where(page)).hash)).toBe(V2_VIEW);
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=7d&vis=2&ap=" + S.AP + "&rc=1&mode=delta&period=90d");
     expect(await S.noticeCodes(page)).toEqual([]);
   });
 
@@ -284,7 +284,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await fake.idle();
     // the view is the legacy one, now written as version 2
     const hash = S.withoutSc((await S.where(page)).hash);
-    expect(hash).toMatch(/^#w=7d&vis=2&ap=slate2-8f7890f7&mode=flow&pane=volume&rows=relvol$/);
+    expect(hash).toMatch(/^#w=7d&vis=2&ap=slate2-8f7890f7&rc=1&mode=flow&pane=volume&rows=relvol&period=90d&background=relvol$/);
     const list = await S.notices(page);
     expect(list.map((n) => n.code)).toEqual(["legacy-migrated"]);
     // the notice lists every setting whose meaning changed: mode, Rows and the pane (the words come from the module's migrate table,
@@ -305,7 +305,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await fake.idle();
     // the fixture's window, mode and level lock come back as a version-2 address, and the notice names the migrated mode;
     // it stored Column POCs on, so they stay on
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=7d&vis=2&ap=" + S.AP + "&mode=flow&marks=poc");
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=7d&vis=2&ap=" + S.AP + "&rc=1&mode=flow&period=90d&marks=poc");
     const list = await S.notices(page);
     expect(list.map((n) => n.code)).toEqual(["legacy-migrated"]);
     expect(S.said(list[0])).toContain("mode");
@@ -317,7 +317,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     const fake = await fakeFor("mini");
     await page.goto(fake.url + "/");
     await fake.idle();
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP);
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1");
     expect(await S.noticeCodes(page)).toEqual([]);
     expect((await S.storage(page)).local["notice:v2"]).toBeTruthy();
   });
@@ -327,7 +327,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await seed(context, { "views:v1": [] });
     await page.goto(fake.url + "/");
     await fake.idle();
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP);
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1");
     const list = await S.notices(page);
     expect(list.map((n) => n.code)).toEqual(["version-default"]);
     expect(list[0].count).toBe(1);
@@ -343,7 +343,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await seed(context, { "view:v5": { ...LEGACY_V5, prefs: { drawer: "cells", drawerOpen: true } } });
     await page.goto(fake.url + "/#w=30d&vis=2&ap=" + S.AP);
     await fake.idle();
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=30d&vis=2&ap=" + S.AP);
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=30d&vis=2&ap=" + S.AP + "&rc=1&period=90d");
     // the preference (the open drawer) came back; the stored legacy view was neither applied nor reported
     await expect(page.locator("#ol-drawer")).toHaveAttribute("data-open", "true");
     expect(await S.noticeCodes(page)).toEqual([]);
@@ -379,12 +379,12 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     const fake = await fakeFor("mini");
     await page.goto(fake.url + "/" + "#w=24h&mode=flow&rows=relvol&pane=volume");
     await fake.idle();
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&mode=flow&pane=volume&rows=relvol");
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1&mode=flow&pane=volume&rows=relvol&period=90d&background=relvol");
     // the same payload again in this tab (an address typed into the bar) is not reported again
     await page.evaluate(() => {
       location.hash = "#w=24h&mode=flow&rows=relvol&pane=volume";
     });
-    await expect.poll(async () => S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&mode=flow&pane=volume&rows=relvol");
+    await expect.poll(async () => S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1&mode=flow&pane=volume&rows=relvol&period=90d&background=relvol");
     await page.waitForTimeout(300);
     // the banner's rows: one report, seen once (a second report would be a second row or a count of 2)
     const reports = (await S.notices(page)).filter((n) => n.code === "legacy-migrated");
@@ -440,7 +440,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
       const tab = await page.context().newPage();
       await tab.goto(fake.url + "/#w=24h&vis=2&ap=" + ap);
       await tab.locator("#ol-canvas").waitFor();
-      await expect.poll(async () => S.withoutSc((await S.where(tab)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP);
+      await expect.poll(async () => S.withoutSc((await S.where(tab)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1&period=90d");
       expect(await S.noticeCodes(tab)).toContain("appearance-mismatch");
       await tab.close();
     }

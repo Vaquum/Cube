@@ -46,27 +46,52 @@
     isObject(x) && x.visualVersion !== undefined && x.visualVersion !== VISUAL_VERSION
       ? "visual version " + JSON.stringify(x.visualVersion) + " was written by a newer or unknown version"
       : null;
+  // Last views and history carry their row-controls version inside their chart address.
+  // Match the codec's decoded, last-duplicate-wins parameter rule before a storage write can replace it.
+  const rowControlHashProblem = (hash) => {
+    if (typeof hash !== "string") return null;
+    let version;
+    for (const part of hash.replace(/^#/, "").split("&")) {
+      const at = part.indexOf("=");
+      if (at < 0 || part.slice(0, at) !== "rc") continue;
+      try { version = decodeURIComponent(part.slice(at + 1)); }
+      catch { return { status: "unreadable", reason: "the saved row controls version is malformed" }; }
+    }
+    return version !== undefined && version !== "1"
+      ? { status: "unknown-version", reason: "row controls version " + JSON.stringify(version) + " is not one this page reads" }
+      : null;
+  };
   // What a parsed payload of each key must look like: {status, reason} for a payload that cannot be
   // used, null for one that can. `unknown-version` means "from a newer build: keep it, never overwrite".
   const problem = (key, value) => {
     const foreign = newer(value);
     switch (key) {
       case "view:v5":
-      case "view:v4":
+      case "view:v4": {
         if (!isObject(value)) return { status: "unreadable", reason: "not an object" };
         if (foreign) return { status: "unknown-version", reason: foreign };
         if (value.rowControlsVersion !== undefined && value.rowControlsVersion !== 1)
           return { status: "unknown-version", reason: "row controls version " + JSON.stringify(value.rowControlsVersion) + " is not one this page reads" };
+        const hashIssue = rowControlHashProblem(value.view);
+        if (hashIssue) return hashIssue;
         if (key === "view:v4" ? value.version !== 4 : value.version !== 4 && value.version !== 5)
           return { status: "unknown-version", reason: "version " + JSON.stringify(value.version) + " is not one this page reads" };
         return null;
+      }
       case "views:v1":
         if (Array.isArray(value)) return null;
         return foreign ? { status: "unknown-version", reason: foreign } : { status: "unreadable", reason: "not a list of views" };
       case "history:v1":
       case "notice:v2":
         if (!isObject(value) && !(key === "notice:v2" && typeof value === "boolean")) return { status: "unreadable", reason: "not an object" };
-        return foreign ? { status: "unknown-version", reason: foreign } : null;
+        if (foreign) return { status: "unknown-version", reason: foreign };
+        if (key === "history:v1" && Array.isArray(value.entries)) {
+          for (const entry of value.entries) {
+            const issue = rowControlHashProblem(entry?.hash);
+            if (issue) return issue;
+          }
+        }
+        return null;
       case "scales:v1":
         if (!isObject(value)) return { status: "unreadable", reason: "not an object" };
         if (foreign) return { status: "unknown-version", reason: foreign };

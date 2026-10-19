@@ -116,6 +116,17 @@ async function popover(page) {
   return page.locator("#ol-profile-pop");
 }
 const fieldValue = (pop, name) => pop.locator(`[data-field="${name}"]`).getAttribute("data-value");
+const cardObservation = node => node.evaluate(el => JSON.parse(el.dataset.observation));
+async function hoverTrack(page, pane, owner, atPrice) {
+  const layout = await page.locator("#ol-canvas").evaluate(c => c.dataset.layout.split(",").map(Number)),
+    box = await page.locator("#ol-canvas").boundingBox(), y = priceAxis(await pane.last()),
+    x = owner === "background" ? layout[4] + layout[5] / 2 : layout[owner === "rows" ? 8 : 7] + 8;
+  await page.mouse.move(box.x + x, box.y + y(atPrice));
+  const tip = page.locator("#ol-tip");
+  await expect(tip).toBeVisible();
+  await expect(tip).toHaveAttribute("data-observation", /card-observation/);
+  return tip;
+}
 
 test.describe("B25 the adjacent profile tracks", () => {
   test("independent axes: two tracks 66 px apart, each bar its row's volume over its own maximum, the domains printed under them", async ({ page, probe, fakeFor, pane }) => {
@@ -421,7 +432,9 @@ test.describe("B25 the adjacent profile tracks", () => {
     const layout = await page.locator("#ol-canvas").evaluate((c) => c.dataset.layout.split(",").map(Number));
     const box = await page.locator("#ol-canvas").boundingBox();
     await page.mouse.move(box.x + layout[4] + layout[5] / 2, box.y + layout[1] + layout[3] / 2);
-    await expect(page.locator("#ol-tip")).toContainText("Volume · 7 days");
+    await expect(page.locator("#ol-tip .ol-cell-stat[data-primary='true'] dt")).toHaveText("Row volume");
+    await expect(page.locator("#ol-tip .ol-cell-context")).toContainText("Background · 7 days");
+    expect((await cardObservation(page.locator("#ol-tip"))).formula).toBe("rows.volume.amount@1");
     await page.mouse.move(box.x + 5, box.y + 5);
     const pop = await popover(page);
     const show = pop.locator('button[data-action="profile-open"]');
@@ -483,5 +496,77 @@ test.describe("B25 the adjacent profile tracks", () => {
       expect(k.clip[1], "whose top is the plot's").toBeGreaterThanOrEqual(layout[1] - 0.5);
       expect(k.clip[3], "and whose bottom is the plot's").toBeLessThanOrEqual(layout[1] + layout[3] + 0.5);
     }
+  });
+
+  for (const mode of ["absolute", "share"]) {
+    test(`the ${mode} profile cards inspect the summed drawn bin; Background retains native rows`, async ({ page, probe, fakeFor, pane }) => {
+      const stream = S.identical(), fake = await fakeFor(stream),
+        cols = [S.END_COL - S.DAY_COLS, S.END_COL],
+        native = reference.periodRows(stream.trades, { b0: cols[0], b1: cols[1], m: 0 }),
+        total = native.reduce((sum, row) => sum + row.v, 0), nativeValue = native.find(row => row.r === 201).v;
+      await open(page, fake, probe, pane, S.address({ cols, rows: [200, 216], rowsKind: "volume", period: "1d",
+        extra: `&vis=2&rc=1&r=0,3&background=volume&backgroundPeriod=1d&pc=${mode === "share" ? "s" : "a"}` }));
+      await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-comparison", mode);
+      for (const owner of ["current", "rows"]) {
+        const tip = await hoverTrack(page, pane, owner, 201.5 * 125), observation = await cardObservation(tip);
+        expect(observation.result.tag).toBe("finite");
+        expect(observation.result.value, "the visible 1,000-USDT bar sums six native traded rows").toBeCloseTo(total, 5);
+        expect(observation.price).toEqual([25000, 26000]);
+        expect(observation.level.m).toBe(3);
+        expect(observation.formula).toBe("rows.volume.amount@1");
+        if (mode === "share") {
+          await expect(tip.locator('[data-field="drawnShare"]')).toHaveAttribute("data-canonical", "1");
+          expect(Number(await tip.locator('[data-field="windowTotal"]').getAttribute("data-canonical"))).toBeCloseTo(total, 5);
+          expect(observation.denominators.find(d => d.formula === "profile.shared.share").value).toBeCloseTo(total, 5);
+        }
+      }
+      const background = await hoverTrack(page, pane, "background", 201.5 * 125), backgroundObservation = await cardObservation(background);
+      expect(backgroundObservation.level.m).toBe(0);
+      expect(backgroundObservation.price).toEqual([25125, 25250]);
+      expect(backgroundObservation.result.value).toBeCloseTo(nativeValue, 5);
+      await page.keyboard.press("e");
+      await page.locator('#ol-inspect-surfaces [data-surface="rows"]').click();
+      await expect(page.locator("#ol-inspect")).toHaveAttribute("data-ps", "8");
+      await page.locator("#ol-inspect").focus();
+      await page.keyboard.press("Home");
+      const before = Number(await page.locator("#ol-inspect").getAttribute("data-r"));
+      await page.keyboard.press("ArrowDown");
+      expect(Number(await page.locator("#ol-inspect").getAttribute("data-r"))).toBe(before - 1);
+      await page.locator('#ol-inspect-surfaces [data-surface="background"]').click();
+      await expect(page.locator("#ol-inspect")).toHaveAttribute("data-ps", "1");
+    });
+  }
+
+  test("a frozen profile axis discloses clipped bars while keeping their raw amounts", async ({ page, probe, fakeFor, pane }) => {
+    const stream = S.identical(), fake = await fakeFor(stream), cols = [S.END_COL - S.DAY_COLS, S.END_COL],
+      expected = reference.periodRows(stream.trades, { b0: S.END_COL - 7 * S.DAY_COLS, b1: S.END_COL }).find(row => row.r === 203).v;
+    await open(page, fake, probe, pane, S.address({ cols, rows: [199, 207], rowsKind: "volume", period: "1d", extra: "&vis=2&rc=1&r=0,0" }));
+    await settings(page, "columns");
+    await page.locator("#ol-axis-chip").click();
+    await page.locator('#ol-axis-pop button[data-action="lock"]').click();
+    await page.locator("#ol-reference-close").click();
+    await page.locator("#ol-rows").click();
+    await page.locator('#ol-rows-menu [data-rows-step="period"]').click();
+    await page.locator('#ol-rows-menu [data-period="7d"]').click();
+    await S.atRest(page, fake, probe);
+    const tip = await hoverTrack(page, pane, "rows", 203.5 * 125);
+    await expect.poll(async () => (await cardObservation(tip)).result.value).toBeCloseTo(expected, 5);
+    await expect(tip.locator(".ol-cell-context")).toContainText("Profile bar clipped above axis");
+    await expect(tip.locator(".ol-cell-context")).toContainText("Profile axis frozen");
+  });
+
+  test("recorded profile cards declare coarse quality and the native columns actually measured", async ({ page, probe, fakeFor, pane }) => {
+    const fake = await fakeFor("recorded"), cols = [3000001, 3020001],
+      measured = [Math.ceil(cols[0] / 4096) * 4096, Math.floor(cols[1] / 4096) * 4096];
+    await open(page, fake, probe, pane, S.address({ cols, rows: [400, 1000], rowsKind: "volume", period: "visible", extra: "&vis=2&rc=1&r=12,3" }));
+    await expect.poll(() => page.locator("#ol-profile-chip").getAttribute("data-reference-domain")).not.toBe("No data");
+    const tip = await hoverTrack(page, pane, "rows", 70000), observation = await cardObservation(tip);
+    expect(observation.time).toEqual(measured);
+    expect(observation.exposure.seconds).toBe((measured[1] - measured[0]) * 56.25);
+    expect(observation.measuredThrough).toBe(measured[1]);
+    expect(observation.precision).toContain("Approximate recorded support (approx-rows:8)");
+    await expect(tip.locator(".ol-cell-context")).toContainText("Approximate (approx-rows:8)");
+    await expect(tip.locator(".ol-cell-context")).toContainText("Requested");
+    await expect(tip.locator(".ol-cell-context")).toContainText("measured");
   });
 });

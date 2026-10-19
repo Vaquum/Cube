@@ -214,7 +214,7 @@ test("Time Visible range never reuses the previous viewport's dwell bars while t
     await page.evaluate(hash => { location.hash = hash; }, next);
     await gate.arrived();
     await expect(page.locator("#ol-rows-text")).toHaveText("Time at price · Visible range");
-    await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-reference-domain", "No data");
+    await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-reference-domain", "");
     await expect.poll(async () => (await snapshot(page, pane)).bars.length).toBe(0);
   } finally { gate.open(); }
   await S.atRest(page, fake, probe);
@@ -244,10 +244,101 @@ test("legacy JSON import with omitted Rows explicitly clears both independent me
   const P = require("./persistence-support.js");
   await P.importCode(page, JSON.stringify({ query: { t1: S.stamp(cols[0]), t2: S.stamp(cols[1]), p1: view[0] * 125, p2: view[1] * 125, tR: S.BASE_MS / 1000, pR: 125 }, view: { mode: "volume" } }));
   await expect(page.locator("#ol-copy-status")).toHaveText("View restored");
-  await S.atRest(page, fake, probe);
+  // This import selects the entire query: Cells calibration has no eligible
+  // unselected cohort. The controls and drawn geometry are the contract here.
+  await fake.idle(); await probe.waitForQuiet();
   await expect(page.locator("#ol-rows-text")).toHaveText("Off · 90 days");
   await expect(page.locator("#ol-background-text")).toHaveText("Off · 90 days");
   await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-tracks", "1");
   const layout = await page.locator("#ol-canvas").evaluate(n => n.dataset.layout.split(",").map(Number));
   expect(layout[5]).toBe(0);
+});
+
+test("different Rows and Background settings survive links, full view codes and named views", async ({ page, context, fakeFor, probe, freshContext }) => {
+  const fake = await open(page, fakeFor, probe, address().replace("period=visible", "period=30d"));
+  const P = require("./persistence-support.js"), probeTools = require("./probe.js");
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: fake.url });
+  async function preserved(target) {
+    await expect(target.locator("#ol-rows-text")).toHaveText("Delta · 30 days");
+    await expect(target.locator("#ol-background-text")).toHaveText("Volume · 7 days");
+    await expect(target.locator("#ol-profile-chip")).toHaveAttribute("data-reference", "delta:30d");
+    const query = new URLSearchParams(new URL(target.url()).hash.slice(1));
+    expect(Object.fromEntries(["rc", "rows", "period", "background", "backgroundPeriod"].map(k => [k, query.get(k)]))).toEqual({ rc: "1", rows: "delta", period: "30d", background: "volume", backgroundPeriod: "7d" });
+  }
+  await preserved(page);
+  await P.openViews(page);
+  await page.locator("#ol-copy-link").click();
+  await expect.poll(() => P.clipboardText(page)).toMatch(/^https?:/);
+  const link = await P.clipboardText(page), linkedContext = await freshContext(), linked = await linkedContext.newPage();
+  await linked.goto(link); await probeTools.forPage(linked).waitForReady();
+  await preserved(linked);
+  await page.keyboard.press("Escape");
+  await P.openQuery(page); await page.locator("#ol-copy-view").click();
+  await expect.poll(() => P.clipboardText(page)).toMatch(/^origo-cube:3\./);
+  const code = await P.clipboardText(page), importedContext = await freshContext(), imported = await importedContext.newPage();
+  await imported.goto(`${fake.url}/#w=24h&rc=1`); await probeTools.forPage(imported).waitForReady();
+  await P.importCode(imported, code);
+  await expect(imported.locator("#ol-copy-status")).toHaveText("View restored");
+  await preserved(imported);
+  await P.openViews(page); await page.locator("#ol-view-name").fill("Independent row measurements");
+  await page.locator("#ol-view-form button[type=submit]").click();
+  await expect(page.locator("#ol-views-status")).toHaveText("Saved “Independent row measurements”.");
+  await page.keyboard.press("Escape");
+  await choose(page, "rows", "volume", "1d"); await choose(page, "background", "delta", "90d");
+  await page.reload(); await S.atRest(page, fake, probe);
+  await expect(page.locator("#ol-rows-text")).toHaveText("Volume · 1 day");
+  await expect(page.locator("#ol-background-text")).toHaveText("Delta · 90 days");
+  await P.openViews(page); await page.locator("#ol-saved .ol-entry-main").filter({ hasText: /^Independent row measurements$/ }).click();
+  await preserved(page);
+});
+
+test("current profile measurement details use the Rows comparison rather than Background", async ({ page, fakeFor, probe, pane }) => {
+  await open(page, fakeFor, probe, address().replace("period=visible", "period=30d"));
+  const { layout } = await snapshot(page, pane), box = await page.locator("#ol-canvas").boundingBox();
+  await page.mouse.move(box.x + layout[7] + 20, box.y + layout[1] + layout[3] / 2);
+  const tip = page.locator("#ol-tip"); await expect(tip).toBeVisible();
+  expect((await observation(tip)).formula).toBe("rows.volume.amount@1");
+  const terms = await tip.locator(".ol-cell-details .ol-tip-rows dt").allTextContents();
+  expect(terms).toContain("Delta · 30 days");
+  expect(terms).not.toContain("Volume · 7 days");
+});
+
+test("settled Inspect Rows changes its formula immediately when U switches the cached period's measure", async ({ page, fakeFor, probe }) => {
+  const fake = await open(page, fakeFor, probe, address().replace("rows=delta&period=visible", "rows=volume&period=7d"));
+  await page.keyboard.press("e"); await page.locator('button[data-surface="rows"]').click();
+  const card = page.locator("#ol-inspect-readout");
+  await expect.poll(async () => (await observation(card)).formula).toBe("rows.volume.amount@1");
+  await fake.idle(); await probe.waitForQuiet();
+  const before = await observation(card);
+  const periodReads = () => fake.log().filter(e => e.path === "/cube/query" && e.query.motion !== "1" && e.query.r0 === undefined && Number(e.query.b1) - Number(e.query.b0) === 7 * S.DAY_COLS).length;
+  const reads = periodReads();
+  await page.locator("#ol-inspect").focus(); await page.keyboard.press("u");
+  await expect(page.locator("#ol-rows-text")).toHaveText("Delta · 7 days");
+  await expect.poll(async () => (await observation(card)).formula).toBe("rows.delta.amount@1");
+  const after = await observation(card);
+  expect(after.time).toEqual(before.time);
+  expect(after.price).toEqual(before.price);
+  await fake.idle();
+  expect(periodReads(), "switching the measure reuses this period's measured counters").toBe(reads);
+});
+
+test("a resting Rows hover refreshes its formula after U without another pointer movement or period read", async ({ page, fakeFor, probe, pane }) => {
+  const fake = await open(page, fakeFor, probe, address().replace("rows=delta&period=visible", "rows=volume&period=7d"));
+  const { layout } = await snapshot(page, pane), box = await page.locator("#ol-canvas").boundingBox();
+  await page.mouse.move(box.x + layout[7] + 66 + 20, box.y + layout[1] + layout[3] / 2);
+  const tip = page.locator("#ol-tip");
+  await expect.poll(async () => (await observation(tip)).formula).toBe("rows.volume.amount@1");
+  await fake.idle(); await probe.waitForQuiet();
+  const before = await observation(tip);
+  const periodReads = () => fake.log().filter(e => e.path === "/cube/query" && e.query.motion !== "1" && e.query.r0 === undefined && Number(e.query.b1) - Number(e.query.b0) === 7 * S.DAY_COLS).length;
+  const reads = periodReads();
+  await page.keyboard.press("u");
+  await expect(page.locator("#ol-rows-text")).toHaveText("Delta · 7 days");
+  await expect(tip).toBeVisible();
+  await expect.poll(async () => (await observation(tip)).formula).toBe("rows.delta.amount@1");
+  const after = await observation(tip);
+  expect(after.time).toEqual(before.time);
+  expect(after.price).toEqual(before.price);
+  await fake.idle();
+  expect(periodReads(), "a stationary hover reads the new measure from cached period counters").toBe(reads);
 });

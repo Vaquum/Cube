@@ -94,7 +94,7 @@ test.describe("B15 persistence: limits, malformed input and failing storage", ()
     expect(bad).not.toBe(good);
     await open(page, fake, bad);
     // every setting survived, the descriptor did not
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&pane=volume");
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1&pane=volume&period=90d");
     // the descriptor of the link is not in the address any more (a fresh Explore mapping may be)
     expect(S.scOf((await S.where(page)).hash) ?? "c:e:").toMatch(/^c:e:/);
     expect(S.scOf((await S.where(page)).hash) ?? "").not.toContain("AAAAAAAAAAAAAAAA");
@@ -106,7 +106,7 @@ test.describe("B15 persistence: limits, malformed input and failing storage", ()
   test("vis=3 is refused with its reason and the default view shows", async ({ page, fakeFor }) => {
     const fake = await fakeFor("mini");
     await open(page, fake, "#w=7d&vis=3&mode=delta");
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP);
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1");
     const refused = (await S.notices(page)).find((n) => n.code === "import-rejected");
     expect(refused).toBeTruthy();
     expect(S.said(refused)).toContain("visual version");
@@ -405,7 +405,7 @@ test.describe("B15 persistence: limits, malformed input and failing storage", ()
     await S.openViews(page);
     await page.locator("#ol-copy-link").click();
     await expect(page.locator("#ol-copy-status")).toContainText("Selected for copy");
-    await expect(page.locator("#ol-query-text")).toHaveValue(/#w=24h&vis=2&ap=slate2-8f7890f7(&sc=[^&]*)?$/);
+    await expect(page.locator("#ol-query-text")).toHaveValue(/#w=24h&vis=2&ap=slate2-8f7890f7&rc=1(&sc=[^&]*)?$/);
     expect(await S.noticeCodes(page)).toContain("clipboard");
   });
 
@@ -431,7 +431,7 @@ test.describe("B15 persistence: limits, malformed input and failing storage", ()
     const fake = await fakeFor("mini");
     await open(page, fake);
     // the default view shows, and the banner names what was left alone
-    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP);
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1");
     const kept = (await S.notices(page)).filter((n) => n.code === "import-rejected");
     expect(kept.length).toBeGreaterThanOrEqual(1);
     expect(kept.some((n) => S.said(n).includes("newer or unknown version"))).toBe(true);
@@ -451,6 +451,24 @@ test.describe("B15 persistence: limits, malformed input and failing storage", ()
     expect(stored.map((x) => x.name).sort()).toEqual(["Another", "Mine"]);
     // the newer build's entry is not shown as a row (this page cannot open it), and no cap was applied to anything
     await expect(page.locator("#ol-saved .ol-saved-row")).toHaveCount(2);
+  });
+
+  test("a future row-controls marker inside the saved chart address is preserved before the default view replaces it", async ({ page, context, fakeFor }) => {
+    const original = JSON.stringify({ version: 5, visualVersion: 2, prefs: {}, view: "#w=7d&vis=2&rc=2&rows=delta" });
+    await context.addInitScript(({ prefix, original }) => {
+      try {
+        if (localStorage.getItem("__seeded")) return;
+        localStorage.setItem("__seeded", "1");
+        localStorage.setItem(prefix + "view:v5", original);
+      } catch { /* about:blank has no storage */ }
+    }, { prefix: STORE, original });
+    const fake = await fakeFor("mini");
+    await open(page, fake);
+    expect(S.withoutSc((await S.where(page)).hash)).toBe("#w=24h&vis=2&ap=" + S.AP + "&rc=1");
+    await expect.poll(async () => (await S.storage(page)).local["backup:view:v5"]).toBe(original);
+    const notices = await S.notices(page);
+    expect(notices.some(notice => notice.code === "import-rejected" && S.said(notice).includes("row controls version"))).toBe(true);
+    expect(JSON.parse((await S.storage(page)).local["view:v5"]).view).toContain("&rc=1");
   });
 
   test("named views have no cap: many views are saved, a write that fails is a visible notice and the list stays usable", async ({ page, context, fakeFor }) => {
