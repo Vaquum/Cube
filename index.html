@@ -6106,27 +6106,52 @@
     isObject(x) && x.visualVersion !== undefined && x.visualVersion !== VISUAL_VERSION
       ? "visual version " + JSON.stringify(x.visualVersion) + " was written by a newer or unknown version"
       : null;
+  // Last views and history carry their row-controls version inside their chart address.
+  // Match the codec's decoded, last-duplicate-wins parameter rule before a storage write can replace it.
+  const rowControlHashProblem = (hash) => {
+    if (typeof hash !== "string") return null;
+    let version;
+    for (const part of hash.replace(/^#/, "").split("&")) {
+      const at = part.indexOf("=");
+      if (at < 0 || part.slice(0, at) !== "rc") continue;
+      try { version = decodeURIComponent(part.slice(at + 1)); }
+      catch { return { status: "unreadable", reason: "the saved row controls version is malformed" }; }
+    }
+    return version !== undefined && version !== "1"
+      ? { status: "unknown-version", reason: "row controls version " + JSON.stringify(version) + " is not one this page reads" }
+      : null;
+  };
   // What a parsed payload of each key must look like: {status, reason} for a payload that cannot be
   // used, null for one that can. `unknown-version` means "from a newer build: keep it, never overwrite".
   const problem = (key, value) => {
     const foreign = newer(value);
     switch (key) {
       case "view:v5":
-      case "view:v4":
+      case "view:v4": {
         if (!isObject(value)) return { status: "unreadable", reason: "not an object" };
         if (foreign) return { status: "unknown-version", reason: foreign };
         if (value.rowControlsVersion !== undefined && value.rowControlsVersion !== 1)
           return { status: "unknown-version", reason: "row controls version " + JSON.stringify(value.rowControlsVersion) + " is not one this page reads" };
+        const hashIssue = rowControlHashProblem(value.view);
+        if (hashIssue) return hashIssue;
         if (key === "view:v4" ? value.version !== 4 : value.version !== 4 && value.version !== 5)
           return { status: "unknown-version", reason: "version " + JSON.stringify(value.version) + " is not one this page reads" };
         return null;
+      }
       case "views:v1":
         if (Array.isArray(value)) return null;
         return foreign ? { status: "unknown-version", reason: foreign } : { status: "unreadable", reason: "not a list of views" };
       case "history:v1":
       case "notice:v2":
         if (!isObject(value) && !(key === "notice:v2" && typeof value === "boolean")) return { status: "unreadable", reason: "not an object" };
-        return foreign ? { status: "unknown-version", reason: foreign } : null;
+        if (foreign) return { status: "unknown-version", reason: foreign };
+        if (key === "history:v1" && Array.isArray(value.entries)) {
+          for (const entry of value.entries) {
+            const issue = rowControlHashProblem(entry?.hash);
+            if (issue) return issue;
+          }
+        }
+        return null;
       case "scales:v1":
         if (!isObject(value)) return { status: "unreadable", reason: "not an object" };
         if (foreign) return { status: "unknown-version", reason: foreign };
@@ -24978,7 +25003,6 @@
     }
     strokeKeysCommit();
     referenceKeysCommit();
-    inspectSync();
     // A failure noted for a tile says itself while that tile is what the view or the lens needs: a tool that opens or closes changes that without
     // an update, so the line is decided again with the frame (nothing is noted on a healthy page, and then there is nothing to decide).
     if (noted.size || loadingLine.blocks.size) renderLoading();
@@ -24990,6 +25014,7 @@
       sourceVersion:sourcesKey(), sourceRevision:comparisonSourceRevision, contextBarsVersion:barsVersion,
       camera:[S.tA,S.tB,S.pA,S.pB,S.n,S.m,S.replay,S.anchor],
       motionEnd:mv?.src?.end ?? null, canon:CANON, dataCut:CUT };
+    inspectSync();
     selectionPresentation(meas, mv, selectionContext.seasonal, selectionContext.response);
     comparisonRefresh();
     rallyController.sync();
@@ -26427,31 +26452,92 @@
     const index = seasonalSource(n), result = index?.at(...time);
     return result?.tag === "finite" ? { v: result.value } : null;
   }
+  // A profile bar may sum several native rows. Its card and Inspect cursor use that same partition;
+  // Background keeps the native colour strip's rows, independently of the profile comparison.
+  const rowCardProfiles = new WeakMap();
+  function rowCardProfile(profile, m) {
+    if (!profile || m === profile.m) return profile;
+    let memo = rowCardProfiles.get(profile);
+    if (!memo) rowCardProfiles.set(profile, (memo = new Map()));
+    if (memo.has(m)) return memo.get(m);
+    const k = 2 ** (m - profile.m), rows = [];
+    for (const x of profile.rows) {
+      const r = Math.floor(x.r / k);
+      let target = rows.at(-1);
+      if (!target || target.r !== r) rows.push((target = { r, v: 0, bv: 0, w: 0 }));
+      target.v += x.v ?? 0;
+      target.bv += x.bv ?? 0;
+      target.w += x.w ?? 0;
+    }
+    let poc = null, best = 0;
+    for (const x of rows) if (x.v > best) { poc = x.r; best = x.v; }
+    const result = { ...profile, m, rows, poc };
+    memo.set(m, result);
+    return result;
+  }
+  function rowProfileLevel(owner, fallback) {
+    const plan = profileUi.plan;
+    return owner !== "background" && plan?.mode !== "independent" && Number.isInteger(plan?.m) ? plan.m : fallback;
+  }
+  function rowCardTime(u) {
+    const requested = u.res.span.slice(), columns = u.res.columns ?? 1;
+    let start = requested[0], end = Math.min(u.through ?? requested[1], activeCutoff());
+    if (u.res.exact === false) {
+      start = Math.ceil(start / columns) * columns;
+      // A historical end excludes the incomplete native column; the source's open edge retains its
+      // observed portion, exactly as lineResult's aggregate did.
+      if (requested[1] < activeCutoff()) end = Math.floor(requested[1] / columns) * columns;
+    }
+    return { requested, actual: [start, Math.max(start, end)], approximate: u.res.exact === false,
+      quality: u.quality, rowUsdt: u.rowPrice * PR };
+  }
   function coreRowsPresentation(tip, p) {
     const owner = rowPointerOwner(p), u = owner === "background" ? last.under : owner === "rows" ? last.reference : null,
       period = Boolean(u);
+    if (["background", "rows"].includes(owner) && !u) {
+      tipRows(tip, owner === "background" ? "Background" : "Rows", "", [], "This measurement is off");
+      return;
+    }
     if (period && !u.bands) {
       tipRows(tip, `${owner === "background" ? "Background" : "Rows"} · ${ROWS_INFO[u.kind].name}`, periodLabel(u.period), [], underlayWhy(u.res));
       return;
     }
-    const bands = period ? u.bands : last.query;
-    if (!bands) return;
-    const m = bands.m, row = Math.floor(p.p / 2 ** m), band = bands.rows.find((x) => x.r === row) ?? { r: row, v: 0, bv: 0, w: 0 };
-    const volumeReady = !period || Boolean(u.volBands), q = period ? u.volBands ?? bands : bands;
-    const time = period ? [u.res.span[0], u.through] : [last.b[0], Math.min(last.b[1], last.cut)];
+    const native = period ? u.bands : last.query;
+    if (!native) return;
+    const m = rowProfileLevel(owner, native.m), bands = rowCardProfile(native, m),
+      row = Math.floor(p.p / 2 ** m), band = bands.rows.find((x) => x.r === row) ?? { r: row, v: 0, bv: 0, w: 0 },
+      plan = owner === "background" ? null : profileUi.plan,
+      shared = plan?.mode !== "independent" && Number.isInteger(plan?.m),
+      side = owner === "rows" ? "ref" : "cur",
+      drawn = shared ? plan[side]?.find(x => x.r === row) : null,
+      inWindow = !shared || Boolean(plan.window && row >= plan.window.first && row <= plan.window.last),
+      drawnResult = shared && (plan.state !== "ok" || !inWindow)
+        ? E.result.make(plan.state === "undefined" ? "undefined" : "outside-support", { reason: plan.state === "undefined" ? "The shared profile total is zero" : "Outside the displayed profile comparison window" }) : null;
+    const volumeReady = !period || Boolean(u.volBands), q = rowCardProfile(period ? u.volBands ?? native : native, m),
+      support = period ? rowCardTime(u) : null;
+    const time = support ? support.actual : [last.b[0], Math.min(last.b[1], last.cut)];
     const priceBand = [row * 2 ** m * PR, (row + 1) * 2 ** m * PR], kind = period ? u.kind : "volume";
     const rv = kind === "relvol" ? u.relvol ?? periodRelvolFor(q, u.vol) : null;
     const readout = owner === "background" && kind !== "relvol" && last.sc?.rows ? last.sc.rows.readout(band) : null;
-    const result = kind === "relvol" ? rv.at(Math.floor(p.p / 2 ** rv.support.bm)) : readout?.typed ?? E.result.finite(kind === "delta" ? 2 * band.bv - band.v : kind === "time" ? band.w : band.v);
+    const amount = shared ? drawn?.v ?? 0 : kind === "delta" ? 2 * band.bv - band.v : kind === "time" ? band.w : band.v,
+      result = drawnResult ?? (kind === "relvol" ? rv.at(Math.floor(p.p / 2 ** rv.support.bm)) : readout?.typed ?? E.result.finite(amount));
     const unit = kind === "relvol" ? "log2-ratio" : kind === "time" ? "seconds" : "usdt", formula = kind === "relvol" ? "rows.relvol@3" : kind === "time" ? "rows.time.seconds@1" : `rows.${kind}.amount@1`;
-    const compared = u ?? last.reference ?? last.under,
+    const compared = u ?? last.reference,
       comparison = compared?.volBands ? relvolFor(compared.volBands, compared.vol, compared.rect) : null;
     const profileShare = comparison ? comparison.at(Math.floor(p.p / 2 ** comparison.support.bm)) : E.result.make("unsupported", { reason: "Period comparison unavailable" });
     const volumeRow = Math.floor(p.p / 2 ** q.m), volume = q.rows.find((x) => x.r === volumeRow)?.v ?? 0, total = q.v,
       volumeResult = volumeReady ? E.result.finite(volume) : E.result.make(u.vol.state === "failed" ? "failed" : "pending", { reason: "The period volume has not been measured yet" });
+    const shareMode = shared && plan.mode === "share", denominator = shareMode ? plan.denominators?.[side] ?? 0 : null,
+      shareResult = drawnResult ?? (denominator > 0 ? E.result.finite(drawn?.t ?? 0) : E.result.make("undefined", { denominator: "Track total over W" })),
+      denominatorSupport = shareMode && plan.window ? [{ formula: "profile.shared.share", time, price: [plan.window.first * 2 ** m * PR, (plan.window.last + 1) * 2 ** m * PR], value: denominator, unit, role: "track-total-over-W" }] : [];
     const observation = cardObservation(result, formula, unit, time, priceBand, { level: { n: q.n ?? renderN(), m },
-      denominators: [{ formula: "rows.relvol@3", time, value: rv?.meanVolume ?? null }, { formula: "rows.relvol@2", time: last.b.slice(0, 2), support: comparison?.support ?? null, result: profileShare }] });
-    const companions = kind === "time" ? [
+      precision: support?.approximate ? `Approximate recorded support (${support.quality}); ${support.rowUsdt} USDT source rows` : "Float64",
+      denominators: [{ formula: "rows.relvol@3", time, value: rv?.meanVolume ?? null }, { formula: "rows.relvol@2", time: last.b.slice(0, 2), support: comparison?.support ?? null, result: profileShare }, ...denominatorSupport] });
+    const companions = shareMode ? [
+      { label: "Drawn share over W", unit: "share", result: shareResult, formula: "profile.shared.share", field: "drawnShare" },
+      { label: "Track total over W", unit, result: denominator > 0 ? E.result.finite(denominator) : E.result.make("undefined", { denominator: "Track total over W" }), field: "windowTotal" },
+      kind === "time" ? { label: "Period row volume · separate cutoff", unit: "usdt", result: volumeResult } : { label: "Profile-share log₂ ratio", unit: "log2-ratio", formula: "rows.relvol@2", result: profileShare, field: "profileShare" },
+    ] : kind === "time" ? [
       { label: "Share of row-attributed dwell", unit: "share", result: bands.w > 0 ? E.result.finite(band.w / bands.w) : E.result.make("undefined", { denominator: "row-attributed dwell" }) },
       { label: "Share of supported covered time", unit: "share", result: E.measure.dwellCheck(band.w, Math.max(0, time[1] - time[0]) * BASE) ?? E.result.finite(band.w / ((time[1] - time[0]) * BASE)) },
       { label: "Period row volume · separate cutoff", unit: "usdt", result: volumeResult },
@@ -26464,6 +26550,19 @@
       companions, observation, profile: volumeReady ? readingProfile(q, 2 ** q.m * PR, volumeRow) : null, detailed: Boolean(p.inspect) });
     const context = tip.querySelector(".ol-cell-context");
     context.textContent += ` · ${period ? `${owner === "background" ? "Background" : "Rows"} · ${periodLabel(u.period)}` : S.selection ? "Selection" : "In view"} · ${2 ** m * PR} USDT rows`;
+    if (support?.approximate) context.textContent += ` · Approximate (${support.quality}); ${price(support.rowUsdt)} USDT source rows`;
+    if (support && support.requested.some((v, i) => v !== time[i])) context.textContent += ` · Requested ${range(...support.requested)} UTC; measured ${range(...time)} UTC`;
+    if (u?.stale) context.textContent += " · Updating: last measured period support";
+    if (shared && plan.window) context.textContent += ` · ${shareMode ? "Shared row share" : "Shared absolute"}; Window W [${price(plan.window.first * 2 ** m * PR)}, ${price((plan.window.last + 1) * 2 ** m * PR)}) USDT; raw amount retained`;
+    const axis = owner === "rows" ? profileUi.ref : owner === "current" ? profileUi.cur : null;
+    if (axis && !drawnResult && result.tag === "finite") {
+      const coordinate = { t: 0, clip: 0 };
+      E.axis.coordinate(axis, shareMode ? drawn?.t ?? 0 : result.value, coordinate);
+      if (coordinate.clip === E.scale.CLIP.LOW || coordinate.clip === E.scale.CLIP.HIGH)
+        context.textContent += ` · Profile bar clipped ${coordinate.clip === E.scale.CLIP.LOW ? "below" : "above"} axis; raw amount retained`;
+      if (axis.policy === "frozen") context.textContent += " · Profile axis frozen";
+      if (axis.external) context.textContent += " · External comparison axis: fitted after the replay edge";
+    }
     if (readout?.coordinate?.clip === "low" || readout?.coordinate?.clip === "high") context.textContent += ` · Numeric clipping: ${readout.coordinate.clip === "low" ? E.text.key.below : E.text.key.above}`;
     if (rv && Number.isFinite(rv.meanVolume)) context.textContent += ` · Average traded row ${usdt(rv.meanVolume)} USDT`;
     if (rv?.support.first !== null && rv?.support.first !== undefined) context.textContent += ` · Period price range ${price(rv.support.first * 2 ** q.m * PR)}–${price((rv.support.last + 1) * 2 ** q.m * PR)} USDT`;
@@ -27977,7 +28076,7 @@
   // through the same frame), and a relative volume that is not a number says
   // which case it is: outside the comparison range, no current volume, no
   // reference volume, or neither traded.
-  function rowSection(r, money, share, exact, withRow = true, atPrice = hover?.p ?? r * 2 ** renderM()) {
+  function rowSection(r, money, share, exact, withRow = true, atPrice = hover?.p ?? r * 2 ** renderM(), u = last.under) {
     const out = [],
       q = last.query,
       where = S.selection ? "selection" : "view";
@@ -27993,13 +28092,12 @@
             : `No trades in the ${where}`,
       ]);
     }
-    const u = last.under;
     if (!u) return out;
     const label = `${ROWS_INFO[u.kind].name} · ${periodLabel(u.period)}`,
       { approx, from } = underlayBasis(u.res);
     if (!u.bands) return [...out, [label, underlayWhy(u.res)]];
     if (from) out.push(["Period's rows", from]);
-    const frame = last.sc?.rows ?? null,
+    const frame = u.owner === "background" ? last.sc?.rows ?? null : null,
       baseRow = atPrice,
       band = u.bands.map.get(Math.floor(baseRow / 2 ** u.bands.m)),
       readout = frame && band && u.kind !== "relvol" ? frame.readout(band) : null,
@@ -28081,8 +28179,8 @@
     return b;
   }
   // Over the profile: whether the row is the period's POC, or in its 70% area.
-  function underlayMarks(r) {
-    const vb = last.under?.volBands;
+  function underlayMarks(r, frame = last.under) {
+    const vb = frame?.volBands;
     if (!vb) return "";
     const br = Math.floor((hover?.p ?? r * 2 ** renderM()) / 2 ** vb.m);
     return br === vb.poc
@@ -28378,9 +28476,16 @@
   // stale, so the tip is derived again (without scheduling a frame: it is inside one), and the marker on the
   // legend follows the tip and the table row whatever hid them. Not for a null hover (tooltip(null) throws),
   // and not for a hidden tip (tooltip always ends by showing it).
+  function rowReadoutStamp() {
+    const frames = [last?.reference, last?.under].map(frame => frame ?
+      [frame.kind, frame.period, frame.res.state, frame.through, frame.stale, frame.bands?.m,
+        frame.bands ? objId(frame.bands.rows) : ""].join(":") : "off");
+    return [S.rows, S.period, S.background, S.backgroundPeriod, ...frames, profileUi.plan?.mode,
+      profileUi.plan?.state, profileUi.cur?.domain?.join(","), profileUi.ref?.domain?.join(",")].join("|");
+  }
   function refreshTip() {
     const tip = el("tip");
-    if (hover && !tip.hidden && last?.sc && (scaleRt.tipStamp !== last.sc.stamp || drawingTipRevision !== drawingStore.revision)) tooltip(hover, { redraw: false });
+    if (hover && !tip.hidden && last?.sc && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision)) tooltip(hover, { redraw: false });
     // The readout key is named on the tip only while the tip shows (the pointer leaving, a pan or a tool hides
     // it without going through tooltip()); the attribute stays, empty, so a reader can always find it.
     if (tip.hidden && tip.dataset.readout) tip.dataset.readout = "";
@@ -28396,6 +28501,7 @@
     hover = p;
     drawingTipRevision = drawingStore.revision;
     scaleRt.tipStamp = last?.sc?.stamp ?? "";
+    scaleRt.tipRowsStamp = rowReadoutStamp();
     scaleRt.tipReadout = null;
     const tip = el("tip"),
       exact = nav.shift,
@@ -28447,8 +28553,8 @@
         row = last.query.rows.find((x) => x.r === r),
         waiting = last.meas.state === "pending" || last.meas.state === "failed",
         // The underlay's value for the row and its relative volume, while it shows.
-        times = rowSection(r, money, share, exact, false),
-        marks = underlayMarks(r);
+        times = rowSection(r, money, share, exact, false, p.p, last.reference),
+        marks = underlayMarks(r, last.reference);
       // A profile row is no one cell: the Cells drawer shows none as hovered.
       syncRowHover(null);
       // It names the row it reads out (D.18: "row:<r>"), at the level drawn, unless it has nothing to read.
@@ -28737,7 +28843,7 @@
       bar = surface === "columns" && paneShown?.measure?.osc ? (paneShown.key === "rsi4h" ? DAYS / 6 : DAYS) : null,
       ts = lens ? lens.ts : bar ?? stepT(),
       rowFrame = surface === "background" ? last?.under : surface === "rows" && inspect.rowTrack !== "current" ? last?.reference : null,
-      ps = lens ? lens.ps : rowFrame?.bands ? 2 ** rowFrame.bands.m : stepP(),
+      ps = lens ? lens.ps : surface === "rows" ? 2 ** rowProfileLevel(inspect.rowTrack === "current" ? "current" : "rows", rowFrame?.bands?.m ?? renderM()) : rowFrame?.bands ? 2 ** rowFrame.bands.m : stepP(),
       lo = Math.max(lens ? lens.lensBounds[0] : 0, S.tA),
       hi = Math.min(lens ? lens.lensBounds[1] : cutEdge(), S.tB, cutEdge()),
       pLo = Math.max(0, lens ? lens.lensBounds[2] : S.pA),
@@ -29169,7 +29275,7 @@
   // A draw that changed what the cursor stands on (the view, the level, the data) reads it again, so a pan or a refresh never leaves a stale readout.
   function inspectSync() {
     if (!inspect.on) return;
-    const sig = [inspect.surface, inspect.t, inspect.p, inspect.ref, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
+    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
     if (sig === inspect.sig) return;
     inspect.sig = sig;
     inspectRender(false, false);
