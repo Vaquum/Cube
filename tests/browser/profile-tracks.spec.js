@@ -504,7 +504,7 @@ test.describe("B25 the adjacent profile tracks", () => {
         cols = [S.END_COL - S.DAY_COLS, S.END_COL],
         native = reference.periodRows(stream.trades, { b0: cols[0], b1: cols[1], m: 0 }),
         total = native.reduce((sum, row) => sum + row.v, 0), nativeValue = native.find(row => row.r === 201).v;
-      await open(page, fake, probe, pane, S.address({ cols, rows: [200, 216], rowsKind: "volume", period: "1d",
+      await open(page, fake, probe, pane, S.address({ cols, rows: [192, 224], rowsKind: "volume", period: "1d",
         extra: `&vis=2&rc=1&r=0,3&background=volume&backgroundPeriod=1d&pc=${mode === "share" ? "s" : "a"}` }));
       await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-comparison", mode);
       for (const owner of ["current", "rows"]) {
@@ -559,7 +559,7 @@ test.describe("B25 the adjacent profile tracks", () => {
     const stream = S.identical(), fake = await fakeFor(stream), cols = [S.END_COL - S.DAY_COLS, S.END_COL],
       native = reference.periodRows(stream.trades, { b0: cols[0], b1: cols[1] }),
       nativeValue = native.find(row => row.r === 201).v, total = native.reduce((sum, row) => sum + row.v, 0);
-    await open(page, fake, probe, pane, S.address({ cols, rows: [200, 216], rowsKind: "volume", period: "1d", extra: "&vis=2&rc=1&r=0,3" }));
+    await open(page, fake, probe, pane, S.address({ cols, rows: [192, 224], rowsKind: "volume", period: "1d", extra: "&vis=2&rc=1&r=0,3" }));
     await page.keyboard.press("e");
     await page.locator('#ol-inspect-surfaces [data-surface="rows"]').click();
     const layout = await page.locator("#ol-canvas").evaluate(c => c.dataset.layout.split(",").map(Number)),
