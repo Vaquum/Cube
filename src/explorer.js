@@ -16358,10 +16358,10 @@
     ctx.strokeStyle = colors.line;
     ctx.lineWidth = 1;
     ctx.strokeRect(x0 + 0.5, top + 0.5, w - 1, h - 1);
-    for (const [dt, label] of [[STRIP_DAY, "1d"], [7 * STRIP_DAY, "1w"], [30 * STRIP_DAY, "30d"]]) {
+    // A day, a week and 30 days ahead; their names are in the card, since the profile's domain is printed in the row above.
+    for (const dt of [STRIP_DAY, 7 * STRIP_DAY, 30 * STRIP_DAY]) {
       const x = Math.round(X(dt)) + 0.5;
       line(x, top + 1, x, top + h - 1, colors.line, 1);
-      text(label, x, G.by + STRIP_LABELS / 2, colors.muted, "center");
     }
     ctx.fillStyle = colors.ink;
     for (let x = Math.ceil(x0) + 1; x < x1 - 1; x++) {
@@ -16593,7 +16593,7 @@
   }
   function stripAheadCard(tip, events, edge) {
     const lit = events.filter((e) => stripKnown(e, edge).charge >= STRIP_LIT).slice(0, 5);
-    tipRows(tip, "Ahead", "The next 90 days, on a log scale of time to go",
+    tipRows(tip, "Ahead", "The next 90 days on a log scale of time to go; the ticks are a day, a week and 30 days",
       lit.map((e) => [`${e.short} · ${day(stripBase(e.at))}`, `±${stripKnown(e, edge).charge.toFixed(2)}%`]),
       lit.length ? "Each event's expected move over the window after it, as the edge knew it." : "Nothing scheduled ahead carries a move of its own.");
   }

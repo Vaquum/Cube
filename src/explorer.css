@@ -432,7 +432,7 @@
   flex: none;
 }
 /* Every measurement selector names the surface it controls. */
-#origo-lens :is(#ol-mode, #ol-pane, #ol-background, #ol-rows) > .ol-label {
+#origo-lens :is(#ol-mode, #ol-pane, #ol-background, #ol-rows, #ol-strip) > .ol-label {
   position: static;
   width: auto;
   height: auto;
@@ -443,7 +443,7 @@
   color: var(--ol-muted);
 }
 @container (max-width: 1100px) {
-  #origo-lens .ol-surfaces :is(#ol-mode, #ol-pane) > .ol-label { display: none; }
+  #origo-lens .ol-surfaces :is(#ol-mode, #ol-pane, #ol-strip) > .ol-label { display: none; }
 }
 @container (max-width: 600px) {
   #origo-lens .ol-background-controls { flex-wrap: wrap; }

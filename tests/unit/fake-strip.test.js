@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { startFake } = require("../support/cube-fake.js");
-const { resolveProfile } = require("../support/profiles.js");
+const { resolveProfile, EPOCH_MS } = require("../support/profiles.js");
 
 const ROOT = path.resolve(__dirname, "..", ".."), GRID = 900000, HOUR = 3600000, DAY = 86400000;
 
@@ -30,7 +30,8 @@ describe("the fake's synthetic strip", () => {
   before(async () => {
     fake = await startFake({ profile: "mini" });
     profile = resolveProfile("mini");
-    cutoff = profile.cutoffMs;
+    // The fake's clock counts from 2021-01-01; the strip speaks epoch ms.
+    cutoff = EPOCH_MS + profile.cutoffMs;
   });
   after(() => fake.close());
 
@@ -52,7 +53,7 @@ describe("the fake's synthetic strip", () => {
     body.grid.close.forEach((close, k) => {
       const at = from + k * step;
       let last = null;
-      for (let i = 0; i < t.length && t[i] <= at; i++) last = price[i] / 100;
+      for (let i = 0; i < t.length && EPOCH_MS + t[i] <= at; i++) last = price[i] / 100;
       assert.equal(close, at > cutoff ? null : last, `close at ${new Date(at).toISOString()}`);
       for (const force of ["macro", "positioning", "news", "social"]) if (at > cutoff) assert.equal(body.grid.forces[force][k], null);
       if (at + DAY > cutoff) assert.equal(body.grid.next24h[k], null);

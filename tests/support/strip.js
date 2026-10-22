@@ -6,6 +6,7 @@
 // The rules the bridge applies to a query (tools/strip_relay.py `request`) are repeated here, as the drift rule of docs/testing.md asks.
 const { mulberry32, normal, subSeed } = require("./rng.js");
 const { lowerBound } = require("./trades.js");
+const { EPOCH_MS } = require("./profiles.js");
 
 const MINUTE = 60000, HOUR = 3600000, DAY = 86400000, YEAR = 365.25 * DAY, GRID = 900000, HORIZON = 90 * DAY;
 const STEPS = [900000, 3600000, 21600000, 86400000], MAX_POINTS = 20000;
@@ -84,20 +85,21 @@ function reaction(charge, skew) {
 }
 
 class SyntheticStrip {
-  // store: the profile's TradeStore (t in ms, price in cents); cutoffMs: what is known; seed: the profile's seed.
+  // store: the profile's TradeStore (t in ms since 2021-01-01, the fake's own clock; price in cents); cutoffMs: what is known, on the
+  // same clock; seed: the profile's seed. The strip itself speaks epoch ms, as the contract does.
   constructor({ store, cutoffMs, seed }) {
     this.store = store;
-    this.cutoffMs = cutoffMs;
+    this.cutoffMs = EPOCH_MS + cutoffMs;
     this.seed = seed;
-    this.startMs = Math.ceil((store.length ? store.t[0] : cutoffMs) / GRID) * GRID;
-    this.endMs = Math.floor(cutoffMs / GRID) * GRID;
+    this.startMs = Math.ceil((EPOCH_MS + (store.length ? store.t[0] : cutoffMs)) / GRID) * GRID;
+    this.endMs = Math.floor(this.cutoffMs / GRID) * GRID;
     this.build();
   }
 
-  // The last trade's price at or before a time, in USDT; null before the first trade or after the cutoff.
+  // The last trade's price at or before an epoch-ms time, in USDT; null before the first trade or after the cutoff.
   price(ms) {
     if (ms > this.cutoffMs) return null;
-    const i = lowerBound(this.store.t, ms + 1) - 1;
+    const i = lowerBound(this.store.t, ms - EPOCH_MS + 1) - 1;
     return i >= 0 ? this.store.price[i] / 100 : null;
   }
 
