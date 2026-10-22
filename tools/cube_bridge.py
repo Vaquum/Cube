@@ -52,8 +52,9 @@ Routes:
   end, and say where (``end``, ``through``). Kept per pack and span.
 - ``/cube/strip?from&to&step``: the Strip's forces, events and jumps for a grid of times in epoch ms, relayed from
   Origo (``tools/strip_relay.py``) to the URL in ``STRIP_URL`` and passed on only once it has the ``cube-strip@1``
-  shape that ``docs/strip.md`` sets out. Without ``STRIP_URL`` it answers 503 ``strip_not_configured``. It takes no
-  query slot: it never reads the cube.
+  shape that ``docs/strip.md`` sets out. With ``STRIP_URL`` the page is served with ``<meta name="explorer-strip">``;
+  without it the page never asks, and the route answers 503 ``strip_not_configured``. It takes no query slot: it never
+  reads the cube.
 - ``/vendor/<file>``: the vendored scripts, flat file names only.
 - ``GET /mill/app-config`` and ``POST /mill/discover``: Find features, relayed to Mill
   (``tools/mill_relay.py``) with ``MILL_API_SECRET`` as its Bearer token, and ``/`` then declares
@@ -1013,7 +1014,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if url.path in ("/", "/index.html"):
                 page = self.explorer.html()
-                self.reply(200, "text/html; charset=utf-8", declare(page) if mill_relayed() else page)
+                page = declare(page) if mill_relayed() else page
+                self.reply(200, "text/html; charset=utf-8", strip_relay.declare(page) if STRIP_URL else page)
             elif url.path == "/cube/pack":
                 since = args.get("since", [""])[0]
                 self.json(self.explorer.update(since))

@@ -1,13 +1,16 @@
 "use strict";
 // The fake cube's synthetic Strip at /cube/strip (tests/support/strip.js), over real HTTP. Oracles: the bridge's own check of the
 // contract (tools/strip_relay.py `check`, run in Python on every answer), the bridge's refusals copied as literals from
-// tests/unit/strip-relay.test.js, the profile's trades scanned in order here for the closes, and docs/strip.md's known-at rules.
+// tests/unit/strip-relay.test.js, the profile's trades scanned in order here for the closes, docs/strip.md's known-at rules, and the
+// declaration the bridge writes into the page (tools/strip_relay.py DECLARATION, as a literal).
 const { describe, it, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { startFake } = require("../support/cube-fake.js");
 const { resolveProfile, EPOCH_MS } = require("../support/profiles.js");
+
+const DECLARATION = '<meta name="explorer-strip" content="/cube/strip">';
 
 const ROOT = path.resolve(__dirname, "..", ".."), GRID = 900000, HOUR = 3600000, DAY = 86400000;
 
@@ -58,15 +61,54 @@ describe("the fake's synthetic strip", () => {
       for (const force of ["macro", "positioning", "news", "social"]) if (at > cutoff) assert.equal(body.grid.forces[force][k], null);
       if (at + DAY > cutoff) assert.equal(body.grid.next24h[k], null);
     });
+    assert.deepEqual(Object.keys(body.sources), ["macro", "positioning", "news", "social", "attention", "calendar", "history", "options"]);
     for (const e of body.events) {
-      assert.ok(e.knownAt <= e.at);
-      if (e.estimate) assert.ok(e.estimate.at <= cutoff, `${e.id}'s estimate is known by the cutoff`);
-      if (e.measured) assert.ok(e.measured.at === e.at + e.window * 60000 && e.measured.at <= cutoff, `${e.id} is measured once its window closed`);
-      else assert.ok(e.at + e.window * 60000 > cutoff, `${e.id} is unmeasured only while its window is open`);
+      const last = e.schedule[e.schedule.length - 1].at;
+      for (const s of e.schedule) assert.ok(s.knownAt <= cutoff && (s.at === null || s.knownAt <= s.at), `${e.id}'s schedule is known by the cutoff`);
+      assert.ok(e.prior.at <= cutoff, `${e.id}'s prior is known by the cutoff`);
+      for (const x of e.estimates) assert.ok(x.at <= cutoff && last !== null && x.at < last, `${e.id}'s estimates are made before it, by the cutoff`);
+      if (e.measured) assert.ok(e.measured.from === last && e.measured.at === last + e.window * 60000 && e.measured.at <= cutoff, `${e.id} is measured once its window closed`);
+      else assert.ok(last === null || last + e.window * 60000 > cutoff, `${e.id} is unmeasured only while its window is open, or once cancelled`);
     }
     // The events reach 90 days past the grid's end, for the horizon.
-    assert.ok(body.events.some((e) => e.at > cutoff + 30 * DAY));
-    assert.ok(body.events.every((e) => e.at >= from - DAY && e.at < to + 90 * DAY));
+    assert.ok(body.events.some((e) => e.schedule.at(-1).at > cutoff + 30 * DAY));
+    assert.ok(body.events.every((e) => e.schedule.some((s) => s.at !== null && s.at >= from - DAY && s.at < to + 90 * DAY)));
+  });
+
+  it("moves and cancels events as they were announced, estimates them as the options did, and counts a prior's releases", async () => {
+    const standard = await startFake({ profile: "standard" });
+    try {
+      const at = EPOCH_MS + resolveProfile("standard").cutoffMs, to = Math.ceil(at / HOUR) * HOUR + HOUR, from = to - 400 * DAY;
+      const { body } = await strip(standard, `from=${from}&to=${to}&step=${HOUR}`);
+      assert.equal(bridgeCheck(body, from, to, HOUR), "ok");
+      const moved = body.events.find((e) => e.kind === "cpi" && e.schedule.length === 2);
+      assert.ok(moved, "a CPI was moved");
+      const [first, then] = moved.schedule;
+      assert.deepEqual([then.knownAt, then.at], [first.at - 3 * DAY, first.at + DAY]);
+      const cancelled = body.events.find((e) => e.kind === "jobs" && e.schedule.at(-1).at === null);
+      assert.ok(cancelled, "a Jobs release was cancelled");
+      assert.deepEqual([cancelled.estimates, cancelled.measured], [[], null]);
+      // Estimates come daily from 14 days before an event and every 6 hours in its last two days, in order.
+      const priced = body.events.find((e) => e.measured && e.kind === "fomc"), gaps = priced.estimates.slice(1).map((x, k) => x.at - priced.estimates[k].at);
+      assert.ok(priced.estimates.length >= 14 && gaps.every((g) => g === DAY || g === 6 * HOUR), `${priced.id}'s estimates`);
+      // A prior counts the releases of its kind since the cube's history began: GDP's quarterly ones are fewer than 30.
+      assert.ok(body.events.filter((e) => e.kind === "gdp").every((e) => e.prior.n < 30));
+      assert.ok(body.events.filter((e) => e.kind === "fomc").every((e) => e.prior.n >= 30));
+    } finally {
+      await standard.close();
+    }
+  });
+
+  it("declares the strip in its live page, as a bridge with STRIP_URL does, and not with strip off or in the recorded page", async () => {
+    assert.ok((await (await fetch(`${fake.url}/`)).text()).includes(`<head>\n    ${DECLARATION}`));
+    for (const opts of [{ profile: "mini", strip: "off" }, { mode: "recorded" }]) {
+      const other = await startFake(opts);
+      try {
+        assert.ok(!(await (await fetch(`${other.url}/`)).text()).includes("explorer-strip"), JSON.stringify(opts));
+      } finally {
+        await other.close();
+      }
+    }
   });
 
   it("refuses a query in the bridge's words, and is unconfigured with strip off", async () => {

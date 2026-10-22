@@ -193,7 +193,8 @@ function emptied(body) {
 
 class FakeCube {
   constructor(opts) {
-    // strip: "synthetic" serves the seeded synthetic strip (strip.js) at /cube/strip; "off" answers as a bridge without STRIP_URL.
+    // strip: "synthetic" declares the seeded synthetic strip (strip.js) in the page and serves it at /cube/strip; "off" is a bridge without
+    // STRIP_URL: no declaration, and a 503 if the strip is asked for anyway.
     this.opts = { mode: "live", profile: "mini", port: 0, host: "127.0.0.1", control: false, quiet: 2, next: 3, pageVersion: "fake-page-1", packsHeld: 16, maxCells: model.MAX_CELLS, strip: "synthetic", ...opts };
     if (!["synthetic", "off"].includes(this.opts.strip)) throw new RangeError(`strip ${this.opts.strip}: use synthetic or off`);
     if (!["live", "recorded"].includes(this.opts.mode)) throw new RangeError(`mode ${this.opts.mode}: use live or recorded`);
@@ -457,14 +458,16 @@ class FakeCube {
     return this.stripMemo.model;
   }
 
-  // / and /index.html: the page. Live mode injects the pack the way the bridge does; recorded mode serves the file unmodified.
+  // / and /index.html: the page. Live mode injects the pack the way the bridge does, and with the synthetic strip declares it as a
+  // bridge with STRIP_URL does (tools/strip_relay.py declare); recorded mode serves the file unmodified.
   html() {
     const text = fs.readFileSync(path.join(this.pageRoot, "index.html"), "utf8");
     if (this.opts.mode === "recorded") return text;
     const [pack, age] = this.bridge.pack
       ? [this.bridge.pack, this.bridge.clock - this.bridge.packedAt]
       : this.bridge.currentPack();
-    return model.injectPack(text, { ...pack, ...this.bridge.timing(age) });
+    const page = model.injectPack(text, { ...pack, ...this.bridge.timing(age) });
+    return this.opts.strip === "synthetic" ? page.replace("<head>", '<head>\n    <meta name="explorer-strip" content="/cube/strip">') : page;
   }
 
   // ---- data controls ----
