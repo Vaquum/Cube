@@ -159,19 +159,25 @@
     EVENT_GAP = 3,
     EVENT_MIN_PLOT = 150,
     EVENT_NAME_EXTRA = 10;
+  // The Strip (#193): a row of its events' labels over a band, under the price pane and above the event strip, while it is on.
+  const STRIP_LABELS = 12,
+    STRIP_BAND = 22;
   // The Rows strip (PRD-0002 S2): 12 px, fixed, immediately right of the heatmap, while Rows is on; the profile
   // tracks start after it.
   const ROWS_STRIP = 12;
-  function layout(width, height, lanes = 0, strip = 0, tracks = 1, open = false) {
+  function layout(width, height, lanes = 0, strip = 0, tracks = 1, open = false, band = 0) {
     const profile = profileWidth(width, tracks, open),
       free = Math.max(1, height - PLOT_TOP - AXIS),
       ah = clamp(Math.round(free * 0.15), 36, 120),
-      collapsed = lanes > 0 && free - ah - PANE_GAP - lanes * EVENT_LANE - EVENT_GAP < EVENT_MIN_PLOT,
+      // The Strip's labels and band take their height from the price pane before the lanes do.
+      bandBlock = band === 0 ? 0 : band + EVENT_GAP,
+      collapsed = lanes > 0 && free - ah - PANE_GAP - bandBlock - lanes * EVENT_LANE - EVENT_GAP < EVENT_MIN_PLOT,
       eh = lanes === 0 ? 0 : collapsed ? EVENT_LANE : lanes * EVENT_LANE,
       eventStrip = lanes === 0 ? 0 : eh + EVENT_GAP,
-      h = Math.max(1, free - ah - PANE_GAP - eventStrip);
-    // The lanes' names (4h squeeze is 61 px of 11 px type) stand in the price labels' column: with lanes the plot starts EVENT_NAME_EXTRA px later.
-    const left = PLOT_LEFT + (lanes > 0 && !collapsed ? EVENT_NAME_EXTRA : 0),
+      h = Math.max(1, free - ah - PANE_GAP - bandBlock - eventStrip);
+    // The lanes' names (4h squeeze is 61 px of 11 px type), and the Strip's (Positioning), stand in the price labels' column: with either
+    // the plot starts EVENT_NAME_EXTRA px later.
+    const left = PLOT_LEFT + ((lanes > 0 && !collapsed) || band > 0 ? EVENT_NAME_EXTRA : 0),
       w = Math.max(1, width - left - profile - GUTTER - strip);
     return {
       x: left,
@@ -180,10 +186,12 @@
       sx: left + w,
       sw: strip,
       h,
-      ey: PLOT_TOP + h + EVENT_GAP,
+      by: PLOT_TOP + h + EVENT_GAP,
+      bh: band,
+      ey: PLOT_TOP + h + bandBlock + EVENT_GAP,
       eh,
       ecollapsed: collapsed,
-      ay: PLOT_TOP + h + eventStrip + PANE_GAP,
+      ay: PLOT_TOP + h + bandBlock + eventStrip + PANE_GAP,
       ah,
       axis: height - AXIS / 2,
       profile,
@@ -210,6 +218,8 @@
       period: "visible",
       background: "off",
       backgroundPeriod: "90d",
+      // The Strip under the prices (#193): off, the forces summed ("forces") or one of them ("forces.macro").
+      strip: "off",
       // The level line (X): one price, in base rows, or none.
       level: null,
       // The profile tracks (PRD-0002 S2): how the current and the reference track are compared (independent, absolute, share), and whether
@@ -1150,13 +1160,13 @@
         referenceGuide?.refresh();
       });
   }
-  // The layout for this size from the state: the lanes of the event strip that are on, the Rows strip while Rows is on, and the profile's
-  // tracks (the current one, and the reference one while Rows is on).
+  // The layout for this size from the state: the lanes of the event strip that are on, the Rows strip while Rows is on, the profile's
+  // tracks (the current one, and the reference one while Rows is on), and the Strip while it is on.
   function profileTrackCount() {
     return S.rows !== "off" ? 2 : 1;
   }
   function layoutNow(width, height) {
-    return layout(width, height, eventKinds().length, S.background !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen);
+    return layout(width, height, eventKinds().length, S.background !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen, S.strip !== "off" ? STRIP_LABELS + STRIP_BAND : 0);
   }
   function geometry(paint = true) {
     if (comparisonModel.expanded) return;
@@ -1181,8 +1191,8 @@
       .range([G.y + G.h, G.y]);
     subdivisionGeometry();
     // The layout as the page drew it (css px), for the observation surface: the heatmap (x, y, w, h), the Rows strip (x, w), the profile tracks
-    // (count, x of each), the event strip (y, h, collapsed) and the activity pane (y, h). Written only when it changes.
-    const layoutText = [G.x, G.y, G.w, G.h, G.sx, G.sw, G.tracks, G.tx[0], G.tx[1], G.ey, G.eh, G.ecollapsed ? 1 : 0, G.ay, G.ah].map((n) => Math.round(n * 100) / 100).join(",");
+    // (count, x of each), the event strip (y, h, collapsed), the activity pane (y, h) and the Strip (y, h). Written only when it changes.
+    const layoutText = [G.x, G.y, G.w, G.h, G.sx, G.sw, G.tracks, G.tx[0], G.tx[1], G.ey, G.eh, G.ecollapsed ? 1 : 0, G.ay, G.ah, G.by, G.bh].map((n) => Math.round(n * 100) / 100).join(",");
     if (canvas.dataset.layout !== layoutText) canvas.dataset.layout = layoutText;
   }
   const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
@@ -2818,6 +2828,7 @@
     profile(query, b, meas.state, reference, sc);
     activity(shown, cut, mv, full, sc);
     paintEvents(cut);
+    paintStrip(cut);
     crosshair(ro);
     const selectionContext = querySummary(meas, mv);
     // The legends: the chips when the DOM package has registered them; none after a fault, which turns the
@@ -6445,6 +6456,9 @@
           note,
         );
       if (!waiting) coreRowsPresentation(tip, p);
+    } else if (last && inStripBand(p)) {
+      stripTip(tip, p, last.cut);
+      syncRowHover(null);
     } else if (last && inStrip(p) && eventAt(p)) {
       eventTip(tip, eventAt(p));
       stripReferencePresentation(tip, eventAt(p));
@@ -7374,7 +7388,7 @@
     // Data/status updates retain their grid. Camera and internal plot-layout
     // changes choose it again; outer resizes are handled by the canvas observer.
     const sourceFloor = !PACK.live && S.mode !== "candles" ? `${displaySource()?.n}:${displaySource()?.m}` : "";
-    const context = [S.auto, S.window, S.mode === "candles", S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.background !== "off", S.profileOpen, S.diagonal, sourceFloor, eventKinds().length].join(":");
+    const context = [S.auto, S.window, S.mode === "candles", S.tB - S.tA, S.pB - S.pA, S.rows !== "off", S.background !== "off", S.profileOpen, S.diagonal, sourceFloor, eventKinds().length, S.strip !== "off"].join(":");
     if (context !== autoContext) {
       autoContext = context;
       if (S.auto) autoLevel();
@@ -7421,6 +7435,7 @@
       );
     }
     renderRows();
+    renderStrip();
     renderLines();
     drawingSyncUI();
     for (const f of ["poc", "area", "untested"]) el(f).checked = S[f];
@@ -7835,7 +7850,7 @@
 
   // Popovers: one open at a time; outside clicks and Escape close them.
   const pop = { open: null };
-  const menuFlows = { mode: { step: "dataset" }, pane: { step: "dataset", rsi: "rsi1d" }, rows: { step: "dataset" }, background: { step: "dataset" } };
+  const menuFlows = { mode: { step: "dataset" }, pane: { step: "dataset", rsi: "rsi1d" }, rows: { step: "dataset" }, background: { step: "dataset" }, strip: { step: "dataset" } };
   const rowSelectorSpecs = {
     background: { name: "Background", measure: () => S.background, period: () => S.backgroundPeriod,
       setMeasure: value => setBackground(value), setPeriod: value => setBackgroundPeriod(value),
@@ -9689,6 +9704,9 @@
       mode: "What the cells show.", pane: "What each column shows below the prices.",
     }[id] ?? rowSelectorSpecs[id]?.description };
     if (id === "mode") return [dataset, ...scaleSteps("cells")];
+    if (id === "strip") return [{ ...dataset, desc: "What the band under the prices shows." }, ...(S.strip === "off" ? [] : [{
+      id: "force", name: "Force", title: "Choose a force", desc: "All four summed, or one alone with only its own events.", group: stripForceChoices(),
+    }])];
     if (id === "pane") return [dataset, ...(S.pane.startsWith("rsi") ? [{
       id: "timeframe", name: "Timeframe", title: "Choose a timeframe", desc: "The bars used to calculate RSI 14.", group: paneTimeframes(),
     }] : [])];
@@ -9833,7 +9851,7 @@
   }
   function buildFlowMenu(id) {
     const panel = el(`${id}-menu`), steps = flowSteps(id), state = menuFlows[id],
-      name = { mode: "Cells", pane: "Columns" }[id] ?? rowSelectorSpecs[id]?.name;
+      name = { mode: "Cells", pane: "Columns", strip: "Strip" }[id] ?? rowSelectorSpecs[id]?.name;
     let at = steps.findIndex(step => step.id === state.step);
     if (at < 0) { at = 0; state.step = "dataset"; }
     const step = steps[at], header = uiEl("div", "ol-flow-head"),
@@ -9855,7 +9873,8 @@
     }
     const selected = steps.slice(1).flatMap(entry => [...entry.group.querySelectorAll('[aria-checked="true"]')])
       .map(b => b.querySelector(".ol-item-text > span")?.textContent).filter(Boolean),
-      datasetName = id === "mode" ? MODE_NAMES[S.mode] : id === "pane" ? (S.pane.startsWith("rsi") ? "RSI 14" : PANE_INFO[S.pane].name) : ROWS_INFO[rowSelectorSpecs[id].measure()].name;
+      datasetName = id === "mode" ? MODE_NAMES[S.mode] : id === "pane" ? (S.pane.startsWith("rsi") ? "RSI 14" : PANE_INFO[S.pane].name)
+        : id === "strip" ? (S.strip === "off" ? "Off" : "Forces") : ROWS_INFO[rowSelectorSpecs[id].measure()].name;
     // A menu with one step is a plain list: no step count and no stepper.
     if (steps.length > 1) header.append(uiEl("div", "ol-flow-caption", `${name} · Step ${at + 1} of ${steps.length}`), progress,
       uiEl("div", "ol-flow-summary", [datasetName, ...selected].join(" · ")));
@@ -9865,7 +9884,7 @@
     body.setAttribute("role", "group");
     body.setAttribute("aria-labelledby", heading.id);
     body.append(heading, uiEl("p", "ol-flow-desc", step.desc));
-    if (step.id === "dataset") body.append(...(rowSelectorSpecs[id] ? rowSelectorDatasetItems(id) : { mode: modeDatasetItems, pane: paneDatasetItems }[id]()));
+    if (step.id === "dataset") body.append(...(rowSelectorSpecs[id] ? rowSelectorDatasetItems(id) : { mode: modeDatasetItems, pane: paneDatasetItems, strip: stripDatasetItems }[id]()));
     else {
       // The step title names this group; omit the duplicated old section caption.
       step.group.querySelector(".ol-menu-cap")?.remove();
@@ -9889,7 +9908,8 @@
   const buildModeMenu = () => buildFlowMenu("mode"),
     buildPaneMenu = () => buildFlowMenu("pane"),
     buildRowsMenu = () => buildFlowMenu("rows"),
-    buildBackgroundMenu = () => buildFlowMenu("background");
+    buildBackgroundMenu = () => buildFlowMenu("background"),
+    buildStripMenu = () => buildFlowMenu("strip");
   // Each closed selector declares its own measure and period, including while Off.
   function renderRows() {
     for (const [id, spec] of Object.entries(rowSelectorSpecs)) {
@@ -10138,10 +10158,10 @@
     el("reset-confirm").addEventListener("cancel", (event) => { event.preventDefault(); closeCanvasReset(); });
     bindMenu("window", "window-menu", buildWindowMenu);
     bindMenu("follow", "follow-menu", buildFollowMenu);
-    for (const [id, build] of [["mode", buildModeMenu], ["pane", buildPaneMenu], ["background", buildBackgroundMenu], ["rows", buildRowsMenu]])
+    for (const [id, build] of [["mode", buildModeMenu], ["pane", buildPaneMenu], ["background", buildBackgroundMenu], ["rows", buildRowsMenu], ["strip", buildStripMenu]])
       bindMenu(id, `${id}-menu`, build, () => { menuFlows[id].step = "dataset"; });
     addEventListener("resize", () => {
-      for (const id of ["mode", "pane", "rows", "background"]) uiPopPlace(el(`${id}-menu`), el(id), "start");
+      for (const id of ["mode", "pane", "rows", "background", "strip"]) uiPopPlace(el(`${id}-menu`), el(id), "start");
     });
     bindLines();
     bindInspect();
@@ -16086,6 +16106,528 @@
       "An interval of the source bars, known once the bar that ends it has closed",
     );
   }
+  // ---- The Strip ----
+  // The band between the price pane and the event strip (docs/strip.md, #193). Its one dataset so far is Forces: where the forces acting
+  // on BTC lean (the hue), how much attention it gets (the intensity), each scheduled event's potential (light that builds toward it) and
+  // each measured reaction (a seam). The data is /cube/strip, relayed by the bridge from Origo. Nothing is drawn that was not known by the
+  // edge, the data's cutoff or the replay's, and no model reads text anywhere in it.
+  const STRIP_FORCES = ["macro", "positioning", "news", "social"],
+    STRIP_NAMES = { forces: "Forces", macro: "Macro", positioning: "Positioning", news: "News", social: "Social" },
+    STRIP_WHAT = {
+      forces: "All four forces, summed",
+      macro: "The dollar, yields and credit",
+      positioning: "Perpetual funding and stablecoin supply",
+      news: "The tone of coverage",
+      social: "Bullish against bearish words",
+    },
+    STRIP_CHOICES = ["off", "forces", ...STRIP_FORCES.map((f) => "forces." + f)],
+    STRIP_STEPS = [900000, 3600000, 21600000, 86400000],
+    STRIP_HOUR = 3600000,
+    STRIP_DAY = 86400000,
+    STRIP_HORIZON = 90 * 86400000,
+    STRIP_HISTORY = 730 * 86400000,
+    // An event is labelled, and its reaction seamed, only from this expected move, in percent (docs/strip.md).
+    STRIP_LIT = 0.15;
+  const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), status: "idle", detail: "", model: "", busy: null,
+    timer: 0, failed: { key: "", at: -Infinity }, horizon: null, hits: [] };
+  const stripChoices = () => (PACK.live ? STRIP_CHOICES : ["off"]),
+    stripForce = () => (S.strip.startsWith("forces.") ? S.strip.slice(7) : null),
+    stripBase = (ms) => (ms / 1000 - T0) / BASE,
+    stripPct = (v, d = 2) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(d)}%`;
+  function setStrip(value) {
+    if (!stripChoices().includes(value)) return;
+    S.strip = value;
+    update();
+    save();
+    scheduleStrip();
+  }
+  // The grid the band needs: the view and a quarter of it either side, at the finest step that keeps it under two points a pixel.
+  function stripViewWant() {
+    const a = msAt(S.tA), b = Math.min(msAt(S.tB), msAt(Math.ceil(CUT))), span = Math.max(STRIP_HOUR, b - a),
+      step = STRIP_STEPS.find((s) => (1.5 * span) / s <= 2 * Math.max(200, G.w || 0)) ?? STRIP_STEPS[STRIP_STEPS.length - 1],
+      from = Math.max(0, Math.floor((a - span / 4) / step) * step), to = Math.ceil((b + span / 4) / step) * step + step;
+    return { kind: "view", from, to, step, need: [a, b] };
+  }
+  // The track record's history: hourly, the two years to the data's cutoff, which brings the events of the next 90 days as well.
+  function stripHistoryWant() {
+    const step = STRIP_HOUR, to = Math.ceil(msAt(Math.ceil(CUT)) / step) * step + step;
+    return { kind: "history", from: Math.max(0, to - STRIP_HISTORY), to, step, need: [to - STRIP_HISTORY, to - step] };
+  }
+  const stripCovers = (held, want) => Boolean(held) && held.step === want.step && held.from <= want.need[0] && held.to > want.need[1];
+  function scheduleStrip() {
+    clearTimeout(stripRt.timer);
+    if (S.strip === "off" || !PACK.live || !ready) return;
+    stripRt.timer = setTimeout(pumpStrip, 200);
+  }
+  // One read at a time, in no slot of the cube's: the view's grid first, then the history. A grid that failed is asked for again only
+  // after a minute, and a held one again once it is five minutes old (the view at the live edge) or half an hour (the history).
+  async function pumpStrip() {
+    if (S.strip === "off" || !PACK.live || stripRt.busy) return;
+    const view = stripViewWant(), history = stripHistoryWant(), now = performance.now(),
+      liveEdge = (held) => held.to > msAt(Math.ceil(CUT)),
+      want = !stripCovers(stripRt.view, view) || (liveEdge(stripRt.view) && now - stripRt.view.at > 300000) ? view
+        : !stripCovers(stripRt.history, history) || now - stripRt.history.at > 1800000 ? history : null;
+    if (!want) return;
+    const key = `${want.kind}|${want.from}|${want.to}|${want.step}`;
+    if (key === stripRt.failed.key && now - stripRt.failed.at < 60000) return;
+    const controller = new AbortController();
+    stripRt.busy = { key, controller };
+    if (!stripRt.view && stripRt.status !== "unconfigured") stripRt.status = "loading";
+    try {
+      const target = new URL(`/cube/strip?from=${want.from}&to=${want.to}&step=${want.step}&proto=${PROTOCOL}`, location.href);
+      target.username = target.password = "";
+      const response = await fetch(target, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]) }),
+        body = await response.json().catch(() => null);
+      offerReload(body);
+      if (response.ok && body?.schema === "cube-strip@1") stripApply(want, body);
+      else {
+        stripRt.failed = { key, at: now };
+        if (body?.error === "strip_not_configured") stripRt.status = "unconfigured";
+        else if (!stripRt.view) {
+          stripRt.status = "failed";
+          stripRt.detail = body?.detail || body?.error || `HTTP ${response.status}`;
+        }
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        stripRt.failed = { key, at: now };
+        if (!stripRt.view) {
+          stripRt.status = "failed";
+          stripRt.detail = error.message;
+        }
+      }
+    } finally {
+      stripRt.busy = null;
+      renderStrip();
+      requestDraw();
+      scheduleStrip();
+    }
+  }
+  function stripApply(want, body) {
+    const grid = body.grid,
+      held = { from: want.from, to: want.to, step: grid.step, t0: grid.t0, forces: grid.forces, attention: grid.attention, close: grid.close,
+        next24h: grid.next24h, at: performance.now() };
+    stripRt[want.kind] = held;
+    for (const e of body.events) stripRt.events.set(e.id, e);
+    for (const j of body.jumps) stripRt.jumps.set(j.id, { ...j, jump: true, name: "Unscheduled move", short: "Move", family: "news" });
+    for (const map of [stripRt.events, stripRt.jumps]) while (map.size > 5000) map.delete(map.keys().next().value);
+    stripRt.model = body.model;
+    stripRt.status = "ready";
+    stripRt.detail = "";
+  }
+  // A series' value at a time: the one at the grid time at or before it, which was known then.
+  function stripAt(held, ms, name) {
+    if (!held) return null;
+    const series = STRIP_FORCES.includes(name) ? held.forces[name] : held[name], i = Math.floor((ms - held.t0) / held.step);
+    return i >= 0 && i < series.length && series[i] !== undefined ? series[i] : null;
+  }
+  // The held grid that covers a time, the finer first.
+  const stripHeld = (ms) => [stripRt.view, stripRt.history].find((h) => h && ms >= h.t0 && ms < h.to) ?? null;
+  // The lean shown: one force alone, or the sum of the forces known; null when none is.
+  function stripLean(held, ms, force = stripForce()) {
+    if (force) return stripAt(held, ms, force);
+    let sum = 0, known = false;
+    for (const f of STRIP_FORCES) {
+      const v = stripAt(held, ms, f);
+      if (v !== null) {
+        sum += v;
+        known = true;
+      }
+    }
+    return known ? sum : null;
+  }
+  // What was known of an event at a time: its expectation (the estimate once made, else the prior) and its measured reaction once its
+  // window had closed; null before its date was published.
+  function stripKnown(e, ms) {
+    if (e.jump) return e.at + e.window * 60000 <= ms ? { charge: null, expect: null, measured: { move: e.move, bits: e.bits, at: e.at + e.window * 60000 } } : null;
+    if (e.knownAt > ms) return null;
+    const expect = e.estimate && e.estimate.at <= ms ? e.estimate : e.prior;
+    return { charge: expect.charge, expect, measured: e.measured && e.measured.at <= ms ? e.measured : null };
+  }
+  const stripEvents = (force = stripForce()) => [...stripRt.events.values()].filter((e) => !force || e.family === force);
+  const stripJumps = (force = stripForce()) => (!force || force === "news" ? [...stripRt.jumps.values()] : []);
+  // The price the edge last knew, from the closes held.
+  function stripCloseAt(ms) {
+    for (const held of [stripRt.view, stripRt.history]) {
+      if (!held) continue;
+      for (let i = Math.min(held.close.length - 1, Math.floor((ms - held.t0) / held.step)); i >= 0; i--) if (held.close[i] !== null) return held.close[i];
+    }
+    return null;
+  }
+  // Light at a time: the potential of the events ahead of it, each as known then, together at most 1.
+  function stripLight(events, ms) {
+    let light = 0;
+    for (const e of events) {
+      if (e.at <= ms || e.at - ms > 14 * STRIP_DAY) continue;
+      const k = stripKnown(e, ms);
+      if (k) light += Math.min(1, k.charge / 2) * Math.exp(-(e.at - ms) / (2 * STRIP_DAY));
+    }
+    return Math.min(1, light);
+  }
+  const stripSeamStrength = (m) => 0.22 + 0.78 * Math.sqrt(Math.min(1, m.bits / 3) * Math.min(1, Math.abs(m.move) / 2));
+  // A lean's colour: from the midpoint toward the positive or negative role by min(1, |lean|)^0.6, laid over the surface by the attention
+  // at min(1, 1.7 attention). Kept per hundredth of each, and worked out again when the theme changes.
+  let stripMixes = { key: "", toPos: null, toNeg: null, kept: new Map() };
+  function stripColour(lean, attention) {
+    const key = colors.surface + colors.midpoint + colors.positive + colors.negative;
+    if (stripMixes.key !== key)
+      stripMixes = { key, toPos: d3.interpolateLab(colors.midpoint, colors.positive), toNeg: d3.interpolateLab(colors.midpoint, colors.negative), kept: new Map() };
+    const strength = Math.round(Math.min(1, Math.abs(lean)) ** 0.6 * 100), weight = Math.round(Math.min(1, 1.7 * (attention ?? 0.5)) * 100),
+      id = (lean >= 0 ? strength : -strength) * 1000 + weight;
+    let colour = stripMixes.kept.get(id);
+    if (colour === undefined) {
+      colour = d3.interpolateLab(colors.surface, (lean >= 0 ? stripMixes.toPos : stripMixes.toNeg)(strength / 100))(weight / 100);
+      stripMixes.kept.set(id, colour);
+    }
+    return colour;
+  }
+  // The band: its name in the price labels' column, the hue and intensity of each pixel column up to the edge, the light through its
+  // middle, the seams, and the labels of the lit events above it.
+  function paintStrip(cut) {
+    stripRt.hits = [];
+    stripRt.horizon = null;
+    if (!G.bh) return;
+    const edge = msAt(cut), force = stripForce(), top = G.by + STRIP_LABELS, h = STRIP_BAND, x0 = G.x, x1 = G.x + G.w,
+      xe = Math.min(x1, Math.max(x0, G.X(cut)));
+    ctx.save();
+    text(STRIP_NAMES[force ?? "forces"], G.x - 2, top + h / 2, colors.muted, "right");
+    ctx.fillStyle = colors.surface;
+    ctx.fillRect(x0, top, G.w, h);
+    line(x0, top + 0.5, x1, top + 0.5, colors.line, 1);
+    line(x0, top + h - 0.5, x1, top + h - 0.5, colors.line, 1);
+    if (!stripRt.view) {
+      // TEXT(S1): why the band is empty
+      text(stripStatusText(), x0 + 6, top + h / 2, colors.muted, "left");
+      ctx.restore();
+      paintStripHorizon(cut);
+      return;
+    }
+    ctx.beginPath();
+    ctx.rect(x0, top, G.w, h);
+    ctx.clip();
+    const events = stripEvents(force), jumps = stripJumps(force);
+    for (let x = Math.floor(x0); x < xe; x++) {
+      const ms = msAt(G.X.invert(x + 0.5)), held = stripHeld(ms), lean = stripLean(held, ms, force);
+      if (lean === null) continue;
+      ctx.fillStyle = stripColour(lean, stripAt(held, ms, "attention"));
+      ctx.fillRect(x, top + 1, 1, h - 2);
+    }
+    const near = events.filter((e) => e.at > msAt(S.tA) && e.at - 14 * STRIP_DAY < msAt(S.tB));
+    ctx.fillStyle = colors.ink;
+    for (let x = Math.floor(x0); x < xe; x++) {
+      const light = stripLight(near, msAt(G.X.invert(x + 0.5)));
+      if (light < 0.02) continue;
+      const beam = (h - 2) * (0.2 + 0.5 * light);
+      ctx.globalAlpha = 0.85 * light;
+      ctx.fillRect(x, top + (h - beam) / 2, 1, beam);
+    }
+    ctx.globalAlpha = 1;
+    for (const e of [...events, ...jumps]) {
+      const k = stripKnown(e, edge);
+      if (!k?.measured || (!e.jump && k.charge < STRIP_LIT)) continue;
+      const x = Math.round(G.X(stripBase(k.measured.at))) + 0.5;
+      if (x >= x0 && x <= xe) line(x, top + 1, x, top + h - 1, colors.ink, 2, stripSeamStrength(k.measured));
+    }
+    ctx.restore();
+    // The labels of the lit events in view, each where its light breaks, none over another.
+    let right = -Infinity;
+    for (const e of [...events, ...jumps].sort((a, b) => a.at - b.at)) {
+      const k = stripKnown(e, edge), x = G.X(stripBase(e.at));
+      if (!k || x < x0 || x > xe) continue;
+      stripRt.hits.push({ e, x });
+      if (!e.jump && k.charge < STRIP_LIT) continue;
+      ctx.font = `${TYPE.s}px ${FONT}`;
+      const w = ctx.measureText(e.short).width;
+      if (x - w / 2 < right + 4) continue;
+      text(e.short, x, G.by + STRIP_LABELS / 2, colors.muted, "center");
+      right = x + w / 2;
+    }
+    paintStripHorizon(cut);
+  }
+  // The horizon box right of the band, in the profile's column: the next 90 days from the edge on a log scale of time to go, the light
+  // of each event ahead as the edge knew it.
+  function paintStripHorizon(cut) {
+    if (!G.profile || !stripRt.view) return;
+    const x0 = G.sx + G.sw + PROFILE_PAD, x1 = G.sx + G.sw + G.profile - PROFILE_END, w = x1 - x0, top = G.by + STRIP_LABELS, h = STRIP_BAND;
+    if (w < 40) return;
+    const edge = msAt(cut), scale = Math.log1p(STRIP_HORIZON / STRIP_HOUR), X = (dt) => x0 + (w * Math.log1p(Math.max(0, dt) / STRIP_HOUR)) / scale,
+      ahead = stripEvents().filter((e) => e.at > edge && e.at <= edge + STRIP_HORIZON && e.knownAt <= edge).sort((a, b) => a.at - b.at);
+    ctx.save();
+    ctx.fillStyle = colors.surface;
+    ctx.fillRect(x0, top, w, h);
+    ctx.strokeStyle = colors.line;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x0 + 0.5, top + 0.5, w - 1, h - 1);
+    for (const [dt, label] of [[STRIP_DAY, "1d"], [7 * STRIP_DAY, "1w"], [30 * STRIP_DAY, "30d"]]) {
+      const x = Math.round(X(dt)) + 0.5;
+      line(x, top + 1, x, top + h - 1, colors.line, 1);
+      text(label, x, G.by + STRIP_LABELS / 2, colors.muted, "center");
+    }
+    ctx.fillStyle = colors.ink;
+    for (let x = Math.ceil(x0) + 1; x < x1 - 1; x++) {
+      const ms = edge + STRIP_HOUR * Math.expm1(((x + 0.5 - x0) / w) * scale);
+      let light = 0;
+      for (const e of ahead) if (e.at > ms) light += Math.min(1, stripKnown(e, edge).charge / 2) * Math.exp(-(e.at - ms) / (2 * STRIP_DAY));
+      light = Math.min(1, light);
+      if (light < 0.02) continue;
+      const beam = (h - 2) * (0.2 + 0.5 * light);
+      ctx.globalAlpha = 0.85 * light;
+      ctx.fillRect(x, top + (h - beam) / 2, 1, beam);
+    }
+    ctx.restore();
+    stripRt.horizon = { box: [x0, top, x1, top + h], events: ahead.map((e) => ({ e, x: X(e.at - edge) })) };
+  }
+  function stripStatusText() {
+    return {
+      unconfigured: "Strip data is not served yet",
+      failed: `Strip unavailable: ${stripRt.detail}`,
+      loading: "Reading the strip…",
+      idle: "Reading the strip…",
+      ready: "",
+    }[stripRt.status];
+  }
+  function inStripBand(p) {
+    if (!G.bh || p.y < G.by || p.y > G.by + G.bh) return false;
+    return (p.x >= G.x - 60 && p.x <= G.x + G.w) || Boolean(stripRt.horizon && p.x >= stripRt.horizon.box[0] && p.x <= stripRt.horizon.box[2]);
+  }
+  // The card under the pointer: an event near it, the events ahead in the horizon, or the forces at its time.
+  function stripTip(tip, p, cut) {
+    const edge = msAt(cut), what = STRIP_NAMES[stripForce() ?? "forces"];
+    if (!stripRt.view || p.x < G.x) {
+      tipRows(tip, `Strip · ${what}`, STRIP_WHAT[stripForce() ?? "forces"], [],
+        stripRt.view
+          ? ["Hue: where the forces lean, blue up and orange down. Intensity: attention.", "Light: an event's expected move, building toward it. A seam: its measured reaction."]
+          : [stripStatusText(), stripRt.status === "unconfigured" ? "The bridge relays it from Origo once STRIP_URL is set." : ""]);
+      return;
+    }
+    const nearest = (list, reach) => list.reduce((best, hit) => (Math.abs(hit.x - p.x) <= (best ? Math.abs(best.x - p.x) : reach) ? hit : best), null);
+    const hz = stripRt.horizon;
+    if (hz && p.x >= hz.box[0]) {
+      const hit = nearest(hz.events, 6);
+      if (hit) stripEventCard(tip, hit.e, edge);
+      else stripAheadCard(tip, hz.events.map((x) => x.e), edge);
+      return;
+    }
+    const hit = nearest(stripRt.hits, 5);
+    if (hit) stripEventCard(tip, hit.e, edge);
+    else stripForcesCard(tip, Math.min(msAt(p.t), edge), edge);
+  }
+  // A card's small SVG, built node by node: names and numbers in it come from the data, so none is ever read as markup.
+  function stripSvg(tag, attrs = {}, kids = []) {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+    for (const kid of kids) node.append(kid);
+    return node;
+  }
+  const stripLabel = (s, attrs) => stripSvg("text", { "font-size": TYPE.s, ...attrs }, [document.createTextNode(s)]);
+  // The forces as arrows from a common centre: left pulls down in the negative role, right pulls up in the positive; the net last and
+  // thickest. Every value is also written as a signed number in the ink, so no hue has to carry it.
+  function stripTug(rows, w = 272) {
+    const rowH = 22, h = rows.length * rowH + 2, nameW = 84, valW = 46, cx = nameW + (w - nameW - valW) / 2, half = (w - nameW - valW) / 2 - 8,
+      ext = Math.max(0.6, ...rows.map((r) => (r.v === null ? 0 : Math.abs(r.v)))),
+      svg = stripSvg("svg", { width: w, height: h, viewBox: `0 0 ${w} ${h}`, "aria-hidden": "true", class: "ol-strip-tug" });
+    svg.append(stripSvg("line", { x1: cx, y1: 0, x2: cx, y2: h, stroke: colors.line }));
+    rows.forEach((r, i) => {
+      const y = 1 + i * rowH + rowH / 2;
+      if (r.net) svg.append(stripSvg("line", { x1: 0, y1: y - rowH / 2, x2: w, y2: y - rowH / 2, stroke: colors.line }));
+      svg.append(stripLabel(r.name, { x: 0, y: y + 4, fill: r.net || r.on ? colors.ink : colors.muted, "font-weight": r.net || r.on ? 600 : 400 }));
+      if (r.v === null) {
+        svg.append(stripLabel(r.note, { x: cx + 6, y: y + 4, fill: colors.muted }));
+        return;
+      }
+      const len = (Math.abs(r.v) / ext) * half, dir = r.v >= 0 ? 1 : -1, th = r.net ? 9 : 6, c = r.v >= 0 ? colors.positive : colors.negative, xe = cx + dir * len;
+      svg.append(stripSvg("rect", { x: Math.min(cx, xe).toFixed(1), y: (y - th / 2).toFixed(1), width: Math.max(1, len).toFixed(1), height: th, fill: c }));
+      svg.append(stripSvg("path", { d: `M${xe.toFixed(1)},${(y - th / 2 - 3).toFixed(1)}L${(xe + dir * 7).toFixed(1)},${y.toFixed(1)}L${xe.toFixed(1)},${(y + th / 2 + 3).toFixed(1)}Z`, fill: c }));
+      svg.append(stripLabel(signed(r.v, (x) => x.toFixed(2)), { x: w, y: y + 4, fill: colors.ink, "font-weight": 600, "text-anchor": "end" }));
+    });
+    return svg;
+  }
+  // A distribution as bars, below zero in the negative role and above it in the positive, stronger where likelier; marks with their names
+  // above it, and a grey outline of a second distribution where one is given.
+  function stripHist(bins, { w = 272, h = 84, marks = [], ticks = [], outline = null } = {}) {
+    const lo = bins[0][0], hi = bins[bins.length - 1][1], top = 14, bottom = h - (ticks.length ? 14 : 2),
+      X = (v) => ((clamp(v, lo, hi) - lo) / (hi - lo)) * w, peak = Math.max(...bins.map((b) => b[2]), ...(outline ?? []).map((b) => b[2])) || 1,
+      H = (p) => (p / peak) * (bottom - top), svg = stripSvg("svg", { width: w, height: h, viewBox: `0 0 ${w} ${h}`, "aria-hidden": "true", class: "ol-strip-hist" });
+    for (const [a, b, p] of bins)
+      if (p > 0) svg.append(stripSvg("rect", { x: (X(a) + 0.5).toFixed(1), y: (bottom - H(p)).toFixed(1), width: Math.max(1, X(b) - X(a) - 1).toFixed(1),
+        height: Math.max(1, H(p)).toFixed(1), fill: (a + b) / 2 < 0 ? colors.negative : colors.positive, opacity: (0.4 + 0.55 * (p / peak)).toFixed(2) }));
+    if (outline) svg.append(stripSvg("path", { d: outline.map(([a, b, p], k) => `${k ? "L" : "M"}${X(a).toFixed(1)},${(bottom - H(p)).toFixed(1)}L${X(b).toFixed(1)},${(bottom - H(p)).toFixed(1)}`).join(""),
+      fill: "none", stroke: colors.ink, opacity: 0.55, "stroke-width": 1.2 }));
+    if (lo < 0 && hi > 0) svg.append(stripSvg("line", { x1: X(0).toFixed(1), y1: top - 3, x2: X(0).toFixed(1), y2: bottom, stroke: colors.ink, opacity: 0.4 }));
+    for (const m of marks) {
+      const x = X(m.x).toFixed(1);
+      svg.append(stripSvg("line", { x1: x, y1: top - 1, x2: x, y2: bottom, stroke: colors.ink, "stroke-width": m.mid ? 1.5 : 1, ...(m.mid ? {} : { "stroke-dasharray": "3 2" }) }));
+      svg.append(stripLabel(m.label, { x: clamp(X(m.x), 12, w - 12).toFixed(1), y: 10, fill: m.mid ? colors.ink : colors.muted, "text-anchor": "middle" }));
+    }
+    svg.append(stripSvg("line", { x1: 0, y1: bottom + 0.5, x2: w, y2: bottom + 0.5, stroke: colors.line }));
+    for (const t of ticks) {
+      const x = X(t.x);
+      if (x > 14 && x < w - 14) svg.append(stripLabel(t.label, { x: x.toFixed(1), y: h - 2, fill: colors.muted, "text-anchor": "middle" }));
+    }
+    return svg;
+  }
+  function stripQuantile(sorted, q) {
+    if (!sorted.length) return NaN;
+    const x = (sorted.length - 1) * q, i = Math.floor(x);
+    return sorted[i] + (sorted[Math.min(i + 1, sorted.length - 1)] - sorted[i]) * (x - i);
+  }
+  // Three figures side by side: each a name, a value and a line under it.
+  function stripQ3(cells) {
+    const box = uiEl("div", "ol-strip-q3");
+    for (const [name, value, under] of cells) {
+      const cell = uiEl("div");
+      cell.append(uiEl("div", "ol-strip-q3-name", name), uiEl("div", "ol-strip-q3-value", value), uiEl("div", "ol-strip-q3-under", under));
+      box.append(cell);
+    }
+    return box;
+  }
+  // The track record (docs/strip.md): BTC over the next 24 hours after the past moments whose forces lay nearest these, at least six
+  // hours apart, against all past moments six hours apart. Only moments whose next 24 hours had passed by the edge count.
+  function stripTrack(ms, edge, force) {
+    const held = stripRt.history;
+    if (!held) return null;
+    const step = held.step, last = Math.min(held.next24h.length - 1, Math.floor((edge - STRIP_DAY - held.t0) / step)), gap = Math.max(1, Math.round((6 * STRIP_HOUR) / step));
+    if (last < 0) return { dims: [], near: [], all: [], step, t0: held.t0 };
+    const here = stripHeld(ms), now = Object.fromEntries(STRIP_FORCES.map((f) => [f, stripAt(here, ms, f)]));
+    const dims = (force ? [force] : STRIP_FORCES).filter((f) => {
+      if (now[f] === null) return false;
+      let known = 0;
+      for (let i = 0; i <= last; i++) if (held.forces[f][i] !== null) known++;
+      return known > 0.5 * (last + 1);
+    });
+    const pool = [], all = [];
+    for (let i = 0; i <= last; i++) {
+      const r = held.next24h[i];
+      if (r === null) continue;
+      if (i % gap === 0) all.push({ i, r });
+      if (!dims.length) continue;
+      let d = 0, known = true;
+      for (const f of dims) {
+        const v = held.forces[f][i];
+        if (v === null) {
+          known = false;
+          break;
+        }
+        d += (v - now[f]) ** 2;
+      }
+      if (known) pool.push({ i, d: Math.sqrt(d), r });
+    }
+    const near = [];
+    for (const p of pool.sort((a, b) => a.d - b.d || a.i - b.i)) {
+      if (p.d > 0.5 || near.length >= 40) break;
+      if (near.every((q) => Math.abs(q.i - p.i) >= gap)) near.push(p);
+    }
+    return { dims, near, all, step, t0: held.t0 };
+  }
+  // The track record's part of a card: the share that fell or rose against all moments, the distribution with all moments' outline,
+  // and p5, p50 and p95 of both.
+  function stripTrackPart(ms, edge, force) {
+    const parts = [uiEl("div", "ol-strip-section", "BTC over the next 24 hours, after moments like this")], T = stripTrack(ms, edge, force);
+    if (!T) return [...parts, uiEl("div", "ol-tip-note", "Reading the strip's history…")];
+    if (T.all.length < 20 || !T.dims.length) return [...parts, uiEl("div", "ol-tip-note", "Too little history of these forces before this moment.")];
+    if (T.near.length < 8)
+      return [...parts, uiEl("div", "ol-strip-big", "Too few"), uiEl("div", "ol-tip-note", `${T.near.length} past moment${T.near.length === 1 ? "" : "s"} lay this near; the forces have rarely lined up like this.`)];
+    const rs = T.near.map((p) => p.r).sort((a, b) => a - b), as = T.all.map((p) => p.r).sort((a, b) => a - b),
+      share = (list) => list.filter((p) => p.r < 0).length / list.length, dn = share(T.near), base = share(T.all), fell = dn >= 0.5,
+      days = new Set(T.near.map((p) => Math.floor((T.t0 + p.i * T.step) / STRIP_DAY))).size,
+      reach = Math.max(3, Math.ceil(Math.max(-stripQuantile(as, 0.02), stripQuantile(as, 0.98)))), n = 16, width = (2 * reach) / n,
+      count = (list) => {
+        const out = Array.from({ length: n }, (_, k) => [-reach + k * width, -reach + (k + 1) * width, 0]);
+        for (const p of list) out[clamp(Math.floor((p.r + reach) / width), 0, n - 1)][2]++;
+        return out;
+      },
+      bins = count(T.near), outline = count(T.all).map(([a, b, c]) => [a, b, (c / T.all.length) * T.near.length]),
+      then = ms + STRIP_DAY <= edge ? stripAt(stripHeld(ms), ms, "next24h") : null,
+      left = STRIP_FORCES.filter((f) => (force ? f === force : true) && !T.dims.includes(f)).map((f) => STRIP_NAMES[f]);
+    const big = uiEl("div", "ol-strip-big", `${fell ? "Fell" : "Rose"} in ${Math.round((fell ? dn : 1 - dn) * 100)}%`);
+    big.dataset.field = "trackShare";
+    big.dataset.canonical = String(fell ? dn : 1 - dn);
+    parts.push(big, uiEl("div", "ol-tip-sub", `of ${T.near.length} moments on ${days} days · all moments ${Math.round((fell ? base : 1 - base) * 100)}%`),
+      stripHist(bins, { h: 84, outline, marks: [{ x: stripQuantile(rs, 0.05), label: "p5" }, { x: stripQuantile(rs, 0.5), label: "p50", mid: true }, { x: stripQuantile(rs, 0.95), label: "p95" }],
+        ticks: [{ x: -reach, label: `−${reach}%` }, { x: 0, label: "0" }, { x: reach, label: `+${reach}%` }] }),
+      stripQ3([0.05, 0.5, 0.95].map((q) => [`p${Math.round(q * 100)}`, stripPct(stripQuantile(rs, q), 1), `all ${stripPct(stripQuantile(as, q), 1)}`])),
+      uiEl("div", "ol-tip-note", `Bars: the moments nearest these forces, at least 6 hours apart; the line: all moments.${left.length ? ` ${left.join(" and ")} left out: too little history.` : ""}${then === null ? "" : ` Then: ${stripPct(then, 1)} over the next 24 hours.`}`));
+    return parts;
+  }
+  function stripForcesCard(tip, ms, edge) {
+    const force = stripForce(), held = stripHeld(ms), values = STRIP_FORCES.map((f) => stripAt(held, ms, f)), attention = stripAt(held, ms, "attention"),
+      known = values.filter((v) => v !== null),
+      rows = STRIP_FORCES.map((f, j) => ({ name: STRIP_NAMES[f], v: values[j], on: f === force, note: f === "social" ? "no history yet" : "not known" }));
+    rows.push({ name: "Net", v: known.length ? known.reduce((s, v) => s + v, 0) : null, net: true, note: "no force known" });
+    tip.dataset.presentation = "strip-forces";
+    tip.replaceChildren(uiEl("div", "ol-tip-head", force ? `Forces · ${STRIP_NAMES[force]}` : "Forces"), uiEl("div", "ol-tip-sub", `${when(stripBase(ms))} UTC`),
+      stripTug(rows),
+      uiEl("div", "ol-tip-note", `Left pulls down, right pulls up. Attention ${attention === null ? "not known" : `${Math.round(attention * 100)} of 100`}.`),
+      ...stripTrackPart(ms, edge, force));
+  }
+  // An event: ahead of the edge (or with its window still open), its own move over the window after it, p5 to p95, with the options'
+  // range to the next expiry as one line of context; once measured, the move it made against what was expected.
+  function stripEventCard(tip, e, edge) {
+    const k = stripKnown(e, edge), close = stripCloseAt(edge), ago = e.at <= edge ? `${dur((edge - e.at) / 1000)} ago` : `in ${dur((e.at - edge) / 1000)}`;
+    tip.dataset.presentation = "strip-event";
+    if (e.jump) {
+      tip.replaceChildren(uiEl("div", "ol-tip-head", "Unscheduled move"), uiEl("div", "ol-tip-sub", `${when(stripBase(e.at))} UTC · ${ago}`),
+        uiEl("div", "ol-strip-big", stripPct(e.move)), uiEl("div", "ol-tip-sub", `in the ${e.window} minutes after · ${e.bits.toFixed(1)} bits of surprise`),
+        uiEl("div", "ol-tip-note", "A move with an attention footprint and no scheduled event near it."));
+      return;
+    }
+    const expect = k.expect, r = expect.reaction,
+      source = expect.from === "options" ? `Spread from option prices at ${when(stripBase(expect.at))} UTC` : "Spread from past releases; the options price nothing more here",
+      head = [uiEl("div", "ol-tip-head", e.name), uiEl("div", "ol-tip-sub", `${when(stripBase(e.at))} UTC · ${ago}`)],
+      ticks = [{ x: r.bins[0][0], label: stripPct(r.bins[0][0], 1) }, { x: 0, label: "0" }, { x: r.bins[r.bins.length - 1][1], label: stripPct(r.bins[r.bins.length - 1][1], 1) }];
+    if (k.measured) {
+      const m = k.measured, below = r.bins.reduce((s, [a, b, p]) => s + (b <= m.move ? p : a < m.move ? (p * (m.move - a)) / (b - a) : 0), 0);
+      tip.replaceChildren(...head, uiEl("div", "ol-strip-big", stripPct(m.move)), uiEl("div", "ol-tip-sub", `in the ${e.window} minutes after · ${m.bits.toFixed(1)} bits of surprise`),
+        stripHist(r.bins, { marks: [{ x: m.move, label: "then", mid: true }], ticks }),
+        uiEl("div", "ol-tip-note", `It landed at p${clamp(Math.round(below * 100), 0, 100)} of what was expected, p5 ${stripPct(r.p5, 1)} to p95 ${stripPct(r.p95, 1)}. ${source}.`));
+      return;
+    }
+    const price = (v) => (close === null ? "" : priceFormat.format(Math.round(close * (1 + v / 100))));
+    const notes = [`${source}${expect.from === "options" && expect.skew ? `, skewed ${expect.skew > 0 ? "up" : "down"} across it` : ""}.`];
+    if (close !== null) notes.push(`Prices apply the move to BTC's ${priceFormat.format(Math.round(close))} at the edge.`);
+    if (expect.expiry) notes.push(`By ${when(stripBase(expect.expiry.at))} UTC, options put BTC between ${compact(expect.expiry.p5)} and ${compact(expect.expiry.p95)}; ${e.short} is ${expect.expiry.share >= 0.001 ? (expect.expiry.share * 100).toFixed(1) + "%" : "under 0.1%"} of that variance.`);
+    tip.replaceChildren(...head, uiEl("div", "ol-strip-section", `BTC in the ${e.window} minutes after`),
+      stripHist(r.bins, { marks: [{ x: r.p5, label: "p5" }, { x: r.p50, label: "p50", mid: true }, { x: r.p95, label: "p95" }], ticks }),
+      stripQ3([["p5", r.p5], ["p50", r.p50], ["p95", r.p95]].map(([name, v]) => [name, stripPct(v), price(v)])),
+      ...notes.map((note) => uiEl("div", "ol-tip-note", note)));
+  }
+  function stripAheadCard(tip, events, edge) {
+    const lit = events.filter((e) => stripKnown(e, edge).charge >= STRIP_LIT).slice(0, 5);
+    tipRows(tip, "Ahead", "The next 90 days, on a log scale of time to go",
+      lit.map((e) => [`${e.short} · ${day(stripBase(e.at))}`, `±${stripKnown(e, edge).charge.toFixed(2)}%`]),
+      lit.length ? "Each event's expected move over the window after it, as the edge knew it." : "Nothing scheduled ahead carries a move of its own.");
+  }
+  // The Strip's selector: its name and choice, written only when they change, and its state for a reader of the page.
+  function renderStrip() {
+    const button = el("strip"), force = stripForce(), value = S.strip === "off" ? "Off" : force ? `Forces · ${STRIP_NAMES[force]}` : "Forces";
+    if (el("strip-text").textContent !== value) el("strip-text").textContent = value;
+    if (button.getAttribute("aria-label") !== `Strip: ${value}`) button.setAttribute("aria-label", `Strip: ${value}`);
+    if (button.dataset.strip !== S.strip) button.dataset.strip = S.strip;
+    const state = S.strip === "off" ? "off" : stripRt.status;
+    if (button.dataset.state !== state) button.dataset.state = state;
+  }
+  // The Strip's menu: its dataset (Off, or Forces), then which force.
+  function stripDatasetItems() {
+    return [
+      flowDatasetItem("strip", "off", { name: "Off", desc: "No band under the prices" }, S.strip === "off", true, () => setStrip("off")),
+      flowDatasetItem("strip", "forces", { name: "Forces", desc: "Where the forces acting on BTC lean, and the events ahead" }, S.strip !== "off",
+        stripChoices().includes("forces"), () => setStrip(S.strip === "off" ? "forces" : S.strip)),
+    ];
+  }
+  function stripForceChoices() {
+    const group = uiEl("div");
+    group.setAttribute("role", "group");
+    for (const key of ["forces", ...STRIP_FORCES]) {
+      const value = key === "forces" ? "forces" : "forces." + key,
+        b = flowChoiceItem("strip", "menuitemradio", [svgIcon("check", "ol-icon ol-check"), itemText(`strip-force-${key}`, key === "forces" ? "All forces" : STRIP_NAMES[key], STRIP_WHAT[key])], () => setStrip(value));
+      b.dataset.force = key;
+      b.setAttribute("aria-labelledby", `ol-strip-force-${key}-name`);
+      b.setAttribute("aria-describedby", `ol-strip-force-${key}-desc`);
+      b.setAttribute("aria-checked", String(S.strip === value));
+      group.append(b);
+    }
+    return group;
+  }
   function clockNote(e) {
     if (e.kind === "usopen") return "Weekdays 09:30 New York: 13:30 UTC in US daylight time, 14:30 otherwise; no holiday model or observed opening flow";
     if (e.kind === "cme")
@@ -19016,6 +19558,7 @@
     clearTimeout(cube.timer);
     cube.timer = setTimeout(pumpCube, 200);
     scheduleMotion();
+    scheduleStrip();
   }
   // A departed context does not occupy either transport slot or become a failed read.
   function cancelOptionalReads() {
@@ -20326,6 +20869,7 @@
       modes: () => MODES.filter((k) => PACK.live || !MOVEMENT.includes(k)),
       panes,
       rowsChoices,
+      stripChoices,
       validPeriod,
       normalizeLines,
       N_MAX,

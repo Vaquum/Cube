@@ -1382,6 +1382,40 @@
 #origo-lens .ol-tip-note {
   margin-top: var(--sp-1);
 }
+/* The Strip's cards (#193): a section heading, one large figure, three figures side by side, and SVGs drawn at the card's width. */
+#origo-lens .ol-strip-section {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-2);
+  color: var(--ol-muted);
+  border-top: 1px solid var(--ol-line);
+}
+#origo-lens .ol-strip-big {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.25;
+}
+#origo-lens .ol-tip svg.ol-strip-tug,
+#origo-lens .ol-tip svg.ol-strip-hist {
+  display: block;
+  max-width: 100%;
+  margin-top: var(--sp-2);
+}
+#origo-lens .ol-strip-q3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+#origo-lens .ol-strip-q3-name,
+#origo-lens .ol-strip-q3-under {
+  color: var(--ol-muted);
+  font-size: var(--fs-m);
+}
+#origo-lens .ol-strip-q3-value {
+  font-size: var(--fs-l);
+  font-weight: 600;
+}
 /* One inspector replaces the default right pane; changing cells replaces its record. */
 #origo-lens .ol-inspect {
   position: relative;

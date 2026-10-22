@@ -9812,7 +9812,7 @@
   //            is an E.scale Descriptor, or null for a reference-only rank ("q~<id>", ladder level 1),
   //            which then carries `mappingId`. The channel `l` (Local contrast) is written and read as
   //            the Cells context AT THE LENS LEVEL (n, m of the lens): the lens bounds are not persisted.
-  //   env      {T0, BASE, PR, CUT, windowKey(k), modes(), panes(), rowsChoices(), validPeriod(k),
+  //   env      {T0, BASE, PR, CUT, windowKey(k), modes(), panes(), rowsChoices(), stripChoices(), validPeriod(k),
   //            normalizeLines(list), N_MAX, M_MAX, INSTRUMENT, baseLength}. Every member has a default (the
   //            recorded lattice, the page's own lists), so a test or a second consumer gives only what it
   //            needs. `baseLength` is the length of origin + path + search of the page, so the 8192 budget
@@ -9844,6 +9844,8 @@
   const cdcModes = Object.freeze(["volume", "flow", "delta", "cascade", "trades", "flowtrades", "size", "path", "dwell", "geometry", "candles"]);
   const cdcPanes = Object.freeze(["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"]);
   const cdcRowChoices = Object.freeze(["off", "volume", "delta", "relvol", "time"]);
+  // The Strip's choices (#193): off, the forces summed, or one force alone.
+  const cdcStrips = Object.freeze(["off", "forces", "forces.macro", "forces.positioning", "forces.news", "forces.social"]);
   const cdcPeriodKeys = Object.freeze(["visible", "1d", "7d", "30d", "90d", "1y", "3y", "wk", "mo", "yr", "all"]);
   const cdcFollows = Object.freeze(["free", "refit", "coupled", "diagonal"]);
   // The navigation keys: a visual setting may never use one (place() is a regexp over them).
@@ -9927,6 +9929,7 @@
       modes: cdcListOf(e.modes, cdcModes),
       panes: cdcListOf(e.panes, cdcPanes),
       rowsChoices: cdcListOf(e.rowsChoices, cdcRowChoices),
+      stripChoices: cdcListOf(e.stripChoices, cdcStrips),
     };
   }
 
@@ -10176,6 +10179,16 @@
       read: (text) => ({ backgroundPeriod: text || "90d" }),
       check: (raw, env) => ({ backgroundPeriod: env.validPeriod(raw.backgroundPeriod) ? raw.backgroundPeriod : "90d" }),
       write: (view) => (typeof view.backgroundPeriod === "string" && view.backgroundPeriod !== "90d" ? view.backgroundPeriod : null),
+    },
+    {
+      id: "strip",
+      param: "strip",
+      fields: ["strip"],
+      legacy: false,
+      defaults: { strip: "off" },
+      read: (text) => ({ strip: text || "off" }),
+      check: (raw, env) => ({ strip: env.stripChoices.indexOf(raw.strip) >= 0 ? raw.strip : "off" }),
+      write: (view) => (typeof view.strip === "string" && view.strip !== "off" ? view.strip : null),
     },
     {
       id: "level",
@@ -11096,7 +11109,7 @@
     "drawings.objects[].a": ["timeMs", "priceCents"],
     "drawings.objects[].b": ["timeMs", "priceCents"],
     query: ["t1", "t2", "p1", "p2", "tR", "pR"],
-    view: ["mode", "pane", "poc", "area", "untested", "rows", "period", "rowControlsVersion", "background", "backgroundPeriod", "level", "lines", "tab", "replay", "anchor", "horizon", "evidenceKind", "barrier", "follow", "auto", "window", "viewport", "selection", "scale", "profileCmp", "profileOpen"],
+    view: ["mode", "pane", "poc", "area", "untested", "rows", "period", "rowControlsVersion", "background", "backgroundPeriod", "strip", "level", "lines", "tab", "replay", "anchor", "horizon", "evidenceKind", "barrier", "follow", "auto", "window", "viewport", "selection", "scale", "profileCmp", "profileOpen"],
     "view.scale": ["basis", "pathBasis", "transform", "curve", "rowsTransform", "cells", "rows", "local", "window", "lock"],
     appearance: ["id"],
     "scales[]": ["channel", "policy", "external", "origin", "desc", "ctx", "cohort", "obsEndMs", "cutMs", "canonicalThroughMs", "token"],
@@ -11469,7 +11482,7 @@
     if (view.anchor !== undefined && view.anchor !== null && !cdcIsFinite(view.anchor)) return fail("view.anchor is a number or null");
     if (view.level !== undefined && view.level !== null && !cdcIsFinite(view.level)) return fail("view.level is a number or null");
     if (view.lines !== undefined && (!Array.isArray(view.lines) || !view.lines.every((s) => typeof s === "string"))) return fail("view.lines is a list of text");
-    for (const name of ["mode", "pane", "rows", "period", "background", "backgroundPeriod", "tab", "evidenceKind", "follow"]) if (view[name] !== undefined && typeof view[name] !== "string") return fail("view." + name + " is text");
+    for (const name of ["mode", "pane", "rows", "period", "background", "backgroundPeriod", "strip", "tab", "evidenceKind", "follow"]) if (view[name] !== undefined && typeof view[name] !== "string") return fail("view." + name + " is text");
     if (view.rowControlsVersion !== undefined && view.rowControlsVersion !== 1) return fail("unsupported row controls version");
     if (view.follow !== undefined && cdcFollows.indexOf(view.follow) < 0) return fail("unknown follow mode");
     if (view.profileCmp !== undefined && view.profileCmp !== "independent" && view.profileCmp !== "absolute" && view.profileCmp !== "share") return fail("view.profileCmp is independent, absolute or share");
@@ -11535,6 +11548,7 @@
         rowControlsVersion: view.rowControlsVersion,
         background: view.background,
         backgroundPeriod: view.backgroundPeriod,
+        strip: view.strip,
         level: view.level === undefined ? null : view.level,
         poc: view.poc,
         area: view.area,
@@ -11555,7 +11569,7 @@
       e,
     );
     if (checkedView === null) return fail("the view names no window and no usable rectangle");
-    for (const name of ["mode", "pane", "rows", "period", "background", "backgroundPeriod"]) if (view[name] !== undefined && view[name] !== checkedView[name]) dropped.push({ key: name, reason: "not available on this page; the default is used" });
+    for (const name of ["mode", "pane", "rows", "period", "background", "backgroundPeriod", "strip"]) if (view[name] !== undefined && view[name] !== checkedView[name]) dropped.push({ key: name, reason: "not available on this page; the default is used" });
     if (Array.isArray(view.lines) && view.lines.length > checkedView.lines.length) dropped.push({ key: "lines", reason: "some lines are not available on this page" });
     if (view.replay === true && !checkedView.replay) dropped.push({ key: "replay", reason: "a replay needs an anchor on this page" });
     if (view.anchor !== undefined && view.anchor !== null && checkedView.anchor === null) dropped.push({ key: "anchor", reason: "the anchor is not on this page" });

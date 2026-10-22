@@ -336,6 +336,14 @@ A Wave-2 package that adds a NEW top-level helper reading `colors.*` under a nam
 | N-56 | Seasonal candidate ledger, approximate uncertainty, frozen context and selected comparison reading | src/evidence.js; src/explorer.js evidence, comparison, table and Query adapters; src/state.js comparison v2; src/comparison-ui.js | Current-source seasonal-state@1 with shared calendar block-bootstrap@2; bounded frozen support and actual source edges | CHR / REF / STATE: pointwise estimation ranges separate from outcome boxes; typed missing support; neutral histories and signed numbers | EVID, CASES, COMPARE, TABLE, QUERY | #86 | U100, U95, U96, B68, B63 | done |
 
 
+### 3.11 Strip additions (#193)
+
+| ID | Consumer | File / function / CSS rule | Current | Target role | Measurement / channel | Owner | Tests | Status |
+|---|---|---|---|---|---|---|---|---|
+| N-57 | The Strip band under the price pane: each pixel column's lean mixed from the midpoint toward the positive or negative role and laid over the surface by attention; the light of the events ahead and the seams of measured reactions in the ink; its name, frame and event labels | src/explorer.js: `paintStrip()`, `stripColour()`, `paintStripHorizon()` (new for #193) | none | `+`, `-` and `mid` over the surface for the lean, the ink for light and seams, `CHR` for the name, labels and frame; a missing lean is no fill, never the midpoint | STRIP | #193 | B69 | done |
+| N-58 | The Strip's cards: the forces as arrows from a common centre, and the distributions of the track record and of an event's move with their p5, p50 and p95 | src/explorer.js: `stripTug()`, `stripHist()` (new for #193); src/explorer.css `.ol-strip-*` | none | `+` and `-` for direction, each value also a signed number in the ink; the ink outline for all moments; `CHR` text | HOVER | #193 | B69, U101, U102 | done |
+
+
 ## 4. The retired-role ratchet
 
 `tests/unit/role-lint.test.js` (U35) flags retired rendering roles and never the substring buy or sell. It classifies by colour-token namespace: `colors.<key>`, `--ol-<name>` (including `var(--ol-<name>)` and `--ol-tier-${tier}-width`) and the prose "<role> colour". Taker-buy DATA names (`bv`, `bt`, `bpoc`, `buyShare`, `taker_buy_volume`, sort keys, ids such as `#ol-buypoc-value`, labels such as "Buy USDT") live in no colour namespace and can never be hit. The prefix hazard `--ol-line` versus `--ol-line-*` is handled by matching whole token names.
@@ -794,6 +802,9 @@ Unit tests run with `npm test`; browser specs with `npm run test:browser`. `U46`
 | B67 | `tests/browser/reference-cards.spec.js` | Served synthetic close/ATR arithmetic, native reference hierarchy/history, calendar identity, Fibonacci and MA facts; themes and narrow readout | #85 |
 | U100 | `tests/unit/evidence-context.test.js` | Literal seed/Type-7 streams, ledger first failures, full horizons and independent bootstrap floors | #86 |
 | B68 | `tests/browser/evidence-cards.spec.js` | Long-source interval qualification, short-source withholding, ledger reconciliation and rewind suppression | #86 |
+| U101 | `tests/unit/strip-relay.test.js` | The bridge's /cube/strip relay: unconfigured, query refusals, pass-through and every shape check of cube-strip@1 | #193 |
+| U102 | `tests/unit/fake-strip.test.js` | The fake's synthetic strip: the bridge's own check on every step, closes from the profile's trades, known-at, refusals and its slot | #193 |
+| B69 | `tests/browser/strip.spec.js` | The Strip control and address, the band's pixels against the documented formulas, known-at replay, the unconfigured state and the cards' figures | #193 |
 
 ## 10. Migration status per slice
 

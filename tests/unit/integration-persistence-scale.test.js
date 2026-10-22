@@ -38,7 +38,7 @@ const ENV = { T0: 1609459200, BASE: 56.25, PR: 125, CUT: 3214083 };
 
 const VIEW_DEFAULTS = {
   window: "24h", tA: NaN, tB: NaN, pA: NaN, pB: NaN, auto: true, n: null, m: null, selection: null, anchor: null, replay: false,
-  follow: "refit", mode: "volume", pane: "cells", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", level: null, poc: false, area: false, untested: false,
+  follow: "refit", mode: "volume", pane: "cells", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", strip: "off", level: null, poc: false, area: false, untested: false,
   lines: [], tab: "context", evidenceKind: "poc", horizon: 1, barrier: 1, profileCmp: "independent", profileOpen: false, appearance: AP, scales: [], axes: [],
 };
 const SCALE_FIELDS = ["basis", "pathBasis", "transform", "curve", "rowsTransform", "cells", "rows", "local", "window", "lock"];
@@ -56,6 +56,7 @@ const LEGS = {
   rowControlsVersion: [[{ rowControlsVersion: 1 }, null, null]],
   background: ["off", "volume", "delta", "relvol", "time"].map((r) => [{ background: r }, null, r === "off" ? null : "background=" + r]),
   backgroundPeriod: [[{ backgroundPeriod: "90d" }, null, null], [{ backgroundPeriod: "visible" }, null, "backgroundPeriod=visible"], [{ backgroundPeriod: "7d" }, null, "backgroundPeriod=7d"]],
+  strip: ["off", "forces", "forces.macro", "forces.positioning", "forces.news", "forces.social"].map((v) => [{ strip: v }, null, v === "off" ? null : "strip=" + v]),
   follow: [[{ follow: "refit" }, null, null], [{ follow: "coupled" }, null, "f=coupled"]],
   mode: Object.keys({ volume: 1, flow: 1, delta: 1, cascade: 1, trades: 1, flowtrades: 1, size: 1, path: 1, dwell: 1, geometry: 1 }).map((m) => [{ mode: m }, null, m === "volume" ? null : "mode=" + m]),
   pane: ["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"].map((p) => [{ pane: p }, null, p === "cells" ? null : "pane=" + p]),

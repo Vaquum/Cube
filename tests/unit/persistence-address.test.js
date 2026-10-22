@@ -31,7 +31,7 @@ const isError = (name) => (e) => typeof e === "object" && e !== null && e.name =
 // A view at its defaults, the way checkView returns one.
 const base = (patch) => ({
   window: "24h", tA: NaN, tB: NaN, pA: NaN, pB: NaN, auto: true, n: null, m: null, selection: null, anchor: null, replay: false,
-  follow: "refit", mode: "volume", pane: "cells", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", level: null, poc: false, area: false, untested: false,
+  follow: "refit", mode: "volume", pane: "cells", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", strip: "off", level: null, poc: false, area: false, untested: false,
   lines: [], tab: "context", evidenceKind: "poc", horizon: 1, barrier: 1, profileCmp: "independent", profileOpen: false,
   scale: { basis: "amount", pathBasis: "spans", transform: "value", curve: "log", rowsTransform: "value", cells: "explore", rows: "explore", local: false, window: null, lock: false },
   appearance: AP, scales: [], axes: [],
@@ -80,6 +80,7 @@ const SAMPLES = {
   rowControlsVersion: [{ rowControlsVersion: 1 }, "rc=1"],
   background: [{ background: "delta" }, "background=delta"],
   backgroundPeriod: [{ backgroundPeriod: "7d" }, "backgroundPeriod=7d"],
+  strip: [{ strip: "forces.macro" }, "strip=forces.macro"],
   follow: [{ follow: "coupled" }, "f=coupled"],
   mode: [{ mode: "path" }, "mode=path"],
   pane: [{ pane: "rsi4h" }, "pane=rsi4h"],
@@ -106,7 +107,7 @@ const SAMPLES = {
   profileOpen: [{ profileOpen: true }, "po=1"],
 };
 const DEFAULTS = {
-  rowControlsVersion: { rowControlsVersion: 1 }, background: { background: "off" }, backgroundPeriod: { backgroundPeriod: "90d" },
+  rowControlsVersion: { rowControlsVersion: 1 }, background: { background: "off" }, backgroundPeriod: { backgroundPeriod: "90d" }, strip: { strip: "off" },
   follow: { follow: "refit" }, mode: { mode: "volume" }, pane: { pane: "cells" }, rows: { rows: "off" }, period: { period: "visible" }, level: { level: null },
   marks: { poc: false, area: false, untested: false }, lines: { lines: [] }, tab: { tab: "context" }, evidenceKind: { evidenceKind: "poc" }, horizon: { horizon: 1 },
   barrier: { barrier: 1 }, "scale.basis": { "scale.basis": "amount" }, "scale.pathBasis": { "scale.pathBasis": "spans" }, "scale.transform": { "scale.transform": "value" },
@@ -117,11 +118,11 @@ const DEFAULTS = {
 
 test("VISUAL_KEYS is the single table: ids, params, fields, defaults; no visual key is a navigation key", () => {
   const keys = plain(C.VISUAL_KEYS);
-  assert.equal(keys.length, 27, "the original 24 settings plus the split marker and two Background settings");
+  assert.equal(keys.length, 28, "the original 24 settings plus the split marker, two Background settings and the Strip");
   assert.deepEqual(keys.map((k) => k.id).sort(), Object.keys(SAMPLES).sort());
   assert.deepEqual(
     keys.map((k) => k.param),
-    ["rc", "f", "mode", "pane", "rows", "period", "background", "backgroundPeriod", "level", "marks", "lines", "tab", "outcome", "h", "dist", "bs", "pb", "tr", "cv", "rt", "cp", "rp", "lc", "sw", "lk", "pc", "po"],
+    ["rc", "f", "mode", "pane", "rows", "period", "background", "backgroundPeriod", "strip", "level", "marks", "lines", "tab", "outcome", "h", "dist", "bs", "pb", "tr", "cv", "rt", "cp", "rp", "lc", "sw", "lk", "pc", "po"],
     "canonical order of B.15 (sel, at and replay sit after lines and are navigation code)",
   );
   assert.equal(new Set(keys.map((k) => k.param)).size, keys.length, "no parameter twice");
@@ -184,7 +185,7 @@ test("each VISUAL_KEYS entry at a non-default value is written alone behind vis 
     assert.equal(parsed.kind, "v2", id);
     assert.deepEqual(plain(parsed.dropped), [], id);
     const want = patch.scale ? withScale(patch.scale, patch.mode ? { mode: patch.mode } : {}) : base(patch);
-    for (const field of ["rowControlsVersion", "background", "backgroundPeriod", "follow", "mode", "pane", "rows", "period", "level", "poc", "area", "untested", "lines", "tab", "evidenceKind", "horizon", "barrier"])
+    for (const field of ["rowControlsVersion", "background", "backgroundPeriod", "strip", "follow", "mode", "pane", "rows", "period", "level", "poc", "area", "untested", "lines", "tab", "evidenceKind", "horizon", "barrier"])
       assert.deepEqual(plain({ v: parsed.view[field] }), plain({ v: want[field] }), id + "." + field);
     assert.deepEqual(plain(parsed.view.scale), plain(want.scale), id + ".scale");
     assert.equal(parsed.view.appearance, AP);
