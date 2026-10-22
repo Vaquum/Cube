@@ -50,6 +50,10 @@ Routes:
   (MSCB), from the cube's measures at rows that hold every price, so each column is one cell.
   Like motion, they end at the pack's last complete base column or where the cube's measures
   end, and say where (``end``, ``through``). Kept per pack and span.
+- ``/cube/strip?from&to&step``: the Strip's forces, events and jumps for a grid of times in epoch ms, relayed from
+  Origo (``tools/strip_relay.py``) to the URL in ``STRIP_URL`` and passed on only once it has the ``cube-strip@1``
+  shape that ``docs/strip.md`` sets out. Without ``STRIP_URL`` it answers 503 ``strip_not_configured``. It takes no
+  query slot: it never reads the cube.
 - ``/vendor/<file>``: the vendored scripts, flat file names only.
 - ``GET /mill/app-config`` and ``POST /mill/discover``: Find features, relayed to Mill
   (``tools/mill_relay.py``) with ``MILL_API_SECRET`` as its Bearer token, and ``/`` then declares
@@ -62,7 +66,7 @@ none and can't read MSC2 blocks, so it is answered 409 with words telling its re
 The server checks no credentials: it listens on 127.0.0.1 only, and the host's Caddy passes a
 request for cube.vaquum.fi on only after the Vaquum portal login (Vaquum/Portal).
 ``MARKET_STATE_URL`` names the cube service (default ``http://127.0.0.1:8486``); ``MILL_URL`` names
-Mill (on the Origo host, ``http://127.0.0.1:8765``).
+Mill (on the Origo host, ``http://127.0.0.1:8765``); ``STRIP_URL`` names Origo's strip endpoint.
 
 MSC2 (little-endian): 32-byte header ``magic n m pad col0 col1 count 12x`` then columnar
 arrays volume f64, taker-buy volume f64, trades f64, taker-buy trades f64, column u32, row u32,
@@ -106,6 +110,7 @@ from market_state_reader import MarketStateError, query, read_table  # noqa: E40
 from rally_bridge import RallyStore  # noqa: E402
 from investigation_store import InvestigationStore, MAX_BYTES as INVESTIGATION_MAX_BYTES  # noqa: E402
 from mill_relay import MAX_BODY as MILL_MAX_BODY, ROUTES as MILL_ROUTES, declare, forward  # noqa: E402
+import strip_relay  # noqa: E402
 
 T0 = 1609459200
 BASE_SECONDS = 56.25
@@ -150,6 +155,8 @@ CUBE_URL = os.environ.get("MARKET_STATE_URL", "http://127.0.0.1:8486")
 # Find features relays to Mill only with both set: the secret stays here, the page never sees it.
 MILL_URL = os.environ.get("MILL_URL", "")
 MILL_API_SECRET = os.environ.get("MILL_API_SECRET", "")
+# The Strip relays to Origo's strip endpoint only with this set; otherwise it is not served.
+STRIP_URL = os.environ.get("STRIP_URL", "")
 SOURCE = "Binance BTCUSDT spot · Origo market state cube"
 VENDOR_TYPES = {".js": "application/javascript", ".css": "text/css", ".txt": "text/plain", ".md": "text/markdown"}
 TIERS = (
@@ -1061,6 +1068,12 @@ class Handler(BaseHTTPRequestHandler):
                 if math.ceil(b1 / step) - b0 // step > MAX_COLUMNS:
                     raise ValueError(f"more than {MAX_COLUMNS} bars")
                 self.json(self.explorer.bars(n, b0, b1, args.get("pack", [""])[0]))
+            elif url.path == "/cube/strip":
+                status, body = strip_relay.relay(STRIP_URL, args)
+                if isinstance(body, bytes):
+                    self.reply(status, "application/json", body)
+                else:
+                    self.json(body, status)
             elif url.path == "/cube/touched":
                 n, b0, b1 = integer(args, "n"), integer(args, "b0"), integer(args, "b1")
                 if not 0 <= n < MAX_TIME_EXPONENT:

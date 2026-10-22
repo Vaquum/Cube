@@ -448,7 +448,7 @@ Each has an owner in the inventory (C-11b, C-11d, F-08, C-02) and stays in the a
 - After an OS colour-scheme flip the toolbar Lines dots (D-04) keep the old scheme's colours until an unrelated `update()`; `.ol-family-dot` and `.ol-line-swatch` are written only while their popover is open. S3 owns them; every new colour writer of S1 is refreshed by `themeChanged()` (N-12) and covered by B04.
 - Reduced motion is read once at load (line 48) and only nulls the 170 ms level-change morph; new legends and notices are static.
 - The recorded page has no motion, OHLC, bars, moving averages, VWAP, Time-at-price or oscillators: C-08, the motion measures of C-12, C-13 and the live-only families of D-06 are exercised only through the fake cube.
-- The image carries only `index.html`, `vendor/` and the two bridge Python files (the Dockerfile `COPY` set, mirrored by the `.dockerignore` allowlist); this file and the tests never ship, and the lint reads sources, not the built `index.html`.
+- The image carries only `index.html`, `vendor/` and the bridge's Python files (the Dockerfile `COPY` set); this file and the tests never ship, and the lint reads sources, not the built `index.html`.
 
 ## 6. CSS rules that paint with a market hue or a keyed neutral state (baseline `src/explorer.css`)
 
