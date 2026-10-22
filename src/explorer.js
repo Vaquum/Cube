@@ -16308,7 +16308,8 @@
   function stripColour(lut, lean) {
     return (lean >= 0 ? lut.positive : lut.negative).css[Math.round(Math.min(1, Math.abs(lean)) ** 0.6 * 255)];
   }
-  const stripAlpha = (attention) => Math.min(1, 1.7 * (attention ?? 0.5));
+  // Attention lays the colour at min(1, 1.7 a); attention not known lays it at 0.5, near an ordinary day's, and the foot says so.
+  const stripAlpha = (attention) => (attention === null ? 0.5 : Math.min(1, 1.7 * attention));
   // The beams of light through the band's middle, one a pixel column, together at most 1.
   function stripBeams(lights, x0, top, h) {
     ctx.fillStyle = colors.ink;

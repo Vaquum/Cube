@@ -61,7 +61,7 @@ function colours(page, samples) {
     probe.remove();
     return samples.map(({ lean, attention }) => ({
       hue: d3.color(d3.interpolateLab(mid, lean >= 0 ? pos : neg)(Math.min(1, Math.abs(lean)) ** 0.6)).formatHex(),
-      alpha: Math.min(1, 1.7 * (attention ?? 0.5)),
+      alpha: attention === null ? 0.5 : Math.min(1, 1.7 * attention),
     }));
   }, samples);
 }
