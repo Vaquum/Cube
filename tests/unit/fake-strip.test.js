@@ -104,7 +104,8 @@ describe("the fake's synthetic strip", () => {
     for (const opts of [{ profile: "mini", strip: "off" }, { mode: "recorded" }]) {
       const other = await startFake(opts);
       try {
-        assert.ok(!(await (await fetch(`${other.url}/`)).text()).includes("explorer-strip"), JSON.stringify(opts));
+        // The page's own script names the meta it looks for; only the declaration itself is a tag.
+        assert.ok(!(await (await fetch(`${other.url}/`)).text()).includes(DECLARATION), JSON.stringify(opts));
       } finally {
         await other.close();
       }
