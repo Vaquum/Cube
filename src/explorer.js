@@ -16162,7 +16162,8 @@
   // One read at a time, in no slot of the cube's: the view's grid first, then the history. A grid that failed is asked for again only
   // after a minute, and a held one again once it is five minutes old (the view at the live edge) or half an hour (the history).
   async function pumpStrip() {
-    if (S.strip === "off" || !PACK.live || stripRt.busy) return;
+    // A bridge without STRIP_URL stays so until it is deployed again, and a deploy reloads the page.
+    if (S.strip === "off" || !PACK.live || stripRt.busy || stripRt.status === "unconfigured") return;
     const view = stripViewWant(), history = stripHistoryWant(), now = performance.now(),
       liveEdge = (held) => held.to > msAt(Math.ceil(CUT)),
       want = !stripCovers(stripRt.view, view) || (liveEdge(stripRt.view) && now - stripRt.view.at > 300000) ? view
