@@ -42,7 +42,8 @@ function lean(answer, ms, force = null) {
   const known = FORCES.map((f) => value(answer, answer.grid.forces[f], ms)).filter((v) => v !== null);
   return known.length ? known.reduce((s, v) => s + v, 0) : null;
 }
-// docs/strip.md, Hue and intensity, in the page's own role colours: the expected #rrggbb of each sample.
+// docs/strip.md, Hue and intensity, in the page's own role colours: the hue mixed in Lab from the midpoint toward the role (d3, an
+// oracle independent of the module's colour tables), laid over the surface at the attention's alpha: the expected #rrggbb of each sample.
 function colours(page, samples) {
   return page.evaluate((samples) => {
     const probe = document.createElement("span");
@@ -54,8 +55,9 @@ function colours(page, samples) {
     const surface = role("surface"), mid = role("midpoint"), pos = role("positive"), neg = role("negative");
     probe.remove();
     return samples.map(({ lean, attention }) => {
-      const hue = d3.interpolateLab(mid, lean >= 0 ? pos : neg)(Math.min(1, Math.abs(lean)) ** 0.6);
-      return d3.color(d3.interpolateLab(surface, hue)(Math.min(1, 1.7 * (attention ?? 0.5)))).formatHex();
+      const hue = d3.rgb(d3.interpolateLab(mid, lean >= 0 ? pos : neg)(Math.min(1, Math.abs(lean)) ** 0.6)), ground = d3.rgb(surface),
+        alpha = Math.min(1, 1.7 * (attention ?? 0.5)), over = (c, g) => Math.round(c * alpha + g * (1 - alpha));
+      return d3.rgb(over(hue.r, ground.r), over(hue.g, ground.g), over(hue.b, ground.b)).formatHex();
     });
   }, samples);
 }

@@ -92,7 +92,7 @@ Every value in the answer is known at a stated time, and the page draws only wha
 The page draws with fixed formulas over the answer, and nothing else.
 
 - **Lean.** Forces sums the forces known at a time, skipping the unknown ones; a single force is its own value. No force known means no hue: the band shows the neutral mark for missing data, never a lean of zero.
-- **Hue and intensity.** A lean `L` mixes from the neutral grey toward the positive or negative role by `min(1, |L|)^0.6`; attention `a` lays that colour over the band's ground at `min(1, 1.7 a)`. Unknown attention lays it at 0.5.
+- **Hue and intensity.** A lean `L` mixes from the neutral grey toward the positive or negative role by `min(1, |L|)^0.6`; attention `a` lays that colour over the band's ground at an alpha of `min(1, 1.7 a)`. Unknown attention lays it at 0.5.
 - **Light.** An event's light at a time before it is `min(1, charge / 2) · exp(−(at − t) / 2 days)`, from the charge known then, and nothing after it. The lights of events add, up to 1.
 - **Seams and labels.** A measured reaction or a jump draws a line at its window's close whose strength is `0.22 + 0.78 · √(min(1, bits / 3) · min(1, |move| / 2))`. An event is labelled, and its reaction seamed, only when its expected move is at least 0.15%: an expiry or a retarget that the options price at nothing draws neither.
 - **Prices.** A card turns a percent move into a price from the last `close` known at the edge.

@@ -16266,22 +16266,12 @@
     return Math.min(1, light);
   }
   const stripSeamStrength = (m) => 0.22 + 0.78 * Math.sqrt(Math.min(1, m.bits / 3) * Math.min(1, Math.abs(m.move) / 2));
-  // A lean's colour: from the midpoint toward the positive or negative role by min(1, |lean|)^0.6, laid over the surface by the attention
-  // at min(1, 1.7 attention). Kept per hundredth of each, and worked out again when the theme changes.
-  let stripMixes = { key: "", toPos: null, toNeg: null, kept: new Map() };
-  function stripColour(lean, attention) {
-    const key = colors.surface + colors.midpoint + colors.positive + colors.negative;
-    if (stripMixes.key !== key)
-      stripMixes = { key, toPos: d3.interpolateLab(colors.midpoint, colors.positive), toNeg: d3.interpolateLab(colors.midpoint, colors.negative), kept: new Map() };
-    const strength = Math.round(Math.min(1, Math.abs(lean)) ** 0.6 * 100), weight = Math.round(Math.min(1, 1.7 * (attention ?? 0.5)) * 100),
-      id = (lean >= 0 ? strength : -strength) * 1000 + weight;
-    let colour = stripMixes.kept.get(id);
-    if (colour === undefined) {
-      colour = d3.interpolateLab(colors.surface, (lean >= 0 ? stripMixes.toPos : stripMixes.toNeg)(strength / 100))(weight / 100);
-      stripMixes.kept.set(id, colour);
-    }
-    return colour;
+  // A lean's colour: the Lut's positive or negative arm, from the midpoint toward the role, at min(1, |lean|)^0.6. The band paints it raw
+  // over its surface at the attention's alpha, as the Rows bands paint theirs.
+  function stripColour(lut, lean) {
+    return (lean >= 0 ? lut.positive : lut.negative).css[Math.round(Math.min(1, Math.abs(lean)) ** 0.6 * 255)];
   }
+  const stripAlpha = (attention) => Math.min(1, 1.7 * (attention ?? 0.5));
   // The band: its name in the price labels' column, the hue and intensity of each pixel column up to the edge, the light through its
   // middle, the seams, and the labels of the lit events above it.
   function paintStrip(cut) {
@@ -16306,13 +16296,15 @@
     ctx.beginPath();
     ctx.rect(x0, top, G.w, h);
     ctx.clip();
-    const events = stripEvents(force), jumps = stripJumps(force);
+    const events = stripEvents(force), jumps = stripJumps(force), lut = lutFor(scaleRt.appearance, scaleRt.theme);
     for (let x = Math.floor(x0); x < xe; x++) {
       const ms = msAt(G.X.invert(x + 0.5)), held = stripHeld(ms), lean = stripLean(held, ms, force);
       if (lean === null) continue;
-      ctx.fillStyle = stripColour(lean, stripAt(held, ms, "attention"));
+      ctx.globalAlpha = stripAlpha(stripAt(held, ms, "attention"));
+      ctx.fillStyle = stripColour(lut, lean);
       ctx.fillRect(x, top + 1, 1, h - 2);
     }
+    ctx.globalAlpha = 1;
     const near = events.filter((e) => e.at > msAt(S.tA) && e.at - 14 * STRIP_DAY < msAt(S.tB));
     ctx.fillStyle = colors.ink;
     for (let x = Math.floor(x0); x < xe; x++) {
