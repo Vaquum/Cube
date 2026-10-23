@@ -1,126 +1,124 @@
 # Strip
 
-The **Strip** is a band between the price pane and the columns that shows what the cells cannot: the forces acting on BTC from outside this one market, as potential rather than as news items. Its first and only dataset so far is **Forces**. This document is the contract for the data behind it: the route Origo serves and the bridge relays, what each value means and when it was known, and the fixed formulas the page draws it with. Origo computes every value in the answer; the bridge checks the answer's shape and passes it on unchanged; the page computes only what [What the page computes](#what-the-page-computes) lists. No agent or learned model reads text anywhere in it: a force that uses text only counts its words against fixed lists, which its `method` names.
+The **Strip** is a band between the price pane and the columns that shows what the cells cannot: the forces acting on BTC from outside this one market, as potential rather than as news items. Its first and only dataset so far is **Forces**. Its data comes from [field-data-api](https://github.com/Vaquum/field-data-api), the shared service of compact field-data projections and the calendar, and from the cube's own prices. This document is the Strip's contract: what the bridge reads from the service, how each projected field becomes a value the page draws, the route the page reads, and the fixed formulas both sides use. No agent or learned model reads text anywhere in it: the service counts words against fixed lists, and everything else is a price, a count or a published figure.
 
 ## What Forces draws
 
 - **Hue** is where the forces lean: blue for up, orange for down, grey when they cancel. **Forces** sums all four; a single force (Macro, Positioning, News or Social) shows that one alone, with only its own events. Forces that cancel draw grey at their attention: Macro at +1 with Positioning at −1 is a grey band, and only the card's arrows show the pull each way.
 - **Intensity** is attention: how much attention bitcoin is getting against its own recent normal. A quiet stretch is a dim band whatever its lean.
-- **Light** is potential: each scheduled event's expected move, building toward its time and breaking there. It is drawn in the ink colour, dark on the light theme and light on the dark.
+- **Light** is how much the calendar says an event matters: each event's importance, dimmed where its date is not confirmed, building toward its time and breaking there. It is drawn in the ink colour, dark on the light theme and light on the dark.
 - **A seam** is a measured reaction: a line where an event's window closed, as strong as its surprise. An unscheduled move with an attention footprint draws one too.
-- **The horizon box** right of the band holds the scheduled events of the next 90 days on a log scale of time to go, so the light ahead stays readable at any zoom.
+- **The horizon box** right of the band holds the events of the next 90 days on a log scale of time to go, so the light ahead stays readable at any zoom.
 
 These are descriptive figures, not calibrated forecasts. The colours are the explorer's positive and negative roles because they mean the same up and down; the band is set apart from the cells, candles and columns by its own frame, its name in the price labels' column and its place under the price pane.
+
+## How the bridge reads field-data-api
+
+The bridge reads the service from its own process; the service refuses requests from a browser. `FIELD_DATA_URL` names it (on the Cube host, `http://127.0.0.1:8491`), and `FIELD_DATA_API_TOKEN` is sent as a bearer token where the service requires one. Without `FIELD_DATA_URL` the strip is not served. Provider collection and credentials belong to the service; the bridge never calls a provider.
+
+- **One publication per update.** A worker thread (`tools/strip_service.py`) asks `/v1/snapshots/latest` once a minute. When the `snapshot_id` is new, it reads every source it uses and the calendar under that one `snapshot_id`, through `tools/field_data.py`. A source whose `dataset_id` is the same as the one it holds is not read again.
+- **Every page.** Each `/v1/data/{source}` and `/v1/calendar` read follows `page.next_offset` until it is null, keeping the same pin. The calendar has 721 events, more than one 500-record page.
+- **Each source on its own.** A source without a dataset (`disabled`, `pending`, `blocked`, `error`), one that answers 503, and one whose read fails are recorded with their state, and the rest of the update goes on. A stale source still reads, and stays stale in the answer. Nothing missing becomes a zero.
+- **First seen, kept.** Every observation is stored once, in `STRIP_STORE` (`/var/lib/cube-explorer/strip.sqlite`, beside the investigations), the first time a publication carries it: its known-at is that publication's `published_at`. A value seen again under a later publication never replaces the first. At start, the worker reads each source's `/v1/history/{source}` back to the newest version it holds, at most a day of five-minute versions, oldest first, so that a restart keeps the same known-at times.
+- **Retrospective windows.** A source's first dataset carries a native window of older observations: FRED's last 20, DefiLlama's 30 days, Wikipedia's 7. Those the source made public more than one collection interval before the dataset was received were collected later than they happened. They are marked retrospective and placed at the time their source makes them public (the rules below).
+- **The cube's prices.** Closes, the next 24 hours' changes, measured reactions and jumps come from the cube's own bars (Binance BTCUSDT spot, the cube's existing source), read through the bridge's second query slot in chunks of at most 2,048 bars, half a second apart: hourly bars for two years, 15-minute bars for 30 days, and base bars around each event's window. A page's reads never wait long behind them. One-minute spot and perpetual candles stay on the cube; the strip reads none from the service.
+- **Off the request path.** `/cube/strip` answers from what the worker last built, in memory, and never waits on the service or the cube.
+
+## Source mappings
+
+What the Strip takes from each projection ([projection contracts](https://github.com/Vaquum/field-data-api/blob/main/docs/projections.md)), and what it becomes. Units stay as the service gives them until a formula below combines them.
+
+| Source | Fields read | Becomes | Known at |
+|---|---|---|---|
+| `fred_macro_daily` | `values.series` (DTWEXBGS, DGS2, DGS10, BAMLH0A0HYM2), `values.value`, `observed_at` (a date) | Macro: one part a series | The publication that first carried it; for the first window, 22:00 UTC the next day, and the broad dollar index the Monday after its week, 16:15 in New York |
+| `deribit_funding` | `values.interest_1h`, `observed_at` | Positioning's funding: annualised percent, averaged with Hyperliquid's by the hour | That publication; for the first window, its observation time |
+| `hyperliquid_funding` | `values.funding_rate`, `values.funding_period_seconds`, `observed_at` | The same, its rate taken to an hour | The same |
+| `defillama_stablecoins` | `values.total_usd`, `observed_at` (a date) | Positioning's stablecoin supply: its 7-day log growth; daily supply is never summed | That publication; for the first window, 06:00 UTC the next day |
+| `deribit_futures_basis` | the nearest expiry at least 30 days out: `event_at`, `values.simple_annualized_basis_fraction_oi_weighted`, else its median | Positioning's basis, one sample an hour; never weighted across maturities | That publication |
+| `deribit_options` | buckets of `values.expiry_bucket`, `strike_underlying_bucket`, `option_type`, `mark_iv_oi_weighted_percent`, `iv_valid_weight`; `meta.totals.put_call_oi_ratio` | Positioning's put skew: the 7–30 day put IV at 0.90–0.98 less the call IV at 1.02–1.10, one sample an hour; the at-the-money IV of each expiry bucket (calls and puts at 0.98–1.02, weighted by their valid IV weight) and the put/call ratio for the cards. `same_day` stays its own bucket. Rolling 24-hour volumes are not read. | That publication |
+| `deribit_dvol` | complete hourly bars: `values.close`, `metadata.interval_end` | The ordinary spread for surprise, and the options context | That publication; for the first window, its bar's end |
+| `gdelt_gkg` | batches: `values.tone_mean`, `tone_scored_articles`, `bitcoin_articles`, `panel_articles`, `observed_at` | News: the scored tone over the trailing day; attention: the Bitcoin share of the panel over two hours. The tone is GDELT's whole-article dictionary tone of Bitcoin coverage, not a directional forecast; batches are never summed into a five-minute flow. | That publication; for the first window, the batch time and 15 minutes |
+| `bluesky_live` | minute rows: `values.creates`, `bitcoin_creates`, `bullish_word_matches`, `bearish_word_matches`, `observed_at`, `metadata.interval_end`, `dictionary_version` | Social: bullish against bearish words over the trailing day; attention: the hourly share of posts that mention bitcoin. Each row is counted once, by its id; overlapping sessions are not added again. | That publication |
+| `wikimedia_daily`, `wikimedia_hourly` | `values.views`, `observed_at` | Attention: readers of the Bitcoin article against their own normal | That publication; for the first window, 03:00 UTC the next day, or three hours after the hour |
+| `mempool_retarget` | `values.estimatedRetargetDate`, `nextRetargetHeight`, `difficultyChange` | An event with an estimated time, a new schedule entry once the estimate moves by an hour | That publication |
+| `/v1/calendar` | `id`, `values.title`, `category`, `status`, `schedule` (instant, date or date range), `schedule_certainty`, `context.importance`, `context.region`, `context.source_id`, `metadata.revision_id`, `metadata.provenance.url` | Events: each revision a schedule entry, its precision kept; a date is never turned into a midnight appointment | The publication that first carried that revision |
+
+Not read: `coinalyze_*`, `sosovalue_etf_flows`, `coindesk_headlines` and `stocktwits_messages`, disabled on this deployment; `deribit_perpetual` and `hyperliquid_perpetual`, whose current funding is the funding series' own; `mempool_difficulty_history`; the optional provider calendars; and `kalshi_event_odds`, whose terms restrict passing its quotes on, so a deployment that shows them to other people needs Kalshi's permission first.
+
+## What the bridge computes
+
+Each force is a sum of parts, each part a fixed formula over its source's stored observations, method `field-strip@1` (`tools/strip_model.py`). A part's value stands until it is stale: six days for a FRED series (nine for the dollar index), three days for stablecoins, three hours for funding, two hours for basis, skew, news and the attention parts, one hour for social, two days for Wikipedia's daily readers.
+
+- **Macro.** For each FRED series: its change over the last 5 observations, divided by √5 times the standard deviation of its single-observation changes over the trailing 60, as z; the part is `−0.5 · tanh(z / 2)`. Up is a headwind for BTC in all four: a dearer dollar, higher yields, wider credit spreads. Its sign is fixed, not fitted.
+- **Positioning.** Funding, annualised and averaged across the two venues hour by hour, as z against the trailing 30 days (at least 24 hours): `0.6 · tanh(z / 2)`, longs paying a lean up. Stablecoin supply's 7-day growth as z against the trailing year (at least 14 days): `0.4 · tanh(z / 2)`. The futures basis about 30 days out: `0.3 · tanh(z / 2)`. The options' put skew: `−0.3 · tanh(z / 2)`, dearer puts a lean down. Both of those against their trailing 30 days of hourly samples, at least 24.
+- **News.** The scored tone of the trailing day's batches, weighted by their scored articles and needing 10, against the daily tone of the trailing 30 complete days, needing 5: `0.6 · tanh((tone − mean) / sd / 2)`.
+- **Social.** Over the trailing day of samples, with at least 10 posts that mention bitcoin and 3 words: `0.8 · (bullish − bearish) / (bullish + bearish + 5)`.
+- **Attention.** Each part is `min(1, max(0, 0.3 + 0.25 · log2(ratio)))`, a ratio of 1 being ordinary, against the median of its own trailing window (at least 6 values). The parts are the GDELT share (weight 0.5, against a week), Wikipedia daily (0.15, against 30 days), Wikipedia hourly (0.15, against a week) and the Bluesky share (0.2, against a week, hours with at least 300 posts). Attention is their weighted mean over the parts known.
+- **An event's weight.** Its light is its importance (high 1, medium 0.35, low 0) times its certainty (confirmed 1; tentative, set by rule, unspecified or estimated 0.7). A central bank's decision has a 60-minute reaction window; any other timed release 30 minutes; a date or a range of dates has none, since its hour is not given.
+- **Measured reactions.** Once an event's window has closed in the cube's data: BTC's percent change from the base bar holding its time to the close of the bar holding the window's end. Its surprise in bits is `−log2` of the two-sided probability of a move that large under a unit-variance Student t with 3 degrees of freedom, scaled to the ordinary spread over the window at the DVOL known when it opened, `DVOL · √(window / one year)`. Each is computed once and kept.
+- **Jumps.** A 30-minute move on the cube's 15-minute closes of at least 0.5% and four ordinary 30-minute spreads, with attention at 0.5 or more at its end and no lit event within an hour: the largest of any within a day of each other.
 
 ## The route
 
 `GET /cube/strip?proto=2&from=<ms>&to=<ms>&step=<ms>` answers for the grid times `from ≤ t < to`, in whole epoch milliseconds UTC.
 
 - `step` is one of 900000 (15 minutes), 3600000 (an hour), 21600000 (6 hours) or 86400000 (a day); `from` is a multiple of it, `to` is after `from`, and the answer holds at most 20,000 grid times. A query outside these rules is `400 {"error": "invalid_strip_request", "detail": …}`.
-- The bridge forwards `from`, `to` and `step` to the URL in its `STRIP_URL` environment variable and passes the answer on once it has the shape below. An upstream failure is `502 {"error": "strip_upstream_failed", "detail": …}`; an answer of the wrong shape, or over 16 MiB, is `502 {"error": "strip_invalid_answer", "detail": …}`.
-- A bridge with `STRIP_URL` declares the strip in the page it serves, with `<meta name="explorer-strip" content="/cube/strip">` in its head, as it declares Mill. A page without the declaration never asks for the strip and says the strip is not served there; the route itself answers `503 {"error": "strip_not_configured"}` without `STRIP_URL`.
+- Before the worker has read its first publication: `503 {"error": "strip_loading", "detail": …}`.
+- A bridge with `FIELD_DATA_URL` declares the strip in the page it serves, with `<meta name="explorer-strip" content="/cube/strip">` in its head, as it declares Mill. A page without the declaration never asks for the strip and says it is not served there; the route itself answers `503 {"error": "strip_not_configured"}`.
 - The recorded page has no strip: it is live only, offers only Off, and never asks.
-- Like every `/cube/` route, an outdated `proto` is `409` with `reload: true`. The strip's answer does not depend on the cube's pack: its identity is its `model`, its `sources` and its `cutoff`.
+- Like every `/cube/` route, an outdated `proto` is `409` with `reload: true`. The answer's identity is its `model`, its `snapshot` and its `cutoff`.
 
-## The answer: `cube-strip@1`
+## The answer: `cube-strip@2`
 
-```json
-{
-  "schema": "cube-strip@1",
-  "model": "origo-strip@1",
-  "cutoff": 1792692000000,
-  "sources": {
-    "macro": { "method": "macro-dollar-yields-credit@1", "recordedFrom": 1790000000000, "fittedThrough": null },
-    "positioning": { "method": "funding-stablecoins@1", "recordedFrom": 1790000000000, "fittedThrough": null },
-    "news": { "method": "news-tone@1", "recordedFrom": 1791000000000, "fittedThrough": null },
-    "social": { "method": "social-words@1", "recordedFrom": 1792000000000, "fittedThrough": null },
-    "attention": { "method": "attention@1", "recordedFrom": 1790000000000, "fittedThrough": null },
-    "calendar": { "method": "calendar@1", "recordedFrom": 1790000000000, "fittedThrough": null },
-    "history": { "method": "event-study@1", "recordedFrom": 1790000000000, "fittedThrough": null },
-    "options": { "method": "deribit-events@1", "recordedFrom": 1790000000000, "fittedThrough": null }
-  },
-  "grid": {
-    "t0": 1790100000000,
-    "step": 900000,
-    "forces": { "macro": [0.12, …], "positioning": [-0.31, …], "news": [null, …], "social": [null, …] },
-    "attention": [0.42, …],
-    "close": [81404.2, …],
-    "next24h": [1.37, …]
-  },
-  "events": [
-    {
-      "id": "fomc-2026-10-28",
-      "kind": "fomc",
-      "family": "macro",
-      "name": "FOMC decision",
-      "short": "FOMC",
-      "window": 60,
-      "schedule": [{ "knownAt": 1777680000000, "at": 1793210400000 }],
-      "prior": { "at": 1777680000000, "n": 46, "charge": 0.31, "skew": 0, "reaction": { "p5": -0.5, "p50": 0, "p95": 0.5, "bins": [[-3, -2.9, 0.0004], …] } },
-      "estimates": [
-        { "at": 1792670400000, "charge": 1.1, "skew": 0.2, "reaction": { "p5": -1.62, "p50": 0.1, "p95": 2.21, "bins": [[-4, -3.8, 0.0003], …] }, "expiry": { "at": 1793347200000, "p5": 74610, "p50": 81490, "p95": 87830, "share": 0.088 } },
-        { "at": 1792692000000, "charge": 1.2, "skew": 0.3, "reaction": { "p5": -1.76, "p50": 0.14, "p95": 2.47, "bins": [[-4, -3.8, 0.0003], …] }, "expiry": { "at": 1793347200000, "p5": 74522, "p50": 81537, "p95": 87949, "share": 0.096 } }
-      ],
-      "measured": null
-    }
-  ],
-  "jumps": [
-    { "id": "jump-202610140845", "at": 1791967500000, "window": 30, "move": -1.9, "bits": 4.2 }
-  ]
-}
-```
+`tools/strip_contract.py` checks this shape; the bridge's answers and the fake cube's synthetic ones (`tests/support/strip.js`) both pass it.
 
 | Field | Meaning |
 |---|---|
-| `schema` | Always `cube-strip@1`. A change of meaning is a new schema, never a quiet change to this one. |
-| `model` | The producing model and its version, shown in the strip's details. |
+| `schema` | Always `cube-strip@2`. A change of meaning is a new schema, never a quiet change to this one. |
+| `model` | The formulas' name and version, `field-strip@1`. |
 | `cutoff` | The latest time any value in the answer became known. |
-| `sources.<source>` | For each of `macro`, `positioning`, `news`, `social`, `attention`, `calendar` (the schedules), `history` (the priors) and `options` (the estimates): `method`, the formula's name and version (1 to 64 characters); `recordedFrom`, the time from which its values are kept as they were first computed, or `null` where none are yet; and `fittedThrough`, the last time of the history its parameters were fitted on, or `null` where it has none. See [Known-at](#known-at). A method's description says its inputs, its sign and its normalisation window. |
-| `grid.t0`, `grid.step` | The first grid time and the spacing, both in ms; `t0` is `from`. Every array in `grid` has one value per grid time. |
-| `grid.forces.<force>` | For each of `macro`, `positioning`, `news` and `social`: signed evidence that BTC will rise (positive) or fall (negative) at each grid time, scaled so that ±1 is a strong lean by the force's own trailing history and the four add; `null` where the force is not known. |
-| `grid.attention` | Attention at each grid time on 0–1, where 0.3 is ordinary and 1 is the most the scale shows, against its own trailing normal; `null` where not known. |
-| `grid.close` | BTC's price at each grid time: the last trade at or before it on Binance BTCUSDT spot, the cube's own trades; `null` where not known. |
-| `grid.next24h` | BTC's change in percent from the grid time's close to the close 24 hours later; `null` until those 24 hours have passed. |
-| `events[]` | Every scheduled event that any entry of its schedule puts in `[from − 1 day, to + 90 days)`, so a replay sees an event that was later moved or cancelled, and the horizon box sees the next 90 days. Each event belongs to one force, its `family`. |
-| `.id`, `.kind`, `.family` | A stable id, never reused; the kind (`fomc`, `cpi`, `jobs`, `ppi`, `gdp`, `pce`, `jolts`, `eci`, `election`, `expiry`, `retarget`, or another named kind); the force it belongs to. |
-| `.name`, `.short` | The full name and a label of at most 8 characters. |
-| `.window` | Minutes after the event over which its reaction is measured, 1 to 1440: 30, or 60 for FOMC. |
-| `.schedule` | Every time the event was given, in the order they became known: `knownAt`, when it was published, and `at`, when the event was to happen then, or `null` where it was cancelled. `knownAt` rises strictly, and is never after a non-null `at`. |
-| `.prior` | The expected reaction from history alone: `at`, when it was computed, from the releases of its kind before then only; `n`, how many past releases it rests on; `charge`, `skew` and `reaction` as for an estimate. |
-| `.estimates` | Every estimate from option prices, in the order made: `at`, when the prices were quoted; `charge`; `skew`; `reaction`; and `expiry`. All are made before the event, at most one every 6 hours. Empty where the options price nothing for it. |
-| `.charge` | The expected size of the move over the window, in percent, as a standard deviation. |
-| `.skew` | How the options' skew moves across the event, −1 (toward down) to +1 (toward up); 0 for a prior. |
-| `.reaction` | The distribution of BTC's percent move over the window: its p5, p50 and p95 (in order), and `bins` of `[low, high, probability]` in order and not overlapping, the probabilities summing to 1. From options it is a risk-neutral distribution, not a real-world probability. |
-| `.expiry` | The options' risk-neutral range for BTC's price at the first Deribit expiry after the event's window closes, from the density implied by that expiry's option prices at the estimate's `at`: the expiry's time, p5, p50 and p95 in USDT, and the event's share of the variance to then; `null` where there is none. |
-| `.measured` | Once the window has closed: `from`, when it opened (the event's last scheduled `at`); `at`, when it closed, `from + window`; `move`, BTC's percent change from the close at `from` to the close at `at`; and `bits`, its surprise. `null` before. |
-| `.bits` | Surprise in bits: −log2 of the two-sided probability of a move at least this large under the expectation known when the window opened (the latest estimate before it, else the prior), as a Student t with 3 degrees of freedom at that charge. For a jump, under BTC's ordinary 30-minute spread known at its `at`. |
-| `jumps[]` | Unscheduled moves with an attention footprint, inside `[from, to)`: `id`, `at`, `window` in minutes, `move` in percent and `bits`, each known at `at + window`. |
+| `snapshot` | The field-data-api publication the latest update pinned: `id`, `publishedAt`, `scheduledFor`. |
+| `sources.<source>` | For each source the strip reads and for `calendar`: `state` as the publication gave it (`ok`, `stale`, `disabled`, `error`, …), made `stale` once an `ok` source's last check is older than the service's own rule, `max(2 · interval, interval + 300 s)`; `checkedAt`, `receivedAt`, `intervalSeconds`; `observedAt`, its newest observation the strip holds; `recordedFrom`, the first publication the strip read it from; and `detail`, the service's reason or error. |
+| `components.<name>` | Each force's part: its `force`, its `label`, and `retroUntil`, where its values stop being retrospective (its first value known live), or null where it has none. |
+| `attentionParts.<name>` | Each part of attention: `label`, `weight`, `retroUntil`. |
+| `grid.t0`, `grid.step` | The first grid time and the spacing; `t0` is `from`. Every array in `grid` has one value per grid time. |
+| `grid.forces.<force>` | The sum of the force's parts known at each grid time, each the latest value known at or before it and not stale; null where none is. |
+| `grid.attention` | Attention on 0–1, where 0.3 is ordinary; null where no part is known. |
+| `grid.close`, `grid.next24h` | The cube's close at each grid time, and BTC's percent change to 24 hours later, null until those 24 hours have passed. |
+| `grid.dvol` | DVOL at each grid time, in annualised percent. |
+| `grid.parts` | Each part's value at each grid time, for answers of at most 3,000 grid times. |
+| `events[]` | Every event any entry of whose schedule falls in `[from − 1 day, to + 90 days)`: `id`, `kind` (the calendar's category), `family` (its force), `name`, `short` (at most 8 characters), `region`, `origin`, `series` (the calendar's source id, which releases share), `link`, `window` (minutes, or null), `schedule`, `measured` and `history`. |
+| `.schedule[]` | Each revision, in the order they became known: `knownAt`; `at`, its start, or null once `cancelled` or `withdrawn` (then `lastAt` is the date it last had); `precision`, `instant`, `day` or `range`; `end`, a date's or range's exclusive end; `status`; `certainty`; `importance`; and `weight`. |
+| `.measured` | Once measured: `from` and `at`, its window's bounds; `move` in percent; `bits`, or null without DVOL; `ordinary`, the spread it was measured against. |
+| `.history.moves` | The series' measured moves as `[known at, percent]`, in time order, at most 500. |
+| `jumps[]` | `id`, `at`, `window`, `move` and `bits`, each known at `at + window`. |
+| `options[]` | Hourly samples: `at`, `atm` (at-the-money IV by expiry bucket), `skew` and `putCall`. |
 
 ## Known-at
 
 The page draws only what was known strictly before the **edge**: the data's cutoff, or the replay's edge, in whole ms. A value known at the edge itself is not yet drawn.
 
-- A grid value at time `t` is computed only from what was published by `t`: its normalisation and any trailing window end at `t`. It is known at `t`. `next24h` at `t` is known at `t + 24 h`.
-- An event is known from its first schedule entry's `knownAt`, at the time its latest entry known by then gives; an entry with `at: null` cancels it from its `knownAt`. Its prior is known at its `at`, each estimate at its `at`, and `measured` at `measured.at`. A jump is known at `at + window`.
-- **Vintages.** From a source's `recordedFrom` on, Origo keeps each value as it was first computed: a later revision of the source's history never changes it. Values from before `recordedFrom` were computed later from the history as it stands today, and a method fitted on history is in sample up to its `fittedThrough`. Such values are **retrospective**: the page marks where they end and says so in its cards, as the explorer does for its other models.
+- A grid value at time `t` is the latest value known at or before `t`. Its formula uses only observations known by then: normalisations and trailing windows end at it.
+- An event is known from its first schedule entry's `knownAt`, at the time its latest entry known by then gives. An entry with no time cancels it, or withdraws it where the calendar stopped listing it, from its `knownAt`. Its measured reaction is known at `measured.at`, a series' move at the time it carries, a jump at `at + window`.
+- **Retrospective.** A part's values from before its `retroUntil` were computed from a native window the service had collected later, not recorded as they became known. The band draws a dashed line where they end and the cards say so. This is replay of what field-data-api published; it does not recover a provider's superseded values from before collection began.
 
 ## What the page computes
 
-The page draws with fixed formulas over the answer, and nothing else. Its figures are descriptive, not calibrated forecasts.
+The page draws with fixed formulas over the answer, and nothing else.
 
 - **Lean.** Forces sums the forces known at a time, skipping the unknown ones, and its card says how many of the four were known; a single force is its own value. No force known means no hue: the column carries the hatch the explorer draws for an undefined value, never a lean of zero.
 - **Hue and intensity.** A lean `L` takes the colour tables' positive or negative arm, which run in Lab from the midpoint grey to the role, at `min(1, |L|)^0.6`. Attention `a` lays that colour over the band's ground at an alpha of `min(1, 1.7 a)`. Where attention is not known, the colour is laid at 0.5 and a 5 px strip of the same hatch runs along the band's foot. The mapping is fixed: no scale is fitted, so Explore, Comparison lock and Auto colour do not apply.
 - **Sampling.** Each pixel column shows the values held at its centre time, from the finest grid the page holds there; it is never averaged.
-- **Light.** At a time `t`, each event the schedule then known puts within 14 days after `t` adds `min(1, charge / 2) · exp(−(at − t) / 2 days)`, from the expectation known at `t` (the latest estimate before `t`, else the prior), up to 1 in all. A prior that rests on fewer than 30 past releases is not used: such an event draws no light until an estimate prices it.
-- **Seams and labels.** A measured reaction or a jump known by the edge draws a 2 px line at its window's close in the ink colour, at an opacity of `0.22 + 0.78 · √(min(1, bits / 3) · min(1, |move| / 2))`. An event is labelled, at its time, and its reaction seamed, only when its expected move is at least 0.15%; an expiry or a retarget that the options price at nothing draws neither, and the cards say so. A label that would overlap the one before it is left out.
-- **Order.** The band's ground, then the hue, the hatch where a value is not known, the 1 px dashed line where the shown forces' retrospective values end, the light, the seams; the labels sit in a 12 px row above the 22 px band.
-- **Horizon.** The box is the profile column's width when that is at least 40 px (62 px with Rows off, 128 px with Rows on) and is not drawn where the profile tracks fold, under 600 px. Its time to go runs from the edge, not the wall clock: an event at `at` sits at `log1p((at − edge) / 1 h) / log1p(90 days / 1 h)` of the box's width, for `edge < at ≤ edge + 90 days`, with ticks at a day, a week and 30 days. An event leaves the box at its time, even while its reaction window is open. The box draws light only; its card lists the lit events ahead.
+- **Light.** At a time `t`, each event the schedule then known puts within 14 days after `t` adds `weight · exp(−(at − t) / 2 days)`; a date or a range adds its weight through its whole span, since its hour is not known; up to 1 in all.
+- **Seams and labels.** A measured reaction or a jump known by the edge draws a 2 px line at its window's close in the ink colour, at an opacity of `0.22 + 0.78 · √(min(1, bits / 3) · min(1, |move| / 2))`; without bits, the first factor is 0.5. An event is labelled, and its reaction seamed, only from a weight of 0.3: a high-importance event, or a medium one whose date is confirmed. A timed event is labelled at its time; a date or a range at its middle, over a bracket of its span, once its first date has begun. A label that would overlap the one before it is left out.
+- **Order.** The band's ground, then the hue, the hatch where a value is not known, the 1 px dashed line where the shown parts' retrospective values end, the light, the seams; the labels sit in a 12 px row above the 22 px band.
+- **Horizon.** The box is the profile column's width when that is at least 40 px (62 px with Rows off, 128 px with Rows on) and is not drawn where the profile tracks fold, under 600 px. Its time to go runs from the edge, not the wall clock: an event at `at` sits at `log1p((at − edge) / 1 h) / log1p(90 days / 1 h)` of the box's width, for `edge < at ≤ edge + 90 days`, a date at its start, with ticks at a day, a week and 30 days. An event leaves the box at its time, even while its reaction window is open. The box draws light only; its card lists the lit events ahead with the options' context.
 - **Prices.** A card turns a percent move into a price from the last `close` known at the edge.
-- **Track record.** For the forces at a time `t`, the page takes the hourly grid times `s` of the two years before the data's cutoff with `s + 24 h < min(t, edge)`, so no moment's outcome overlaps `t`'s or is unknown at the edge. The forces compared are those known at `t` that are known at more than half of those times, read from the hourly grid at `t` whatever the view's step. It keeps the times whose forces lie within 0.5 of `t`'s (Euclidean), nearest first, each at least six hours from those kept, up to 40, and needs at least 30: with fewer it says how many there were and shows no figures. It shows the share of them after which BTC fell over the next 24 hours, against the share for all those times six hours apart, and the p5, p50 and p95 of both. Samples overlap.
+- **Track record.** For the forces at a time `t`, the page takes the hourly grid times `s` of the two years before the data's cutoff with `s + 24 h < min(t, edge)`, so no moment's outcome overlaps `t`'s or is unknown at the edge. The forces compared are those known at `t` that are known at more than half of those times, read from the hourly grid at `t` whatever the view's step. It keeps the times whose forces lie within 0.5 of `t`'s (Euclidean), nearest first, each at least six hours from those kept, up to 40, and needs at least 30: with fewer it says how many there were and shows no figures. It shows the share of them after which BTC fell over the next 24 hours, against the share for all those times six hours apart, and the p5, p50 and p95 of both. Samples overlap. The strip's history begins with field-data-api's first publication, on 23 October 2026, so for its first weeks the track record says so.
 - **Quantiles.** A pth quantile of `n` sorted values is the value `(n − 1) · p` of the way along them, interpolated linearly between the two order statistics either side.
-- **An event's own move.** The card shows the reaction known at the edge, from options (risk-neutral) or from history, with how many past releases a prior rests on; a prior on fewer than 30 is withheld. The expiry's range is one line of context with its own horizon, never the window's p5 to p95.
+- **An event's card.** When it is (a time, or dates with no hour given), its importance, how sure its date is, and whether it moved; once measured, its move and its surprise. Once 30 of its series' releases have been measured before the edge, their p5, p50 and p95; until then, how many have been. Ahead of the edge, the options context: BTC's range to the event's time at DVOL's 30-day level, `close · exp(±1.645 · DVOL · √(Δt / one year))`, risk-neutral, for the whole stretch rather than the event's own move.
 
 ## Reads and states
 
-- The page reads only while the Strip is on, the page is live and the strip is declared. It reads one grid at a time, in no query slot of the cube's: the view's grid first (the view and a quarter of it either side, at the finest step that keeps under two grid times a pixel), then the history (hourly, the two years to the data's cutoff). A held grid is read again once it is five minutes old where it reaches the live edge, the history once it is half an hour old, and a failed read after a minute. Turning the Strip off stops reading and abandons a read under way.
-- The states are kept apart, in the band and in the selector's `data-state`: **off**; **unconfigured**, the page served without the strip; **loading**; **failed**, with the bridge's error; and **ready**. A ready band with no force known in view says so. The recorded page offers Off alone.
+- The page reads only while the Strip is on, the page is live and the strip is declared. It reads one grid at a time, in no query slot of the cube's: the view's grid first (the view and a quarter of it either side, at the finest step that keeps under two grid times a pixel), then the history (hourly, the two years to the data's cutoff). A held grid is read again once it is five minutes old where it reaches the live edge, the history once it is half an hour old; a failed read after a minute, and a bridge still reading its first publication after 15 seconds. Turning the Strip off stops reading and abandons a read under way.
+- The states are kept apart, in the band and in the selector's `data-state`: **off**; **unconfigured**, the page served without the strip; **loading**; **failed**, with the bridge's error; and **ready**. A ready band with no force known in view says so. Each source's freshness is in the band's own card, beside the time of the publication it was read from, and a force's card names any of its sources that is not current. The recorded page offers Off alone.

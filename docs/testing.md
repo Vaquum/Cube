@@ -1,6 +1,6 @@
 # Testing
 
-How the explorer is tested, what the tests can and cannot show, and how a push to `main` becomes a deploy. The explorer itself runs and builds without npm; everything here is development tooling and is never copied into the image: the Dockerfile copies `index.html`, `vendor/` and the bridge's six Python files (cube bridge, public reader, rally adapter, investigation store, Mill relay and strip relay), and `tests/unit/repo.test.js` pins that list.
+How the explorer is tested, what the tests can and cannot show, and how a push to `main` becomes a deploy. The explorer itself runs and builds without npm; everything here is development tooling and is never copied into the image: the Dockerfile copies `index.html`, `vendor/` and the bridge's nine Python files (cube bridge, public reader, rally adapter, investigation store, Mill relay, and the Strip's field-data reader, model, service and contract), and `tests/unit/repo.test.js` pins that list.
 
 ## What the tests are evidence of
 

@@ -43,10 +43,14 @@ function lean(answer, ms, force = null) {
   const known = FORCES.map((f) => value(answer, answer.grid.forces[f], ms)).filter((v) => v !== null);
   return known.length ? known.reduce((s, v) => s + v, 0) : null;
 }
-// docs/strip.md, Known-at: an event's time as known strictly before `ms` (undefined before its first entry, null once cancelled), and
-// the expectation known then: the latest estimate before it, else a prior that rests on 30 releases or more.
-const whenAt = (e, ms) => e.schedule.filter((s) => s.knownAt < ms).map((s) => s.at).pop();
-const expectAt = (e, ms) => e.estimates.filter((x) => x.at < ms).pop() ?? (e.prior.at < ms && e.prior.n >= SUPPORT ? e.prior : null);
+// docs/strip.md, Known-at: an event's schedule entry known strictly before `ms`, and its time then (undefined before its first entry,
+// null once cancelled); where the page places it, its time, or the middle of a date or a range no later than the edge.
+const entryAt = (e, ms) => e.schedule.filter((s) => s.knownAt < ms).pop();
+const whenAt = (e, ms) => entryAt(e, ms)?.at;
+const placeAt = (e, ms) => {
+  const s = entryAt(e, ms);
+  return !s || s.at === null ? null : s.precision === "instant" ? s.at : Math.min((s.at + s.end) / 2, ms);
+};
 // docs/strip.md, Hue and intensity, in the page's own role colours: each sample's hue, mixed in Lab from the midpoint toward the role
 // (d3, an oracle independent of the module's colour tables), and the alpha that lays it over the surface.
 function colours(page, samples) {
@@ -170,18 +174,18 @@ test("where no force is known the column is the hatch of an undefined value, and
 
 test("replay draws only what was known strictly before its edge: no band past it, no seam until a window has closed", async ({ page, fakeFor, probe, pane }) => {
   const fake = await fakeFor("standard"), info = fake.info(), cutoff = Date.parse(info.cutoff);
-  // A lit event measured inside the history, from the fake's own calendar: lit by what was expected when its window opened. Macro
+  // A lit event measured inside the history, from the fake's own calendar: lit by the calendar's weight as the edge knew it. Macro
   // alone, so an unscheduled move (News) adds no seam of its own.
   const history = await (await fetch(`${fake.url}/cube/strip?from=${Math.floor((cutoff - 120 * DAY) / HOUR) * HOUR}&to=${Math.ceil(cutoff / HOUR) * HOUR}&step=${HOUR}&proto=2`)).json();
-  const lit = (x) => x.family === "macro" && x.measured && (expectAt(x, x.measured.from)?.charge ?? 0) >= 0.15;
-  const e = history.events.find((x) => lit(x) && x.measured.at < cutoff - 2 * DAY);
+  const lit = (x, edge) => x.family === "macro" && x.measured && (entryAt(x, edge)?.weight ?? 0) >= 0.3;
+  const e = history.events.find((x) => lit(x, cutoff) && x.measured.at < cutoff - 2 * DAY);
   expect(e, "the synthetic calendar has a lit, measured event").toBeTruthy();
   const [p0, p1] = info.priceBand.usdt, from = e.measured.from - DAY, to = e.measured.from + DAY;
   const hash = (edge) => `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.macro&replay=1&at=${iso(edge)}`;
   const seams = async (top) => (await pane.last()).strokes
     .filter((s) => s.width === 2 && s.path.length === 2 && s.path.every(([, y]) => y >= top && y <= top + BAND)).map((s) => s.path[0][0]).sort((a, b) => a - b);
   // The seams an edge allows: every lit Macro event in view whose window had closed strictly before it, where it closed.
-  const expected = (edge, X) => history.events.filter((x) => lit(x) && x.measured.at < edge && x.measured.at >= from && x.measured.at <= to)
+  const expected = (edge, X) => history.events.filter((x) => lit(x, edge) && x.measured.at < edge && x.measured.at >= from && x.measured.at <= to)
     .map((x) => Math.round(X(x.measured.at)) + 0.5).sort((a, b) => a - b);
   // Within the window: the band ends at the edge and the reaction is not yet a seam.
   const opened = e.measured.from + 15 * 60000;
@@ -207,7 +211,7 @@ test("a moved event is where each edge knew it would be: before the move was ann
   const fake = await fakeFor("standard"), info = fake.info(), cutoff = Date.parse(info.cutoff), tip = page.locator("#ol-tip");
   const history = await (await fetch(`${fake.url}/cube/strip?from=${Math.floor((cutoff - 300 * DAY) / HOUR) * HOUR}&to=${Math.ceil(cutoff / HOUR) * HOUR}&step=${HOUR}&proto=2`)).json();
   // A CPI moved a day later, announced three days before its first date.
-  const e = history.events.find((x) => x.kind === "cpi" && x.schedule.length === 2 && x.schedule[1].at !== null && x.measured && x.measured.at < cutoff - 2 * DAY);
+  const e = history.events.find((x) => x.series === "cpi" && x.schedule.length === 2 && x.schedule[1].at !== null && x.measured && x.measured.at < cutoff - 2 * DAY);
   expect(e, "the synthetic calendar moved a CPI").toBeTruthy();
   const [first, moved] = e.schedule, [p0, p1] = info.priceBand.usdt, from = first.at - 4 * DAY, to = moved.at + DAY;
   const hash = (edge) => `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.macro&replay=1&at=${iso(edge)}`;
@@ -294,7 +298,7 @@ test("the card on the band gives the forces and their track record; on an event,
   const answer = await asked(fake, "view"), history = await asked(fake, "history"), edge = view.cutoff;
   // An event to hover, and a column at least 12 px from every event for the forces.
   const xOf = (ms) => g.x + ((ms - view.from) / (view.to - view.from)) * g.w;
-  const events = answer.events.map((e) => ({ ...e, at: whenAt(e, edge) })).filter((e) => e.at && e.at > view.from && e.at < edge);
+  const events = answer.events.map((e) => ({ ...e, at: placeAt(e, edge) })).filter((e) => e.at && e.at > view.from && e.at < edge);
   let x = g.x + g.w * 0.6;
   while (events.some((e) => Math.abs(xOf(e.at) - x) < 12)) x -= 13;
   await page.mouse.move(box.x + x, box.y + y);
@@ -321,15 +325,49 @@ test("the card on the band gives the forces and their track record; on an event,
   await expect(tip).toHaveAttribute("data-presentation", "strip-event");
   await expect(tip.locator(".ol-tip-head")).toHaveText(done.name);
   await expect(tip.locator(".ol-strip-big")).toHaveText(pct(done.measured.move));
-  // An event ahead, in the horizon box beside the profile: its own move as the options last estimated it before the edge.
+  // An event ahead, in the horizon box beside the profile: when it is, how much it matters, and the options' range to its time.
   const x0 = (await layoutOf(page))[7], width = 62, H = (ms) => x0 + (width * Math.log1p((ms - edge) / HOUR)) / Math.log1p((90 * DAY) / HOUR);
   const ahead = answer.events.map((x) => ({ ...x, at: whenAt(x, edge) })).filter((x) => x.at && x.at > edge && x.at <= edge + 90 * DAY);
-  const next = ahead.find((x) => x.estimates.some((q) => q.at < edge) && ahead.every((o) => o === x || Math.abs(H(o.at) - H(x.at)) > 6));
-  expect(next, "an estimated event stands alone in the horizon").toBeTruthy();
-  const estimate = expectAt(next, edge);
+  const next = ahead.find((x) => entryAt(x, edge).weight > 0 && ahead.every((o) => o === x || Math.abs(H(o.at) - H(x.at)) > 6));
+  expect(next, "a lit event stands alone in the horizon").toBeTruthy();
   await page.mouse.move(box.x + H(next.at), box.y + y);
   await expect(tip).toHaveAttribute("data-presentation", "strip-event");
   await expect(tip.locator(".ol-tip-head")).toHaveText(next.name);
-  await expect(tip.locator(".ol-strip-q3-value")).toHaveText([pct(estimate.reaction.p5), pct(estimate.reaction.p50), pct(estimate.reaction.p95)]);
-  await expect(tip.locator(".ol-tip-note").first()).toContainText("Risk-neutral spread from option prices");
+  const entry = entryAt(next, edge);
+  await expect(tip.locator(".ol-tip-note").first()).toContainText(`${entry.importance[0].toUpperCase()}${entry.importance.slice(1)} importance`);
+  await expect(tip.locator(".ol-tip-note").filter({ hasText: "Options context: at DVOL" })).toHaveCount(1);
+});
+
+test("a range of dates with no hour is labelled at its middle over a bracket of its span, its light held through it", async ({ page, fakeFor, probe, pane }) => {
+  const fake = await fakeFor("standard"), info = fake.info(), cutoff = Date.parse(info.cutoff);
+  const history = await (await fetch(`${fake.url}/cube/strip?from=${Math.floor((cutoff - 200 * DAY) / HOUR) * HOUR}&to=${Math.ceil(cutoff / HOUR) * HOUR}&step=${HOUR}&proto=2`)).json();
+  const e = history.events.find((x) => x.schedule[0].precision === "range" && x.schedule[0].weight >= 0.3 && x.schedule[0].end < cutoff - 2 * DAY);
+  expect(e, "the synthetic calendar has a lit range").toBeTruthy();
+  const { at: start, end } = e.schedule[0], [p0, p1] = info.priceBand.usdt, from = start - 2 * DAY, to = end + 2 * DAY;
+  await open(page, fake, probe, `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.news&replay=1&at=${iso(end + DAY)}`);
+  const g = at(await layoutOf(page)), X = (ms) => g.x + ((ms - from) / (to - from)) * g.w, frame = await pane.last();
+  const label = frame.texts.find((t) => t.text === e.short);
+  expect(label, "the range is labelled").toBeTruthy();
+  expect(Math.abs(label.x - X((start + end) / 2))).toBeLessThan(1);
+  const bracket = frame.strokes.find((s) => s.width === 1 && s.path.length === 2 && s.path.every(([, y]) => y === g.by + LABELS - 0.5));
+  expect(bracket, "a bracket spans it").toBeTruthy();
+  expect(Math.abs(bracket.path[0][0] - X(start))).toBeLessThan(1);
+  expect(Math.abs(bracket.path[1][0] - X(end))).toBeLessThan(1);
+  // Its light holds through its dates at its full weight: the beam through the band's middle at its strongest.
+  const top = g.by + LABELS, mid = Math.floor(X((start + end) / 2));
+  expect(frame.rects.some((r) => r.w === 1 && r.x === mid && r.fill !== "pattern" && Math.abs(r.h - (BAND - 2) * 0.7) < 0.01 && Math.abs(r.y - (top + (BAND - (BAND - 2) * 0.7) / 2)) < 0.01)).toBe(true);
+});
+
+test("the band's own card names each source's freshness, a stale one as stale", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini"), view = await rectangle(fake, 1, "&strip=forces");
+  await open(page, fake, probe, view.hash);
+  const g = at(await layoutOf(page)), box = await page.locator("#ol-canvas").boundingBox(), tip = page.locator("#ol-tip");
+  await page.mouse.move(box.x + g.x - 20, box.y + g.by + LABELS + BAND / 2);
+  await expect(tip.locator(".ol-tip-head")).toHaveText("Strip · Forces");
+  const rows = await tip.locator(".ol-tip-rows dt").evaluateAll((dts) => dts.map((dt) => [dt.textContent, dt.nextElementSibling.textContent]));
+  const of = Object.fromEntries(rows);
+  expect(of["Wikipedia, hourly"]).toMatch(/^stale · through /);
+  expect(of["FRED macro, daily"]).toMatch(/^ok · through /);
+  expect(Object.keys(of)).toEqual(expect.arrayContaining(["Deribit funding", "Hyperliquid funding", "GDELT news", "Bluesky sample", "Deribit DVOL", "Calendar"]));
+  await expect(tip.locator(".ol-tip-note").first()).toContainText("Field data published");
 });

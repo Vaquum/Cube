@@ -194,7 +194,7 @@ function emptied(body) {
 class FakeCube {
   constructor(opts) {
     // strip: "synthetic" declares the seeded synthetic strip (strip.js) in the page and serves it at /cube/strip; "off" is a bridge without
-    // STRIP_URL: no declaration, and a 503 if the strip is asked for anyway.
+    // FIELD_DATA_URL: no declaration, and a 503 if the strip is asked for anyway.
     this.opts = { mode: "live", profile: "mini", port: 0, host: "127.0.0.1", control: false, quiet: 2, next: 3, pageVersion: "fake-page-1", packsHeld: 16, maxCells: model.MAX_CELLS, strip: "synthetic", ...opts };
     if (!["synthetic", "off"].includes(this.opts.strip)) throw new RangeError(`strip ${this.opts.strip}: use synthetic or off`);
     if (!["live", "recorded"].includes(this.opts.mode)) throw new RangeError(`mode ${this.opts.mode}: use live or recorded`);
@@ -413,7 +413,7 @@ class FakeCube {
         if (Math.ceil(b1 / step) - Math.floor(b0 / step) > MAX_COLUMNS) throw new ValueError(`more than ${MAX_COLUMNS} bars`);
         return json(bridge.bars(n, b0, b1, token));
       }
-      // tools/strip_relay.py relay(): the query's rules first, then whether the strip is configured; the answer is the synthetic one.
+      // tools/cube_bridge.py and strip_service.py: the query's rules first, then whether the strip is configured; the answer is the synthetic one.
       if (pathname === "/cube/strip") {
         let grid;
         try {
@@ -459,7 +459,7 @@ class FakeCube {
   }
 
   // / and /index.html: the page. Live mode injects the pack the way the bridge does, and with the synthetic strip declares it as a
-  // bridge with STRIP_URL does (tools/strip_relay.py declare); recorded mode serves the file unmodified.
+  // bridge with FIELD_DATA_URL does (tools/strip_contract.py declare); recorded mode serves the file unmodified.
   html() {
     const text = fs.readFileSync(path.join(this.pageRoot, "index.html"), "utf8");
     if (this.opts.mode === "recorded") return text;
