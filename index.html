@@ -20079,8 +20079,8 @@
       targets: [{"label":"Show Columns menu","selector":"#ol-pane"},{"label":"Show column pane","region":"columns"}], colour: "columns" },
     { id: "strip", group: "Read the market", title: "Strip & forces",
       purpose: "See what moves BTC from outside this market: where the forces lean, how much attention it gets, and the events ahead.",
-      read: "Strip shows a band under the prices. Forces sums Macro (the dollar, yields and credit), Positioning (funding and stablecoin supply), News (the tone of coverage) and Social (bullish against bearish words); one force can be shown alone, with only its own events. Blue leans up and orange down, stronger the further from zero; a dim band means little attention. A hatch means not known: across the band, no force; along its foot, attention. Light builds toward a scheduled event, as large as its expected move, and breaks at its time; a seam marks where its window closed, as strong as its surprise. A dashed line marks where retrospective values end. The box beside the profile holds the next 90 days. Every value is drawn as the edge knew it, the replay's too. The figures are descriptive, not forecasts, and no agent or learned model reads text.",
-      use: "Choose Forces in Strip, then all forces or one. Hover the band for the forces as arrows and their track record: how BTC moved over the next 24 hours after earlier moments when the forces leaned alike, against all moments, shown from 30 such moments. Hover an event for its own move over the window after it, or the move it made. The data comes from Origo, and the band says when it is not served.",
+      read: "Strip shows a band under the prices. Forces sums Macro (the dollar, yields and credit), Positioning (funding, futures basis, options skew and stablecoin supply), News (the tone of coverage) and Social (bullish against bearish words); one force can be shown alone, with only its own events. Blue leans up and orange down, stronger the further from zero; a dim band means little attention. A hatch means not known: across the band, no force; along its foot, attention. Light builds toward an event as strongly as the calendar says it matters, and breaks at its time; a date without an hour holds it through the day. A seam marks where its window closed, as strong as its surprise. A dashed line marks where retrospective values end. The box beside the profile holds the next 90 days. Every value is drawn as the edge knew it, the replay's too. The figures are descriptive, not forecasts, and no agent or learned model reads text.",
+      use: "Choose Forces in Strip, then all forces or one. Hover the band for the forces as arrows, their parts, and their track record: how BTC moved over the next 24 hours after earlier moments when the forces leaned alike, against all moments, shown from 30 such moments. Hover an event for when it is, how sure its date is, and the move it made; hover the box beside the profile for what lies ahead. Hover the band's name for each source's freshness. The data comes from field-data-api through the bridge, and the band says when it is not served.",
       targets: [{"label":"Show Strip control","selector":"#ol-strip"}], colour: "none" },
     { id: "states", group: "Read the market", title: "Data states & coverage",
       purpose: "Distinguish a measured value from zero, incomplete coverage or unavailable data.",
@@ -31300,7 +31300,9 @@
     ];
     if (S.background !== "off") view.push(row("backgroundMeasure", "Background", `${ROWS_INFO[S.background].name} ${periodPhrase(S.backgroundPeriod)}`, `${S.background}:${S.backgroundPeriod}`));
     if (S.rows !== "off") view.push(row("rowsMeasure", "Rows", `${ROWS_INFO[S.rows].name} ${periodPhrase(S.period)}`, `${S.rows}:${S.period}`));
-    if (S.strip !== "off") view.push(row("strip", "Strip", `${STRIP_NAMES[stripForce() ?? "forces"]} · ${stripRt.status === "ready" ? stripRt.model : stripStatusText()}`, S.strip));
+    if (S.strip !== "off")
+      view.push(row("strip", "Strip", `${STRIP_NAMES[stripForce() ?? "forces"]} · ${stripRt.status === "ready" && stripRt.snapshot?.publishedAt
+        ? `field data published ${when(stripBase(stripRt.snapshot.publishedAt))} UTC · ${stripRt.model}` : stripStatusText()}`, S.strip));
     view.push(row("dataCutoff", "Data through", uiUtcMs(cutMs), cutMs));
     if (canonMs !== null) view.push(row("canonicalThrough", "Canonical through", uiUtcMs(canonMs), canonMs));
     view.push(row("replay", "Replay", S.replay ? `At ${uiUtcMs(cutMs)}` : "Off", Boolean(S.replay)));
@@ -38351,7 +38353,7 @@
     STRIP_WHAT = {
       forces: "All four forces, summed",
       macro: "The dollar, yields and credit",
-      positioning: "Perpetual funding and stablecoin supply",
+      positioning: "Funding, futures basis, options skew and stablecoin supply",
       news: "The tone of coverage",
       social: "Bullish against bearish words",
     },
@@ -38361,17 +38363,34 @@
     STRIP_DAY = 86400000,
     STRIP_HORIZON = 90 * 86400000,
     STRIP_HISTORY = 730 * 86400000,
-    // How far ahead of an event its light reaches, and how many cases a figure needs: the explorer's own support floor.
+    // How far ahead of an event its light reaches and how fast it builds, and how many cases a figure needs: the explorer's own floor.
     STRIP_REACH = 14 * 86400000,
+    STRIP_TAU = 2 * 86400000,
     STRIP_SUPPORT = 30,
-    // An event is labelled, and its reaction seamed, only from this expected move, in percent (docs/strip.md).
-    STRIP_LIT = 0.15,
+    // An event is labelled, and its reaction seamed, from this weight: a high-importance event, or a medium one whose date is confirmed.
+    STRIP_LIT = 0.3,
     // The strip of the undefined hatch along the band's foot where attention is not known.
-    STRIP_FOOT = 5;
-  // A server that relays the strip declares it in the page (tools/strip_relay.py); a page without the declaration never asks.
+    STRIP_FOOT = 5,
+    // The sources behind each part of the band, and their names, for the freshness the cards show.
+    STRIP_FEEDS = {
+      macro: ["fred_macro_daily"],
+      positioning: ["deribit_funding", "hyperliquid_funding", "deribit_futures_basis", "deribit_options", "defillama_stablecoins"],
+      news: ["gdelt_gkg"],
+      social: ["bluesky_live"],
+      attention: ["gdelt_gkg", "wikimedia_daily", "wikimedia_hourly", "bluesky_live"],
+    },
+    STRIP_SOURCE_NAMES = {
+      fred_macro_daily: "FRED macro, daily", deribit_funding: "Deribit funding", hyperliquid_funding: "Hyperliquid funding",
+      deribit_futures_basis: "Deribit futures basis", deribit_options: "Deribit options", defillama_stablecoins: "Stablecoin supply, daily",
+      deribit_dvol: "Deribit DVOL", gdelt_gkg: "GDELT news", bluesky_live: "Bluesky sample", wikimedia_daily: "Wikipedia, daily",
+      wikimedia_hourly: "Wikipedia, hourly", mempool_retarget: "Difficulty retarget", calendar: "Calendar",
+    },
+    STRIP_CERTAINTY = { confirmed: "confirmed", tentative: "tentative", rule_derived: "set by rule", unspecified: "certainty not given", estimate: "an estimate" };
+  // A bridge that serves the strip declares it in the page (tools/strip_contract.py); a page without the declaration never asks.
   const STRIP_SERVED = Boolean(document.querySelector('meta[name="explorer-strip"]'));
-  const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), sources: null, status: STRIP_SERVED ? "idle" : "unconfigured",
-    detail: "", model: "", busy: null, timer: 0, failed: { key: "", at: -Infinity }, horizon: null, hits: [] };
+  const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), options: [], sources: null, components: null,
+    attentionParts: null, snapshot: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", busy: null, timer: 0,
+    failed: { key: "", at: -Infinity }, horizon: null, hits: [] };
   const stripChoices = () => (PACK.live ? STRIP_CHOICES : ["off"]),
     stripForce = () => (S.strip.startsWith("forces.") ? S.strip.slice(7) : null),
     stripBase = (ms) => (ms / 1000 - T0) / BASE,
@@ -38426,12 +38445,13 @@
       const response = await fetch(target, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]) }),
         body = await response.json().catch(() => null);
       offerReload(body);
-      if (response.ok && body?.schema === "cube-strip@1") stripApply(want, body);
+      if (response.ok && body?.schema === "cube-strip@2") stripApply(want, body);
       else {
-        stripRt.failed = { key, at: now };
+        // A bridge still reading its first publication is asked again in 15 seconds, any other failure after a minute.
+        stripRt.failed = { key, at: body?.error === "strip_loading" ? now - 45000 : now };
         if (body?.error === "strip_not_configured") stripRt.status = "unconfigured";
         else if (!stripRt.view) {
-          stripRt.status = "failed";
+          stripRt.status = body?.error === "strip_loading" ? "loading" : "failed";
           stripRt.detail = body?.detail || body?.error || `HTTP ${response.status}`;
         }
       }
@@ -38453,20 +38473,30 @@
   function stripApply(want, body) {
     const grid = body.grid,
       held = { from: want.from, to: want.to, step: grid.step, t0: grid.t0, forces: grid.forces, attention: grid.attention, close: grid.close,
-        next24h: grid.next24h, at: performance.now() };
+        next24h: grid.next24h, dvol: grid.dvol, parts: grid.parts ?? null, at: performance.now() };
     stripRt[want.kind] = held;
     for (const e of body.events) stripRt.events.set(e.id, e);
     for (const j of body.jumps) stripRt.jumps.set(j.id, { ...j, jump: true, name: "Unscheduled move", short: "Move", family: "news" });
     for (const map of [stripRt.events, stripRt.jumps]) while (map.size > 5000) map.delete(map.keys().next().value);
+    // The options' samples in time order, each once.
+    const options = new Map(stripRt.options.map((o) => [o.at, o]));
+    for (const o of body.options) options.set(o.at, o);
+    stripRt.options = [...options.values()].sort((a, b) => a.at - b.at).slice(-2000);
     stripRt.sources = body.sources;
+    stripRt.components = body.components;
+    stripRt.attentionParts = body.attentionParts;
+    stripRt.snapshot = body.snapshot;
     stripRt.model = body.model;
     stripRt.status = "ready";
     stripRt.detail = "";
   }
-  // A series' value at a time: the one at the grid time at or before it, which was known then.
+  // A series' value at a time: the one at the grid time at or before it, which was known then. A force, attention, close, next24h, dvol,
+  // or one force's or attention's part by its name, which only the view's grid carries.
   function stripAt(held, ms, name) {
     if (!held) return null;
-    const series = STRIP_FORCES.includes(name) ? held.forces[name] : held[name], i = Math.floor((ms - held.t0) / held.step);
+    const series = STRIP_FORCES.includes(name) ? held.forces[name] : Array.isArray(held[name]) ? held[name] : held.parts?.[name];
+    if (!series) return null;
+    const i = Math.floor((ms - held.t0) / held.step);
     return i >= 0 && i < series.length && series[i] !== undefined ? series[i] : null;
   }
   // The held grid that covers a time, the finer first.
@@ -38487,39 +38517,29 @@
     }
     return known ? sum : null;
   }
-  // Where a source's values stop being retrospective (docs/strip.md, Known-at): from when it was recorded live and after the history
-  // its method was fitted on; never where nothing is recorded live yet.
+  // Where a component's values stop being retrospective (docs/strip.md, Known-at): from its first value recorded live; never where none is.
   function stripRetroUntil(name) {
-    const s = stripRt.sources?.[name];
-    return s ? Math.max(s.recordedFrom ?? Infinity, s.fittedThrough === null ? -Infinity : s.fittedThrough + 1) : Infinity;
+    const c = stripRt.components?.[name] ?? stripRt.attentionParts?.[name];
+    return c && c.retroUntil !== null ? c.retroUntil : Infinity;
   }
-  // When an event was to happen as known at a time, from the latest schedule entry published before it: null once cancelled, undefined
-  // before its date was first published.
-  function stripWhen(e, ms) {
-    let at;
+  // The components a band shows: one force's, or all four's, and attention's.
+  const stripComponentsOf = (force) => [
+    ...Object.entries(stripRt.components ?? {}).filter(([, c]) => !force || c.force === force).map(([name]) => name),
+    ...Object.keys(stripRt.attentionParts ?? {}),
+  ];
+  // What was known of an event at a time: the schedule entry published before it (its time and precision, status, certainty, importance
+  // and the light it gives), whether its date had moved, and its measured reaction once its window had closed; null before its first
+  // entry, and once it was cancelled or withdrawn.
+  function stripKnown(e, ms) {
+    if (e.jump) return e.at + e.window * 60000 < ms ? { at: e.at, end: null, precision: "instant", weight: 1, measured: { move: e.move, bits: e.bits, at: e.at + e.window * 60000 } } : null;
+    let entry = null;
     for (const s of e.schedule) {
       if (s.knownAt >= ms) break;
-      at = s.at;
+      entry = s;
     }
-    return at;
-  }
-  // The expectation known at a time: the latest estimate made before it, else the prior once computed, if it rests on enough releases.
-  function stripExpect(e, ms) {
-    let expect = null;
-    for (const x of e.estimates) {
-      if (x.at >= ms) break;
-      expect = x;
-    }
-    return expect ?? (e.prior.at < ms && e.prior.n >= STRIP_SUPPORT ? e.prior : null);
-  }
-  // What was known of an event at a time: when it was to happen, its expectation and its charge (null where none is known yet), and its
-  // measured reaction once its window had closed; null before its date was published, and once it was cancelled.
-  function stripKnown(e, ms) {
-    if (e.jump) return e.at + e.window * 60000 < ms ? { at: e.at, charge: null, expect: null, measured: { move: e.move, bits: e.bits, at: e.at + e.window * 60000 } } : null;
-    const at = stripWhen(e, ms);
-    if (at === undefined || at === null) return null;
-    const expect = stripExpect(e, ms);
-    return { at, expect, charge: expect ? expect.charge : null, measured: e.measured && e.measured.at < ms ? e.measured : null };
+    if (!entry || entry.at === null) return null;
+    const moved = e.schedule.some((s) => s.knownAt < ms && s.at !== null && s.at !== entry.at);
+    return { ...entry, moved, measured: e.measured && e.measured.at < ms ? e.measured : null };
   }
   const stripEvents = (force = stripForce()) => [...stripRt.events.values()].filter((e) => !force || e.family === force);
   const stripJumps = (force = stripForce()) => (!force || force === "news" ? [...stripRt.jumps.values()] : []);
@@ -38531,12 +38551,16 @@
     }
     return null;
   }
-  // An event's light at a time: its potential as known then, building over the 14 days before it.
+  // An event's light at a time: its weight as known then, building over the 14 days before it, and held through a date or a range of dates,
+  // since the hour within them is not known.
   function stripLight(e, ms) {
     const k = stripKnown(e, ms);
-    return !k || k.charge === null || k.at <= ms || k.at - ms > STRIP_REACH ? 0 : Math.min(1, k.charge / 2) * Math.exp(-(k.at - ms) / (2 * STRIP_DAY));
+    if (!k || !k.weight) return 0;
+    if (ms < k.at) return k.at - ms > STRIP_REACH ? 0 : k.weight * Math.exp(-(k.at - ms) / STRIP_TAU);
+    return k.end !== null && ms < k.end ? k.weight : 0;
   }
-  const stripSeamStrength = (m) => 0.22 + 0.78 * Math.sqrt(Math.min(1, m.bits / 3) * Math.min(1, Math.abs(m.move) / 2));
+  // A seam's strength from its surprise and its size; a reaction measured without DVOL known has no surprise and counts as middling.
+  const stripSeamStrength = (m) => 0.22 + 0.78 * Math.sqrt((m.bits === null ? 0.5 : Math.min(1, m.bits / 3)) * Math.min(1, Math.abs(m.move) / 2));
   // A lean's colour: the Lut's positive or negative arm, from the midpoint toward the role, at min(1, |lean|)^0.6. The band paints it raw
   // over its surface at the attention's alpha, as the Rows bands paint theirs.
   function stripColour(lut, lean) {
@@ -38610,7 +38634,7 @@
     // TEXT(S1): a ready band with nothing known in view
     if (!drawn && xe - x0 >= 1) text("No force known here", x0 + 6, top + h / 2, colors.muted, "left");
     // Where the forces shown stop being retrospective: a 1 px dashed line, as the archive's provisional edge is drawn.
-    const retro = Math.max(...[...(force ? [force] : STRIP_FORCES), "attention"].map(stripRetroUntil).filter(Number.isFinite));
+    const retro = Math.max(...stripComponentsOf(force).map(stripRetroUntil).filter(Number.isFinite));
     if (Number.isFinite(retro) && retro < edge) {
       const x = Math.round(G.X(stripBase(retro))) + 0.5;
       if (x > x0 && x < xe) {
@@ -38619,10 +38643,12 @@
         ctx.setLineDash([]);
       }
     }
-    // Each event lights the pixel columns of the 14 days before the times it was given, as known at each.
+    // Each event lights the pixel columns of the 14 days before the times it was given, as known at each, and of its dates where it has no hour.
     const lights = new Float64Array(Math.max(0, Math.ceil(xe) - first)), tA = msAt(S.tA), tB = msAt(S.tB);
     for (const e of events) {
-      const times = e.schedule.map((s) => s.at).filter((at) => at !== null), lo = Math.min(...times) - STRIP_REACH, hi = Math.max(...times);
+      const given = e.schedule.filter((s) => s.at !== null && s.weight > 0);
+      if (!given.length) continue;
+      const lo = Math.min(...given.map((s) => s.at)) - STRIP_REACH, hi = Math.max(...given.map((s) => s.end ?? s.at));
       if (hi <= tA || lo >= tB) continue;
       const xa = Math.max(first, Math.floor(G.X(stripBase(lo)))), xb = Math.min(Math.ceil(xe), Math.ceil(G.X(stripBase(hi))) + 1);
       for (let x = xa; x < xb; x++) lights[x - first] += stripLight(e, Math.min(msAt(G.X.invert(x + 0.5)), edge - 1));
@@ -38630,18 +38656,26 @@
     stripBeams(lights, first, top, h);
     for (const e of [...events, ...jumps]) {
       const k = stripKnown(e, edge);
-      if (!k?.measured || (!e.jump && !(k.charge >= STRIP_LIT))) continue;
+      if (!k?.measured || (!e.jump && !(k.weight >= STRIP_LIT))) continue;
       const x = Math.round(G.X(stripBase(k.measured.at))) + 0.5;
       if (x >= x0 && x <= xe) line(x, top + 1, x, top + h - 1, colors.ink, 2, stripSeamStrength(k.measured));
     }
     ctx.restore();
-    // The labels of the lit events in view, each at its time as the edge knew it, none over another.
+    // The labels of the lit events in view, each at its time as the edge knew it, none over another. An event dated without an hour is
+    // labelled at its middle, over a bracket that spans its dates, once its first date has begun.
     let right = -Infinity;
-    for (const { e, k } of [...events, ...jumps].map((e) => ({ e, k: stripKnown(e, edge) })).filter(({ k }) => k).sort((a, b) => a.k.at - b.k.at)) {
-      const x = G.X(stripBase(k.at));
-      if (x < x0 || x > xe) continue;
+    const middle = (k) => (k.precision !== "instant" && k.end !== null ? (k.at + k.end) / 2 : k.at);
+    const known = [...events, ...jumps].map((e) => ({ e, k: stripKnown(e, edge) })).filter(({ k }) => k).sort((a, b) => middle(a.k) - middle(b.k));
+    for (const { e, k } of known) {
+      const start = G.X(stripBase(k.at)), mid = G.X(stripBase(middle(k)));
+      if (start > xe || mid < x0) continue;
+      const x = Math.min(mid, xe);
       stripRt.hits.push({ e, x });
-      if (!e.jump && !(k.charge >= STRIP_LIT)) continue;
+      if (!e.jump && !(k.weight >= STRIP_LIT)) continue;
+      if (k.precision !== "instant" && k.end !== null) {
+        const y = G.by + STRIP_LABELS - 0.5;
+        line(Math.max(x0, start), y, Math.min(xe, G.X(stripBase(k.end))), y, colors.line, 1);
+      }
       ctx.font = `${TYPE.s}px ${FONT}`;
       const w = ctx.measureText(e.short).width;
       if (x - w / 2 < right + 4) continue;
@@ -38673,7 +38707,7 @@
     lights.forEach((_, k) => {
       const ms = edge + STRIP_HOUR * Math.expm1(((Math.ceil(x0) + 1 + k + 0.5 - x0) / w) * scale);
       for (const { e, k: known } of ahead)
-        if (known.at > ms && known.charge !== null) lights[k] += Math.min(1, known.charge / 2) * Math.exp(-(known.at - ms) / (2 * STRIP_DAY));
+        if (known.at > ms && known.weight) lights[k] += known.weight * Math.exp(-(known.at - ms) / STRIP_TAU);
     });
     stripBeams(lights, Math.ceil(x0) + 1, top, h);
     ctx.restore();
@@ -38696,10 +38730,14 @@
   function stripTip(tip, p, cut) {
     const edge = stripEdge(cut), what = STRIP_NAMES[stripForce() ?? "forces"];
     if (!stripRt.view || p.x < G.x) {
-      tipRows(tip, `Strip · ${what}`, STRIP_WHAT[stripForce() ?? "forces"], [],
+      const force = stripForce(),
+        feeds = [...new Set([...(force ? STRIP_FEEDS[force] : STRIP_FORCES.flatMap((f) => STRIP_FEEDS[f])), ...STRIP_FEEDS.attention, "deribit_dvol", "calendar"])];
+      tipRows(tip, `Strip · ${what}`, STRIP_WHAT[force ?? "forces"], stripRt.sources ? feeds.map((s) => [STRIP_SOURCE_NAMES[s] ?? s, stripFreshness(s)]) : [],
         stripRt.view
-          ? ["Hue: where the forces lean, blue up and orange down. Intensity: attention. A hatch: not known.", "Light: an event's expected move, building toward it. A seam: its measured reaction. Descriptive, not a forecast."]
-          : [stripStatusText(), stripRt.status === "unconfigured" ? "A bridge serves it from Origo once STRIP_URL is set." : ""]);
+          ? [stripRt.snapshot?.publishedAt ? `Field data published ${when(stripBase(stripRt.snapshot.publishedAt))} UTC.` : "",
+            "Hue: where the forces lean, blue up and orange down. Intensity: attention. A hatch: not known.",
+            "Light: how much the calendar says an event matters, building toward it. A seam: its measured reaction. Descriptive, not a forecast."]
+          : [stripStatusText(), stripRt.status === "unconfigured" ? "A bridge serves it once FIELD_DATA_URL is set." : ""]);
       return;
     }
     const nearest = (list, reach) => list.reduce((best, hit) => (Math.abs(hit.x - p.x) <= (best ? Math.abs(best.x - p.x) : reach) ? hit : best), null);
@@ -38784,10 +38822,17 @@
     }
     return box;
   }
-  // The names of the sources a card shows that are retrospective at a time (docs/strip.md, Known-at), as words.
+  // The components a card shows that are retrospective at a time (docs/strip.md, Known-at), as words.
   function stripRetroNames(names, ms) {
-    const late = names.filter((n) => ms < stripRetroUntil(n)).map((n) => STRIP_NAMES[n] ?? n);
+    const late = names.filter((n) => ms < stripRetroUntil(n)).map((n) => (stripRt.components?.[n] ?? stripRt.attentionParts?.[n])?.label ?? n);
     return late.length ? late.join(", ").replace(/, ([^,]*)$/, " and $1") : "";
+  }
+  // A source's freshness, as words: its state as the publication gave it, and its newest observation.
+  function stripFreshness(source) {
+    const s = stripRt.sources?.[source];
+    if (!s) return "not read";
+    const through = s.observedAt === null ? "" : ` · through ${when(stripBase(s.observedAt))}`;
+    return s.state === "ok" ? `ok${through}` : `${s.state.replace(/_/g, " ")}${through}${s.detail ? ` · ${s.detail}` : ""}`;
   }
   // The track record (docs/strip.md): BTC over the next 24 hours after the past moments whose forces lay nearest these, at least six
   // hours apart, against all past moments six hours apart, from the hourly history whatever the view's step. Only moments whose next 24
@@ -38853,7 +38898,7 @@
       bins = count(T.near), outline = count(T.all).map(([a, b, c]) => [a, b, (c / T.all.length) * T.near.length]),
       then = ms + STRIP_DAY < edge ? stripAt(stripRt.history, ms, "next24h") : null,
       left = STRIP_FORCES.filter((f) => (force ? f === force : true) && !T.dims.includes(f)).map((f) => STRIP_NAMES[f]),
-      retro = stripRetroNames(T.dims, T.t0 + Math.min(...T.near.map((p) => p.i)) * T.step);
+      retro = stripRetroNames(stripComponentsOf(force).filter((n) => stripRt.components?.[n] && T.dims.includes(stripRt.components[n].force)), T.t0 + Math.min(...T.near.map((p) => p.i)) * T.step);
     const big = uiEl("div", "ol-strip-big", `${fell ? "Fell" : "Rose"} in ${Math.round((fell ? dn : 1 - dn) * 100)}%`);
     big.dataset.field = "trackShare";
     big.dataset.canonical = String(fell ? dn : 1 - dn);
@@ -38866,69 +38911,94 @@
   }
   function stripForcesCard(tip, ms, edge) {
     const force = stripForce(), held = stripHeld(ms), values = STRIP_FORCES.map((f) => stripAt(held, ms, f)), attention = stripAt(held, ms, "attention"),
-      known = values.filter((v) => v !== null),
+      known = values.filter((v) => v !== null), shown = force ? [force] : STRIP_FORCES,
       rows = STRIP_FORCES.map((f, j) => ({ name: STRIP_NAMES[f], v: values[j], on: f === force, note: "not known" })),
-      shown = (force ? [force] : STRIP_FORCES).filter((f) => values[STRIP_FORCES.indexOf(f)] !== null),
-      retro = stripRetroNames([...shown, ...(attention === null ? [] : ["attention"])], ms);
+      // Each shown force's parts at this time, from the view's grid, which carries them.
+      parts = shown.map((f) => {
+        const named = Object.entries(stripRt.components ?? {}).filter(([, c]) => c.force === f)
+          .map(([name, c]) => [c.label, stripAt(stripRt.view, ms, name)]).filter(([, v]) => v !== null);
+        return named.length ? `${STRIP_NAMES[f]}: ${named.map(([label, v]) => `${label} ${signed(v, (x) => x.toFixed(2))}`).join(" · ")}` : "";
+      }).filter(Boolean),
+      late = stripRetroNames(stripComponentsOf(force).filter((n) => stripAt(stripRt.view, ms, n) !== null), ms),
+      behind = [...new Set([...shown.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention])]
+        .filter((s) => stripRt.sources?.[s] && stripRt.sources[s].state !== "ok").map((s) => `${STRIP_SOURCE_NAMES[s]} ${stripRt.sources[s].state.replace(/_/g, " ")}`);
     rows.push({ name: "Net", v: known.length ? known.reduce((s, v) => s + v, 0) : null, net: true, note: "no force known" });
     tip.dataset.presentation = "strip-forces";
     tip.replaceChildren(uiEl("div", "ol-tip-head", force ? `Forces · ${STRIP_NAMES[force]}` : "Forces"),
       uiEl("div", "ol-tip-sub", `${when(stripBase(ms))} UTC${force ? "" : ` · ${known.length} of 4 forces known`}`),
       stripTug(rows),
       uiEl("div", "ol-tip-note", `Left pulls down, right pulls up. Attention ${attention === null ? "not known" : `${Math.round(attention * 100)} of 100`}.`),
-      ...(retro ? [uiEl("div", "ol-tip-note", `Retrospective: ${retro} here ${retro.includes(" and ") ? "were" : "was"} computed later from history, not recorded as known then.`)] : []),
+      ...parts.map((note) => uiEl("div", "ol-tip-note", note)),
+      ...(late ? [uiEl("div", "ol-tip-note", `Retrospective: ${late} here ${late.includes(" and ") ? "were" : "was"} computed later from the source's history, not recorded as known then.`)] : []),
+      ...(behind.length ? [uiEl("div", "ol-tip-note", `Not current: ${behind.join(", ")}.`)] : []),
       ...stripTrackPart(ms, edge, force));
   }
-  // An event: ahead of the edge (or with its window still open), its own move over the window after it, p5 to p95, with the options'
-  // range at the next expiry as one line of context; once measured, the move it made against what was expected.
+  // An event as the edge knew it: when it is (a time, or dates whose hour is not given), how much the calendar says it matters and how sure
+  // its date is; once its window has closed, the move it made; the moves of past releases of its series once 30 are measured; and, ahead,
+  // the options' range to its time as context for the whole stretch, not its own move.
   function stripEventCard(tip, e, edge) {
-    const k = stripKnown(e, edge), close = stripCloseAt(edge), ago = k.at <= edge ? `${dur((edge - k.at) / 1000)} ago` : `in ${dur((k.at - edge) / 1000)}`;
+    const k = stripKnown(e, edge), close = stripCloseAt(edge);
     tip.dataset.presentation = "strip-event";
     if (e.jump) {
-      tip.replaceChildren(uiEl("div", "ol-tip-head", "Unscheduled move"), uiEl("div", "ol-tip-sub", `${when(stripBase(e.at))} UTC · ${ago}`),
+      tip.replaceChildren(uiEl("div", "ol-tip-head", "Unscheduled move"), uiEl("div", "ol-tip-sub", `${when(stripBase(e.at))} UTC · ${dur((edge - e.at) / 1000)} ago`),
         uiEl("div", "ol-strip-big", stripPct(e.move)), uiEl("div", "ol-tip-sub", `in the ${e.window} minutes after · ${e.bits.toFixed(1)} bits of surprise`),
-        uiEl("div", "ol-tip-note", "A move with an attention footprint and no scheduled event near it."));
+        uiEl("div", "ol-tip-note", "A move with an attention footprint and no lit event near it."));
       return;
     }
-    const expect = k.expect, options = Boolean(expect) && expect !== e.prior, given = e.schedule.filter((s) => s.knownAt < edge),
-      head = [uiEl("div", "ol-tip-head", e.name), uiEl("div", "ol-tip-sub", `${when(stripBase(k.at))} UTC · ${ago}${given.length > 1 ? " · moved" : ""}`)],
-      late = [given[given.length - 1].knownAt < stripRetroUntil("calendar") && "schedule", expect && expect.at < stripRetroUntil(options ? "options" : "history") && "expectation"].filter(Boolean),
-      notes = late.length ? [`Retrospective: its ${late.join(" and ")} ${late.length > 1 ? "were" : "was"} computed later from history, not recorded as known then.`] : [];
-    if (!expect) {
-      tip.replaceChildren(...head, uiEl("div", "ol-tip-note", e.prior.n < STRIP_SUPPORT
-        ? `Too few past releases (${e.prior.n}) for a spread from history, and no option prices it yet.` : "No expectation was known for it yet."),
-      ...(k.measured ? [uiEl("div", "ol-strip-big", stripPct(k.measured.move)), uiEl("div", "ol-tip-sub", `in the ${e.window} minutes after`)] : []),
-      ...notes.map((note) => uiEl("div", "ol-tip-note", note)));
-      return;
-    }
-    const r = expect.reaction,
-      source = options ? `Risk-neutral spread from option prices at ${when(stripBase(expect.at))} UTC` : `Spread from ${e.prior.n} past releases; the options price nothing more here`,
-      ticks = [{ x: r.bins[0][0], label: stripPct(r.bins[0][0], 1) }, { x: 0, label: "0" }, { x: r.bins[r.bins.length - 1][1], label: stripPct(r.bins[r.bins.length - 1][1], 1) }];
-    if (expect.charge < STRIP_LIT) notes.push(`Under ${STRIP_LIT}%: not labelled on the band, and no seam.`);
+    const ahead = k.at > edge, open = !ahead && k.end !== null && edge < k.end,
+      span = k.precision === "instant" ? `${when(stripBase(k.at))} UTC` : k.precision === "day" ? `${day(stripBase(k.at))}, no hour given`
+        : `${day(stripBase(k.at))} to ${day(stripBase(k.end - 1))}, no hour given`,
+      ago = ahead ? `in ${dur((k.at - edge) / 1000)}` : open ? "under way" : `${dur((edge - k.at) / 1000)} ago`,
+      about = [k.importance ? `${k.importance[0].toUpperCase()}${k.importance.slice(1)} importance` : "Importance not given",
+        `date ${STRIP_CERTAINTY[k.certainty] ?? k.certainty}`, e.region, e.kind.replace(/_/g, " ")].filter(Boolean).join(" · "),
+      parts = [uiEl("div", "ol-tip-head", e.name), uiEl("div", "ol-tip-sub", `${span} · ${ago}${k.moved ? " · moved" : ""}`), uiEl("div", "ol-tip-note", about)];
     if (k.measured) {
-      const m = k.measured, below = r.bins.reduce((s, [a, b, p]) => s + (b <= m.move ? p : a < m.move ? (p * (m.move - a)) / (b - a) : 0), 0);
-      tip.replaceChildren(...head, uiEl("div", "ol-strip-big", stripPct(m.move)), uiEl("div", "ol-tip-sub", `in the ${e.window} minutes after · ${m.bits.toFixed(1)} bits of surprise`),
-        stripHist(r.bins, { marks: [{ x: m.move, label: "then", mid: true }], ticks }),
-        uiEl("div", "ol-tip-note", `It landed at p${clamp(Math.round(below * 100), 0, 100)} of what was expected, p5 ${stripPct(r.p5, 1)} to p95 ${stripPct(r.p95, 1)}. ${source}.`),
-        ...notes.map((note) => uiEl("div", "ol-tip-note", note)));
-      return;
+      const m = k.measured;
+      parts.push(uiEl("div", "ol-strip-big", stripPct(m.move)),
+        uiEl("div", "ol-tip-sub", `in the ${e.window} minutes after${m.bits === null ? "" : ` · ${m.bits.toFixed(1)} bits against an ordinary ${e.window} minutes at DVOL`}`));
+    } else if (!ahead && e.window && k.precision === "instant")
+      parts.push(uiEl("div", "ol-tip-note", edge < k.at + e.window * 60000 ? `Its ${e.window}-minute window is still open.` : "Its move is not measured yet."));
+    // The moves after this series' earlier releases, as measured before the edge and before this one.
+    const moves = e.history.moves.filter(([at]) => at < Math.min(edge, k.at)).map(([, move]) => move).sort((a, b) => a - b), n = moves.length;
+    if (e.window && n >= STRIP_SUPPORT)
+      parts.push(uiEl("div", "ol-strip-section", `BTC in the ${e.window} minutes after its last ${n} releases`),
+        stripQ3([0.05, 0.5, 0.95].map((q) => {
+          const v = stripQuantile(moves, q);
+          return [`p${Math.round(q * 100)}`, stripPct(v), ahead && close !== null ? priceFormat.format(Math.round(close * (1 + v / 100))) : ""];
+        })),
+        uiEl("div", "ol-tip-note", "Descriptive: the moves after past releases, not a forecast of this one."));
+    else if (e.window) parts.push(uiEl("div", "ol-tip-note", `${n} past release${n === 1 ? "" : "s"} of this series measured; ${STRIP_SUPPORT} are needed for its spread.`));
+    const dvol = stripAt(stripHeld(edge - 1), edge - 1, "dvol");
+    if (ahead && dvol !== null && close !== null) {
+      const z = 1.645 * (dvol / 100) * Math.sqrt((k.at - edge) / (365 * STRIP_DAY));
+      parts.push(uiEl("div", "ol-tip-note", `Options context: at DVOL ${dvol.toFixed(1)}%, BTC between ${compact(close * Math.exp(-z))} and ${compact(close * Math.exp(z))} by then (p5 to p95, risk-neutral), whatever this event does.`));
     }
-    const price = (v) => (close === null ? "" : priceFormat.format(Math.round(close * (1 + v / 100))));
-    notes.unshift(`${source}${options && expect.skew ? `, skewed ${expect.skew > 0 ? "up" : "down"} across it` : ""}.`);
-    if (close !== null) notes.splice(1, 0, `Prices apply the move to BTC's ${priceFormat.format(Math.round(close))} at the edge.`);
-    if (options && expect.expiry) notes.push(`Context, to a later horizon: by the ${when(stripBase(expect.expiry.at))} UTC expiry, the options' risk-neutral range is ${compact(expect.expiry.p5)} to ${compact(expect.expiry.p95)}; ${e.short} is ${expect.expiry.share >= 0.001 ? (expect.expiry.share * 100).toFixed(1) + "%" : "under 0.1%"} of that variance.`);
-    tip.replaceChildren(...head, uiEl("div", "ol-strip-section", `BTC in the ${e.window} minutes after`),
-      stripHist(r.bins, { marks: [{ x: r.p5, label: "p5" }, { x: r.p50, label: "p50", mid: true }, { x: r.p95, label: "p95" }], ticks }),
-      stripQ3([["p5", r.p5], ["p50", r.p50], ["p95", r.p95]].map(([name, v]) => [name, stripPct(v), price(v)])),
-      ...notes.map((note) => uiEl("div", "ol-tip-note", note)));
+    let host = "";
+    try {
+      host = e.link ? new URL(e.link).hostname : "";
+    } catch {
+      host = "";
+    }
+    if (host) parts.push(uiEl("div", "ol-tip-note", `Source: ${host}`));
+    tip.replaceChildren(...parts);
   }
+  // The horizon's own card: the lit events of the next 90 days, the options' at-the-money volatility by expiry and the ranges DVOL gives.
   function stripAheadCard(tip, events, edge) {
-    const known = events.map((e) => ({ e, k: stripKnown(e, edge) })), lit = known.filter(({ k }) => k.charge >= STRIP_LIT).slice(0, 5),
-      quiet = known.length - known.filter(({ k }) => k.charge >= STRIP_LIT).length;
-    tipRows(tip, "Ahead", "The next 90 days from the edge on a log scale of time to go; the ticks are a day, a week and 30 days",
-      lit.map(({ e, k }) => [`${e.short} · ${day(stripBase(k.at))}`, `±${k.charge.toFixed(2)}%`]),
-      [lit.length ? "Each event's expected move over the window after it, as the edge knew it." : "Nothing scheduled ahead carries a move of its own.",
-        quiet ? `${quiet} more ${quiet === 1 ? "is" : "are"} expected to move BTC less than ${STRIP_LIT}%, or not priced yet.` : ""]);
+    const known = events.map((e) => ({ e, k: stripKnown(e, edge) })).filter(({ k }) => k),
+      lit = known.filter(({ k }) => k.weight >= STRIP_LIT).slice(0, 6),
+      option = stripRt.options.filter((o) => o.at < edge).at(-1), dvol = stripAt(stripHeld(edge - 1), edge - 1, "dvol"), close = stripCloseAt(edge),
+      names = { same_day: "today", tomorrow_to_7d: "1–7 d", "7_30d": "7–30 d", "30_90d": "30–90 d", "90d_plus": "90 d+" },
+      rows = lit.map(({ e, k }) => [`${e.short} · ${k.precision === "instant" ? when(stripBase(k.at)) : day(stripBase(k.at))}`,
+        `${k.importance ?? ""}${k.certainty === "confirmed" ? "" : ` · ${STRIP_CERTAINTY[k.certainty] ?? k.certainty}`}`]),
+      notes = [lit.length ? "The light is how much the calendar says each event matters, dimmed where its date is not confirmed." : "Nothing ahead that the calendar marks as important."];
+    if (option && Object.keys(option.atm).length)
+      notes.push(`Options' at-the-money volatility: ${Object.entries(option.atm).map(([b, v]) => `${names[b] ?? b} ${v.toFixed(1)}%`).join(", ")}.`);
+    if (dvol !== null && close !== null)
+      notes.push(`At DVOL ${dvol.toFixed(1)}%, BTC's p5 to p95, risk-neutral: ${[[1, "a day"], [7, "a week"], [30, "30 days"]].map(([d, name]) => {
+        const z = 1.645 * (dvol / 100) * Math.sqrt(d / 365);
+        return `${name} ${compact(close * Math.exp(-z))}–${compact(close * Math.exp(z))}`;
+      }).join(", ")}.`);
+    tipRows(tip, "Ahead", "The next 90 days from the edge on a log scale of time to go; the ticks are a day, a week and 30 days", rows, notes);
   }
   // The Strip's selector: its name and choice, written only when they change, and its state for a reader of the page.
   function renderStrip() {
