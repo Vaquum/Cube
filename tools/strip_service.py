@@ -157,7 +157,7 @@ class StripService:
         moved = False
         manifest = self.reader.snapshot()
         if manifest["snapshot_id"] != self.pinned:
-            moved = self.update() or moved
+            moved = self.update(manifest=manifest) or moved
         if now - self.prices_at >= 300:
             self.prices_at = now
             self.prices.refresh(int(now * 1000))
@@ -167,9 +167,10 @@ class StripService:
             self.rebuild()
         return moved
 
-    def update(self, as_of: str | None = None) -> bool:
-        """One pinned publication: every source and the calendar under one snapshot_id, each on its own."""
-        pub = self.reader.publication(model.SOURCES, self.held, as_of=as_of)
+    def update(self, as_of: str | None = None, manifest: dict | None = None) -> bool:
+        """One pinned publication: every source and the calendar under one snapshot_id, each on its own; ``manifest`` is
+        the snapshot a cycle has just selected, so that an update reads it once."""
+        pub = self.reader.publication(model.SOURCES, self.held, as_of=as_of, manifest=manifest)
         published = ms(pub.published_at) or int(self.clock() * 1000)
         for source, dataset in pub.datasets.items():
             interval = int((pub.states.get(source) or {}).get("collection_interval_seconds") or 300) * 1000

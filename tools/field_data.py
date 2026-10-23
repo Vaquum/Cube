@@ -162,15 +162,17 @@ class FieldDataReader:
                        status=str(first.get("status") or (first.get("state") or {}).get("status") or "ok"),
                        projection_version=data.get("projection_version"))
 
-    def publication(self, sources: tuple[str, ...], held: dict | None = None, *, as_of: str | None = None) -> Publication:
+    def publication(self, sources: tuple[str, ...], held: dict | None = None, *, as_of: str | None = None,
+                    manifest: dict | None = None) -> Publication:
         """One update: the publication pinned once, then each source and the calendar read under that pin.
 
         ``held`` maps a source (or ``calendar``) to the Dataset this caller already holds; a source whose published
         ``dataset_id`` is the same is passed on as held, unread. A source without a dataset, or one the service
-        refuses, is recorded in ``unavailable`` and never fails the rest."""
+        refuses, is recorded in ``unavailable`` and never fails the rest. ``manifest`` is a snapshot the caller has
+        just selected, pinned instead of selecting again."""
         held = held or {}
         start = self.requests
-        manifest = self.snapshot(as_of=as_of)
+        manifest = manifest if manifest is not None else self.snapshot(as_of=as_of)
         pin = manifest["snapshot_id"]
         result = Publication(snapshot_id=pin, published_at=manifest["published_at"], scheduled_for=manifest.get("scheduled_for"),
                              states=manifest["datasets"])

@@ -81,6 +81,33 @@ test("news: the day's tone against the daily tone of the trailing 30 days, needi
   out.value.forEach((v, k) => assert.ok(close(v, expected[k][1], 1e-6), `${v} for ${expected[k][1]}`));
 });
 
+test("news: the normal is the daily tone of the 30 complete days before, skipping days of fewer than ten articles", () => {
+  // 45 days of four batches; every seventh day is thin (two articles in all), so it has no daily tone of its own.
+  const rows = [];
+  for (let d = 0; d < 45; d++) for (let b = 0; b < 4; b++) {
+    const at = T + d * DAY + b * 6 * HOUR, thin = d % 7 === 3;
+    rows.push([at, at + 15 * 60000, 0, -1 + 0.3 * Math.sin(d * 1.7 + b), JSON.stringify({tone_scored_articles: thin ? (b < 2 ? 1 : 0) : 3})]);
+  }
+  const out = python("e = m.news_evidence([tuple(r) for r in I])\nprint(json.dumps({'known': e.known, 'value': e.value}))", rows);
+  const scored = rows.filter((r) => JSON.parse(r[4]).tone_scored_articles > 0), n = (r) => JSON.parse(r[4]).tone_scored_articles;
+  const daily = [];
+  for (let d = 0; d < 45; d++) {
+    const day = scored.filter((r) => r[0] >= T + d * DAY && r[0] < T + (d + 1) * DAY), total = day.reduce((s, r) => s + n(r), 0);
+    if (total >= 10) daily.push([T + d * DAY, day.reduce((s, r) => s + r[3] * n(r), 0) / total]);
+  }
+  const expected = [];
+  scored.forEach((r) => {
+    const inside = scored.filter((q) => q[0] > r[0] - DAY && q[0] <= r[0]), count = inside.reduce((s, q) => s + n(q), 0);
+    const last = r[0] - ((r[0] - T) % DAY) - DAY, normal = daily.filter(([d]) => d >= last - 29 * DAY && d <= last).map(([, t]) => t);
+    if (count < 10 || normal.length < 5) return;
+    expected.push([r[1], 0.6 * tanh((inside.reduce((s, q) => s + q[3] * n(q), 0) / count - mean(normal)) / pstdev(normal) / 2)]);
+  });
+  // From day 33 on, the 30 complete days hold fewer than 30 daily tones, and the 30 latest tones would reach further back.
+  assert.ok(expected.length > 100);
+  assert.deepEqual(out.known, expected.map((e) => e[0]));
+  out.value.forEach((v, k) => assert.ok(close(v, expected[k][1], 1e-9), `${v} for ${expected[k][1]}`));
+});
+
 test("attention: Wikipedia's readers against the median of the trailing 30 days, 0.3 ordinary and a quarter a doubling", () => {
   const views = [2000, 2100, 1900, 2050, 1950, 2000, 2020, 4000, 1000];
   const rows = views.map((v, i) => [T + i * DAY, T + i * DAY + 27 * HOUR, 0, v, null]);
@@ -167,6 +194,52 @@ print(json.dumps({'events': [e['id'] for e in answer['events']], 'keys': sorted(
   assert.deepEqual(out.moves, {"US-CPI": [[Date.parse("2026-09-10T13:00:00Z"), 0.5], [Date.parse("2026-10-10T13:00:00Z"), -0.25]]});
   // 600 moves: the latest 500, in time order.
   assert.deepEqual(out.capped, [500, 101, 600]);
+});
+
+test("a build after new rows, in order or not, gives what a build from nothing gives", () => {
+  // Frequent rows (Bluesky every five minutes, GDELT every 15, options hourly) are computed again only from where they changed:
+  // each step's build with the kept cache must equal a fresh build over the same store.
+  const out = python(String.raw`
+import random
+rnd = random.Random(I['seed'])
+st = m.Store()
+HOUR, DAY, MIN = m.HOUR, m.DAY, m.MINUTE
+T = I['T']
+def put(t0, t1, retro=0):
+    for t in range(t0, t1, 5 * MIN):
+        if rnd.random() < 0.9:
+            st.db.execute("INSERT INTO obs VALUES ('bluesky', ?, ?, ?, ?, NULL, ?)", (f'b{t}', t + rnd.randint(0, 60000), t + 2 * MIN, retro,
+                json.dumps({'creates': rnd.randint(200, 900), 'bitcoin_creates': rnd.randint(0, 9), 'bullish_word_matches': rnd.randint(0, 3),
+                            'bearish_word_matches': rnd.randint(0, 3), 'dictionary': 'v1'})))
+    for t in range(t0, t1, 15 * MIN):
+        if rnd.random() < 0.85:
+            thin = (t // DAY) % 7 == 3
+            st.db.execute("INSERT INTO obs VALUES ('gdelt', ?, ?, ?, ?, ?, ?)", (f'g{t}', t, t + 15 * MIN, retro, rnd.gauss(-1, 0.6),
+                json.dumps({'bitcoin_articles': rnd.randint(0, 9), 'panel_articles': rnd.randint(500, 900),
+                            'tone_scored_articles': rnd.randint(0, 1) if thin else rnd.randint(0, 9)})))
+    for t in range(t0 - t0 % HOUR, t1, HOUR):
+        if rnd.random() < 0.9:
+            st.db.execute("INSERT OR IGNORE INTO obs VALUES ('options', ?, ?, ?, ?, ?, ?)", (f'o{t}', t + 7000, t + 7000, retro, rnd.gauss(2, 1),
+                json.dumps({'atm': {'7_30d': round(rnd.uniform(40, 50), 3)}, 'putCall': 0.6})))
+def view(state):
+    parts = {n: [e.known, [round(v, 12) for v in e.value], e.detail, e.retro_until] for n, e in {**state.components, **state.attention}.items()}
+    return {'parts': parts, 'options': state.options}
+def build(cache):
+    return m.build_state(st, m.Prices([], None), {'id': None, 'publishedAt': None}, {}, T + 80 * DAY, cache)
+put(T, T + 36 * DAY, retro=1)
+cache, steps = {}, []
+build(cache)
+for a, b in [(36, 36.01), (36.01, 37), (None, None), (18.004, 18.2), (37, 41), (-1, 0)]:
+    if a is not None:
+        put(T + int(a * DAY), T + int(b * DAY))
+    kept, fresh = view(build(cache)), view(build({}))
+    steps.append({'same': kept == fresh, 'sizes': {n: len(p[0]) for n, p in fresh['parts'].items()}, 'options': len(fresh['options'])})
+print(json.dumps(steps))`, {seed: 7, T});
+  assert.equal(out.length, 6);
+  out.forEach((step, k) => assert.ok(step.same, `step ${k}: the kept build differs from a fresh one`));
+  // Every frequent part had values to compare, and they grew as rows came.
+  for (const name of ["news.tone", "social.words", "attention.gdelt", "attention.bluesky"]) assert.ok(out[0].sizes[name] > 100 && out[5].sizes[name] > out[0].sizes[name], name);
+  assert.ok(out[5].options > out[0].options);
 });
 
 test("a sample is the latest value known at or before each time, and nothing once it is stale", () => {

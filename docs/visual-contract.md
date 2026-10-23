@@ -803,7 +803,7 @@ Unit tests run with `npm test`; browser specs with `npm run test:browser`. `U46`
 | U100 | `tests/unit/evidence-context.test.js` | Literal seed/Type-7 streams, ledger first failures, full horizons and independent bootstrap floors | #86 |
 | B68 | `tests/browser/evidence-cards.spec.js` | Long-source interval qualification, short-source withholding, ledger reconciliation and rewind suppression | #86 |
 | U101 | `tests/unit/strip-bridge.test.js` | The bridge's Strip against a stub field-data-api: one pinned publication per update, every calendar page, stale, failed and refused sources on their own, datasets held not read again, the page's declaration, the states, and the cube-strip@2 check | #193 |
-| U103 | `tests/unit/strip-model.test.js` | The Strip's model: each evidence formula against the same formula written in the test, first-seen and retrospective known-at, calendar revisions and withdrawals, weights and labels | #193 |
+| U103 | `tests/unit/strip-model.test.js` | The Strip's model: each evidence formula against the same formula written in the test, first-seen and retrospective known-at, calendar revisions and withdrawals, weights and labels, each series' moves given once an answer, and a build after new rows, in order or not, equal to a build from nothing | #193 |
 | U102 | `tests/unit/fake-strip.test.js` | The fake's synthetic strip: the contract's check on every step, closes from the profile's trades, parts that sum to their force, known-at, moves and cancellations, refusals and its slot | #193 |
 | B69 | `tests/browser/strip.spec.js` | The Strip control and address, the band's pixels against the documented formulas, known-at replay, the unconfigured state and the cards' figures | #193 |
 

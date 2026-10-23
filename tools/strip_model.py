@@ -21,6 +21,7 @@ import sqlite3
 import statistics
 import threading
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
@@ -282,6 +283,8 @@ class Store:
             CREATE TABLE IF NOT EXISTS datasets (source TEXT, dataset_id TEXT, published_ms INTEGER, PRIMARY KEY (source, dataset_id));
             CREATE TABLE IF NOT EXISTS calendar (id TEXT, revision TEXT, known_ms INTEGER, entry TEXT, PRIMARY KEY (id, revision));
             CREATE TABLE IF NOT EXISTS reactions (id TEXT PRIMARY KEY, entry TEXT);
+            CREATE INDEX IF NOT EXISTS obs_time ON obs (series, observed_ms, known_ms);
+            CREATE INDEX IF NOT EXISTS obs_retro ON obs (series, retro, known_ms);
         """)
         self.lock = threading.Lock()
         self.version = 0  # moves on every write, so the worker knows what to compute again
@@ -293,14 +296,27 @@ class Store:
     def has_dataset(self, source: str, dataset_id: str) -> bool:
         return self.db.execute("SELECT 1 FROM datasets WHERE source = ? AND dataset_id = ?", (source, dataset_id)).fetchone() is not None
 
-    def rows(self, series: str) -> list[tuple]:
-        """(observed, known, retro, value, extra) of a series, in time order."""
-        return self.db.execute("SELECT observed_ms, known_ms, retro, value, extra FROM obs WHERE series = ? ORDER BY observed_ms, known_ms",
-                               (series,)).fetchall()
+    def rows(self, series: str, since: int | None = None) -> list[tuple]:
+        """(observed, known, retro, value, extra) of a series, in time order; those observed from ``since`` on, when given."""
+        return self.db.execute("SELECT observed_ms, known_ms, retro, value, extra FROM obs WHERE series = ? AND observed_ms >= ? "
+                               "ORDER BY observed_ms, known_ms", (series, -1 if since is None else since)).fetchall()
 
-    def counts(self) -> dict[str, tuple[int, int]]:
-        """Each series' row count and newest known time: what changed since the last computation."""
-        return {s: (n, k) for s, n, k in self.db.execute("SELECT series, COUNT(*), MAX(known_ms) FROM obs GROUP BY series")}
+    def last_row(self) -> int:
+        """The number of the newest observation: one stored later has a larger one."""
+        return self.db.execute("SELECT COALESCE(MAX(rowid), 0) FROM obs").fetchone()[0]
+
+    def changed_since(self, row: int) -> dict[str, int]:
+        """Each series with observations stored after observation number ``row``, and the earliest time they observe."""
+        # NOT INDEXED keeps the search to the rows after ``row``, by number, rather than a scan of a series index.
+        return dict(self.db.execute("SELECT series, MIN(observed_ms) FROM obs NOT INDEXED WHERE rowid > ? GROUP BY series", (row,)).fetchall())
+
+    def retro_until(self, series: str) -> int | None:
+        """Where a series' values stop being retrospective: its first value known live, or after its last retrospective one."""
+        live = self.db.execute("SELECT MIN(known_ms) FROM obs WHERE series = ? AND retro = 0", (series,)).fetchone()[0]
+        if live is not None:
+            return live
+        retro = self.db.execute("SELECT MAX(known_ms) FROM obs WHERE series = ? AND retro = 1", (series,)).fetchone()[0]
+        return retro + 1 if retro is not None else None
 
     def newest_observed(self, series: str) -> int | None:
         row = self.db.execute("SELECT MAX(observed_ms) FROM obs WHERE series = ?", (series,)).fetchone()
@@ -456,7 +472,8 @@ class Evidence:
 
     def sample(self, times: list[int]) -> list[float | None]:
         """Each time's value: the latest known at or before it and not stale; None otherwise. ``times`` ascend."""
-        out, j, n = [], -1, len(self.known)
+        n = len(self.known)
+        out, j = [], bisect.bisect_right(self.known, times[0]) - 1 if times else -1
         for t in times:
             while j + 1 < n and self.known[j + 1] <= t:
                 j += 1
@@ -520,9 +537,11 @@ class SortedWindow:
             del self.sorted[bisect.bisect_left(self.sorted, value)]
 
     def ratio(self, value: float) -> float | None:
-        if len(self.sorted) < 6 or value <= 0:
+        n = len(self.sorted)
+        if n < 6 or value <= 0:
             return None
-        median = statistics.median(self.sorted)
+        # The median of values already in order, as statistics.median gives it.
+        median = self.sorted[n // 2] if n % 2 else (self.sorted[n // 2 - 1] + self.sorted[n // 2]) / 2
         return None if median <= 0 else value / median
 
 
@@ -604,9 +623,14 @@ def hourly_evidence(name: str, rows: list[tuple], weight: float) -> Evidence:
     return Evidence.of(name, ev, 2 * HOUR, _retro_until(rows))
 
 
-def news_evidence(rows: list[tuple]) -> Evidence:
-    """The mean tone of Bitcoin coverage over the trailing day, against the daily tone of the trailing 30 days. GDELT's
-    whole-article dictionary tone is the tone of the coverage, not a forecast of BTC's direction."""
+# The parts read from frequent rows are computed as entries: (the time of the row each is computed at, known, value, detail),
+# so that a build computes again only those at rows that changed (Tail).
+
+
+def news_entries(rows: list[tuple]) -> list[tuple]:
+    """News at each GDELT batch: the mean tone of Bitcoin coverage over the trailing day, against the daily tone of the
+    trailing 30 complete days. GDELT's whole-article dictionary tone is the tone of the coverage, not a forecast of BTC's
+    direction."""
     batches = []
     for observed, known, _, tone, extra in rows:
         n = (json.loads(extra) if extra else {}).get("tone_scored_articles") or 0
@@ -619,32 +643,34 @@ def news_evidence(rows: list[tuple]) -> Evidence:
         d[1] += n
     daily = sorted((day, s / n) for day, (s, n) in days.items() if n >= 10)
     day_keys = [d for d, _ in daily]
-    ev, inside, s, count = [], deque(), 0.0, 0
+    out, inside, count, normals = [], deque(), 0, {}
     for observed, known, tone, n in batches:
         inside.append((observed, tone, n))
-        s += tone * n
         count += n
         while inside and inside[0][0] <= observed - DAY:
-            _, t0, n0 = inside.popleft()
-            s -= t0 * n0
-            count -= n0
-        k = bisect.bisect_right(day_keys, observed - DAY)
-        normal = [t for _, t in daily[max(0, k - 30):k]]
-        if count < 10 or len(normal) < 5:
+            count -= inside.popleft()[2]
+        # The days with a daily tone among the 30 complete days before this batch's day.
+        last = observed - observed % DAY - DAY
+        span = (bisect.bisect_left(day_keys, last - 29 * DAY), bisect.bisect_right(day_keys, last))
+        if count < 10 or span[1] - span[0] < 5:
             continue
-        sd = statistics.pstdev(normal)
+        if span not in normals:
+            normal = [t for _, t in daily[span[0]:span[1]]]
+            normals[span] = (statistics.fmean(normal), statistics.pstdev(normal))
+        mean, sd = normals[span]
         if sd <= 0:
             continue
-        mean_tone = s / count
-        ev.append((known, 0.6 * math.tanh((mean_tone - statistics.fmean(normal)) / sd / 2),
-                   {"tone": round(mean_tone, 3), "articles": int(count), "normal": round(statistics.fmean(normal), 3)}))
-    return Evidence.of("news.tone", ev, 2 * HOUR, _retro_until(rows))
+        # A correctly rounded sum, so that the tone is the same however far back its computation began.
+        mean_tone = math.fsum(t * k for _, t, k in inside) / count
+        out.append((observed, known, 0.6 * math.tanh((mean_tone - mean) / sd / 2),
+                    {"tone": round(mean_tone, 3), "articles": int(count), "normal": round(mean, 3)}))
+    return out
 
 
-def social_evidence(rows: list[tuple]) -> Evidence:
-    """Bullish against bearish words in Bluesky posts that mention bitcoin, over the trailing day of samples: a fixed
-    word list, counted by the service; no model reads the posts."""
-    ev, inside, sums = [], deque(), [0, 0, 0]
+def social_entries(rows: list[tuple]) -> list[tuple]:
+    """Social at each Bluesky sample: bullish against bearish words in posts that mention bitcoin, over the trailing day of
+    samples; a fixed word list, counted by the service; no model reads the posts."""
+    out, inside, sums = [], deque(), [0, 0, 0]
     for observed, known, _, _, extra in rows:
         x = json.loads(extra) if extra else {}
         row = (observed, x.get("bitcoin_creates") or 0, x.get("bullish_word_matches") or 0, x.get("bearish_word_matches") or 0)
@@ -657,16 +683,16 @@ def social_evidence(rows: list[tuple]) -> Evidence:
                 sums[k] -= old[k + 1]
         mentions, bull, bear = sums
         if mentions >= 10 and bull + bear >= 3:
-            ev.append((known, 0.8 * (bull - bear) / (bull + bear + 5), {"bull": bull, "bear": bear, "mentions": mentions,
-                                                                        "dictionary": x.get("dictionary")}))
-    return Evidence.of("social.words", ev, HOUR, _retro_until(rows))
+            out.append((observed, known, 0.8 * (bull - bear) / (bull + bear + 5),
+                        {"bull": bull, "bear": bear, "mentions": mentions, "dictionary": x.get("dictionary")}))
+    return out
 
 
-def attention_evidence(gdelt: list[tuple], wiki_day: list[tuple], wiki_hour: list[tuple], bluesky: list[tuple]) -> dict[str, Evidence]:
-    out = {}
-    # GDELT: the Bitcoin share of the panel's articles over the trailing two hours, against its trailing week.
-    ev, inside, sums, normal = [], deque(), [0, 0], SortedWindow()
-    for observed, known, _, _, extra in gdelt:
+def gdelt_attention_entries(rows: list[tuple]) -> list[tuple]:
+    """GDELT's attention at each batch: the Bitcoin share of the panel's articles over the trailing two hours, against its
+    trailing week."""
+    out, inside, sums, normal = [], deque(), [0, 0], SortedWindow()
+    for observed, known, _, _, extra in rows:
         x = json.loads(extra) if extra else {}
         row = (observed, x.get("bitcoin_articles") or 0, x.get("panel_articles") or 0)
         inside.append(row)
@@ -683,27 +709,21 @@ def attention_evidence(gdelt: list[tuple], wiki_day: list[tuple], wiki_hour: lis
         ratio = normal.ratio(share)
         normal.add(observed, share)
         if ratio is not None:
-            ev.append((known, attention_of(ratio), {"ratio": round(ratio, 2), "share": round(share, 4)}))
-    out["attention.gdelt"] = Evidence.of("attention.gdelt", ev, 2 * HOUR, _retro_until(gdelt))
-    # Wikipedia's Bitcoin article: a day's readers against the trailing 30 days, an hour's against the trailing week.
-    for name, rows, back, stale in (("attention.wikipedia", wiki_day, 30 * DAY, 2 * DAY), ("attention.wikipedia_hourly", wiki_hour, 7 * DAY, 4 * HOUR)):
-        ev, normal = [], SortedWindow()
-        for observed, known, _, views, _ in rows:
-            normal.drop_before(observed - back)
-            ratio = normal.ratio(views)
-            normal.add(observed, views)
-            if ratio is not None:
-                ev.append((known, attention_of(ratio), {"ratio": round(ratio, 2), "views": int(views)}))
-        out[name] = Evidence.of(name, ev, stale, _retro_until(rows))
-    # Bluesky: the share of new posts that mention bitcoin, hour by hour, against the trailing week.
+            out.append((observed, known, attention_of(ratio), {"ratio": round(ratio, 2), "share": round(share, 4)}))
+    return out
+
+
+def bluesky_attention_entries(rows: list[tuple]) -> list[tuple]:
+    """Bluesky's attention, hour by hour, at each hour's start: the share of new posts that mention bitcoin, against the
+    trailing week."""
     hours: dict[int, list[int]] = {}
-    for observed, known, _, _, extra in bluesky:
+    for observed, known, _, _, extra in rows:
         x = json.loads(extra) if extra else {}
         b = hours.setdefault(observed - observed % HOUR, [0, 0, 0])
         b[0] += x.get("bitcoin_creates") or 0
         b[1] += x.get("creates") or 0
         b[2] = max(b[2], known)
-    ev, normal = [], SortedWindow()
+    out, normal = [], SortedWindow()
     for h in sorted(hours):
         mentions, creates, known = hours[h]
         if creates < 300:
@@ -713,21 +733,93 @@ def attention_evidence(gdelt: list[tuple], wiki_day: list[tuple], wiki_hour: lis
         ratio = normal.ratio(share) if share > 0 else None
         normal.add(h, share)
         if ratio is not None:
-            ev.append((known, attention_of(ratio), {"ratio": round(ratio, 2)}))
-    out["attention.bluesky"] = Evidence.of("attention.bluesky", ev, 2 * HOUR, _retro_until(bluesky))
+            out.append((h, known, attention_of(ratio), {"ratio": round(ratio, 2)}))
     return out
+
+
+def wikipedia_attention(wiki_day: list[tuple], wiki_hour: list[tuple]) -> dict[str, Evidence]:
+    """Wikipedia's Bitcoin article: a day's readers against the trailing 30 days, an hour's against the trailing week."""
+    out = {}
+    for name, rows, back, stale in (("attention.wikipedia", wiki_day, 30 * DAY, 2 * DAY), ("attention.wikipedia_hourly", wiki_hour, 7 * DAY, 4 * HOUR)):
+        ev, normal = [], SortedWindow()
+        for observed, known, _, views, _ in rows:
+            normal.drop_before(observed - back)
+            ratio = normal.ratio(views)
+            normal.add(observed, views)
+            if ratio is not None:
+                ev.append((known, attention_of(ratio), {"ratio": round(ratio, 2), "views": int(views)}))
+        out[name] = Evidence.of(name, ev, stale, _retro_until(rows))
+    return out
+
+
+def evidence_of(name: str, entries: list[tuple], stale_ms: int, retro_until: int | None) -> Evidence:
+    """A part's evidence from its entries in row order, as Evidence.of orders them: by known time, which they nearly always
+    are already."""
+    if any(entries[i][1] > entries[i + 1][1] for i in range(len(entries) - 1)):
+        entries = sorted(entries, key=lambda e: e[1])
+    return Evidence(name, [e[1] for e in entries], [e[2] for e in entries], [e[3] for e in entries], stale_ms, retro_until)
+
+
+def news_evidence(rows: list[tuple]) -> Evidence:
+    return evidence_of("news.tone", news_entries(rows), 2 * HOUR, _retro_until(rows))
+
+
+def social_evidence(rows: list[tuple]) -> Evidence:
+    return evidence_of("social.words", social_entries(rows), HOUR, _retro_until(rows))
+
+
+def attention_evidence(gdelt: list[tuple], wiki_day: list[tuple], wiki_hour: list[tuple], bluesky: list[tuple]) -> dict[str, Evidence]:
+    return {"attention.gdelt": evidence_of("attention.gdelt", gdelt_attention_entries(gdelt), 2 * HOUR, _retro_until(gdelt)),
+            **wikipedia_attention(wiki_day, wiki_hour),
+            "attention.bluesky": evidence_of("attention.bluesky", bluesky_attention_entries(bluesky), 2 * HOUR, _retro_until(bluesky))}
+
+
+@dataclass
+class Tail:
+    """A part of frequent rows, computed again only from where its rows changed. Its value at a row looks back no further
+    than ``start(cut)`` for any row at or after ``cut``, so a build keeps the entries computed at rows before the earliest
+    row stored since the last build, and computes the rest from ``start(cut)`` on: what one computation over every row
+    gives. ``align`` is the span an entry stands at the start of: an hour for an hourly part."""
+
+    series: str
+    entries: Callable[[list[tuple]], list[tuple]]
+    start: Callable[[int], int]
+    align: int = 1
+    row: int = 0
+    done: list = field(default_factory=list)
+
+    def update(self, store: Store) -> bool:
+        """Bring the entries up to the store. Returns whether they changed."""
+        last = store.last_row()
+        if not self.row:
+            self.done = self.entries(store.rows(self.series))
+        else:
+            earliest = store.changed_since(self.row).get(self.series)
+            if earliest is None:
+                self.row = last
+                return False
+            cut = earliest - earliest % self.align
+            fresh = [e for e in self.entries(store.rows(self.series, self.start(cut))) if e[0] >= cut]
+            self.done = [e for e in self.done if e[0] < cut] + fresh
+        self.row = last
+        return True
 
 
 def dvol_evidence(rows: list[tuple]) -> Evidence:
     return Evidence.of("dvol", [(r[1], r[3], None) for r in rows if r[3] is not None], 3 * HOUR, _retro_until(rows))
 
 
-def options_samples(rows: list[tuple]) -> list[dict]:
+def options_entries(rows: list[tuple]) -> list[tuple]:
+    """The options' hourly samples, each at its row: at-the-money IV by expiry bucket, skew and put/call."""
     out = []
-    for _, known, _, skew, extra in rows:
+    for observed, known, _, skew, extra in rows:
         x = json.loads(extra) if extra else {}
-        out.append({"at": known, "atm": x.get("atm") or {}, "skew": None if skew is None else round(skew, 3), "putCall": x.get("putCall")})
+        out.append((observed, {"at": known, "atm": x.get("atm") or {}, "skew": None if skew is None else round(skew, 3), "putCall": x.get("putCall")}))
     return out
+
+
+def options_samples(rows: list[tuple]) -> list[dict]:
+    return [e[1] for e in options_entries(rows)]
 
 
 class Prices:
@@ -744,7 +836,8 @@ class Prices:
         return self.bars[i][1] if i >= 0 else None
 
     def sample(self, times: list[int]) -> list[float | None]:
-        out, j, n = [], -1, len(self.ends)
+        n = len(self.ends)
+        out, j = [], bisect.bisect_right(self.ends, times[0]) - 1 if times else -1
         for t in times:
             while j + 1 < n and self.ends[j + 1] <= t:
                 j += 1
@@ -910,19 +1003,31 @@ def find_jumps(prices: Prices, attention_at, dvol: Evidence, events: list[dict],
 
 
 def build_state(store: Store, prices: Prices, snapshot: dict, sources: dict, now_ms: int, cache: dict | None = None) -> State:
-    """Every series' evidence, events and options context, from the store as it stands. ``cache`` keeps components whose
-    series have not changed since the last build."""
+    """Every series' evidence, events and options context, from the store as it stands. ``cache`` keeps the parts whose
+    series have not changed since the last build, and the parts of frequent rows as tails, computed again only from
+    where their rows changed."""
     cache = cache if cache is not None else {}
-    counts = store.counts()
+    # The series with observations stored since the newest one the last build read; everything at the first build.
+    last, seen = store.last_row(), cache.get("row", 0)
+    changed = store.changed_since(seen) if seen else None
 
     def cached(key: str, series: tuple[str, ...], make):
-        stamp = tuple(counts.get(s) for s in series)
-        hit = cache.get(key)
-        if hit is not None and hit[0] == stamp:
-            return hit[1]
-        value = make()
-        cache[key] = (stamp, value)
-        return value
+        if key in cache and changed is not None and not any(s in changed for s in series):
+            return cache[key]
+        cache[key] = make()
+        return cache[key]
+
+    def tail(key: str, series: str, entries, start, align: int = 1) -> tuple[Tail, bool]:
+        part = cache.get(key)
+        if not isinstance(part, Tail):
+            part = cache[key] = Tail(series, entries, start, align)
+        return part, part.update(store)
+
+    def evidence(key: str, name: str, series: str, entries, start, stale_ms: int, align: int = 1) -> Evidence:
+        part, moved = tail(key, series, entries, start, align)
+        if moved or key + ".evidence" not in cache:
+            cache[key + ".evidence"] = evidence_of(name, part.done, stale_ms, store.retro_until(series))
+        return cache[key + ".evidence"]
 
     components: dict[str, Evidence] = {}
     for code in MACRO_SERIES:
@@ -932,12 +1037,20 @@ def build_state(store: Store, prices: Prices, snapshot: dict, sources: dict, now
     components["positioning.stablecoins"] = cached("stable", ("stable",), lambda: stablecoin_evidence(store.rows("stable")))
     components["positioning.basis"] = cached("basis", ("basis",), lambda: hourly_evidence("positioning.basis", store.rows("basis"), 0.3))
     components["positioning.skew"] = cached("skew", ("options",), lambda: hourly_evidence("positioning.skew", store.rows("options"), -0.3))
-    components["news.tone"] = cached("news", ("gdelt",), lambda: news_evidence(store.rows("gdelt")))
-    components["social.words"] = cached("social", ("bluesky",), lambda: social_evidence(store.rows("bluesky")))
-    attention = cached("attention", ("gdelt", "wiki_day", "wiki_hour", "bluesky"),
-                       lambda: attention_evidence(store.rows("gdelt"), store.rows("wiki_day"), store.rows("wiki_hour"), store.rows("bluesky")))
+    # How far back a value at a row at or after a cut looks: news, the trailing day and the 30 complete days before it; social, the
+    # trailing day; attention, the trailing week of two-hour shares, or of whole hours.
+    components["news.tone"] = evidence("tail.news", "news.tone", "gdelt", news_entries, lambda cut: cut - cut % DAY - 31 * DAY, 2 * HOUR)
+    components["social.words"] = evidence("tail.social", "social.words", "bluesky", social_entries, lambda cut: cut - DAY, HOUR)
+    attention = {
+        "attention.gdelt": evidence("tail.attention.gdelt", "attention.gdelt", "gdelt", gdelt_attention_entries,
+                                    lambda cut: cut - 7 * DAY - 2 * HOUR, 2 * HOUR),
+        **cached("wikipedia", ("wiki_day", "wiki_hour"), lambda: wikipedia_attention(store.rows("wiki_day"), store.rows("wiki_hour"))),
+        "attention.bluesky": evidence("tail.attention.bluesky", "attention.bluesky", "bluesky", bluesky_attention_entries,
+                                      lambda cut: cut - 7 * DAY - HOUR, 2 * HOUR, HOUR),
+    }
     dvol = cached("dvol", ("dvol",), lambda: dvol_evidence(store.rows("dvol")))
-    options = cached("options", ("options",), lambda: options_samples(store.rows("options")))
+    # Each sample is its own row's, so only the rows from the earliest new one on are read again.
+    options = [e[1] for e in tail("tail.options", "options", options_entries, lambda cut: cut)[0].done]
     reactions = store.reactions()
     events = build_events(store, store.rows("retarget"), reactions)
 
@@ -950,6 +1063,7 @@ def build_state(store: Store, prices: Prices, snapshot: dict, sources: dict, now
     jumps = find_jumps(prices, attention_at, dvol, events, first)
     known = [e.known[-1] for e in [*components.values(), *attention.values(), dvol] if e.known]
     cutoff = max([*known, prices.cutoff or 0, snapshot.get("publishedAt") or 0])
+    cache["row"] = last
     return State(built_ms=now_ms, snapshot=snapshot, sources=sources, components=components, attention=attention, dvol=dvol,
                  prices=prices, events=events, moves=series_moves(reactions), jumps=jumps, options=options, cutoff=cutoff,
                  version=store.version)

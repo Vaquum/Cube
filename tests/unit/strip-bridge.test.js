@@ -173,11 +173,15 @@ out['dated'] = [e['schedule'][0] for e in answer['events'] if e['id'] == 'e001']
 out['macro'] = next((v for v in reversed(answer['grid']['forces']['macro']) if v is not None), None)
 out['outdated'] = strip(grid, proto=False)[0]
 out['bad'] = json.loads(strip('from=1&to=2&step=60000')[1])
-# The next publication: only the options moved, so only they and the snapshot are read again.
+# The next publication, found by a cycle: only the options moved, so only they and the snapshot, once, are read again.
 seen.clear()
 current['pin'] = PIN2
-service.update(); service.rebuild()
+service.cycle()
 out['seen3'] = list(seen)
+# A cycle with no new publication reads only the snapshot.
+seen.clear()
+service.cycle()
+out['seen4'] = list(seen)
 bridge.shutdown(); fd.shutdown()
 print(json.dumps(out))
 `;
@@ -225,6 +229,7 @@ test("the bridge reads field-data-api one pinned publication at a time, every pa
   // A page without the protocol is told to reload; a bad grid is refused in the contract's words.
   assert.equal(out.outdated, 409);
   assert.deepEqual([out.bad.error, out.bad.detail], ["invalid_strip_request", "step must be 900000, 3600000, 21600000 or 86400000"]);
-  // The next publication: the snapshot, then only the dataset whose id moved, under the new pin; the calendar is not read again.
+  // The next publication: the snapshot once, then only the datasets whose id moved, under the new pin; the calendar is not read again.
   assert.deepEqual(out.seen3.map(([p, q]) => [p, q.snapshot_id ?? null]), [["/v1/snapshots/latest", null], ["/v1/data/deribit_options", PIN2], ["/v1/data/wikimedia_hourly", PIN2]]);
+  assert.deepEqual(out.seen4.map(([p]) => p), ["/v1/snapshots/latest"]);
 });
