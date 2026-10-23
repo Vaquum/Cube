@@ -87,10 +87,10 @@ Each force is a sum of parts, each part a fixed formula over its source's stored
 | `grid.close`, `grid.next24h` | The cube's close at each grid time, and BTC's percent change to 24 hours later, null until those 24 hours have passed. |
 | `grid.dvol` | DVOL at each grid time, in annualised percent. |
 | `grid.parts` | Each part's value at each grid time, for answers of at most 3,000 grid times. |
-| `events[]` | Every event any entry of whose schedule falls in `[from − 1 day, to + 90 days)`: `id`, `kind` (the calendar's category), `family` (its force), `name`, `short` (at most 8 characters), `region`, `origin`, `series` (the calendar's source id, which releases share), `link`, `window` (minutes, or null), `schedule`, `measured` and `history`. |
+| `events[]` | Every event any entry of whose schedule falls in `[from − 1 day, to + 90 days)`: `id`, `kind` (the calendar's category), `family` (its force), `name`, `short` (at most 8 characters), `region`, `origin`, `series` (the calendar's source id, which releases share), `link`, `window` (minutes, or null), `schedule` and `measured`. |
 | `.schedule[]` | Each revision, in the order they became known: `knownAt`; `at`, its start, or null once `cancelled` or `withdrawn` (then `lastAt` is the date it last had); `precision`, `instant`, `day` or `range`; `end`, a date's or range's exclusive end; `status`; `certainty`; `importance`; and `weight`. |
 | `.measured` | Once measured: `from` and `at`, its window's bounds; `move` in percent; `bits`, or null without DVOL; `ordinary`, the spread it was measured against. |
-| `.history.moves` | The series' measured moves as `[known at, percent]`, in time order, at most 500. |
+| `moves.<series>` | Each answered event's series' measured moves as `[known at, percent]`, in time order, the latest 500: given once a series, not with each of its events, so that an answer grows with the events it holds and not with their product. |
 | `jumps[]` | `id`, `at`, `window`, `move` and `bits`, each known at `at + window`. |
 | `options[]` | Hourly samples: `at`, `atm` (at-the-money IV by expiry bucket), `skew` and `putCall`. |
 

@@ -141,6 +141,34 @@ print(json.dumps({'e1': events['e1'], 'e2': events['e2'], 'labels': [m.short_lab
   assert.deepEqual(out.labels, ["CPI", "UK CPI", "FOMC", "BoC", "Conf", "Holiday"]);
 });
 
+test("an answer gives each of its events' series' measured moves once, in time order, the latest 500", () => {
+  // Two CPI releases and a PPI one; the answer's window holds only the second CPI, so the PPI's moves stay out and both CPI moves are in.
+  const out = python(String.raw`
+import strip_contract as c
+st = m.Store(); md = m.Model(st)
+def ev(i, at, source):
+    return {'id': f'e{i}', 'values': {'title': 'US CPI inflation: headline and core', 'category': 'inflation', 'origin': 'source', 'status': 'scheduled',
+            'schedule': {'kind': 'instant', 'at': at}, 'schedule_certainty': 'confirmed', 'context': {'importance': 'high', 'region': 'United States', 'source_id': source}},
+            'metadata': {'revision_id': f'r{i}'}}
+md.ingest_calendar('c1', [ev(1, '2026-09-10T12:30:00Z', 'US-CPI'), ev(2, '2026-10-10T12:30:00Z', 'US-CPI'), ev(3, '2027-06-10T12:30:00Z', 'US-PPI')], 1000)
+for eid, start, move, series in I['reactions']:
+    md.record_reaction(eid, {'from': start, 'at': start + 1800000, 'move': move, 'series': series, 'ordinary': None, 'bits': None})
+state = m.build_state(st, m.Prices([], None), {'id': None, 'publishedAt': None}, {}, I['now'])
+answer = json.loads(state.answer(I['start'], I['end'], I['step']))
+c.check(answer, I['start'], I['end'], I['step'])
+capped = m.series_moves({f'x{i}': {'series': 's', 'at': 600 - i, 'move': 0.1} for i in range(600)})['s']
+print(json.dumps({'events': [e['id'] for e in answer['events']], 'keys': sorted({k for e in answer['events'] for k in e}), 'moves': answer['moves'],
+                  'capped': [len(capped), capped[0][0], capped[-1][0]]}))`,
+    {reactions: [["e2", Date.parse("2026-10-10T12:30:00Z"), -0.25, "US-CPI"], ["e1", Date.parse("2026-09-10T12:30:00Z"), 0.5, "US-CPI"],
+      ["e9", Date.parse("2026-08-10T12:30:00Z"), 1.5, "US-PPI"]],
+    now: Date.parse("2026-10-23T00:00:00Z"), start: Date.parse("2026-10-01T00:00:00Z"), end: Date.parse("2026-10-20T00:00:00Z"), step: HOUR});
+  assert.deepEqual(out.events, ["e2"]);
+  assert.ok(!out.keys.includes("history"), "an event carries no moves of its own");
+  assert.deepEqual(out.moves, {"US-CPI": [[Date.parse("2026-09-10T13:00:00Z"), 0.5], [Date.parse("2026-10-10T13:00:00Z"), -0.25]]});
+  // 600 moves: the latest 500, in time order.
+  assert.deepEqual(out.capped, [500, 101, 600]);
+});
+
 test("a sample is the latest value known at or before each time, and nothing once it is stale", () => {
   const out = python("e = m.Evidence.of('x', [(10, 1.0, None), (20, 2.0, None)], 5)\nprint(json.dumps(e.sample([5, 10, 14, 15, 16, 20, 25, 26])))", null);
   assert.deepEqual(out, [null, 1, 1, 1, null, 2, 2, null]);

@@ -764,6 +764,7 @@ class State:
     dvol: Evidence
     prices: Prices
     events: list
+    moves: dict
     jumps: list
     options: list
     cutoff: int
@@ -800,9 +801,11 @@ class State:
         if len(times) <= 3000:
             grid["parts"] = {name: [None if v is None else round(v, 4) for v in e.sample(times)]
                              for name, e in {**self.components, **self.attention}.items()}
-        def dated(s: dict) -> int | None:
-            return s["at"] if s["at"] is not None else s.get("lastAt")
-        events = [e for e in self.events if any(dated(s) is not None and start - DAY <= dated(s) < end + 90 * DAY for s in e["schedule"])]
+        def near(s: dict) -> bool:
+            # A cancelled or withdrawn entry is placed by the date it last had.
+            at = s["at"] if s["at"] is not None else s.get("lastAt")
+            return at is not None and start - DAY <= at < end + 90 * DAY
+        events = [e for e in self.events if any(near(s) for s in e["schedule"])]
         body = {
             "schema": SCHEMA, "model": MODEL, "cutoff": self.cutoff, "snapshot": self.snapshot, "sources": self.sources,
             "components": {name: {"force": f, "label": label, "retroUntil": self.components[name].retro_until}
@@ -810,6 +813,7 @@ class State:
             "attentionParts": {name: {"label": label, "weight": w, "retroUntil": self.attention[name].retro_until}
                                for name, (label, w) in ATTENTION.items() if name in self.attention},
             "grid": grid, "events": events,
+            "moves": {s: self.moves[s] for s in sorted({e["series"] for e in events if e["series"] in self.moves})},
             "jumps": [j for j in self.jumps if start <= j["at"] < end],
             "options": [o for o in self.options if start - DAY <= o["at"] < end][-200:],
         }
@@ -821,17 +825,22 @@ class State:
         return raw
 
 
+def series_moves(reactions: dict) -> dict[str, list[list]]:
+    """Each series' measured moves as [the time each became known, percent], in time order, the latest 500: given once
+    a series, so that a page counts only those measured before its edge."""
+    moves: dict[str, list[list]] = {}
+    for r in reactions.values():
+        if r.get("series") and r.get("move") is not None:
+            moves.setdefault(r["series"], []).append([r["at"], r["move"]])
+    return {series: sorted(found)[-500:] for series, found in moves.items()}
+
+
 def build_events(store: Store, retarget_rows: list[tuple], reactions: dict) -> list[dict]:
     """The calendar's events with their schedule as each revision made it known, the difficulty retarget as the
     estimates moved, and the measured reaction of each that has one."""
     by_id: dict[str, list[tuple[int, dict]]] = {}
     for event_id, _, known, entry in store.calendar_rows():
         by_id.setdefault(event_id, []).append((known, json.loads(entry)))
-    # Each series' measured moves with the time each became known, so that a page shows only those measured before its edge.
-    histories: dict[str, list[list]] = {}
-    for event_id, r in reactions.items():
-        if r.get("series") and r.get("move") is not None:
-            histories.setdefault(r["series"], []).append([r["at"], r["move"]])
     events = []
     for event_id, revisions in by_id.items():
         revisions.sort(key=lambda r: r[0])
@@ -845,12 +854,11 @@ def build_events(store: Store, retarget_rows: list[tuple], reactions: dict) -> l
             if last is None or any(item[k] != last[k] for k in ("at", "precision", "end", "status", "certainty", "importance")):
                 schedule.append(item)
                 last = item
-        history = {"moves": sorted(histories.get(latest["series"], []))[-500:]}
         events.append({
             "id": event_id, "kind": latest["category"], "family": FAMILY.get(latest["category"], "macro"), "name": latest["title"],
             "short": short_label(latest["title"], latest["region"], latest["category"]), "region": latest["region"], "origin": latest["origin"],
             "series": latest["series"], "link": latest["link"], "window": latest["window"], "schedule": schedule,
-            "measured": reactions.get(event_id), "history": history,
+            "measured": reactions.get(event_id),
         })
     # The difficulty retarget: an estimate that moves as blocks come; a new entry once it moves by an hour.
     by_height: dict = {}
@@ -866,7 +874,7 @@ def build_events(store: Store, retarget_rows: list[tuple], reactions: dict) -> l
                                  "certainty": "estimate", "importance": "low", "weight": 0.0, "change": x.get("change")})
         events.append({"id": f"retarget-{height}", "kind": "retarget", "family": "news", "name": "Bitcoin difficulty retarget",
                        "short": "Retarget", "region": None, "origin": "protocol", "series": "retarget", "link": None, "window": None,
-                       "schedule": schedule, "measured": None, "history": {"moves": []}})
+                       "schedule": schedule, "measured": None})
     events.sort(key=lambda e: (e["schedule"][0]["at"] or e["schedule"][0].get("lastAt") or 0, e["id"]))
     return events
 
@@ -943,4 +951,5 @@ def build_state(store: Store, prices: Prices, snapshot: dict, sources: dict, now
     known = [e.known[-1] for e in [*components.values(), *attention.values(), dvol] if e.known]
     cutoff = max([*known, prices.cutoff or 0, snapshot.get("publishedAt") or 0])
     return State(built_ms=now_ms, snapshot=snapshot, sources=sources, components=components, attention=attention, dvol=dvol,
-                 prices=prices, events=events, jumps=jumps, options=options, cutoff=cutoff, version=store.version)
+                 prices=prices, events=events, moves=series_moves(reactions), jumps=jumps, options=options, cutoff=cutoff,
+                 version=store.version)

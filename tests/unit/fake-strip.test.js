@@ -74,7 +74,12 @@ describe("the fake's synthetic strip", () => {
       for (const s of e.schedule) assert.ok(s.knownAt <= cutoff, `${e.id}'s schedule is known by the cutoff`);
       if (e.measured) assert.ok(e.measured.from === last.at && e.measured.at === last.at + e.window * 60000 && e.measured.at <= cutoff, `${e.id} is measured once its window closed`);
       else assert.ok(last.at === null || last.precision !== "instant" || last.at + e.window * 60000 > cutoff, `${e.id} is unmeasured only while its window is open, or without an hour, or once cancelled`);
-      for (const [at] of e.history.moves) assert.ok(at <= cutoff, `${e.id}'s history holds only moves measured by the cutoff`);
+    }
+    // Each series' moves are given once, for the series of the events in the answer, and hold only moves measured by the cutoff.
+    const named = new Set(body.events.map((e) => e.series));
+    for (const [series, moves] of Object.entries(body.moves)) {
+      assert.ok(named.has(series), `${series} is an answered event's series`);
+      for (const [at] of moves) assert.ok(at <= cutoff, `${series}'s moves are measured by the cutoff`);
     }
     // The events reach 90 days past the grid's end, for the horizon; dates and ranges keep their precision.
     assert.ok(body.events.some((e) => e.schedule.at(-1).at > cutoff + 30 * DAY));
@@ -99,7 +104,7 @@ describe("the fake's synthetic strip", () => {
       assert.ok(cancelled, "a Jobs release was cancelled");
       assert.deepEqual([cancelled.schedule.at(-1).at, cancelled.schedule.at(-1).lastAt, cancelled.measured], [null, cancelled.schedule[0].at, null]);
       // A series' moves hold each of its measured releases, in time order.
-      const cpi = body.events.filter((e) => e.series === "cpi" && e.measured), moves = cpi[0].history.moves;
+      const cpi = body.events.filter((e) => e.series === "cpi" && e.measured), moves = body.moves.cpi;
       assert.ok(cpi.length > 3);
       for (const e of cpi) assert.ok(moves.some(([at, move]) => at === e.measured.at && move === e.measured.move), e.id);
       assert.deepEqual(moves, [...moves].sort((a, b) => a[0] - b[0]));

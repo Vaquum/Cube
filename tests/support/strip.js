@@ -132,6 +132,7 @@ class SyntheticStrip {
       recordedFrom: live, detail: null,
     }]));
     this.events = this.calendar();
+    this.moves = this.seriesMoves();
     this.jumps = this.findJumps();
     const calm = walk("attention", 0.02, 0.04);
     this.attention = calm.map((v, i) => {
@@ -156,7 +157,7 @@ class SyntheticStrip {
   }
 
   // Every event of the calendar from the first grid time to 90 days past the cutoff: its schedule as it became known and, once its
-  // window closed in the profile's trades, what it did, with each series' moves as they were measured.
+  // window closed in the profile's trades, what it did.
   calendar() {
     const out = [], next = mulberry32(subSeed(this.seed, "strip:events")), first = Math.floor(this.startMs / DAY), last = Math.floor((this.cutoffMs + HORIZON) / DAY);
     for (let day = first; day <= last; day++)
@@ -185,14 +186,18 @@ class SyntheticStrip {
           }
         }
         out.push({ id, kind: spec.kind, family: spec.family, name: spec.name, short: spec.short, region: kind === "conference" ? "Global" : "United States",
-          origin: "source", series: kind, link: "https://example.org/calendar/" + kind, window: instant ? spec.window : null, schedule, measured, history: { moves: [] } });
+          origin: "source", series: kind, link: "https://example.org/calendar/" + kind, window: instant ? spec.window : null, schedule, measured });
       }
     out.sort((a, b) => a.schedule[0].at - b.schedule[0].at || (a.id < b.id ? -1 : 1));
-    // Each series' moves as they were measured, for the cards' counts at an edge.
-    const moves = {};
-    for (const e of out) if (e.measured) (moves[e.series] = moves[e.series] || []).push([e.measured.at, e.measured.move]);
-    for (const e of out) e.history = { moves: (moves[e.series] || []).slice().sort((a, b) => a[0] - b[0]) };
     return out;
+  }
+
+  // Each series' moves as they were measured, in time order, for the cards' counts at an edge: given once a series.
+  seriesMoves() {
+    const moves = {};
+    for (const e of this.events) if (e.measured) (moves[e.series] = moves[e.series] || []).push([e.measured.at, e.measured.move]);
+    for (const list of Object.values(moves)) list.sort((a, b) => a[0] - b[0]);
+    return moves;
   }
 
   // The four largest 30-minute moves of the history that come to at least 0.5%, at least a day apart: what an unscheduled move with an
@@ -230,6 +235,7 @@ class SyntheticStrip {
     })]));
     const grid = { t0: from, step, forces, attention: take(this.attention), close: take(this.close, 2), next24h: take(this.next24h), dvol: take(this.dvol, 2) };
     if (n <= 3000) grid.parts = parts;
+    const events = this.events.filter((e) => e.schedule.some((s) => (s.at ?? s.lastAt) >= from - DAY && (s.at ?? s.lastAt) < to + HORIZON));
     return {
       schema: "cube-strip@2",
       model: `fake-strip@2 SYNTHETIC seed ${this.seed} - not market data`,
@@ -239,7 +245,8 @@ class SyntheticStrip {
       components: Object.fromEntries(Object.entries(COMPONENTS).map(([name, [force, label]]) => [name, { force, label, retroUntil: this.retroUntil[name] }])),
       attentionParts: Object.fromEntries(Object.entries(ATTENTION).map(([name, [label, weight]]) => [name, { label, weight, retroUntil: this.retroUntil[name] }])),
       grid,
-      events: this.events.filter((e) => e.schedule.some((s) => (s.at ?? s.lastAt) >= from - DAY && (s.at ?? s.lastAt) < to + HORIZON)),
+      events,
+      moves: Object.fromEntries([...new Set(events.map((e) => e.series))].sort().filter((s) => this.moves[s]).map((s) => [s, this.moves[s]])),
       jumps: this.jumps.filter((j) => j.at >= from && j.at < to),
       options: this.options.filter((o) => o.at >= from - DAY && o.at < to),
     };

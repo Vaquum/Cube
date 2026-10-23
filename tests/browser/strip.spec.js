@@ -14,6 +14,9 @@ test.use({ reducedMotion: "reduce" });
 
 const HOUR = 3600000, DAY = 86400000, FORCES = ["macro", "positioning", "news", "social"], LABELS = 12, BAND = 22, FOOT = 5, SUPPORT = 30;
 const iso = (ms) => new Date(ms).toISOString().replace(".000Z", "Z").replace(/:00Z$/, "Z");
+// A replay in the candles view, whose edge is the address's own: a cells view's edge is floored to its drawn level's column and can
+// stay at a coarser one (#195).
+const REPLAY = "mode=candles&replay=1";
 const layoutOf = (page) => page.locator("#ol-canvas").evaluate((n) => n.dataset.layout.split(",").map(Number));
 // The canvas layout's fields, as geometry() writes them: the plot's x and w, and the Strip's y and height.
 const at = (layout) => ({ x: layout[0], w: layout[2], by: layout[14], bh: layout[15] });
@@ -181,7 +184,7 @@ test("replay draws only what was known strictly before its edge: no band past it
   const e = history.events.find((x) => lit(x, cutoff) && x.measured.at < cutoff - 2 * DAY);
   expect(e, "the synthetic calendar has a lit, measured event").toBeTruthy();
   const [p0, p1] = info.priceBand.usdt, from = e.measured.from - DAY, to = e.measured.from + DAY;
-  const hash = (edge) => `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.macro&replay=1&at=${iso(edge)}`;
+  const hash = (edge) => `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.macro&${REPLAY}&at=${iso(edge)}`;
   const seams = async (top) => (await pane.last()).strokes
     .filter((s) => s.width === 2 && s.path.length === 2 && s.path.every(([, y]) => y >= top && y <= top + BAND)).map((s) => s.path[0][0]).sort((a, b) => a - b);
   // The seams an edge allows: every lit Macro event in view whose window had closed strictly before it, where it closed.
@@ -214,7 +217,7 @@ test("a moved event is where each edge knew it would be: before the move was ann
   const e = history.events.find((x) => x.series === "cpi" && x.schedule.length === 2 && x.schedule[1].at !== null && x.measured && x.measured.at < cutoff - 2 * DAY);
   expect(e, "the synthetic calendar moved a CPI").toBeTruthy();
   const [first, moved] = e.schedule, [p0, p1] = info.priceBand.usdt, from = first.at - 4 * DAY, to = moved.at + DAY;
-  const hash = (edge) => `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.macro&replay=1&at=${iso(edge)}`;
+  const hash = (edge) => `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.macro&${REPLAY}&at=${iso(edge)}`;
   // Ahead of an edge, in the horizon box beside the profile, hovered where the edge knew the event would be.
   async function ahead(edge, time) {
     await open(page, fake, probe, hash(edge));
@@ -344,7 +347,7 @@ test("a range of dates with no hour is labelled at its middle over a bracket of 
   const e = history.events.find((x) => x.schedule[0].precision === "range" && x.schedule[0].weight >= 0.3 && x.schedule[0].end < cutoff - 2 * DAY);
   expect(e, "the synthetic calendar has a lit range").toBeTruthy();
   const { at: start, end } = e.schedule[0], [p0, p1] = info.priceBand.usdt, from = start - 2 * DAY, to = end + 2 * DAY;
-  await open(page, fake, probe, `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.news&replay=1&at=${iso(end + DAY)}`);
+  await open(page, fake, probe, `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&r=4,0&vis=2&rc=1&strip=forces.news&${REPLAY}&at=${iso(end + DAY)}`);
   const g = at(await layoutOf(page)), X = (ms) => g.x + ((ms - from) / (to - from)) * g.w, frame = await pane.last();
   const label = frame.texts.find((t) => t.text === e.short);
   expect(label, "the range is labelled").toBeTruthy();

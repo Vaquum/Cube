@@ -94,7 +94,7 @@ def check(answer: object, start: int, end: int, step: int) -> None:
             fail(where, f"must be between {low} and {high}")
 
     top = mapping(answer, "answer", {"schema", "model", "cutoff", "snapshot", "sources", "components", "attentionParts",
-                                     "grid", "events", "jumps", "options"})
+                                     "grid", "events", "moves", "jumps", "options"})
     if top["schema"] != SCHEMA:
         fail("schema", f"must be {SCHEMA}")
     text(top["model"], "model")
@@ -146,7 +146,7 @@ def check(answer: object, start: int, end: int, step: int) -> None:
     for i, value in enumerate(top["events"]):
         where = f"events[{i}]"
         e = mapping(value, where, {"id", "kind", "family", "name", "short", "region", "origin", "series", "link", "window",
-                                   "schedule", "measured", "history"})
+                                   "schedule", "measured"})
         text(e["id"], f"{where}.id", 160)
         if e["id"] in seen:
             fail(f"{where}.id", "repeats an earlier event's")
@@ -201,13 +201,16 @@ def check(answer: object, start: int, end: int, step: int) -> None:
                 fail(f"{where}.measured.from", "must be the event's last scheduled instant")
             if ms(m["at"], f"{where}.measured.at") != start_at + window * 60_000:
                 fail(f"{where}.measured.at", "must be from + window")
-        history = mapping(e["history"], f"{where}.history", {"moves"})
-        moves = history["moves"]
-        if not isinstance(moves, list) or not all(isinstance(m, list) and len(m) == 2 and ms(m[0], f"{where}.history.moves") is not None
+
+    if not isinstance(top["moves"], dict):
+        fail("moves", "must be an object")
+    for name, moves in top["moves"].items():
+        text(name, "moves", 64)
+        if not isinstance(moves, list) or not all(isinstance(m, list) and len(m) == 2 and ms(m[0], f"moves.{name}") is not None
                                                   and finite(m[1]) for m in moves):
-            fail(f"{where}.history.moves", "must be a list of [ms, percent]")
+            fail(f"moves.{name}", "must be a list of [ms, percent]")
         if any(moves[k][0] < moves[k - 1][0] for k in range(1, len(moves))):
-            fail(f"{where}.history.moves", "must be in time order")
+            fail(f"moves.{name}", "must be in time order")
 
     if not isinstance(top["jumps"], list):
         fail("jumps", "must be a list")
