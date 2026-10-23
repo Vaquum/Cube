@@ -50,6 +50,13 @@ Routes:
   (MSCB), from the cube's measures at rows that hold every price, so each column is one cell.
   Like motion, they end at the pack's last complete base column or where the cube's measures
   end, and say where (``end``, ``through``). Kept per pack and span.
+- ``/cube/strip?from&to&step``: the Strip's forces, attention, events and options context for a grid of times in
+  epoch ms, in the ``cube-strip@2`` shape that ``docs/strip.md`` sets out (``tools/strip_contract.py``). A worker
+  thread (``tools/strip_service.py``) reads field-data-api at ``FIELD_DATA_URL`` once per publication, every source and
+  the calendar under one pinned snapshot, and the cube's bars through the second query slot in small paced reads; the
+  route answers from what the worker last built and never waits on either. With ``FIELD_DATA_URL`` the page is served
+  with ``<meta name="explorer-strip">``; without it the page never asks, and the route answers 503
+  ``strip_not_configured``.
 - ``/vendor/<file>``: the vendored scripts, flat file names only.
 - ``GET /mill/app-config`` and ``POST /mill/discover``: Find features, relayed to Mill
   (``tools/mill_relay.py``) with ``MILL_API_SECRET`` as its Bearer token, and ``/`` then declares
@@ -62,7 +69,9 @@ none and can't read MSC2 blocks, so it is answered 409 with words telling its re
 The server checks no credentials: it listens on 127.0.0.1 only, and the host's Caddy passes a
 request for cube.vaquum.fi on only after the Vaquum portal login (Vaquum/Portal).
 ``MARKET_STATE_URL`` names the cube service (default ``http://127.0.0.1:8486``); ``MILL_URL`` names
-Mill (on the Origo host, ``http://127.0.0.1:8765``).
+Mill (on the Origo host, ``http://127.0.0.1:8765``); ``FIELD_DATA_URL`` names field-data-api (on the same host,
+``http://127.0.0.1:8491``), with ``FIELD_DATA_API_TOKEN`` where it requires one, and ``STRIP_STORE`` the SQLite file
+the Strip keeps its first-seen observations in (default ``/var/lib/cube-explorer/strip.sqlite``).
 
 MSC2 (little-endian): 32-byte header ``magic n m pad col0 col1 count 12x`` then columnar
 arrays volume f64, taker-buy volume f64, trades f64, taker-buy trades f64, column u32, row u32,
@@ -106,6 +115,9 @@ from market_state_reader import MarketStateError, query, read_table  # noqa: E40
 from rally_bridge import RallyStore  # noqa: E402
 from investigation_store import InvestigationStore, MAX_BYTES as INVESTIGATION_MAX_BYTES  # noqa: E402
 from mill_relay import MAX_BODY as MILL_MAX_BODY, ROUTES as MILL_ROUTES, declare, forward  # noqa: E402
+import strip_contract  # noqa: E402
+from field_data import FieldDataReader  # noqa: E402
+from strip_service import StripService  # noqa: E402
 
 T0 = 1609459200
 BASE_SECONDS = 56.25
@@ -150,6 +162,11 @@ CUBE_URL = os.environ.get("MARKET_STATE_URL", "http://127.0.0.1:8486")
 # Find features relays to Mill only with both set: the secret stays here, the page never sees it.
 MILL_URL = os.environ.get("MILL_URL", "")
 MILL_API_SECRET = os.environ.get("MILL_API_SECRET", "")
+# The Strip is served only with field-data-api's address set; the worker that reads it starts with the server.
+FIELD_DATA_URL = os.environ.get("FIELD_DATA_URL", "")
+FIELD_DATA_API_TOKEN = os.environ.get("FIELD_DATA_API_TOKEN") or None
+STRIP_STORE = os.environ.get("STRIP_STORE", "/var/lib/cube-explorer/strip.sqlite")
+STRIP: StripService | None = None
 SOURCE = "Binance BTCUSDT spot · Origo market state cube"
 VENDOR_TYPES = {".js": "application/javascript", ".css": "text/css", ".txt": "text/plain", ".md": "text/markdown"}
 TIERS = (
@@ -285,6 +302,12 @@ def bar_read(n: int, b0: int, b1: float) -> tuple[dict, dict, dict]:
     bars = {key: table.column(name).to_numpy(zero_copy_only=False)[order].astype("<f8") for key, name in BAR_FIELDS}
     bars["col"] = col.astype("<u4")
     return response, bars, {pin[0]: list(pin[2:]) for pin in meta["pins"]}
+
+
+def strip_bars(n: int, b0: int, b1: float) -> tuple[list[int], list[float], list[float]]:
+    """The Strip's prices: the columns, opens and closes of the cube's bars at level n over base columns [b0, b1)."""
+    _, bars, _ = bar_read(n, int(b0), b1)
+    return bars["col"].tolist(), bars["open"].tolist(), bars["close"].tolist()
 
 
 def mscb(n: int, col0: int, col1: int, bars: dict) -> str:
@@ -1006,7 +1029,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if url.path in ("/", "/index.html"):
                 page = self.explorer.html()
-                self.reply(200, "text/html; charset=utf-8", declare(page) if mill_relayed() else page)
+                page = declare(page) if mill_relayed() else page
+                self.reply(200, "text/html; charset=utf-8", strip_contract.declare(page) if STRIP is not None else page)
             elif url.path == "/cube/pack":
                 since = args.get("since", [""])[0]
                 self.json(self.explorer.update(since))
@@ -1061,6 +1085,12 @@ class Handler(BaseHTTPRequestHandler):
                 if math.ceil(b1 / step) - b0 // step > MAX_COLUMNS:
                     raise ValueError(f"more than {MAX_COLUMNS} bars")
                 self.json(self.explorer.bars(n, b0, b1, args.get("pack", [""])[0]))
+            elif url.path == "/cube/strip":
+                status, body = STRIP.answer(args) if STRIP is not None else (503, {"error": "strip_not_configured"})
+                if isinstance(body, bytes):
+                    self.reply(status, "application/json", body)
+                else:
+                    self.json(body, status)
             elif url.path == "/cube/touched":
                 n, b0, b1 = integer(args, "n"), integer(args, "b0"), integer(args, "b1")
                 if not 0 <= n < MAX_TIME_EXPONENT:
@@ -1193,11 +1223,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8487)
     arguments = parser.parse_args(argv)
     Handler.explorer = Explorer(arguments.page)
+    global STRIP
+    if FIELD_DATA_URL:
+        store = STRIP_STORE if Path(STRIP_STORE).parent.is_dir() else ":memory:"
+        STRIP = StripService(FieldDataReader(FIELD_DATA_URL, token=FIELD_DATA_API_TOKEN), store, bars=strip_bars)
+        STRIP.start()
     # Loopback only, and not configurable: the server checks no credentials, so the portal-gated
     # Caddy on this host must be the only way to it.
     with ThreadingHTTPServer(("127.0.0.1", arguments.port), Handler) as httpd:
         print(f"explorer on http://127.0.0.1:{arguments.port} · cube at {CUBE_URL}"
-              + (f" · Find features through Mill at {MILL_URL}" if mill_relayed() else ""), flush=True)
+              + (f" · Find features through Mill at {MILL_URL}" if mill_relayed() else "")
+              + (f" · Strip from field-data-api at {FIELD_DATA_URL}" if STRIP is not None else ""), flush=True)
         httpd.serve_forever()
     return 0
 

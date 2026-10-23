@@ -21,6 +21,7 @@ const { performance } = require("node:perf_hooks");
 const model = require("./bridge-model.js");
 const wire = require("./wire.js");
 const { resolveProfile, msOfIso, MINUTE_MS, REPO_ROOT } = require("./profiles.js");
+const { SyntheticStrip, StripError, stripRequest } = require("./strip.js");
 
 const { ValueError, CubeChanged, MarketStateError, PROTOCOL, OUTDATED, BAR_LEVELS, MAX_COLUMNS, MAX_TIME_EXPONENT, queryArgs, integer, level, rectangle } = model;
 
@@ -34,6 +35,8 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function slotOf(pathname, args) {
   if (pathname.startsWith("/cube/investigations")) return "storage";
   if (pathname === "/cube/rallies" || pathname === "/cube/rallies/view") return "rallies";
+  // The strip never reads the cube: the bridge relays it to Origo outside both slots.
+  if (pathname === "/cube/strip") return "strip";
   if (pathname === "/cube/pack") return "poll";
   if (pathname === "/cube/motion" || pathname === "/cube/bars") return "motion";
   if ((pathname === "/cube/tile" || pathname === "/cube/query") && args.motion?.[0] === "1") return "motion";
@@ -190,7 +193,10 @@ function emptied(body) {
 
 class FakeCube {
   constructor(opts) {
-    this.opts = { mode: "live", profile: "mini", port: 0, host: "127.0.0.1", control: false, quiet: 2, next: 3, pageVersion: "fake-page-1", packsHeld: 16, maxCells: model.MAX_CELLS, ...opts };
+    // strip: "synthetic" declares the seeded synthetic strip (strip.js) in the page and serves it at /cube/strip; "off" is a bridge without
+    // FIELD_DATA_URL: no declaration, and a 503 if the strip is asked for anyway.
+    this.opts = { mode: "live", profile: "mini", port: 0, host: "127.0.0.1", control: false, quiet: 2, next: 3, pageVersion: "fake-page-1", packsHeld: 16, maxCells: model.MAX_CELLS, strip: "synthetic", ...opts };
+    if (!["synthetic", "off"].includes(this.opts.strip)) throw new RangeError(`strip ${this.opts.strip}: use synthetic or off`);
     if (!["live", "recorded"].includes(this.opts.mode)) throw new RangeError(`mode ${this.opts.mode}: use live or recorded`);
     this.pageRoot = path.resolve(this.opts.pageRoot ?? REPO_ROOT);
     this.entries = [];
@@ -208,6 +214,7 @@ class FakeCube {
   // (Re)build the model from the options: the cube over a fresh store, and the bridge over the cube.
   boot() {
     this.investigations ||= new Map();
+    this.stripMemo = null;
     if (this.opts.mode === "recorded") {
       this.profile = null;
       this.cube = null;
@@ -406,6 +413,18 @@ class FakeCube {
         if (Math.ceil(b1 / step) - Math.floor(b0 / step) > MAX_COLUMNS) throw new ValueError(`more than ${MAX_COLUMNS} bars`);
         return json(bridge.bars(n, b0, b1, token));
       }
+      // tools/cube_bridge.py and strip_service.py: the query's rules first, then whether the strip is configured; the answer is the synthetic one.
+      if (pathname === "/cube/strip") {
+        let grid;
+        try {
+          grid = stripRequest(args);
+        } catch (error) {
+          if (error instanceof StripError) return json({ error: "invalid_strip_request", detail: error.message }, 400);
+          throw error;
+        }
+        if (this.opts.strip === "off") return json({ error: "strip_not_configured" }, 503);
+        return json(this.syntheticStrip().answer(grid));
+      }
       if (pathname === "/cube/touched") {
         const n = integer(args, "n"), b0 = integer(args, "b0"), b1 = integer(args, "b1");
         if (!(n >= 0 && n < MAX_TIME_EXPONENT)) throw new ValueError(`n must be 0..${MAX_TIME_EXPONENT - 1}`);
@@ -432,14 +451,23 @@ class FakeCube {
     }
   }
 
-  // / and /index.html: the page. Live mode injects the pack the way the bridge does; recorded mode serves the file unmodified.
+  // The synthetic strip of the profile as it stands, built again once the profile has advanced.
+  syntheticStrip() {
+    const key = `${this.cube.cutoffMs}|${this.profile.store.length}`;
+    if (this.stripMemo?.key !== key) this.stripMemo = { key, model: new SyntheticStrip({ store: this.profile.store, cutoffMs: this.cube.cutoffMs, seed: this.profile.seed }) };
+    return this.stripMemo.model;
+  }
+
+  // / and /index.html: the page. Live mode injects the pack the way the bridge does, and with the synthetic strip declares it as a
+  // bridge with FIELD_DATA_URL does (tools/strip_contract.py declare); recorded mode serves the file unmodified.
   html() {
     const text = fs.readFileSync(path.join(this.pageRoot, "index.html"), "utf8");
     if (this.opts.mode === "recorded") return text;
     const [pack, age] = this.bridge.pack
       ? [this.bridge.pack, this.bridge.clock - this.bridge.packedAt]
       : this.bridge.currentPack();
-    return model.injectPack(text, { ...pack, ...this.bridge.timing(age) });
+    const page = model.injectPack(text, { ...pack, ...this.bridge.timing(age) });
+    return this.opts.strip === "synthetic" ? page.replace("<head>", '<head>\n    <meta name="explorer-strip" content="/cube/strip">') : page;
   }
 
   // ---- data controls ----

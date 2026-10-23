@@ -18,7 +18,7 @@ Run both with `node --test tests/unit/role-lint.test.js tests/unit/visual-contra
 
 **Channels** (parent D4). `CELL` unbounded Cells colour (Explore, per resolution context); `ROW` unbounded Rows colour (Explore, per row and period context); `FIXED` fixed domain (shares, log2 ratios, RSI); `AXIS` ordinary Columns lengths and MACD (Auto axis); `PROF` current and reference profile length (independent Auto axis); `LENS` lens colour (the shared active Cells mapping unless Local contrast); `NAV` main price and time axes; `-` none.
 
-**Owner** is the list of slices with work on the row, as issue numbers: #46 (S1), #47 (S2), #48 (S3), #62 (P4-S1 Candles), #66 (P5-S1 manual trend lines), #71 (P6-S1 cell comparison). A row that no slice changes carries #48, whose audit of composed contrast, focus and text verifies that it still meets the target. Per-slice detail is written in the Target cell as `[slices: ...]` where it is not just one slice.
+**Owner** is the list of slices with work on the row, as issue numbers: #46 (S1), #47 (S2), #48 (S3), #62 (P4-S1 Candles), #66 (P5-S1 manual trend lines), #71 (P6-S1 cell comparison), #193 (the Strip). A row that no slice changes carries #48, whose audit of composed contrast, focus and text verifies that it still meets the target. Per-slice detail is written in the Target cell as `[slices: ...]` where it is not just one slice.
 
 **Status** is the first slice with outstanding work: `todo-S1`, `todo-S2`, `todo-S3`; `keep` means legitimate with no change planned; `done` means all planned work is complete. When K finishes the S1 part of a row that still has S2 or S3 work, the status becomes the next slice's `todo`; a row is `done` only when nothing is left. `todo-S2` and `todo-S3` rows are consumers that must keep working in S1 and that S1 must not repaint.
 
@@ -336,6 +336,14 @@ A Wave-2 package that adds a NEW top-level helper reading `colors.*` under a nam
 | N-56 | Seasonal candidate ledger, approximate uncertainty, frozen context and selected comparison reading | src/evidence.js; src/explorer.js evidence, comparison, table and Query adapters; src/state.js comparison v2; src/comparison-ui.js | Current-source seasonal-state@1 with shared calendar block-bootstrap@2; bounded frozen support and actual source edges | CHR / REF / STATE: pointwise estimation ranges separate from outcome boxes; typed missing support; neutral histories and signed numbers | EVID, CASES, COMPARE, TABLE, QUERY | #86 | U100, U95, U96, B68, B63 | done |
 
 
+### 3.11 Strip additions (#193)
+
+| ID | Consumer | File / function / CSS rule | Current | Target role | Measurement / channel | Owner | Tests | Status |
+|---|---|---|---|---|---|---|---|---|
+| N-57 | The Strip band under the price pane: each pixel column's lean as the colour tables' positive or negative arm (from the midpoint toward the role), painted over the surface at the attention's alpha; the undefined hatch where no force, or along its foot no attention, is known; the dashed line where retrospective values end; the light of the events ahead, as strong as the calendar's weight, and the seams of measured reactions in the ink; the brackets of events dated without an hour; its name, frame and event labels | src/explorer.js: `paintStrip()`, `stripColour()`, `stripBeams()`, `paintStripHorizon()` (new for #193) | none | `+`, `-` and `mid` over the surface for the lean, the ink for light and seams, `CHR` for the name, labels and frame; a missing lean or attention is the undefined hatch (`pattern-slate`), never the midpoint; the retrospective line is `CHR` | STRIP | #193 | B69 | done |
+| N-58 | The Strip's cards: the forces as arrows from a common centre with their parts, the distribution of the track record with its p5, p50 and p95, an event's when, weight, move and history, and each source's freshness | src/explorer.js: `stripTug()`, `stripHist()` (new for #193); src/explorer.css `.ol-strip-*` | none | `+` and `-` for direction, each value also a signed number in the ink; the ink outline for all moments; `CHR` text | HOVER | #193 | B69, U101, U102, U103 | done |
+
+
 ## 4. The retired-role ratchet
 
 `tests/unit/role-lint.test.js` (U35) flags retired rendering roles and never the substring buy or sell. It classifies by colour-token namespace: `colors.<key>`, `--ol-<name>` (including `var(--ol-<name>)` and `--ol-tier-${tier}-width`) and the prose "<role> colour". Taker-buy DATA names (`bv`, `bt`, `bpoc`, `buyShare`, `taker_buy_volume`, sort keys, ids such as `#ol-buypoc-value`, labels such as "Buy USDT") live in no colour namespace and can never be hit. The prefix hazard `--ol-line` versus `--ol-line-*` is handled by matching whole token names.
@@ -448,7 +456,7 @@ Each has an owner in the inventory (C-11b, C-11d, F-08, C-02) and stays in the a
 - After an OS colour-scheme flip the toolbar Lines dots (D-04) keep the old scheme's colours until an unrelated `update()`; `.ol-family-dot` and `.ol-line-swatch` are written only while their popover is open. S3 owns them; every new colour writer of S1 is refreshed by `themeChanged()` (N-12) and covered by B04.
 - Reduced motion is read once at load (line 48) and only nulls the 170 ms level-change morph; new legends and notices are static.
 - The recorded page has no motion, OHLC, bars, moving averages, VWAP, Time-at-price or oscillators: C-08, the motion measures of C-12, C-13 and the live-only families of D-06 are exercised only through the fake cube.
-- The image carries only `index.html`, `vendor/` and the two bridge Python files (the Dockerfile `COPY` set, mirrored by the `.dockerignore` allowlist); this file and the tests never ship, and the lint reads sources, not the built `index.html`.
+- The image carries only `index.html`, `vendor/` and the bridge's Python files (the Dockerfile `COPY` set); this file and the tests never ship, and the lint reads sources, not the built `index.html`.
 
 ## 6. CSS rules that paint with a market hue or a keyed neutral state (baseline `src/explorer.css`)
 
@@ -794,6 +802,10 @@ Unit tests run with `npm test`; browser specs with `npm run test:browser`. `U46`
 | B67 | `tests/browser/reference-cards.spec.js` | Served synthetic close/ATR arithmetic, native reference hierarchy/history, calendar identity, Fibonacci and MA facts; themes and narrow readout | #85 |
 | U100 | `tests/unit/evidence-context.test.js` | Literal seed/Type-7 streams, ledger first failures, full horizons and independent bootstrap floors | #86 |
 | B68 | `tests/browser/evidence-cards.spec.js` | Long-source interval qualification, short-source withholding, ledger reconciliation and rewind suppression | #86 |
+| U101 | `tests/unit/strip-bridge.test.js` | The bridge's Strip against a stub field-data-api: one pinned publication per update, every calendar page, stale, failed and refused sources on their own, datasets held not read again, the page's declaration, the states, and the cube-strip@2 check | #193 |
+| U103 | `tests/unit/strip-model.test.js` | The Strip's model: each evidence formula against the same formula written in the test, first-seen and retrospective known-at, calendar revisions and withdrawals, weights and labels, each series' moves given once an answer, and a build after new rows, in order or not, equal to a build from nothing | #193 |
+| U102 | `tests/unit/fake-strip.test.js` | The fake's synthetic strip: the contract's check on every step, closes from the profile's trades, parts that sum to their force, known-at, moves and cancellations, refusals and its slot | #193 |
+| B69 | `tests/browser/strip.spec.js` | The Strip control and address, the band's pixels against the documented formulas, known-at replay, the unconfigured state and the cards' figures | #193 |
 
 ## 10. Migration status per slice
 
