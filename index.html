@@ -38388,7 +38388,7 @@
     STRIP_CERTAINTY = { confirmed: "confirmed", tentative: "tentative", rule_derived: "set by rule", unspecified: "certainty not given", estimate: "an estimate" };
   // A bridge that serves the strip declares it in the page (tools/strip_contract.py); a page without the declaration never asks.
   const STRIP_SERVED = Boolean(document.querySelector('meta[name="explorer-strip"]'));
-  const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), options: [], sources: null, components: null,
+  const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
     attentionParts: null, snapshot: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", busy: null, timer: 0,
     failed: { key: "", at: -Infinity }, horizon: null, hits: [] };
   const stripChoices = () => (PACK.live ? STRIP_CHOICES : ["off"]),
@@ -38478,6 +38478,8 @@
     for (const e of body.events) stripRt.events.set(e.id, e);
     for (const j of body.jumps) stripRt.jumps.set(j.id, { ...j, jump: true, name: "Unscheduled move", short: "Move", family: "news" });
     for (const map of [stripRt.events, stripRt.jumps]) while (map.size > 5000) map.delete(map.keys().next().value);
+    // Each series' measured moves, given once a series: the latest answer's list holds every earlier one's.
+    for (const [series, moves] of Object.entries(body.moves)) stripRt.moves.set(series, moves);
     // The options' samples in time order, each once.
     const options = new Map(stripRt.options.map((o) => [o.at, o]));
     for (const o of body.options) options.set(o.at, o);
@@ -38532,11 +38534,7 @@
   // entry, and once it was cancelled or withdrawn.
   function stripKnown(e, ms) {
     if (e.jump) return e.at + e.window * 60000 < ms ? { at: e.at, end: null, precision: "instant", weight: 1, measured: { move: e.move, bits: e.bits, at: e.at + e.window * 60000 } } : null;
-    let entry = null;
-    for (const s of e.schedule) {
-      if (s.knownAt >= ms) break;
-      entry = s;
-    }
+    const entry = stripEntry(e, ms);
     if (!entry || entry.at === null) return null;
     const moved = e.schedule.some((s) => s.knownAt < ms && s.at !== null && s.at !== entry.at);
     return { ...entry, moved, measured: e.measured && e.measured.at < ms ? e.measured : null };
@@ -38551,14 +38549,24 @@
     }
     return null;
   }
-  // An event's light at a time: its weight as known then, building over the 14 days before it, and held through a date or a range of dates,
-  // since the hour within them is not known.
-  function stripLight(e, ms) {
-    const k = stripKnown(e, ms);
-    if (!k || !k.weight) return 0;
-    if (ms < k.at) return k.at - ms > STRIP_REACH ? 0 : k.weight * Math.exp(-(k.at - ms) / STRIP_TAU);
-    return k.end !== null && ms < k.end ? k.weight : 0;
+  // An event's schedule entry published strictly before a time; null before its first.
+  function stripEntry(e, ms) {
+    let entry = null;
+    for (const s of e.schedule) {
+      if (s.knownAt >= ms) break;
+      entry = s;
+    }
+    return entry;
   }
+  // An event's light at a time, from its entry known then: its weight, building over the 14 days before its time, and held through a date
+  // or a range of dates, since the hour within them is not known.
+  function stripEntryLight(s, ms) {
+    if (!s || s.at === null || !s.weight) return 0;
+    if (ms < s.at) return s.at - ms > STRIP_REACH ? 0 : s.weight * Math.exp(-(s.at - ms) / STRIP_TAU);
+    return s.end !== null && ms < s.end ? s.weight : 0;
+  }
+  // Whether any entry of an event dates it within [a, b], or a jump is there: none other can be labelled or lit there.
+  const stripNear = (e, a, b) => (e.jump ? e.at >= a && e.at <= b : e.schedule.some((s) => s.at !== null && s.at <= b && (s.end ?? s.at) >= a));
   // A seam's strength from its surprise and its size; a reaction measured without DVOL known has no surprise and counts as middling.
   const stripSeamStrength = (m) => 0.22 + 0.78 * Math.sqrt((m.bits === null ? 0.5 : Math.min(1, m.bits / 3)) * Math.min(1, Math.abs(m.move) / 2));
   // A lean's colour: the Lut's positive or negative arm, from the midpoint toward the role, at min(1, |lean|)^0.6. The band paints it raw
@@ -38613,6 +38621,8 @@
       if (run && run[1] === x) run[1] = x + 1;
       else list.push([x, x + 1]);
     };
+    // Neighbouring columns often share a grid time: the colour and alpha are set only when they change.
+    let alpha = -1, fill = "";
     // A column's centre time, never at or past the edge: the last column may straddle it.
     for (let x = first; x < xe; x++) {
       const ms = Math.min(msAt(G.X.invert(x + 0.5)), edge - 1), held = stripHeld(ms), lean = stripLean(held, ms, force), attention = stripAt(held, ms, "attention");
@@ -38620,8 +38630,9 @@
         mark(runs.lean, x);
         continue;
       }
-      ctx.globalAlpha = stripAlpha(attention);
-      ctx.fillStyle = stripColour(lut, lean);
+      const a = stripAlpha(attention), c = stripColour(lut, lean);
+      if (a !== alpha) ctx.globalAlpha = alpha = a;
+      if (c !== fill) ctx.fillStyle = fill = c;
       ctx.fillRect(x, top + 1, 1, h - 2);
       drawn++;
       if (attention === null) mark(runs.attention, x);
@@ -38651,7 +38662,13 @@
       const lo = Math.min(...given.map((s) => s.at)) - STRIP_REACH, hi = Math.max(...given.map((s) => s.end ?? s.at));
       if (hi <= tA || lo >= tB) continue;
       const xa = Math.max(first, Math.floor(G.X(stripBase(lo)))), xb = Math.min(Math.ceil(xe), Math.ceil(G.X(stripBase(hi))) + 1);
-      for (let x = xa; x < xb; x++) lights[x - first] += stripLight(e, Math.min(msAt(G.X.invert(x + 0.5)), edge - 1));
+      // The columns' times ascend, so the entry known at each is found by walking the schedule forward with them.
+      let j = -1;
+      for (let x = xa; x < xb; x++) {
+        const ms = Math.min(msAt(G.X.invert(x + 0.5)), edge - 1);
+        while (j + 1 < e.schedule.length && e.schedule[j + 1].knownAt < ms) j++;
+        lights[x - first] += stripEntryLight(j < 0 ? null : e.schedule[j], ms);
+      }
     }
     stripBeams(lights, first, top, h);
     for (const e of [...events, ...jumps]) {
@@ -38665,7 +38682,9 @@
     // labelled at its middle, over a bracket that spans its dates, once its first date has begun.
     let right = -Infinity;
     const middle = (k) => (k.precision !== "instant" && k.end !== null ? (k.at + k.end) / 2 : k.at);
-    const known = [...events, ...jumps].map((e) => ({ e, k: stripKnown(e, edge) })).filter(({ k }) => k).sort((a, b) => middle(a.k) - middle(b.k));
+    // Only an event dated between the view's start and the edge, as the band holds it, can be labelled; a minute either side for rounding.
+    const near = (e) => stripNear(e, tA - 60000, Math.min(tB, Math.max(tA, edge)) + 60000),
+      known = [...events, ...jumps].filter(near).map((e) => ({ e, k: stripKnown(e, edge) })).filter(({ k }) => k).sort((a, b) => middle(a.k) - middle(b.k));
     for (const { e, k } of known) {
       const start = G.X(stripBase(k.at)), mid = G.X(stripBase(middle(k)));
       if (start > xe || mid < x0) continue;
@@ -38691,7 +38710,8 @@
     const x0 = G.sx + G.sw + PROFILE_PAD, x1 = G.sx + G.sw + G.profile - PROFILE_END, w = x1 - x0, top = G.by + STRIP_LABELS, h = STRIP_BAND;
     if (w < 40) return;
     const scale = Math.log1p(STRIP_HORIZON / STRIP_HOUR), X = (dt) => x0 + (w * Math.log1p(Math.max(0, dt) / STRIP_HOUR)) / scale,
-      ahead = stripEvents().map((e) => ({ e, k: stripKnown(e, edge) })).filter(({ k }) => k && k.at > edge && k.at <= edge + STRIP_HORIZON).sort((a, b) => a.k.at - b.k.at);
+      ahead = stripEvents().filter((e) => stripNear(e, edge, edge + STRIP_HORIZON)).map((e) => ({ e, k: stripKnown(e, edge) }))
+        .filter(({ k }) => k && k.at > edge && k.at <= edge + STRIP_HORIZON).sort((a, b) => a.k.at - b.k.at);
     ctx.save();
     ctx.fillStyle = colors.surface;
     ctx.fillRect(x0, top, w, h);
@@ -38959,7 +38979,8 @@
     } else if (!ahead && e.window && k.precision === "instant")
       parts.push(uiEl("div", "ol-tip-note", edge < k.at + e.window * 60000 ? `Its ${e.window}-minute window is still open.` : "Its move is not measured yet."));
     // The moves after this series' earlier releases, as measured before the edge and before this one.
-    const moves = e.history.moves.filter(([at]) => at < Math.min(edge, k.at)).map(([, move]) => move).sort((a, b) => a - b), n = moves.length;
+    const moves = (stripRt.moves.get(e.series) ?? []).filter(([at]) => at < Math.min(edge, k.at)).map(([, move]) => move).sort((a, b) => a - b),
+      n = moves.length;
     if (e.window && n >= STRIP_SUPPORT)
       parts.push(uiEl("div", "ol-strip-section", `BTC in the ${e.window} minutes after its last ${n} releases`),
         stripQ3([0.05, 0.5, 0.95].map((q) => {
