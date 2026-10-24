@@ -275,7 +275,8 @@ test("tile failure remains terminal while calibration still owes refinement", as
   await controls(page); await page.locator("#ol-diagnostics-start").click();
   allowConsole(/Failed to load resource/); fake.on({ route:"/cube/tile" }).fail({ status:503,body:{ error:"diagnostic tile failure" } });
   await page.evaluate(() => { window.__holdDiagnosticsCalibration = true; });
-  await page.locator("#ol-canvas").focus(); await page.keyboard.press("[");
+  await page.locator("#ol-bounds-start").fill("2026-03-28T00:00");
+  await page.locator('#ol-bounds-form button[type="submit"]').click();
   await expect.poll(() => fake.log().some(e => e.path === "/cube/tile" && e.status === 503)).toBe(true);
   await expect(page.locator("#ol-loading")).toContainText("diagnostic tile failure"); await settledFrames(page);
   const report = await exported(page);
