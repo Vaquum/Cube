@@ -25394,11 +25394,16 @@
         Object.assign(scene, Agent.seal(scene));
       }
     }
-    let selection = { query: { ...scene.query }, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null, poc: last.query.poc === null ? null : (last.query.poc + .5) * PR * 2 ** last.query.m, taker_buy_poc: last.query.bpoc === null ? null : (last.query.bpoc + .5) * PR * 2 ** last.query.m, pocRowWidth: PR * 2 ** last.query.m }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut))), state: last.meas.state };
+    let selection = { query: { ...scene.query }, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null, poc: last.query.poc === null ? null : (last.query.poc + .5) * PR * 2 ** last.query.m, taker_buy_poc: last.query.bpoc === null ? null : (last.query.bpoc + .5) * PR * 2 ** last.query.m, pocRowWidth: PR * 2 ** last.query.m, cell_count: last.meas.summary?.cell_count ?? last.query.cells.filter((z) => z.v > 0 || z.ct > 0).length, cellGrid: { tR: BASE * 2 ** last.query.n, pR: PR * 2 ** last.query.m }, supportVersion: 1 }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut, last.meas.b[1]))), state: last.meas.state };
+    if (last.meas.state === "recorded") {
+      const [t1, t2, p1, p2] = last.meas.b;
+      if (t1 < t2 && p1 < p2) Object.assign(selection.query, { t1, t2, p1, p2 });
+      else { selection.state = "unavailable"; selection.metrics = { tag: "unsupported", value: null, reason: "No whole captured cells cover this requested region" }; }
+    }
     if (["pending", "failed"].includes(last.meas.state)) selection.metrics = { tag: last.meas.state, value: null, reason: last.meas.error ?? "Selection measurement is not ready" };
     if (scope === "cell" && captures.length === 1) {
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
-      selection = { query: { ...scene.query }, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null, poc: numeric("volume.amount") > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, taker_buy_poc: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, pocRowWidth: PR * 2 ** cell.level.m }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
+      selection = { query: { ...scene.query }, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null, poc: numeric("volume.amount") > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, taker_buy_poc: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, pocRowWidth: PR * 2 ** cell.level.m, cell_count: numeric("volume.amount") > 0 ? 1 : 0, cellGrid: { tR: BASE * 2 ** cell.level.n, pR: PR * 2 ** cell.level.m }, supportVersion: 1 }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
     }
     const document = Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null });
     return causal ? Agent.forExport(document) : Agent.validate(document);
@@ -25519,7 +25524,7 @@
     const after = await agentDocument(); committed();
     const difference = Agent.diff(Agent.forExport(before), after);
     activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null }); analysisRevision++;
-    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (difference.unavailableSelectionMetrics?.length ? " POC changes cannot be compared across these captured price rows." : "") + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
+    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (difference.selectionState ? ` Selection availability: ${difference.selectionState.before.state} → ${difference.selectionState.after.state}.` : "") + (difference.unavailableSelectionMetrics?.length ? " Some selection measurements lack comparable recorded support." : "") + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
     scheduleStrip(); scheduleLive(3); return { document: after, ...difference };
   }
   function agentRestorePrevious() {

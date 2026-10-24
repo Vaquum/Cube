@@ -293,8 +293,8 @@ test("price-valued POC changes require compatible measured rows and preserve rea
 test("typed selection availability remains explicit and never becomes a measured zero", () => {
   const before=document();before.selection.metrics={tag:"hidden",value:null,reason:"Unavailable in replay"};
   const after=structuredClone(before);after.selection.metrics={tag:"failed",value:null,reason:"Read failed"};
-  const change=A.diff(A.seal(before),A.seal(after)).changes;
-  assert.equal(change.length,1);assert.equal(change[0].metric,"state");assert.equal(change[0].before.tag,"hidden");assert.equal(change[0].after.tag,"failed");
+  const diff=A.diff(A.seal(before),A.seal(after));
+  assert.deepEqual(diff.changes,[]);assert.equal(diff.selectionState.before.state,"hidden");assert.equal(diff.selectionState.after.state,"failed");
 });
 
 test("MCP refresh rereads the recorded selection through camera and resolution edits", async (t) => {
@@ -331,4 +331,24 @@ test("MCP selection refresh rejects a source revision after the camera read", as
   const result=dispatch("cube_refresh",{document:d}).then(()=>"unexpected success",error=>error.message);
   await gate.arrived();fake.revise({day:"2021-01-01",factor:2});gate.open();
   assert.match(await result,/differ.*pack/);assert.deepEqual(d,before);
+});
+test("selection read availability changes separately from measured quantities",()=>{
+  const measured=document();measured.selection.metrics={volume:400,taker_buy_volume:200,trade_count:3,taker_buy_trade_count:2,poc:25062.5,taker_buy_poc:25062.5,tR:56.25,pR:125,cell_count:2};
+  for(const tag of ["pending","failed","hidden"]){const unavailable=structuredClone(measured);unavailable.selection.metrics={tag,value:null,reason:tag};unavailable.selection.state=tag;
+    for(const [a,b] of [[unavailable,measured],[measured,unavailable]]){const diff=A.diff(A.seal(a),A.seal(b));assert.deepEqual(diff.changes,[]);assert.ok(diff.selectionState);assert.equal(diff.unavailableSelectionMetrics,undefined);}
+    assert.deepEqual(A.diff(A.seal(unavailable),A.seal(unavailable)).changes,[]);
+  }
+});
+test("same-grid occupied cell counts and supported POC removals remain observable",()=>{
+  const before=document();before.selection.metrics={volume:400,trade_count:3,taker_buy_volume:200,taker_buy_trade_count:2,poc:25062.5,taker_buy_poc:25062.5,tR:56.25,pR:125,cell_count:2};
+  const after=structuredClone(before);after.selection.metrics.cell_count=1;
+  assert.deepEqual(A.diff(A.seal(before),A.seal(after)).changes.map(c=>c.metric),["cell_count"]);
+  delete after.selection.metrics.cell_count;delete after.selection.metrics.poc;
+  const removed=A.diff(A.seal(before),A.seal(after));assert.deepEqual(removed.changes.map(c=>c.metric).sort(),["cell_count","poc"]);
+  const legacy=structuredClone(before);legacy.selection.metrics={volume:400,takerBuyVolume:200,trades:3,takerBuyTrades:2,pocRow:200};
+  const incompatible=A.diff(A.seal(legacy),A.seal(before));assert.deepEqual(incompatible.changes,[]);assert.ok(incompatible.unavailableSelectionMetrics.some(x=>x.metric==="cell_count"));
+});
+test("legacy recorded totals without actual bounds are disclosed as unsupported comparisons",()=>{
+  const before=document();before.selection.state="recorded";before.selection.metrics={volume:0,trades:0,takerBuyVolume:0,takerBuyTrades:0,pocRow:null};
+  const after=document(),diff=A.diff(A.seal(before),after);assert.deepEqual(diff.changes.filter(x=>x.selection),[]);assert.equal(diff.selectionState.before.state,"unsupported");
 });

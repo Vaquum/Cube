@@ -29,6 +29,19 @@ test("browser POC widths remain explicit when compared with a finer MCP query",a
   const {dispatch}=await import("../../tools/cube-agent.mjs"),prior=process.env.CUBE_URL;process.env.CUBE_URL=fake.url;
   let fine;try{fine=await dispatch("cube_query",{query:{t1:iso(0),t2:iso(4096),p1:25000,p2:26000,tR:4096*56.25,pR:125}});}finally{if(prior===undefined)delete process.env.CUBE_URL;else process.env.CUBE_URL=prior;}
   const same=await page.evaluate(([a,b])=>{for(const d of [a,b]){d.comparison.captures=[];d.comparison.focus=null;}return window.explorerAgent.diff(window.explorerAgent.seal(a),window.explorerAgent.seal(b));},[doc,fine]);expect(same.changes).toEqual([]);
-  expect(same.unavailableSelectionMetrics.map(x=>x.metric)).toEqual(["poc","taker_buy_poc"]);
-  expect(same.unavailableSelectionMetrics.every(x=>/price row/.test(x.reason))).toBe(true);
+  expect(same.unavailableSelectionMetrics.map(x=>x.metric)).toEqual(["poc","taker_buy_poc","cell_count"]);
+  expect(same.unavailableSelectionMetrics.filter(x=>x.metric!=="cell_count").every(x=>/price row/.test(x.reason))).toBe(true);
+});
+test("historical selection support ends at its rectangle and remains visible after that edge in replay",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  await page.evaluate(()=>window.cubeAgent.configure({selection:[0,2,200,202]}));await probe.waitForReady();
+  const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.measuredThrough).toBe(1609459312500);expect(d.selection.metrics.volume).toBe(450.75);
+  const legacy=await page.evaluate(d=>{d.selection.measuredThrough=1609459500000;return window.explorerAgent.seal(d);},d);
+  const {dispatch}=await import("../../tools/cube-agent.mjs");const replay=await dispatch("cube_replay",{document:legacy,anchor:3});expect(replay.selection.metrics.volume).toBe(450.75);expect(replay.selection.state).not.toBe("hidden");
+});
+test("empty recorded support remains unavailable instead of becoming a false source revision",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  await page.evaluate(async()=>{const d=await window.cubeAgent.export();d.snapshot.sources=d.snapshot.sources.filter(s=>s.id==="overview");d.snapshot.live=false;d.snapshot.cache={};d.scene.view.selection=[0,6,201,203];d.scene.query={...d.scene.query,t1:0,t2:6,p1:201,p2:203};d.scene=window.explorerAgent.seal(d.scene);await window.cubeAgent.apply(window.explorerAgent.seal(d));});
+  const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.metrics.tag).toBe("unsupported");expect(d.selection.metrics.value).toBeNull();
+  const result=await refresh(fake,d);expect(result.changes).toEqual([]);expect(result.selectionState.before.state).toBe("unsupported");expect(result.selectionState.after.values.volume).toBe(327.375);
 });

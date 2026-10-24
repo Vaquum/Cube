@@ -112,8 +112,9 @@
     return Math.min(d.scene.observation.cutoffMs, (geometry.origin + position * geometry.baseSeconds) * 1000);
   }
   function forExport(document) {
-    const d = validate(document), edge = replayEdge(d);
-    if (edge === null) return d;
+    const d = validate(document), edge = replayEdge(d), geometry = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 };
+    if (d.selection) { const end = Math.round((geometry.origin + d.selection.query.t2 * geometry.baseSeconds) * 1000); if (Number.isFinite(end)) d.selection.measuredThrough = Math.min(d.selection.measuredThrough, end); }
+    if (edge === null) return seal(d);
     if (d.comparison) {
       d.comparison.captures = d.comparison.captures.map((cell) => redact(cell, edge));
       if (d.comparison.poc && Math.max(d.comparison.poc.supportEnd ?? Infinity, d.comparison.poc.knownThrough ?? Infinity) > edge) d.comparison.poc = null;
@@ -164,20 +165,41 @@
     // and provenance too. Compare quantities in common units, not packet members.
     const am = a.selection?.metrics || {}, bm = b.selection?.metrics || {};
     const quantities = { volume: "volume", taker_buy_volume: "takerBuyVolume", trade_count: "trades", taker_buy_trade_count: "takerBuyTrades" };
+    const quantity = (m, key, alias) => (Object.hasOwn(m, key) ? m[key] : m[alias]) ?? null;
+    const observation = (s) => {
+      if (!s) return { state: "absent" };
+      const m = s.metrics;
+      if (m.tag) return { state: m.tag, reason: m.reason ?? "" };
+      if (s.state === "recorded" && m.supportVersion !== 1) return { state: "unsupported", reason: "Legacy recorded selection lacks its actual observed bounds" };
+      const values = Object.fromEntries(Object.entries(quantities).map(([key, alias]) => [key, quantity(m, key, alias)]));
+      for (const key of ["poc", "taker_buy_poc", "cell_count"]) if (Object.hasOwn(m, key)) values[key] = m[key];
+      return { state: "measured", values };
+    };
+    const priorObservation = observation(a.selection), nextObservation = observation(b.selection);
+    if (priorObservation.state !== "measured" || nextObservation.state !== "measured") {
+      const selectionState = E.hash.canonical(priorObservation) === E.hash.canonical(nextObservation) ? null : { before: priorObservation, after: nextObservation };
+      const unsupported = [priorObservation, nextObservation].find((r) => r.state === "unsupported");
+      return { previous: a.id, current: b.id, changes, ...(selectionState ? { selectionState } : {}), ...(unsupported ? { unavailableSelectionMetrics: [{ metric: "selection", reason: unsupported.reason }] } : {}) };
+    }
     for (const [metric, alias] of Object.entries(quantities)) {
-      const prior = (Object.hasOwn(am, metric) ? am[metric] : am[alias]) ?? null, value = (Object.hasOwn(bm, metric) ? bm[metric] : bm[alias]) ?? null;
+      const prior = quantity(am, metric, alias), value = quantity(bm, metric, alias);
       if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
     }
-    const priorState = am.tag ? am : null, state = bm.tag ? bm : null;
-    if (E.hash.canonical(priorState) !== E.hash.canonical(state)) changes.push({ selection: true, metric: "state", before: priorState, after: state });
     const unavailableSelectionMetrics = [];
     for (const [metric, amount, alias] of [["poc", "volume", "volume"], ["taker_buy_poc", "taker_buy_volume", "takerBuyVolume"]]) {
-      const point = (m) => Object.hasOwn(m, metric) ? m[metric] : (m[amount] ?? m[alias]) === 0 ? null : undefined;
+      const point = (m) => Object.hasOwn(m, metric) ? m[metric] : Object.hasOwn(m, "pocRowWidth") || Object.hasOwn(m, "pR") || (m[amount] ?? m[alias]) === 0 ? null : undefined;
       const prior = point(am), value = point(bm), aw = am.pocRowWidth ?? am.pR, bw = bm.pocRowWidth ?? bm.pR;
       if (prior === undefined && value === undefined && !Object.hasOwn(am, "pocRow") && !Object.hasOwn(bm, "pocRow")) continue;
       if (prior === undefined || value === undefined || (Number.isFinite(prior) && Number.isFinite(value) && (!(aw > 0) || aw !== bw))) {
         unavailableSelectionMetrics.push({ metric, reason: "POC comparison requires known matching measured price row widths and price-valued centres" });
       } else if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
+    }
+    const countSupported = (m) => Object.hasOwn(m, "cell_count") || m.cellGrid || Number.isFinite(m.tR) && Number.isFinite(m.pR);
+    if (countSupported(am) || countSupported(bm)) {
+      const grid = (m) => m.cellGrid ?? (Number.isFinite(m.tR) && Number.isFinite(m.pR) ? { tR: m.tR, pR: m.pR } : null), ag = grid(am), bg = grid(bm);
+      const sameRegion = ["t1", "t2", "p1", "p2"].every((key) => a.selection.query[key] === b.selection.query[key]);
+      if (!countSupported(am) || !countSupported(bm) || !ag || !bg || !sameRegion || E.hash.canonical(ag) !== E.hash.canonical(bg)) unavailableSelectionMetrics.push({ metric: "cell_count", reason: "Occupied-cell counts require matching observed regions and measured time/price grids" });
+      else if ((am.cell_count ?? null) !== (bm.cell_count ?? null)) changes.push({ selection: true, metric: "cell_count", before: am.cell_count ?? null, after: bm.cell_count ?? null });
     }
     return { previous: a.id, current: b.id, changes, ...(unavailableSelectionMetrics.length ? { unavailableSelectionMetrics } : {}) };
   }
