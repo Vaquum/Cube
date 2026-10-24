@@ -243,8 +243,9 @@ test("rewinding past a previously measured cell hides every composition figure",
   await expect(page.locator('#ol-tip dd[data-field="imbalance"]')).toHaveAttribute("data-canonical", "-0.2");
   await page.evaluate(hash => { location.hash = hash; }, VIEW + "&replay=1&at=2021-01-01T00:12Z");
   await probe.waitForReady(); await atCell(page, 15);
-  await expect(page.locator("#ol-tip")).toContainText("Hidden in replay");
-  await expect(page.locator("#ol-tip .ol-cell-stat")).toHaveCount(0);
+  await expect(page.locator("#ol-tip")).toBeHidden();
+  await expect(page.locator("#ol-tip")).toHaveAttribute("data-readout", "");
   await page.keyboard.press("e");
+  await expect(page.locator("#ol-inspect-readout")).toContainText("The cursor is outside the view.");
   await expect(page.locator("#ol-inspect-readout .ol-cell-stat")).toHaveCount(0);
 });
