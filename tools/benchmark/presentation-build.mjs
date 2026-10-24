@@ -19,12 +19,15 @@ export function instrument(html) {
   }
   return html;
 }
-export function presentationBuild(sha, label) {
+export function presentationBuild(sha, label, pullRequest = '') {
   const build = materialise(sha, label), source = fs.readFileSync(path.join(build.dir, 'index.html'), 'utf8');
   let html = instrument(source);
   const committedAt = execFileSync('git', ['show', '-s', '--format=%cI', build.sha], { encoding: 'utf8' }).trim();
-  for (const [name, value] of [['explorer-commit', build.sha], ['explorer-committed-at', committedAt]])
-    html = html.replace(new RegExp('(<meta name="' + name + '" content=")[^"]*(">)'), (_, a, b) => a + value + b);
+  for (const [name, value] of [['explorer-commit', build.sha], ['explorer-committed-at', committedAt], ['explorer-pr', pullRequest]]) {
+    const marker = '<meta name="' + name + '" content="">';
+    if (html.split(marker).length !== 2) throw Error('Missing or duplicate build metadata: ' + name);
+    html = html.replace(marker, '<meta name="' + name + '" content="' + value + '">');
+  }
   fs.writeFileSync(path.join(build.dir, 'index.html'), html);
   return { ...build, instrumentedIndexSha256: hash(html), committedAt,
     modification: 'Exact committed index/vendor with deployment-style build metadata and five test-only motion hooks. Independent DOM observer supplied through the test context; no production source is modified.' };

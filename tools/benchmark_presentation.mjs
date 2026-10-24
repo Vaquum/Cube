@@ -22,7 +22,8 @@ fs.mkdirSync(out, { recursive: true });
 const instrumentation = ['tools/benchmark/presentation.v1.json', 'tools/benchmark/presentation-probe.js',
   'tools/benchmark/presentation-build.mjs', 'tools/benchmark/presentation-cases.mjs', 'tools/benchmark/presentation-metrics.cjs', 'tools/benchmark_presentation.mjs'];
 const hashes = Object.fromEntries(instrumentation.map(file => [file, hash(fs.readFileSync(file))]));
-const sources = [protocol.baseline, head].map((sha, i) => presentationBuild(sha, 'presentation-' + i));
+const sources = [protocol.baseline, head].map((sha, i) => presentationBuild(sha, 'presentation-' + i,
+  'https://github.com/Vaquum/Market-State-Cube-Explorer/pull/' + (i ? process.env.PRESENTATION_PR_NUMBER : '218')));
 const sourceHash = (sha, file) => hash(execFileSync('git', ['show', sha + ':' + file], { maxBuffer: 64 * 1024 * 1024 }));
 const frozen = protocol.frozenFiles.map(file => ({ file, baseline: sourceHash(protocol.baseline, file), candidate: sourceHash(head, file) }));
 if (frozen.some(file => file.baseline !== file.candidate)) throw Error('A frozen movement/diagnostics/guard file changed.');
