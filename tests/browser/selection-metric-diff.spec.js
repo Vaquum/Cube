@@ -1,0 +1,34 @@
+"use strict";
+const {test,expect}=require("./fixtures.js");
+const fixture=require("../fixtures/regressions/clipped-capture-support/cases.json");
+const VIEW="#t=2021-01-01T00:00Z~2021-01-01T00:06Z&p=24800~25500&r=0,0&auto=0&vis=2&lines=";
+async function refresh(fake,document) {
+  const {dispatch}=await import("../../tools/cube-agent.mjs"),prior=process.env.CUBE_URL;process.env.CUBE_URL=fake.url;
+  try{return await dispatch("cube_refresh",{document});}finally{if(prior===undefined)delete process.env.CUBE_URL;else process.env.CUBE_URL=prior;}
+}
+test("unchanged browser evidence has no MCP metric changes, while a real revision retains canonical changes",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  const doc=await page.evaluate(()=>window.cubeAgent.export()),same=await refresh(fake,doc);
+  expect(same.changes).toEqual([]);expect(same.unavailableSelectionMetrics??[]).toEqual([]);
+  fake.revise({day:"2021-01-01",factor:2});const revised=await refresh(fake,doc);
+  expect(revised.changes.map(c=>({metric:c.metric,before:c.before,after:c.after}))).toEqual([
+    {metric:"volume",before:953.375,after:1906.75},{metric:"taker_buy_volume",before:528.125,after:1056.25}
+  ]);
+});
+test("legacy row-valued POC is disclosed as incomparable while retained amounts remain comparable",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  const doc=await page.evaluate(()=>window.cubeAgent.export());for(const key of ["poc","taker_buy_poc","pocRowWidth"])delete doc.selection.metrics[key];
+  const sealed=await page.evaluate(d=>window.explorerAgent.seal(d),doc),same=await refresh(fake,sealed);
+  expect(same.changes).toEqual([]);expect(same.unavailableSelectionMetrics.map(x=>x.metric)).toEqual(["poc","taker_buy_poc"]);
+});
+test("browser POC widths remain explicit when compared with a finer MCP query",async({page,fakeFor,probe})=>{
+  const EPOCH=1609459200000,BASE=56250,iso=c=>new Date(EPOCH+c*BASE).toISOString();
+  const fake=await fakeFor({cutoffIso:iso(fixture.cutoffBase),trades:fixture.trades.map(({base,offsetMs,...t})=>({...t,t_ms:base*BASE+offsetMs}))});
+  await page.goto(fake.url+`/#t=${iso(0)}~${iso(4096)}&p=25000~26000&r=12,3&auto=0&vis=2&lines=`);await probe.waitForReady();
+  const doc=await page.evaluate(()=>window.cubeAgent.export());expect(doc.selection.metrics.pocRowWidth).toBe(1000);
+  const {dispatch}=await import("../../tools/cube-agent.mjs"),prior=process.env.CUBE_URL;process.env.CUBE_URL=fake.url;
+  let fine;try{fine=await dispatch("cube_query",{query:{t1:iso(0),t2:iso(4096),p1:25000,p2:26000,tR:4096*56.25,pR:125}});}finally{if(prior===undefined)delete process.env.CUBE_URL;else process.env.CUBE_URL=prior;}
+  const same=await page.evaluate(([a,b])=>{for(const d of [a,b]){d.comparison.captures=[];d.comparison.focus=null;}return window.explorerAgent.diff(window.explorerAgent.seal(a),window.explorerAgent.seal(b));},[doc,fine]);expect(same.changes).toEqual([]);
+  expect(same.unavailableSelectionMetrics.map(x=>x.metric)).toEqual(["poc","taker_buy_poc"]);
+  expect(same.unavailableSelectionMetrics.every(x=>/price row/.test(x.reason))).toBe(true);
+});
