@@ -19,7 +19,7 @@ export const tools = [
   ["cube_replay", "Set replay at an absolute base-column position", { document: documentProperty, anchor: { type: "number" }, enabled: { type: "boolean" } }],
   ["cube_annotate", "Add a labeled trend line with exact UTC milliseconds and integer price cents", { document: documentProperty, line: { type: "object" } }],
   ["cube_share", "Return a complete investigation link and Markdown evidence links; store large documents durably", { document: documentProperty }],
-  ["cube_refresh", "Explicitly reread a captured query and report metric changes", { document: documentProperty }],
+  ["cube_refresh", "Explicitly reread the recorded selection and captured cells at their original bounds", { document: documentProperty }],
 ].map(([name, description, properties]) => ({ name, description, inputSchema: { ...object, properties, required: Object.keys(properties).filter((key) => !["basis", "reference", "enabled"].includes(key)) }, annotations: { readOnlyHint: name !== "cube_share", destructiveHint: false, idempotentHint: name !== "cube_query" && name !== "cube_refresh", openWorldHint: ["cube_query", "cube_share", "cube_refresh"].includes(name) } }));
 async function documentOf(value) { return typeof value === "string" ? value.startsWith("cube-analysis:") ? A.decode(value, codec) : A.parse(value) : A.validate(value); }
 function baseUrl() {
@@ -39,8 +39,8 @@ async function request(path, options = {}) {
   if (!response.ok) throw Error(body.detail || body.error || `Cube returned HTTP ${response.status}`);
   return body;
 }
-function queryOf(d) {
-  const q = d.scene.query, f = d.snapshot;
+function queryOf(d, q = d.scene.query) {
+  const f = d.snapshot;
   if (!f) throw Error("Refreshing requires captured query geometry");
   const iso = (x) => new Date((f.origin + x * f.baseSeconds) * 1000).toISOString();
   return { t1: iso(q.t1), t2: iso(q.t2), p1: q.p1 * f.basePrice, p2: q.p2 * f.basePrice, tR: f.baseSeconds * 2 ** q.tR, pR: f.basePrice * 2 ** q.pR };
@@ -58,6 +58,12 @@ export async function dispatch(name, args = {}) {
   if (name === "cube_annotate") return A.forExport(A.annotate(document, args.line));
   if (name === "cube_refresh") {
     const fresh = A.fromQuery(await request("/cube/agent/query?proto=2&" + new URLSearchParams(queryOf(document))));
+    if (document.selection) {
+      const token = fresh.snapshot.token, answer = await request("/cube/agent/query?proto=2&" + new URLSearchParams({ ...queryOf(document, document.selection.query), pack: token }));
+      if (answer.frame.token !== token) throw Error("Source changed during refresh; previous evidence retained");
+      fresh.selection = A.fromQuery(answer).selection;
+      fresh.snapshot.cutoffMs = Math.max(fresh.snapshot.cutoffMs, answer.frame.cutoffMs);
+    } else fresh.selection = null;
     if (document.comparison?.captures.length) {
       const captures = [], token = fresh.snapshot.token;
       for (const cell of document.comparison.captures) {

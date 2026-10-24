@@ -260,3 +260,39 @@ test("production agent route uses exact six-parameter rounding and dyadic bounds
   const script = `import sys\nsys.path.insert(0,'tools')\nimport cube_bridge as c\ncurrent={'cutoffBase':2.1}\na={'t1':['2021-01-01T00:00:00Z'],'t2':['2021-01-01T00:02:00Z'],'p1':['25000'],'p2':['25250'],'tR':['56.25'],'pR':['125']}\nassert c.agent_rectangle(a,current)=={'n':0,'m':0,'b0':0,'b1':3,'r0':200,'r1':202}\nfor field,value in [('tR','60'),('pR','100'),('p1','NaN')]:\n b={**a,field:[value]}\n try:c.agent_rectangle(b,current);raise AssertionError('invalid accepted')\n except ValueError:pass\nprint('agent route verified')\n`;
   const run = spawnSync("python3", ["-c", script], { encoding: "utf8" }); assert.equal(run.status, 0, run.stderr); assert.match(run.stdout, /verified/);
 });
+
+test("MCP refresh rereads the recorded selection through camera and resolution edits", async (t) => {
+  const {startFake}=require("../support/cube-fake.js"),{dispatch}=await import("../../tools/cube-agent.mjs");
+  const fake=await startFake({profile:"micro:mixed"});t.after(()=>fake.close());
+  const prior=process.env.CUBE_URL;process.env.CUBE_URL=fake.url;t.after(()=>{if(prior===undefined)delete process.env.CUBE_URL;else process.env.CUBE_URL=prior;});
+  const original=await dispatch("cube_query",{query:{t1:"2021-01-01T00:00:00Z",t2:"2021-01-01T00:01:52.500Z",p1:25000,p2:25250,tR:56.25,pR:125}});
+  for(const patch of [{viewport:[0,1,200,201]},{viewport:[0,4,200,204]},{resolution:[1,1]}]) {
+    const edited=A.configure(original,patch),offset=fake.log().length,result=await dispatch("cube_refresh",{document:edited});
+    assert.deepEqual(result.document.selection.query,original.selection.query);
+    assert.equal(result.document.selection.metrics.volume,450.75);assert.equal(result.document.selection.metrics.trade_count,7);
+    assert.deepEqual(result.changes,[]);
+    const reads=fake.log().slice(offset).filter(r=>r.path==="/cube/agent/query");
+    assert.ok(reads.slice(1).every(r=>r.packToken===result.document.snapshot.token));
+  }
+  const empty=A.seal({...original,comparison:null,selection:null,focus:null});
+  const noSelection=await dispatch("cube_refresh",{document:empty});assert.equal(noSelection.document.selection,null);assert.deepEqual(noSelection.changes,[]);
+  const replay=A.configure(A.seal({...original,comparison:null,focus:null}),{viewport:[0,1,200,201],replay:true,anchor:2});
+  const refreshed=await dispatch("cube_refresh",{document:replay});
+  assert.equal(refreshed.document.selection.metrics.volume,450.75);assert.equal(refreshed.document.selection.state,"exact");
+  assert.ok(refreshed.document.scene.observation.cutoffMs>=refreshed.document.selection.measuredThrough);
+  fake.revise({day:"2021-01-01",factor:2});
+  const revised=await dispatch("cube_refresh",{document:A.configure(original,{viewport:[0,1,200,201]})});
+  assert.equal(revised.document.selection.metrics.volume,901.5);assert.equal(revised.document.selection.metrics.taker_buy_volume,401);
+  assert.ok(!revised.changes.some(c=>c.selection&&["t1","t2","p1","p2","tR","pR","cell_count"].includes(c.metric)));
+});
+
+test("MCP selection refresh rejects a source revision after the camera read", async (t) => {
+  const {startFake}=require("../support/cube-fake.js"),{dispatch}=await import("../../tools/cube-agent.mjs");
+  const fake=await startFake({profile:"micro:mixed"});t.after(()=>fake.close());
+  const prior=process.env.CUBE_URL;process.env.CUBE_URL=fake.url;t.after(()=>{if(prior===undefined)delete process.env.CUBE_URL;else process.env.CUBE_URL=prior;});
+  const original=await dispatch("cube_query",{query:{t1:"2021-01-01T00:00:00Z",t2:"2021-01-01T00:01:52.500Z",p1:25000,p2:25250,tR:56.25,pR:125}});
+  const d=A.seal({...original,comparison:null,focus:null}),before=structuredClone(d),gate=fake.on({route:"/cube/agent/query",after:1,times:1}).gate();
+  const result=dispatch("cube_refresh",{document:d}).then(()=>"unexpected success",error=>error.message);
+  await gate.arrived();fake.revise({day:"2021-01-01",factor:2});gate.open();
+  assert.match(await result,/differ.*pack/);assert.deepEqual(d,before);
+});
