@@ -361,7 +361,7 @@ test("a range of dates with no hour is labelled at its middle over a bracket of 
   expect(Math.abs(bracket.path[1][0] - X(end))).toBeLessThan(1);
   // Its light holds through its dates at its full weight, confined to the two-pixel rail through the band's middle.
   const top = g.by + LABELS, mid = Math.floor(X((start + end) / 2));
-  expect(frame.rects.some((r) => r.w === 1 && r.x === mid && r.fill !== "pattern" && r.h === 2 && r.y === top + BAND / 2 - 1)).toBe(true);
+  expect(frame.rects.some((r) => r.w === 1 && r.x === mid && r.fill !== "pattern" && r.h === 2 && r.y === top + BAND / 2 - 1 && Math.abs(r.alpha - 0.85) < 1e-9)).toBe(true);
 });
 
 test("the band's own card names each source's freshness, a stale one as stale", async ({ page, fakeFor, probe }) => {
