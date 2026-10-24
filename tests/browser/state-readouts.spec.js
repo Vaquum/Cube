@@ -34,13 +34,14 @@ async function open({ freshContext, fakeFor }, { profile, level, mode, prepare =
   return { page, fake, probe, draw: await lastDraw(page), colours: await pageColours(page) };
 }
 // The tooltip of the cell (c, r) at the level, hovered at its centre, as one line of text.
-async function tipOf(page, draw, level, c, r) {
+async function tipOf(page, draw, level, c, r, visible = true) {
   const box = boxOf(draw.plot, rectOf(VIEW), level[0], level[1], c, r),
     cb = await page.locator("#ol-canvas").boundingBox();
   await page.mouse.move(cb.x + 3, cb.y + cb.height - 3);
   await page.mouse.move(cb.x + (box.x0 + box.x1) / 2, cb.y + (box.y0 + box.y1) / 2);
   const tip = page.locator("#ol-tip");
-  await expect(tip).toBeVisible();
+  if (visible) await expect(tip).toBeVisible();
+  else await expect(tip).toBeHidden();
   return { tip, box, ops: opsOfBox(draw, box) };
 }
 
@@ -71,11 +72,13 @@ test.describe("B38 a cell in each state says what it is and is drawn as what it 
     await expect(tip, "no ratio is shown while the parent waits").not.toContainText(/Of its parent\s*[0-9]/);
   });
 
-  test("a cell with no trades in a provisional range (provisional with zero): both facts are said, and neither is the other", async ({ freshContext, fakeFor }) => {
+  test("empty provisional space has no hover card; Inspect still explains the empty cell and provisional source", async ({ freshContext, fakeFor }) => {
     const { page, draw, colours } = await open({ freshContext, fakeFor }, { profile: "micro:paths", level: [0, 0], mode: "volume" });
-    const { tip, ops } = await tipOf(page, draw, [0, 0], 0, 203);
-    await expect(tip).toContainText(/No trades in this cell/);
-    await expect(tip).toContainText(/Source\s*provisional minutes/);
+    const { ops } = await tipOf(page, draw, [0, 0], 0, 203, false);
+    await page.keyboard.press("e");
+    const readout = page.locator("#ol-inspect-readout");
+    await expect(readout).toContainText(/No trades in this cell/);
+    await expect(readout).toContainText(/Source\s*provisional minutes/);
     // drawn as an empty cell, not as a value of the provisional kind: no quantitative fill, no outline of an occupied one
     expect(ops.filter((o) => o.op === "fillRect" && colours.unsigned.includes(o.style)), "no ramp fill for a cell with no trades").toEqual([]);
     // (the provisional boundary is its own dashed line where the archive ends, with its key: B30 row 13)
@@ -90,7 +93,7 @@ test.describe("B38 the states of a standard live view: archive, provisional, ope
     await page.goto(`${fake.url}/${hash}`);
     await probe.waitForReady({ timeout: 30000 });
   }
-  async function hoverAt(page, hour, price) {
+  async function hoverAt(page, hour, price, visible = true) {
     const L = await page.locator("#ol-canvas").evaluate((el) => el.dataset.layout.split(",").map(Number)),
       cb = await page.locator("#ol-canvas").boundingBox();
     const a = Date.parse("2026-09-23T12:00Z"),
@@ -100,7 +103,8 @@ test.describe("B38 the states of a standard live view: archive, provisional, ope
     await page.mouse.move(cb.x + 3, cb.y + cb.height - 3);
     await page.mouse.move(cb.x + x, cb.y + y);
     const tip = page.locator("#ol-tip");
-    await expect(tip).toBeVisible();
+    if (visible) await expect(tip).toBeVisible();
+    else await expect(tip).toBeHidden();
     return tip;
   }
 
@@ -132,12 +136,19 @@ test.describe("B38 the states of a standard live view: archive, provisional, ope
     await expect(tip).toContainText(/Position on scale[0-9.]+%/);
   });
 
-  test("hidden by replay or past the data (row 16): the future is named, not filled: 'Hidden in replay' under replay, 'After the data cutoff' live", async ({ page, probe, fakeFor }) => {
+  test("future space has no hover card; Inspect keeps its outside-view state", async ({ page, probe, fakeFor }) => {
     const fake = await fakeFor("standard");
     await openLive(page, fake, probe, `${live}&replay=1&at=2026-09-24T06:00Z`);
-    await expect(await hoverAt(page, "2026-09-24T10:30Z", 22750)).toContainText(/Hidden in replay/);
+    await hoverAt(page, "2026-09-24T10:30Z", 22750, false);
+    await page.keyboard.press("e");
+    await expect(page.locator("#ol-inspect-readout")).toContainText("The cursor is outside the view.");
+    await expect(page.locator("#ol-inspect-readout .ol-cell-stat")).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await openLive(page, fake, probe, live);
-    await expect(await hoverAt(page, "2026-09-24T12:20Z", 22750)).toContainText(/After the data cutoff/);
+    await hoverAt(page, "2026-09-24T12:20Z", 22750, false);
+    await page.keyboard.press("e");
+    await expect(page.locator("#ol-inspect-readout")).toContainText("The cursor is outside the view.");
+    await expect(page.locator("#ol-inspect-readout .ol-cell-stat")).toHaveCount(0);
   });
 });
 

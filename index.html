@@ -28812,6 +28812,14 @@
         open = !S.replay && c * ts < CUT && (c + 1) * ts > CUT,
         head = `${range(c * ts, (c + 1) * ts)} UTC · ${dur(ts * BASE)}`,
         coarse = renderN() > S.n || renderM() > S.m ? ["Detail", "coarser than requested"] : null;
+      // Pointer cards belong to drawn cells; Inspect can still explain an empty location.
+      if (!p.inspect && (unavailable || (!z && !(movementMode() && last.mv?.shown?.map.has(cellKey(c, r)))))) {
+        tip.hidden = true;
+        syncRowHover(null);
+        tipMarker(null);
+        if (redraw) requestDraw();
+        return;
+      }
       // Cells after the last archived day come from provisional minutes, which
       // the day's archive may still revise.
       const provisional =
