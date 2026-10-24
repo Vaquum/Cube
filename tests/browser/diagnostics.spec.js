@@ -282,3 +282,22 @@ test("tile failure remains terminal while calibration still owes refinement", as
   const report = await exported(page);
   expect(report.events.some(e => ["draw","readiness"].includes(e.type) && e.error?.some(message => message.includes("diagnostic tile failure")) && e.status === "terminal-fallback")).toBe(true);
 });
+test("recording controls have a reference Show route, help, names and native keyboard order", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini"); await page.goto(fake.url + "/#w=24h&r=4,0"); await probe.waitForReady();
+  await page.locator("#ol-reference-toggle").click(); await page.locator("#ol-reference-search").fill("Performance recording");
+  await page.locator("#ol-reference-topic").selectOption("query");
+  await page.getByRole("button",{ name:"Show performance recording",exact:true }).click();
+  await expect(page.locator("#ol-diagnostics summary")).toBeVisible();
+  await expect(page.locator("#ol-reference-status")).toContainText("Highlighted: performance recording");
+  await page.keyboard.press("Escape"); await page.locator("#ol-reference-close").click();
+  await controls(page); await page.locator("#ol-diagnostics summary").focus();
+  const ids = ["start","stop","export","reload"];
+  for (const id of ids) { await page.keyboard.press("Tab"); await expect(page.locator("#ol-diagnostics-" + id)).toBeFocused(); }
+  for (const [id, text] of [["start","Start local performance recording"],["stop","Stop collecting measurements"],["export","download the local timings"],["reload","Arm one recording"]]) {
+    const control = page.locator("#ol-diagnostics-" + id); await expect(control).toHaveAccessibleName(/record/i);
+    await control.hover(); await expect(page.locator("#ol-help-tooltip")).toContainText(text);
+  }
+  await page.locator("#ol-diagnostics-start").focus(); await page.keyboard.press("Enter"); await expect(page.locator("#ol-diagnostics-status")).toContainText("Recording");
+  await page.keyboard.press("Tab"); await page.keyboard.press("Space"); await expect(page.locator("#ol-diagnostics-status")).toContainText("Stopped");
+  await exported(page); await expect(page.getByRole("textbox",{ name:"Performance recording JSON",exact:true })).toHaveAttribute("readonly", "");
+});
