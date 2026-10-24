@@ -142,12 +142,14 @@ test("replay packet JSON and comparison ordering cannot leak future captured amo
   assert.equal(d.comparison.captures[1].metrics["volume.amount"].value, 100);
 });
 test("replay retains only completed developing POC session reads", () => {
-  const d = document(), block = d.snapshot.sources[0];
-  d.snapshot.cache.developingPocReads = { cubeMap: [["before", { ...block, b1: 1, cells: block.cells.slice(0, 1) }], ["after", block]] };
-  const original = A.validate(A.seal(d)), replay = A.forExport(A.configure(original, { replay: true, anchor: 1 }));
-  assert.deepEqual(replay.snapshot.cache.developingPocReads.cubeMap.map(([key]) => key), ["before"]);
+  const d = document(); d.snapshot.generation = 0; d.snapshot.cutoffMs = epoch + 32 * 56250; d.scene.observation.cutoffMs = d.snapshot.cutoffMs; d.scene = A.seal(d.scene);
+  const block = (end) => ({ id: `developing-poc|0|0|${end}`, n: 4, m: 0, b0: 0, b1: end, col0: 0, col1: end / 16, cells: [{ c: 0, r: 200, v: 300, bv: 100, ct: 2, bt: 1 }] });
+  d.snapshot.cache.developingPocReads = { cubeMap: [["developing-poc|0|0|16", block(16)], ["developing-poc|0|0|32", block(32)]] };
+  const original = A.validate(A.seal(d)), replay = A.forExport(A.configure(original, { replay: true, anchor: 16 }));
+  assert.deepEqual(replay.snapshot.cache.developingPocReads.cubeMap.map(([key]) => key), ["developing-poc|0|0|16"]);
   assert.equal(original.snapshot.cache.developingPocReads.cubeMap.length, 2);
 });
+
 test("a fenced snippet in source text cannot replace the final analysis JSON block", () => {
   const d = document(); d.comparison.captures[0].source += '\n```json\n{"unrelated":true}\n```';
   const sealed = A.seal(d); assert.deepEqual(A.parse(A.text(sealed)), sealed);
