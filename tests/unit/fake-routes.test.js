@@ -45,6 +45,20 @@ async function get(fake, pathAndQuery, headers = {}) {
 
 const qs = (params) => new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
 const cube = (fake, route, params, token) => get(fake, `/cube/${route}?${qs({ ...params, pack: token ?? fake.info().packToken, proto: 2 })}`);
+it("agent queries enforce the production 20,000-cell limit independently of the column limit", async () => {
+  const {dense:{columns,rows,firstRow}} = require("../fixtures/regressions/scattered-refresh/cases.json");
+  const trades = Array.from({length:columns},(_,c)=>Array.from({length:rows},(_,r)=>({t_ms:c*56250+1000+r,price:(firstRow+r)*12500,qty:1000000,takerBuy:true}))).flat();
+  const iso = c=>new Date(1609459200000+c*56250).toISOString();
+  const fake = await startFake({profile:{trades,cutoffIso:iso(columns+1)}});
+  try {
+    const query = end=>"/cube/agent/query?"+qs({proto:2,t1:iso(0),t2:iso(end),p1:firstRow*125,p2:(firstRow+rows)*125,tR:56.25,pR:125});
+    const boundary = await get(fake,query(2500));
+    assert.equal(boundary.status,200);assert.equal(boundary.json.cells.length,20000);
+    const overflow = await get(fake,query(2501));
+    assert.equal(overflow.status,400);
+    assert.equal(overflow.json.error,"Agent query exceeds 20,000 cells; narrow the region or use coarser resolution");
+  } finally { await fake.close(); }
+});
 const decodeOf = (block) => {
   // Independent of wire.decode: node:zlib and a DataView.
   const bytes = zlib.gunzipSync(Buffer.from(block.gzip_base64, "base64"));
