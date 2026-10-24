@@ -362,3 +362,8 @@ test("legacy copied-cell refresh recovers observed prices only for the matching 
   d.selection.query.t1=0;assert.deepEqual(A.selectionQuery(d),d.selection.query);
   assert.equal(A.selectionQuery({...d,selection:null}),null);
 });
+
+test("a future captured cell cannot borrow the current scene query end to bypass replay redaction",()=>{
+  const d=document();d.scene.view.replay=true;d.scene.view.anchor=1;d.scene=A.seal(d.scene);d.selection.state="captured-cell";d.selection.query={...d.scene.query,t2:1};d.selection.measuredThrough=epoch+112500;
+  const result=A.forExport(A.seal(d));assert.equal(result.selection.state,"hidden");assert.deepEqual(result.selection.metrics,{tag:"hidden",value:null,reason:"Unavailable in replay"});assert.equal(d.selection.measuredThrough,epoch+112500);
+});

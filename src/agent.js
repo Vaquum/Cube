@@ -116,7 +116,7 @@
     if (d.selection) {
       d.selection.query = selectionQuery(d);
       const end = Math.round((geometry.origin + d.selection.query.t2 * geometry.baseSeconds) * 1000);
-      if (Number.isFinite(end)) d.selection.measuredThrough = Math.min(d.selection.measuredThrough, end);
+      if (d.selection.state !== "captured-cell" && Number.isFinite(end)) d.selection.measuredThrough = Math.min(d.selection.measuredThrough, end);
     }
     if (edge === null) return seal(d);
     if (d.comparison) {

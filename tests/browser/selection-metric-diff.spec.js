@@ -56,3 +56,20 @@ test("coarse-source selections retain their actual reduction level through uncha
   const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.query).toMatchObject({tR:12,pR:3});
   const result=await refresh(fake,d);expect(result.document.selection.query).toEqual(d.selection.query);expect(result.changes.filter(c=>c.selection)).toEqual([]);
 });
+
+test("recorded fallback at a fractional source cutoff can refresh in the browser",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  await page.evaluate(async()=>{const d=await window.cubeAgent.export();d.snapshot.sources=d.snapshot.sources.filter(s=>s.id==="overview");d.snapshot.cache={};d.snapshot.live=false;d.scene.view.viewport=[0,6,199,209];d.scene.view.selection=null;d.scene.query={t1:0,t2:6,p1:199,p2:209,tR:0,pR:0};d.scene=window.explorerAgent.seal(d.scene);await window.cubeAgent.apply(window.explorerAgent.seal(d));});
+  const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.state).toBe("recorded");expect(d.selection.measuredThrough).toBe(1609459500000);
+  await page.evaluate(d=>window.cubeAgent.apply(d),d);await probe.waitForReady();
+  const result=await page.evaluate(()=>window.cubeAgent.refresh());expect(result.changes.filter(c=>c.selection)).toEqual([]);expect(result.document.selection.query.t2).toBe(6);
+});
+test("copying a future comparison cell during replay exports unavailable selection evidence",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  await page.locator("#ol-tab-cells").click();await page.locator('#ol-table-body tr[data-c="1"][data-r="201"]').getByRole("button",{name:"Add to comparison"}).click();
+  await page.evaluate(()=>window.cubeAgent.replay(1));await probe.waitForReady();
+  await page.evaluate(()=>Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async text=>{window.copiedHidden=text;}}}));
+  await page.locator('#ol-comparisonWorkspace .ol-comparison-focus [data-comparison-action="copy"]').click();
+  await expect.poll(()=>page.evaluate(()=>Boolean(window.copiedHidden))).toBe(true);
+  const d=await page.evaluate(()=>window.explorerAgent.parse(window.copiedHidden));expect(d.comparison.captures[0].metrics["volume.amount"].tag).toBe("hidden");expect(d.selection.state).toBe("hidden");expect(d.selection.metrics).toMatchObject({tag:"hidden",value:null});expect(d.selection.metrics.cell_count).toBeUndefined();
+});
