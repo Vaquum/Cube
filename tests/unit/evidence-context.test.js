@@ -41,8 +41,17 @@ test("actual weekly eligibility refuses MSCC omissions and coarse non-tiling, wi
   assert.equal(E.measure.seasonalActivity({ index: coarse, numerator: 10, start: 90 * 1024, end: 91 * 1024, cutoff: 102400 }).result.tag, "unsupported");
 });
 test("bounded calculation cancels before publishing an obsolete study", async () => {
-  let cancelled = false; const promise = H.compute(input(cols(5000)), { cancelled: () => cancelled });
+  const phases = [];
+  let cancelled = false; const promise = H.compute(input(cols(5000)), { cancelled: () => cancelled,
+    phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome]); } });
   setTimeout(() => { cancelled = true; }, 0); assert.equal(await promise, null);
+  assert.deepEqual(phases, [["seasonal-and-cases", "start"], ["seasonal-and-cases", "interrupted"]]);
+});
+test("optional phase recording preserves the complete study and ends each phase once", async () => {
+  const args = input(cols(40)), before = await H.compute(args), phases = [];
+  const after = await H.compute(args, { phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome ?? "completed"]); } });
+  assert.deepEqual(after, before);
+  assert.deepEqual(phases, [["seasonal-and-cases", "start"], ["seasonal-and-cases", "completed"], ["bootstrap", "start"], ["bootstrap", "completed"]]);
 });
 test("shared block bootstrap keeps empty/partial calendar blocks and component degeneracy separate", async () => {
   const n = 9, length = 135, cases = [], matched = [];
@@ -58,7 +67,9 @@ test("shared block bootstrap keeps empty/partial calendar blocks and component d
   assert.equal(out.fullMatched, 21); assert.equal(out.calendarBlocks, 22);
   assert.equal(out.intervals.up.conditional.validDraws, 2000); assert.equal(out.intervals.up.conditional.result.reason, "Degenerate resampling interval");
   assert.equal(out.intervals.up.baseline.result.tag, "finite"); assert.equal(out.intervals.up.difference.result.tag, "finite");
-  const again = await H.bootstrap(args, result, "next-poc", 1); assert.deepEqual(out, again);
+  const phases = [];
+  const again = await H.bootstrap(args, result, "next-poc", 1, { phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome]); } }); assert.deepEqual(out, again);
+  assert.deepEqual(phases, [["bootstrap", "start"], ["bootstrap", "completed"]]);
 });
 
 test("each normative interval boundary is independent: 29/30 cases, 19/20 full matches, 1799/1800 draws", () => {

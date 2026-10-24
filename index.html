@@ -5515,6 +5515,18 @@
               </button>
             </div>
             <div id="ol-query-ready" class="ol-muted"></div><dl id="ol-query-provenance" class="ol-query-provenance" aria-label="Effective measurement scope and frozen comparison provenance"></dl>
+            <details id="ol-diagnostics" class="ol-diag">
+              <summary>Performance recording</summary>
+              <p class="ol-muted">Optional measurements stay in this page. Record an interaction, then export its timings and requested/drawn grid identity. Frame and draw signals do not certify compositor presentation or INP.</p>
+              <div class="ol-query-actions">
+                <button type="button" id="ol-diagnostics-start" class="ol-action cursor-interaction">Start recording</button>
+                <button type="button" id="ol-diagnostics-stop" class="ol-action cursor-interaction">Stop recording</button>
+                <button type="button" id="ol-diagnostics-export" class="ol-action cursor-interaction">Export recording</button>
+                <button type="button" id="ol-diagnostics-reload" class="ol-action cursor-interaction">Record next reload</button>
+              </div>
+              <p id="ol-diagnostics-status" class="ol-muted" role="status"></p>
+              <textarea id="ol-diagnostics-output" rows="5" readonly hidden aria-label="Performance recording JSON"></textarea>
+            </details>
             <section class="ol-summary" id="ol-summary" aria-labelledby="ol-summary-title">
               <div class="ol-summary-head">
                 <h3 id="ol-summary-title">View summary</h3
@@ -19278,6 +19290,9 @@
     return {result:reason ? unavailable(reason,reason==="Degenerate resampling interval" ? "undefined" : "unsupported") : finite(pair),validDraws:values.length};
   }
   async function bootstrap(input, result, kind, horizon, control = {}) {
+    const phaseEnd = control.phase?.("bootstrap");
+    let phaseOutcome = "interrupted";
+    try {
     const alive = () => !control.cancelled?.();
     const field = kind === "poc-barrier" ? "first" : "direction", sample = summary(result.matched[horizon], field), base = summary(result.cases[horizon], field);
     const length = result.blockLength, step = 2 ** result.n, start = input.b0 / step, stop = (result.a + 1), first = Math.floor(start / length), last = Math.ceil(stop / length);
@@ -19315,10 +19330,14 @@
         intervals[name][component]=intervalResult({values,ownN,fullMatched,anchorReason:result.state ? null : result.anchorReason || "Anchor seasonal support unavailable"});
       }
     }
+    phaseOutcome = "completed";
     return { version: BOOTSTRAP, key, seed, fullMatched, calendarBlocks: blocks.length, blockLength: length, resamples: 2000, intervals,
       qualification: "Approximate pointwise 95% intervals; fixed anchor thresholds. Longer dependence and nonstationarity may invalidate coverage." };
+    } finally { phaseEnd?.(phaseOutcome); }
   }
   async function compute(input, control = {}) {
+    let phaseEnd = control.phase?.("seasonal-and-cases");
+    try {
     const alive = () => !control.cancelled?.(), step = 2 ** input.n;
     if (!Number.isInteger(input.a) || input.b1 <= input.b0 || (input.b1 - input.b0) / step > 100000) throw new RangeError("Invalid bounded evidence support");
     const by = new Map(), rows = [], shares = [], seasonalValues = [];
@@ -19371,8 +19390,10 @@
       thresholds: { share: st, seasonal: vt }, cases, matched, match: matched.map((c) => summary(c, "direction")), all: cases.map((c) => summary(c, "direction")),
       barrierMatch: matched.map((c) => summary(c, "first")), barrierAll: cases.map((c) => summary(c, "first")), ledger: rows, blockLength, provenance: input.provenance,
       anchorReason: state ? null : anchor?.reason === REASONS[3] ? REASONS[3] : "Anchor seasonal support unavailable", fitReason: fitted ? null : REASONS[5] };
+    phaseEnd?.(); phaseEnd = null;
     out.uncertainty = await bootstrap(input, out, input.kind, input.horizon, control);
     return alive() ? out : null;
+    } finally { phaseEnd?.("interrupted"); }
   }
   return Object.freeze({ MODEL, BOOTSTRAP, REASONS: Object.freeze(REASONS), quantile, fnv, random, summary, canonicalKey, intervalResult, bootstrap, compute });
 });
@@ -22355,12 +22376,222 @@
   return Object.freeze({ controls, values, selector, target, name, meaning, describe, choices });
 });
 </script>
+    <script>/* Optional page-owned measurements. No prototype patches, requests, or work while stopped. */
+(function (root, factory) {
+  "use strict";
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.explorerDiagnostics = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+  const LIMITS = Object.freeze({ events: 10000, milliseconds: 120000 });
+  const DEFINITIONS = Object.freeze({
+    clock: "performance.now() milliseconds relative to performance.timeOrigin; browser entries use the same origin",
+    acknowledgment: "Microtask after input dispatch; records post-handler requested state, not a verified paint",
+    draw: "Application draw() entry to completed canvas/DOM submission; includes CPU work, excludes compositor presentation",
+    presentation: "Two consecutive sampled animation frames with no relevant scope motion/busy state; chart scope additionally requires a completed requested draw or explicit terminal result",
+    frames: "Native requestAnimationFrame intervals while recording, including the recorder's own overhead; hidden intervals are labelled",
+    resources: "Browser ResourceTiming/NavigationTiming; cross-origin fields can be zero without Timing-Allow-Origin",
+    eventTiming: "Raw supported EventTiming entries, durationThreshold=16ms; incomplete population, not INP",
+    unavailable: ["compositor presentation", "INP", "LCP", "CPU/GPU profile", "heap profile", "cache-cold certificate"],
+    overhead: "Opt-in observer, frame sampling and export overhead are included. No acceptance budgets are changed."
+  });
+  function readiness(state) {
+    if (!state.rendered) return state.error ? "terminal-unavailable" : "pending-data";
+    if (state.requested.revision !== state.rendered.revision) return "pending-data";
+    if (state.refinement) return "pending-refinement";
+    if (state.pending) return "pending-data";
+    if (state.error) return "terminal-fallback";
+    if (state.requested.n !== state.rendered.n || state.requested.m !== state.rendered.m) return "loaded-fallback";
+    return "requested-output-submitted";
+  }
+  function create({ now, setTimer, clearTimer, changed = () => {}, limits = LIMITS }) {
+    let active = false, session = 0, serial = 0, timer, report = null;
+    const pending = new Map();
+    function stop(reason = "user") {
+      if (!active) return;
+      active = false; clearTimer(timer);
+      report.ended = now(); report.stopReason = reason;
+      report.unfinishedInteractions = [...pending.values()].map(p => p.id);
+      pending.clear(); changed();
+    }
+    function mark(type, detail = {}) {
+      if (!active) return;
+      if (now() - report.started >= limits.milliseconds) { stop("time-limit"); return; }
+      if (report.events.length >= limits.events) { stop("event-limit"); return; }
+      report.events.push({ type, at: now(), ...detail });
+    }
+    function start(identity) {
+      stop("restarted"); session++; serial = 0; active = true;
+      report = { schema: "cube-performance@1", identity, limits: { ...limits }, definitions: DEFINITIONS, started: now(), events: [] };
+      timer = setTimer(() => stop("time-limit"), limits.milliseconds);
+      mark("recording-start"); changed();
+    }
+    function phase(name, identity = {}) {
+      if (!active) return () => {};
+      const owned = session, id = ++serial, start = now();
+      mark("phase-start", { id, name, identity });
+      let ended = false;
+      return (outcome = "completed") => {
+        if (ended || !active || session !== owned) return;
+        ended = true; mark("phase-end", { id, name, outcome, duration: now() - start });
+      };
+    }
+    function input(scope, detail) {
+      if (!active) return null;
+      const previous = pending.get(scope);
+      if (previous) mark("interaction-superseded", { id: previous.id });
+      const p = { id: ++serial, session, scope, inputAt: now(), quiet: 0 };
+      pending.set(scope, p); mark("input", { id: p.id, scope, ...detail }); return p;
+    }
+    const owns = p => active && p && p.session === session && pending.get(p.scope) === p;
+    function acknowledge(p, requested) {
+      if (!owns(p)) return;
+      p.requested = requested;
+      mark("acknowledgment", { id: p.id, duration: now() - p.inputAt, requested });
+    }
+    function draw(state, duration) {
+      if (!active) return;
+      const status = readiness(state);
+      mark("draw", { duration, status, ...state });
+      for (const p of pending.values()) {
+        if (p.scope !== "ol-canvas" || !p.requested || p.requested.revision > state.requested.revision) continue;
+        if (!p.drawn) { p.drawn = true; mark("interaction-draw", { id: p.id, duration: now() - p.inputAt, status }); }
+        if (!p.ready && ["requested-output-submitted", "terminal-fallback", "terminal-unavailable"].includes(status)) {
+          p.ready = true; mark("interaction-data-ready", { id: p.id, duration: now() - p.inputAt, status });
+        }
+      }
+    }
+    function frame({ interval, hidden, scopes, chart }) {
+      if (!active) return;
+      mark("frame", { interval, hidden });
+      for (const p of pending.values()) {
+        const state = scopes(p.scope), relevantChart = p.scope === "ol-canvas";
+        const current = !relevantChart || chart && chart.requested.revision >= p.requested?.revision;
+        const status = relevantChart && chart ? readiness(chart) : "scope-submitted";
+        const terminal = ["requested-output-submitted", "terminal-fallback", "terminal-unavailable"].includes(status);
+        const quiet = !hidden && p.requested && current && !state.moving && !state.busy && (!relevantChart || terminal);
+        p.quiet = quiet ? p.quiet + 1 : 0;
+        if (p.quiet < 2) continue;
+        mark("presentation-proxy", { id: p.id, scope: p.scope, duration: now() - p.inputAt, status });
+        pending.delete(p.scope);
+      }
+    }
+    return Object.freeze({ start, stop, mark, phase, input, acknowledge, draw, frame,
+      get active() { return active; }, export: () => report && JSON.parse(JSON.stringify(report)) });
+  }
+  function mount({ root, requested, snapshot, identity, download }) {
+    const el = id => root.querySelector("#ol-diagnostics-" + id);
+    const ignored = node => node.closest('#ol-diagnostics,#ol-help-tooltip,#ol-tip,[role="tooltip"]');
+    let raf = 0, lastFrame = null, observers = [], generation = 0;
+    const recorder = create({ now: () => performance.now(), setTimer: setTimeout, clearTimer: clearTimeout, changed: refresh });
+    function refresh() {
+      if (!recorder.active) {
+        generation++;
+        cancelAnimationFrame(raf); raf = 0;
+        for (const observer of observers) observer.disconnect();
+        observers = [];
+      }
+      el("status").textContent = recorder.active ? "Recording · stops after two minutes or 10,000 events" : "Stopped · recording stays in this page until replaced or reloaded";
+    }
+    function scopeState(id) {
+      const node = document.getElementById(id);
+      if (!node) return { moving: false, busy: false };
+      const moving = [node, ...node.querySelectorAll("[data-motion-running]")].some(n => n.hasAttribute("data-motion-running") && !ignored(n));
+      // Opening a panel is independent of optional work inside it. Study/table
+      // controls use their own scope and retain their own busy contract.
+      const busy = !["ol-controls", "ol-drawer-body", "ol-side-body", "ol-reference"].includes(id) &&
+        [node, ...node.querySelectorAll('[aria-busy="true"]')].some(n => n.getAttribute("aria-busy") === "true" && !ignored(n));
+      return { moving, busy };
+    }
+    function tick(time, owned) {
+      if (!recorder.active || generation !== owned) return;
+      recorder.frame({ interval: lastFrame === null ? null : time - lastFrame, hidden: document.hidden, scopes: scopeState, chart: snapshot() });
+      lastFrame = time;
+      if (recorder.active) raf = requestAnimationFrame(time => tick(time, owned));
+    }
+    function timing(entry) {
+      const out = { entryType: entry.entryType, name: entry.name, startTime: entry.startTime, duration: entry.duration };
+      if (["resource", "navigation"].includes(entry.entryType)) {
+        try { out.name = new URL(entry.name).pathname; } catch { out.name = "resource"; }
+        for (const key of ["initiatorType", "fetchStart", "domainLookupStart", "domainLookupEnd", "connectStart", "connectEnd", "requestStart", "responseStart", "responseEnd", "transferSize", "encodedBodySize", "decodedBodySize"]) out[key] = entry[key];
+      }
+      if (entry.entryType === "event") for (const key of ["processingStart", "processingEnd", "interactionId", "cancelable"]) out[key] = entry[key];
+      return out;
+    }
+    function start() {
+      const supported = globalThis.PerformanceObserver?.supportedEntryTypes ?? [];
+      recorder.start({ ...identity(), browser: { userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], dpr: devicePixelRatio, supportedEntryTypes: supported } });
+      const owned = ++generation;
+      for (const entry of performance.getEntriesByType("navigation")) recorder.mark("browser-timing", timing(entry));
+      for (const type of ["resource", "longtask", "event", "paint"]) {
+        if (!supported.includes(type)) { recorder.mark("metric-unavailable", { metric: type }); continue; }
+        try {
+          const observer = new PerformanceObserver(list => {
+            if (generation === owned && recorder.active) for (const entry of list.getEntries()) recorder.mark("browser-timing", timing(entry));
+          });
+          observer.observe({ type, buffered: true, ...(type === "event" ? { durationThreshold: 16 } : {}) }); observers.push(observer);
+        } catch { recorder.mark("metric-unavailable", { metric: type }); }
+      }
+      lastFrame = null; raf = requestAnimationFrame(time => tick(time, owned));
+    }
+    function capture(event) {
+      if (!recorder.active || !(event.target instanceof Element) || ignored(event.target)) return;
+      if (event.type === "pointermove" && !event.buttons) return;
+      const target = event.target.closest("button,input,select,summary,a,canvas") ?? event.target;
+      const controlled = target.getAttribute("aria-controls"), drawer = target.hasAttribute("data-drawer");
+      const explicit = drawer ? "ol-drawer-body" : controlled && document.getElementById(controlled) ? controlled : null;
+      const container = target.closest("#ol-comparisonWorkspace,#ol-evidence,.ol-panel,#ol-controls,#ol-side-body");
+      const scope = explicit ?? (container && container.id !== "ol-controls" ? container.id : "ol-canvas");
+      const p = recorder.input(scope, { event: event.type, target: target.id || target.tagName.toLowerCase(), trusted: event.isTrusted, eventTime: event.timeStamp });
+      queueMicrotask(() => recorder.acknowledge(p, requested()));
+    }
+    // Listeners are inert until explicitly started. No input text, clipboard,
+    // query strings or credentials are included in the export.
+    for (const type of ["click", "change", "keydown", "wheel", "pointerdown", "pointermove"]) root.addEventListener(type, capture, { capture: true, passive: true });
+    root.addEventListener("comparison-render", event => {
+      if (recorder.active) recorder.mark("comparison-render", { revision: event.detail.revision });
+    });
+    el("start").addEventListener("click", start);
+    el("stop").addEventListener("click", () => recorder.stop());
+    el("export").addEventListener("click", () => {
+      recorder.stop("export");
+      const data = recorder.export();
+      if (!data) { el("status").textContent = "Start a recording first"; return; }
+      const text = JSON.stringify(data, null, 2);
+      el("output").value = text; el("output").hidden = false;
+      download("cube-performance.json", text, "application/json");
+    });
+    const armKey = "cube-performance-record-next-load";
+    el("reload").addEventListener("click", () => {
+      try { sessionStorage.setItem(armKey, "1"); location.reload(); }
+      catch { el("status").textContent = "Reload recording unavailable: session storage is disabled"; }
+    });
+    refresh();
+    try { if (sessionStorage.getItem(armKey) === "1") { sessionStorage.removeItem(armKey); start(); } } catch { /* Optional one-shot reload recording. */ }
+    return recorder;
+  }
+  return Object.freeze({ LIMITS, DEFINITIONS, readiness, create, mount });
+});
+</script>
     <script>(async () => {
   "use strict";
   const root = document.getElementById("origo-lens"),
     el = (id) => root.querySelector("#ol-" + id),
     qsa = (s) => root.querySelectorAll(s),
     PACK = JSON.parse(document.getElementById("origo-lens-data").textContent);
+  let diagnostics = null, diagnosticFrame = null;
+  function diagnosticPhase(name, identity) {
+    return diagnostics?.active ? diagnostics.phase(name, identity) : null;
+  }
+  function diagnosticSource(src) {
+    return { id: src.id, n: src.n, m: src.m, support: sourceRange(src),
+      pack: PACK.state_token ?? null, generation: live.generation, revision: comparisonSourceRevision };
+  }
+  function diagnosticRasterIdentity() {
+    const frame = diagnostics?.active && diagnosticFrame?.rendered;
+    return frame ? { n: frame.n, m: frame.m, source: frame.source, revision: frame.revision, camera: frame.camera } : null;
+  }
   let referenceGuide = null;
   // The measurement module (src/encoding.js), inlined before this script. Everything the chart says about
   // a value comes from it, so a page that lacks it says so in its own loading line and stops, where a
@@ -23289,10 +23520,10 @@
     if (previous) {
       if (!previous.hasPaint) return previous.before;
       subdivisionCopy(subdivision.retained, subdivision.presented);
-      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
+      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null, diagnostic: diagnosticRasterIdentity() };
     }
     const scene = subdivision.scene;
-    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null };
+    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null, diagnostic: diagnosticRasterIdentity() };
   }
   function subdivisionStop() {
     if (subdivision.actor) { Flow.cancelMotion(canvas, "cells"); Flow.cancelMotion(canvas, "cells-camera"); }
@@ -23364,7 +23595,7 @@
       lut: lutFor(scaleRt.appearance, scaleRt.theme) }),
       field = subdivisionField({ camera, cut, n, m, shown, sc: { cells } });
     if (!field.cells.length) return;
-    actor.preview = { camera, field };
+    actor.preview = { camera, field, diagnostic: diagnostics?.active ? diagnosticSource(src) : null };
     subdivisionRaster(field, camera);
   }
   function subdivisionComplete(actor) {
@@ -23419,7 +23650,7 @@
     // arrive mid-camera: pixels outside that snapshot must already have colour.
     // Reuse the same three surfaces, including on a later calibration rebase.
     layer(subdivision.target, to); layer(subdivision.presented, from);
-    actor.before = { camera, field: null };
+    actor.before = { camera, field: null, diagnostic: null };
   }
   function subdivisionPaint(sc, shown, cut) {
     const actor = subdivision.actor;
@@ -23441,6 +23672,7 @@
       }
       actor.targetId = targetId;
       actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });
+      if (diagnostics?.active) actor.diagnosticTarget = diagnosticSource(displaySource());
       actor.plan = Flow.subdivisionPlan(actor.before.field, actor.target, colors.surface);
       actor.detail = 0; actor.detailDone = false;
       subdivisionRaster(actor.target, subdivisionCamera());
@@ -23508,6 +23740,36 @@
     return MORPH_BOUNDS;
   }
   let drawRevision = 0, paintedRevision = -1;
+  function diagnosticRequested() {
+    return { revision: drawRevision, n: S.n, m: S.m, mode: S.mode,
+      camera: [S.tA,S.tB,S.pA,S.pB], replay: S.replay, anchor: S.anchor,
+      pack: PACK.state_token ?? null, generation: live.generation };
+  }
+  function diagnosticSnapshot() {
+    return { ...(diagnosticFrame ?? {}), requested: diagnosticRequested() };
+  }
+  function diagnosticDraw(start, revision) {
+    if (start === null || !diagnostics?.active) return;
+    const actor = subdivision.actor, candles = S.mode === "candles" ? candleRange(renderN(), S.tA, S.tB) : null,
+      errors = activeFailures(), movement = last.mv?.rect;
+    if (last.meas.state === "failed") errors.push(last.meas.error ?? "Measurement failed");
+    if (movement?.state === "failed") errors.push(movement.error ?? "Movement unavailable");
+    if (candles && ["failed", "unavailable", "after-cutoff"].includes(candles.state)) errors.push(candles.reason ?? candles.state);
+    if (scaleRt.fault || scaleRt.cur.cells?.failed) errors.push("Colour calibration unavailable");
+    diagnosticFrame = { requested: diagnosticRequested(), rendered: { revision, n: actor ? null : last.n, m: actor ? null : last.m,
+      camera: [...G.X.domain(), ...G.Y.domain()], cutoff: last.cut,
+      source: actor ? null : diagnosticSource(last.src),
+      submittedSource: diagnosticSource(last.src), sourceVersion: last.sourceVersion,
+      mapping: last.sc.cells?.mappingId ?? null,
+      raster: actor ? { kind: "retained-or-blended-preview", retained: actor.before.diagnostic ?? "not-recorded-or-composite",
+        preview: actor.preview?.field ? { n: actor.preview.field.n, m: actor.preview.field.m, cut: actor.preview.field.cut, source: actor.preview.diagnostic } : null,
+        target: actor.target ? { n: actor.target.n, m: actor.target.m, cut: actor.target.cut, source: actor.diagnosticTarget ?? null } : null,
+        progress: actor.detail, cameraProgress: actor.camera } : { kind: "native-grid-draw" } },
+      refinement: actor ? canvas.dataset.subdivision : transition ? "level-morph" : null,
+      pending: Boolean(loadingLine.startup || viewReadPending() || scaleAsked("cells") || last.meas.state === "pending" ||
+        movement?.state === "pending" || candles?.state === "pending"), error: errors.length ? errors : null };
+    diagnostics.draw(diagnosticFrame, performance.now() - start);
+  }
   function requestDraw(presentationOnly = false) {
     if (!presentationOnly) drawRevision++;
     if (!raf)
@@ -24920,6 +25182,7 @@
   }
 
   function draw() {
+    const diagnosticStart = diagnostics?.active ? performance.now() : null, diagnosticRevision = drawRevision;
     // Candidates, main paint and Lens share one label measurement per frame.
     drawingLabelLayouts = new WeakMap();
     if (!ready) return;
@@ -25240,6 +25503,7 @@
       scaleFault(error);
     }
     revealStartupChart();
+    diagnosticDraw(diagnosticStart, diagnosticRevision);
   }
   function revealStartupChart() {
     if (!canvas.hasAttribute("data-startup") || loadingLine.startup) return;
@@ -41416,7 +41680,7 @@
   // No old study survives a changed requested edge, pack, fit, horizon or source.
   function settledEvidence() {
     const key = evidenceKey();
-    if (evidenceCache.has(key)) { if(evidence.job)evidence.job.cancelled=true; clearTimeout(evidence.timer); evidence.ready = evidence.last = evidenceCache.get(key); evidence.job={key,cancelled:false,output:evidence.ready}; return evidence.ready; }
+    if (evidenceCache.has(key)) { if (diagnostics?.active) diagnostics.mark("continuations-cache-hit", { key }); if(evidence.job)evidence.job.cancelled=true; clearTimeout(evidence.timer); evidence.ready = evidence.last = evidenceCache.get(key); evidence.job={key,cancelled:false,output:evidence.ready}; return evidence.ready; }
     if (evidence.job?.key !== key) {
       if (evidence.job) evidence.job.cancelled = true;
       evidence.ready = evidence.last = null;
@@ -41424,8 +41688,11 @@
       clearTimeout(evidence.timer);
       evidence.timer = setTimeout(async () => {
         if (job.cancelled || evidenceKey() !== key) return;
+        const diagnosticStudy = diagnosticPhase("continuations", { key, a: evidenceAnchor(), n: renderN(), m: renderM(), horizon: S.horizon });
+        let diagnosticOutcome = "failed";
         try {
           const out = await calcEvidence(job);
+          diagnosticOutcome = out?.loading ? "waiting-data" : out?.error ? "unavailable" : out ? "completed" : "cancelled";
           if (!out || job.cancelled || evidenceKey() !== key) return;
           if (evidenceCache.size >= 6) evidenceCache.delete(evidenceCache.keys().next().value);
           if (!out.loading) evidenceCache.set(key, out);
@@ -41433,6 +41700,8 @@
         } catch (error) {
           if (job.cancelled || evidenceKey() !== key) return;
           job.output = { a: evidenceAnchor(), n: renderN(), m: renderM(), barrier: S.barrier || 1, error: `Evidence calculation unavailable: ${error.message}` }; evidence.ready=evidence.last=job.output; requestDraw();
+        } finally {
+          diagnosticStudy?.(job.cancelled || evidenceKey() !== key ? "obsolete" : diagnosticOutcome);
         }
       }, gesturing() ? 220 : 0);
     }
@@ -41445,8 +41714,11 @@
     const failed = keys.find((key) => cube.failed.has(key));
     if (failed) return { ...shared, error: `History unavailable: ${cube.failed.get(failed)}` };
     if (PACK.live && keys.some((key) => !histories.has(key))) return { ...shared, loading: true, error: "Reading this level's history from the cube…" };
+    const diagnosticPreparation = diagnosticPhase("continuations.prepare", { a, n, m, cutoff: CUT, canonicalCutoff: CANON, replay: S.replay });
     const history = evidenceColumns(n, m, end), recordedSeasonal = PACK.live ? null : n===9 && m===0 ? history : evidenceColumns(Math.min(n,9),0,end), index = PACK.live ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
     const seasonalHeld = PACK.live ? histories.get(historyKey(Math.min(n, 9), 0)) : null;
+    diagnosticPreparation?.();
+    const diagnosticDigest = diagnosticPhase("continuations.digest", { a, n, m, support: [history.b0, end], columns: history.cols.length });
     const tuples = history.cols.map((c) => [c.source, c.c, c.v, c.bv, c.poc, c.covered ? "covered" : "missing", (c.c + 1) * ts, "complete"]);
     // Denominator records are dependencies too. Tail beyond the fixed anchor is excluded.
     if (recordedSeasonal) for(const c of recordedSeasonal.cols) tuples.push(["recorded-seasonal",c.c,c.v,c.bv,c.poc,c.covered?"covered":"missing",(c.c+1)*2**Math.min(n,9),"complete"]);
@@ -41454,10 +41726,12 @@
     tuples.sort((x, y) => (String(x[0]) < String(y[0]) ? -1 : String(x[0]) > String(y[0]) ? 1 : 0) || x[1] - y[1]);
     const packKey = p.packKey ?? PACK.packKey ?? [PACK.source, T0, BASE, PR], revision = p.revision ?? null;
     const sourceDigest = E.hash.hex(E.hash.sha256(E.hash.utf8(JSON.stringify([packKey, revision, tuples]))));
+    diagnosticDigest?.();
     const provenance = { instrument: INSTRUMENT, sourceDigest, packKey, revision, sourceCutoff: CUT, canonicalCutoff: CANON, replayEdge: S.replay ? activeCutoff() : null, measuredThrough: end,
       priceLow: 0, priceHigh: null, precisionID: "observed-source-values+Float64-aggregation", reconstruction: "Current-source reconstruction; original vintages not guaranteed" };
+    if (diagnostics?.active) diagnostics.mark("continuations-input", { a, n, m, horizon: S.horizon, kind: S.evidenceKind, barrier, support: [history.b0,end], covered: history.covered, sources: history.sources, provenance });
     const out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
-      seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, { cancelled: () => job.cancelled || evidenceKey() !== job.key });
+      seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, { cancelled: () => job.cancelled || evidenceKey() !== job.key, phase: diagnostics?.active ? name => diagnosticPhase("continuations." + name, { a,n,m }) : undefined });
     return out ? { ...out, sources: history.sources, covered: history.covered } : null;
   }
   function evidenceTotals(e) {
@@ -42442,6 +42716,7 @@
       renderLoading();
     }
     requestDraw();
+    let diagnosticEnd = diagnosticPhase("cube.fetch", { kind: want.kind ?? "movement", key: want.key, generation, pack: PACK.state_token });
     try {
       // Resolved against the page but without any credentials the page's own URL
       // may carry; the portal login's cookie travels with the request.
@@ -42455,8 +42730,12 @@
       const response = await fetch(target, {
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]),
-        }),
-        body = await response.json().catch(() => null);
+        });
+      diagnosticEnd?.();
+      diagnosticEnd = diagnosticPhase("cube.body-json", { key: want.key });
+      const body = await response.json().catch(() => null);
+      diagnosticEnd?.();
+      diagnosticEnd = null;
       offerReload(body);
       if (body?.error === "cube_changed") {
         if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
@@ -42472,10 +42751,13 @@
       // Decoded first; then, with nothing awaited between the check and the
       // use, an answer for a pack the page replaced meanwhile is dropped and
       // asked for again, so no two cube states ever mix.
+      diagnosticEnd = diagnosticPhase("cube.decode", { key: want.key });
       const decoded = await want.decode(body);
-      if (generation === live.generation && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); }
-      else want.drop?.();
+      diagnosticEnd?.(); diagnosticEnd = null;
+      if (generation === live.generation && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); if (diagnostics?.active) diagnostics.mark("data-applied", { key: want.key, generation }); }
+      else { want.drop?.(); if (diagnostics?.active) diagnostics.mark("data-discarded", { key: want.key, generation }); }
     } catch (error) {
+      diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed");
       want.drop?.();
       // The server's own words end a sentence the page continues.
       const message = (
@@ -42844,6 +43126,7 @@
     want.controller = controller;
     motion.busy = want;
     requestDraw();
+    let diagnosticEnd = diagnosticPhase("movement.fetch", { kind: want.kind ?? "movement", key: want.key, generation, pack: PACK.state_token });
     try {
       const target = new URL(
         `${want.path}&pack=${encodeURIComponent(PACK.state_token)}&proto=${PROTOCOL}`,
@@ -42854,8 +43137,12 @@
       const response = await fetch(target, {
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]),
-        }),
-        body = await response.json().catch(() => null);
+        });
+      diagnosticEnd?.();
+      diagnosticEnd = diagnosticPhase("movement.body-json", { key: want.key });
+      const body = await response.json().catch(() => null);
+      diagnosticEnd?.();
+      diagnosticEnd = null;
       offerReload(body);
       if (body?.error === "cube_changed") {
         if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
@@ -42866,9 +43153,13 @@
         throw Error("the cube changed; taking its new data first");
       }
       if (!response.ok) throw Error(body?.error || `the server answered ${response.status}`);
+      diagnosticEnd = diagnosticPhase("movement.decode", { key: want.key });
       const decoded = await want.decode(body);
-      if (generation === live.generation && epoch === motion.epoch && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); }
+      diagnosticEnd?.(); diagnosticEnd = null;
+      if (generation === live.generation && epoch === motion.epoch && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); if (diagnostics?.active) diagnostics.mark("data-applied", { key: want.key, generation }); }
+      else if (diagnostics?.active) diagnostics.mark("data-discarded", { key: want.key, generation });
     } catch (error) {
+      diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed");
       const message = (
         error.name === "TimeoutError"
           ? "the server didn't answer within two minutes"
@@ -47915,6 +48206,12 @@
   bindNavigation();
   bindScaleUi();
   guiAuditInit();
+  diagnostics = window.explorerDiagnostics.mount({ root, requested: diagnosticRequested, snapshot: diagnosticSnapshot,
+    identity: () => ({ commit: document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
+      committedAt: document.querySelector('meta[name="explorer-committed-at"]')?.content ?? "",
+      pullRequest: document.querySelector('meta[name="explorer-pr"]')?.content ?? "",
+      timeOrigin: performance.timeOrigin, live: Boolean(PACK.live), pack: PACK.state_token ?? PACK.packKey ?? null,
+      provenance: { packKey: PACK.provenance?.packKey ?? null, revision: PACK.provenance?.revision ?? null } }), download: guiDownloadText });
   try {
     const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
       committedAt = new Date(document.querySelector('meta[name="explorer-committed-at"]')?.content ?? ""),
@@ -47930,13 +48227,15 @@
       el("version-unknown").hidden = true;
     }
     renderLive();
-    qsa("button,input,select").forEach((control) => (control.disabled = true));
+    qsa("button,input,select").forEach((control) => { if (!control.closest("#ol-diagnostics")) control.disabled = true; });
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live;
     for (const kbd of qsa("[data-key]")) kbd.textContent = KEYS[kbd.dataset.key];
     getColors();
     drawingLoad();
-    sources.recent = await unpack(PACK.blocks.recent, "recent");
+    const recentDecode = diagnosticPhase("startup.decode", { source: "recent" });
+    try { sources.recent = await unpack(PACK.blocks.recent, "recent"); recentDecode?.(); }
+    catch (error) { recentDecode?.("failed"); throw error; }
     // Decoded blocks keep their metadata only: a tab open all day holds no payloads.
     delete PACK.blocks.recent.gzip_base64;
     loadState.recent = "ready";
@@ -48011,7 +48310,9 @@
       loadingLine.startup = `Loading ${id === "overview" ? "the full history" : "the 30-day archive"}${PACK.live ? " from the cube" : ""}…`;
       renderLoading();
       try {
-        sources[id] = await unpack(PACK.blocks[id], id);
+        const blockDecode = diagnosticPhase("startup.decode", { source: id });
+        try { sources[id] = await unpack(PACK.blocks[id], id); blockDecode?.(); }
+        catch (error) { blockDecode?.("failed"); throw error; }
         delete PACK.blocks[id].gzip_base64;
         loadState[id] = "ready";
         loadingLine.blocks.delete(id);

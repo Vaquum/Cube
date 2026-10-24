@@ -4,6 +4,18 @@
     el = (id) => root.querySelector("#ol-" + id),
     qsa = (s) => root.querySelectorAll(s),
     PACK = JSON.parse(document.getElementById("origo-lens-data").textContent);
+  let diagnostics = null, diagnosticFrame = null;
+  function diagnosticPhase(name, identity) {
+    return diagnostics?.active ? diagnostics.phase(name, identity) : null;
+  }
+  function diagnosticSource(src) {
+    return { id: src.id, n: src.n, m: src.m, support: sourceRange(src),
+      pack: PACK.state_token ?? null, generation: live.generation, revision: comparisonSourceRevision };
+  }
+  function diagnosticRasterIdentity() {
+    const frame = diagnostics?.active && diagnosticFrame?.rendered;
+    return frame ? { n: frame.n, m: frame.m, source: frame.source, revision: frame.revision, camera: frame.camera } : null;
+  }
   let referenceGuide = null;
   // The measurement module (src/encoding.js), inlined before this script. Everything the chart says about
   // a value comes from it, so a page that lacks it says so in its own loading line and stops, where a
@@ -932,10 +944,10 @@
     if (previous) {
       if (!previous.hasPaint) return previous.before;
       subdivisionCopy(subdivision.retained, subdivision.presented);
-      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
+      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null, diagnostic: diagnosticRasterIdentity() };
     }
     const scene = subdivision.scene;
-    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null };
+    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null, diagnostic: diagnosticRasterIdentity() };
   }
   function subdivisionStop() {
     if (subdivision.actor) { Flow.cancelMotion(canvas, "cells"); Flow.cancelMotion(canvas, "cells-camera"); }
@@ -1007,7 +1019,7 @@
       lut: lutFor(scaleRt.appearance, scaleRt.theme) }),
       field = subdivisionField({ camera, cut, n, m, shown, sc: { cells } });
     if (!field.cells.length) return;
-    actor.preview = { camera, field };
+    actor.preview = { camera, field, diagnostic: diagnostics?.active ? diagnosticSource(src) : null };
     subdivisionRaster(field, camera);
   }
   function subdivisionComplete(actor) {
@@ -1062,7 +1074,7 @@
     // arrive mid-camera: pixels outside that snapshot must already have colour.
     // Reuse the same three surfaces, including on a later calibration rebase.
     layer(subdivision.target, to); layer(subdivision.presented, from);
-    actor.before = { camera, field: null };
+    actor.before = { camera, field: null, diagnostic: null };
   }
   function subdivisionPaint(sc, shown, cut) {
     const actor = subdivision.actor;
@@ -1084,6 +1096,7 @@
       }
       actor.targetId = targetId;
       actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });
+      if (diagnostics?.active) actor.diagnosticTarget = diagnosticSource(displaySource());
       actor.plan = Flow.subdivisionPlan(actor.before.field, actor.target, colors.surface);
       actor.detail = 0; actor.detailDone = false;
       subdivisionRaster(actor.target, subdivisionCamera());
@@ -1151,6 +1164,36 @@
     return MORPH_BOUNDS;
   }
   let drawRevision = 0, paintedRevision = -1;
+  function diagnosticRequested() {
+    return { revision: drawRevision, n: S.n, m: S.m, mode: S.mode,
+      camera: [S.tA,S.tB,S.pA,S.pB], replay: S.replay, anchor: S.anchor,
+      pack: PACK.state_token ?? null, generation: live.generation };
+  }
+  function diagnosticSnapshot() {
+    return { ...(diagnosticFrame ?? {}), requested: diagnosticRequested() };
+  }
+  function diagnosticDraw(start, revision) {
+    if (start === null || !diagnostics?.active) return;
+    const actor = subdivision.actor, candles = S.mode === "candles" ? candleRange(renderN(), S.tA, S.tB) : null,
+      errors = activeFailures(), movement = last.mv?.rect;
+    if (last.meas.state === "failed") errors.push(last.meas.error ?? "Measurement failed");
+    if (movement?.state === "failed") errors.push(movement.error ?? "Movement unavailable");
+    if (candles && ["failed", "unavailable", "after-cutoff"].includes(candles.state)) errors.push(candles.reason ?? candles.state);
+    if (scaleRt.fault || scaleRt.cur.cells?.failed) errors.push("Colour calibration unavailable");
+    diagnosticFrame = { requested: diagnosticRequested(), rendered: { revision, n: actor ? null : last.n, m: actor ? null : last.m,
+      camera: [...G.X.domain(), ...G.Y.domain()], cutoff: last.cut,
+      source: actor ? null : diagnosticSource(last.src),
+      submittedSource: diagnosticSource(last.src), sourceVersion: last.sourceVersion,
+      mapping: last.sc.cells?.mappingId ?? null,
+      raster: actor ? { kind: "retained-or-blended-preview", retained: actor.before.diagnostic ?? "not-recorded-or-composite",
+        preview: actor.preview?.field ? { n: actor.preview.field.n, m: actor.preview.field.m, cut: actor.preview.field.cut, source: actor.preview.diagnostic } : null,
+        target: actor.target ? { n: actor.target.n, m: actor.target.m, cut: actor.target.cut, source: actor.diagnosticTarget ?? null } : null,
+        progress: actor.detail, cameraProgress: actor.camera } : { kind: "native-grid-draw" } },
+      refinement: actor ? canvas.dataset.subdivision : transition ? "level-morph" : null,
+      pending: Boolean(loadingLine.startup || viewReadPending() || scaleAsked("cells") || last.meas.state === "pending" ||
+        movement?.state === "pending" || candles?.state === "pending"), error: errors.length ? errors : null };
+    diagnostics.draw(diagnosticFrame, performance.now() - start);
+  }
   function requestDraw(presentationOnly = false) {
     if (!presentationOnly) drawRevision++;
     if (!raf)
@@ -2563,6 +2606,7 @@
   }
 
   function draw() {
+    const diagnosticStart = diagnostics?.active ? performance.now() : null, diagnosticRevision = drawRevision;
     // Candidates, main paint and Lens share one label measurement per frame.
     drawingLabelLayouts = new WeakMap();
     if (!ready) return;
@@ -2883,6 +2927,7 @@
       scaleFault(error);
     }
     revealStartupChart();
+    diagnosticDraw(diagnosticStart, diagnosticRevision);
   }
   function revealStartupChart() {
     if (!canvas.hasAttribute("data-startup") || loadingLine.startup) return;
@@ -19059,7 +19104,7 @@
   // No old study survives a changed requested edge, pack, fit, horizon or source.
   function settledEvidence() {
     const key = evidenceKey();
-    if (evidenceCache.has(key)) { if(evidence.job)evidence.job.cancelled=true; clearTimeout(evidence.timer); evidence.ready = evidence.last = evidenceCache.get(key); evidence.job={key,cancelled:false,output:evidence.ready}; return evidence.ready; }
+    if (evidenceCache.has(key)) { if (diagnostics?.active) diagnostics.mark("continuations-cache-hit", { key }); if(evidence.job)evidence.job.cancelled=true; clearTimeout(evidence.timer); evidence.ready = evidence.last = evidenceCache.get(key); evidence.job={key,cancelled:false,output:evidence.ready}; return evidence.ready; }
     if (evidence.job?.key !== key) {
       if (evidence.job) evidence.job.cancelled = true;
       evidence.ready = evidence.last = null;
@@ -19067,8 +19112,11 @@
       clearTimeout(evidence.timer);
       evidence.timer = setTimeout(async () => {
         if (job.cancelled || evidenceKey() !== key) return;
+        const diagnosticStudy = diagnosticPhase("continuations", { key, a: evidenceAnchor(), n: renderN(), m: renderM(), horizon: S.horizon });
+        let diagnosticOutcome = "failed";
         try {
           const out = await calcEvidence(job);
+          diagnosticOutcome = out?.loading ? "waiting-data" : out?.error ? "unavailable" : out ? "completed" : "cancelled";
           if (!out || job.cancelled || evidenceKey() !== key) return;
           if (evidenceCache.size >= 6) evidenceCache.delete(evidenceCache.keys().next().value);
           if (!out.loading) evidenceCache.set(key, out);
@@ -19076,6 +19124,8 @@
         } catch (error) {
           if (job.cancelled || evidenceKey() !== key) return;
           job.output = { a: evidenceAnchor(), n: renderN(), m: renderM(), barrier: S.barrier || 1, error: `Evidence calculation unavailable: ${error.message}` }; evidence.ready=evidence.last=job.output; requestDraw();
+        } finally {
+          diagnosticStudy?.(job.cancelled || evidenceKey() !== key ? "obsolete" : diagnosticOutcome);
         }
       }, gesturing() ? 220 : 0);
     }
@@ -19088,8 +19138,11 @@
     const failed = keys.find((key) => cube.failed.has(key));
     if (failed) return { ...shared, error: `History unavailable: ${cube.failed.get(failed)}` };
     if (PACK.live && keys.some((key) => !histories.has(key))) return { ...shared, loading: true, error: "Reading this level's history from the cube…" };
+    const diagnosticPreparation = diagnosticPhase("continuations.prepare", { a, n, m, cutoff: CUT, canonicalCutoff: CANON, replay: S.replay });
     const history = evidenceColumns(n, m, end), recordedSeasonal = PACK.live ? null : n===9 && m===0 ? history : evidenceColumns(Math.min(n,9),0,end), index = PACK.live ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
     const seasonalHeld = PACK.live ? histories.get(historyKey(Math.min(n, 9), 0)) : null;
+    diagnosticPreparation?.();
+    const diagnosticDigest = diagnosticPhase("continuations.digest", { a, n, m, support: [history.b0, end], columns: history.cols.length });
     const tuples = history.cols.map((c) => [c.source, c.c, c.v, c.bv, c.poc, c.covered ? "covered" : "missing", (c.c + 1) * ts, "complete"]);
     // Denominator records are dependencies too. Tail beyond the fixed anchor is excluded.
     if (recordedSeasonal) for(const c of recordedSeasonal.cols) tuples.push(["recorded-seasonal",c.c,c.v,c.bv,c.poc,c.covered?"covered":"missing",(c.c+1)*2**Math.min(n,9),"complete"]);
@@ -19097,10 +19150,12 @@
     tuples.sort((x, y) => (String(x[0]) < String(y[0]) ? -1 : String(x[0]) > String(y[0]) ? 1 : 0) || x[1] - y[1]);
     const packKey = p.packKey ?? PACK.packKey ?? [PACK.source, T0, BASE, PR], revision = p.revision ?? null;
     const sourceDigest = E.hash.hex(E.hash.sha256(E.hash.utf8(JSON.stringify([packKey, revision, tuples]))));
+    diagnosticDigest?.();
     const provenance = { instrument: INSTRUMENT, sourceDigest, packKey, revision, sourceCutoff: CUT, canonicalCutoff: CANON, replayEdge: S.replay ? activeCutoff() : null, measuredThrough: end,
       priceLow: 0, priceHigh: null, precisionID: "observed-source-values+Float64-aggregation", reconstruction: "Current-source reconstruction; original vintages not guaranteed" };
+    if (diagnostics?.active) diagnostics.mark("continuations-input", { a, n, m, horizon: S.horizon, kind: S.evidenceKind, barrier, support: [history.b0,end], covered: history.covered, sources: history.sources, provenance });
     const out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
-      seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, { cancelled: () => job.cancelled || evidenceKey() !== job.key });
+      seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, { cancelled: () => job.cancelled || evidenceKey() !== job.key, phase: diagnostics?.active ? name => diagnosticPhase("continuations." + name, { a,n,m }) : undefined });
     return out ? { ...out, sources: history.sources, covered: history.covered } : null;
   }
   function evidenceTotals(e) {
@@ -20085,6 +20140,7 @@
       renderLoading();
     }
     requestDraw();
+    let diagnosticEnd = diagnosticPhase("cube.fetch", { kind: want.kind ?? "movement", key: want.key, generation, pack: PACK.state_token });
     try {
       // Resolved against the page but without any credentials the page's own URL
       // may carry; the portal login's cookie travels with the request.
@@ -20098,8 +20154,12 @@
       const response = await fetch(target, {
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]),
-        }),
-        body = await response.json().catch(() => null);
+        });
+      diagnosticEnd?.();
+      diagnosticEnd = diagnosticPhase("cube.body-json", { key: want.key });
+      const body = await response.json().catch(() => null);
+      diagnosticEnd?.();
+      diagnosticEnd = null;
       offerReload(body);
       if (body?.error === "cube_changed") {
         if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
@@ -20115,10 +20175,13 @@
       // Decoded first; then, with nothing awaited between the check and the
       // use, an answer for a pack the page replaced meanwhile is dropped and
       // asked for again, so no two cube states ever mix.
+      diagnosticEnd = diagnosticPhase("cube.decode", { key: want.key });
       const decoded = await want.decode(body);
-      if (generation === live.generation && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); }
-      else want.drop?.();
+      diagnosticEnd?.(); diagnosticEnd = null;
+      if (generation === live.generation && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); if (diagnostics?.active) diagnostics.mark("data-applied", { key: want.key, generation }); }
+      else { want.drop?.(); if (diagnostics?.active) diagnostics.mark("data-discarded", { key: want.key, generation }); }
     } catch (error) {
+      diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed");
       want.drop?.();
       // The server's own words end a sentence the page continues.
       const message = (
@@ -20487,6 +20550,7 @@
     want.controller = controller;
     motion.busy = want;
     requestDraw();
+    let diagnosticEnd = diagnosticPhase("movement.fetch", { kind: want.kind ?? "movement", key: want.key, generation, pack: PACK.state_token });
     try {
       const target = new URL(
         `${want.path}&pack=${encodeURIComponent(PACK.state_token)}&proto=${PROTOCOL}`,
@@ -20497,8 +20561,12 @@
       const response = await fetch(target, {
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]),
-        }),
-        body = await response.json().catch(() => null);
+        });
+      diagnosticEnd?.();
+      diagnosticEnd = diagnosticPhase("movement.body-json", { key: want.key });
+      const body = await response.json().catch(() => null);
+      diagnosticEnd?.();
+      diagnosticEnd = null;
       offerReload(body);
       if (body?.error === "cube_changed") {
         if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
@@ -20509,9 +20577,13 @@
         throw Error("the cube changed; taking its new data first");
       }
       if (!response.ok) throw Error(body?.error || `the server answered ${response.status}`);
+      diagnosticEnd = diagnosticPhase("movement.decode", { key: want.key });
       const decoded = await want.decode(body);
-      if (generation === live.generation && epoch === motion.epoch && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); }
+      diagnosticEnd?.(); diagnosticEnd = null;
+      if (generation === live.generation && epoch === motion.epoch && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); if (diagnostics?.active) diagnostics.mark("data-applied", { key: want.key, generation }); }
+      else if (diagnostics?.active) diagnostics.mark("data-discarded", { key: want.key, generation });
     } catch (error) {
+      diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed");
       const message = (
         error.name === "TimeoutError"
           ? "the server didn't answer within two minutes"
@@ -25558,6 +25630,12 @@
   bindNavigation();
   bindScaleUi();
   guiAuditInit();
+  diagnostics = window.explorerDiagnostics.mount({ root, requested: diagnosticRequested, snapshot: diagnosticSnapshot,
+    identity: () => ({ commit: document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
+      committedAt: document.querySelector('meta[name="explorer-committed-at"]')?.content ?? "",
+      pullRequest: document.querySelector('meta[name="explorer-pr"]')?.content ?? "",
+      timeOrigin: performance.timeOrigin, live: Boolean(PACK.live), pack: PACK.state_token ?? PACK.packKey ?? null,
+      provenance: { packKey: PACK.provenance?.packKey ?? null, revision: PACK.provenance?.revision ?? null } }), download: guiDownloadText });
   try {
     const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
       committedAt = new Date(document.querySelector('meta[name="explorer-committed-at"]')?.content ?? ""),
@@ -25573,13 +25651,15 @@
       el("version-unknown").hidden = true;
     }
     renderLive();
-    qsa("button,input,select").forEach((control) => (control.disabled = true));
+    qsa("button,input,select").forEach((control) => { if (!control.closest("#ol-diagnostics")) control.disabled = true; });
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live;
     for (const kbd of qsa("[data-key]")) kbd.textContent = KEYS[kbd.dataset.key];
     getColors();
     drawingLoad();
-    sources.recent = await unpack(PACK.blocks.recent, "recent");
+    const recentDecode = diagnosticPhase("startup.decode", { source: "recent" });
+    try { sources.recent = await unpack(PACK.blocks.recent, "recent"); recentDecode?.(); }
+    catch (error) { recentDecode?.("failed"); throw error; }
     // Decoded blocks keep their metadata only: a tab open all day holds no payloads.
     delete PACK.blocks.recent.gzip_base64;
     loadState.recent = "ready";
@@ -25654,7 +25734,9 @@
       loadingLine.startup = `Loading ${id === "overview" ? "the full history" : "the 30-day archive"}${PACK.live ? " from the cube" : ""}…`;
       renderLoading();
       try {
-        sources[id] = await unpack(PACK.blocks[id], id);
+        const blockDecode = diagnosticPhase("startup.decode", { source: id });
+        try { sources[id] = await unpack(PACK.blocks[id], id); blockDecode?.(); }
+        catch (error) { blockDecode?.("failed"); throw error; }
         delete PACK.blocks[id].gzip_base64;
         loadState[id] = "ready";
         loadingLine.blocks.delete(id);
