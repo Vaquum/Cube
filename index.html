@@ -20095,7 +20095,7 @@
     for (const [metric, amount, alias] of [["poc", "volume", "volume"], ["taker_buy_poc", "taker_buy_volume", "takerBuyVolume"]]) {
       const point = (m) => Object.hasOwn(m, metric) ? m[metric] : (m[amount] ?? m[alias]) === 0 ? null : undefined;
       const prior = point(am), value = point(bm), aw = am.pocRowWidth ?? am.pR, bw = bm.pocRowWidth ?? bm.pR;
-      if (prior === undefined && value === undefined) continue;
+      if (prior === undefined && value === undefined && !Object.hasOwn(am, "pocRow") && !Object.hasOwn(bm, "pocRow")) continue;
       if (prior === undefined || value === undefined || (Number.isFinite(prior) && Number.isFinite(value) && (!(aw > 0) || aw !== bw))) {
         unavailableSelectionMetrics.push({ metric, reason: "POC comparison requires known matching measured price row widths and price-valued centres" });
       } else if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
