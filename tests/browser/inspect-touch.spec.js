@@ -13,6 +13,7 @@
 const { test: base, expect } = require("./fixtures.js");
 const paneCanvas = require("./pane-canvas.js");
 const S = require("./rows-support.js");
+const { T0, BASE_MS } = require("../support/wire.js");
 
 const test = base.extend({
   pane: async ({ page }, use) => {
@@ -32,8 +33,18 @@ async function open(page, fake, probe, hash) {
 const plot = (page) => page.evaluate(() => ({ layout: document.getElementById("ol-canvas").dataset.layout.split(",").map(Number), box: document.getElementById("ol-canvas").getBoundingClientRect().toJSON() }));
 
 test.describe("B47 Inspect and touch", () => {
-  test("outside Inspect a tap anchors; inside Inspect a tap and a long hold read and change nothing else", async ({ page, probe, fakeFor }) => {
+  for (const delayedFrame of [false, true]) test(`outside Inspect a tap anchors; inside Inspect a tap and a long hold read and change nothing else${delayedFrame ? " with a delayed anchor frame" : ""}`, async ({ page, probe, fakeFor }) => {
     const fake = await fakeFor("standard");
+    if (delayedFrame) await page.route(fake.url + "/", async route => {
+      const response = await route.fetch(), html = await response.text(), needle = "  function draw() {";
+      expect(html.includes(needle)).toBe(true);
+      // Delay only draw publication; input/address updates and JS tasks continue.
+      await route.fulfill({ response, body: html.replace(needle, needle + `
+        if (window.qcHoldDrawUntil > performance.now()) {
+          if (!window.qcDrawRelease) window.qcDrawRelease = setTimeout(() => { window.qcDrawRelease = null; draw(); }, window.qcHoldDrawUntil - performance.now());
+          return;
+        }`) });
+    });
     await open(page, fake, probe, "#w=24h&vis=2&lines=7d");
     expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches), "a coarse pointer").toBe(true);
     let { layout, box } = await plot(page);
@@ -46,11 +57,15 @@ test.describe("B47 Inspect and touch", () => {
     await probe.waitForReady();
     ({ layout, box } = await plot(page));
     // Pan's tap now anchors the column: the evidence has its cases
+    if (delayedFrame) await page.evaluate(() => { window.qcHoldDrawUntil = performance.now() + 1500; });
     await page.touchscreen.tap(...at(0.4, 0.5));
     await expect.poll(async () => (await state(page)).cases, { message: "the tap anchored the column and its cases are counted", timeout: 60000 }).not.toBe("—");
     // 2. Inspect: a tap moves the cursor and changes nothing the page keeps
     await page.keyboard.press("e");
     await expect(page.locator("#ol-inspect")).toBeVisible();
+    const requestedAt = new URLSearchParams((await state(page)).hash.slice(1)).get("at");
+    const expectedAnchor = (Date.parse(requestedAt) - T0 * 1000) / BASE_MS;
+    await expect(page.locator("#ol-anchor-time")).toHaveAttribute("data-known-at", String(expectedAnchor), { timeout: 60000 });
     await expect(page.locator("#ol-evidence")).toHaveAttribute("aria-busy", "false", { timeout: 60000 });
     await expect.poll(async () => (await state(page)).cases, { timeout: 60000 }).toMatch(/^\d[\d,]*$/);
     const before = await state(page),
