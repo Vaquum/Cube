@@ -1,9 +1,10 @@
 {
-  "runtimeCommit": "2a69f465daf0c8b06e5870ca7bf999f127531812",
-  "runtimeCommittedAt": "2026-10-24T20:44:13+03:00",
-  "sourceIndexSHA256": "87a384e07c5641489f9a5bd376a9b5f25c7fa95c3cafa52d4e3cfe8d14e101b8",
-  "servedTemplateSHA256": "15241dcf501ea253f332c35946d4e40160e2e57625eeffeee500371a22b696b5",
-  "modification": "Normal template changes deployment-style commit/time/PR metadata only; fake server injects its declared synthetic pack. Source/CSS/vendor unchanged.",
+  "runtimeCommit": "0cf4db87b99a1a00d7afee5e689a52a4697d5616",
+  "runtimeCommittedAt": "2026-10-24T21:03:35+03:00",
+  "sourceIndexSHA256": "c58ad8b275100ee4093653479bdab5f8af73d8c8b7ed3960d89e5de4b9e414cc",
+  "servedTemplateSHA256": "8dd3aefe2eee1a4df299b192e2384d787e7007cedb5d34de0d4c15f6b0ce23b9",
+  "fatalServedDocumentSHA256": "1ad2d94da2593b7cd03e15e2c66da0d461f6ee9a4d322792a88730fb0f51e61a",
+  "modification": "Normal template changes deployment-style commit/time/PR metadata only; fake server injects its declared synthetic pack. Fatal recorded document additionally replaces recent gzip with AA== and names the controlled fixture in PACK.page. Source/CSS/vendor unchanged.",
   "environment": "Existing authorized IAB tab1 only; synthetic instrumentation/UI evidence, not production latency acceptance",
   "sourceHashes": {
     "src/agent.js": "8f9488d57b807fd5e340087cc8c84a222417f6aec6fd867d9441c4dbf75a8c1f",
@@ -14,7 +15,7 @@
     "src/encoding.js": "0262e7727c217d785ac32a1a954ed8fbe9e153517913a7080a9fcd583762ce2a",
     "src/evidence.js": "5c91cc2f22e0eb4cb7eb6f90d948d6fb3ff989bae88556dfe94d4d1519a01fd0",
     "src/explorer.css": "c84e69d1c2d5da4b8187cc39a6d56cf82cfb9d477b53256db7dcb5a15c7f70fb",
-    "src/explorer.js": "1ad081c3a91c74100b6e0b58b4a30ba4c8238f0de34a5739b6e9ef7e00ecd91b",
+    "src/explorer.js": "c711dc3a9d6b1cbe36872325c42745dda1f745cdec21ee5a394e4e4018c81e65",
     "src/features.js": "d1876f2811de33e3ffbec9cd4c760df1c47981fd178c0b65ab14a49323178634",
     "src/help.js": "b32034466c7d46b06c2a0442208589dbdfd59a4fee962aa4dc18110269398987",
     "src/motion.js": "fd3551b389588dd145e9a328393470cba197d08bef5b9f4f992a00d5340b6500",
@@ -24,37 +25,33 @@
     "src/view.html": "dd14c660b2c1d7fe98de6c266877f7d95b5ab52ffc5551da4851b95cf56a28b1"
   },
   "artifacts": {
-    "2026-10-24-2a69f46-side-panel.json": {
-      "bytes": 282325,
-      "sha256": "d1b550dd5b4cf11b6edf47c7be4142350bb60b61da31f47c053b5b54374c8792",
-      "runtimeCommit": "2a69f465daf0c8b06e5870ca7bf999f127531812"
+    "2026-10-24-0cf4db8-fatal-restart.json": {
+      "bytes": 10088,
+      "sha256": "a24f0a54f1ee8fb6a23545c0901c016e79408b08e148adcc515a16b88e50df28"
     },
-    "2026-10-24-2a69f46-side-panel.png": {
-      "bytes": 38573,
-      "sha256": "ee89f3f9f4e9136a2f145614aead2746a60086140e4dc899a66473464b36422c",
-      "runtimeCommit": "2a69f465daf0c8b06e5870ca7bf999f127531812"
+    "2026-10-24-0cf4db8-fatal-restart.png": {
+      "bytes": 37677,
+      "sha256": "94436714e1c476d96150e56414ec91368b8cde26bb1fcd1c55654d4de34fd949"
     },
-    "2026-10-24-f965ccc-fatal-restart.json": {
-      "bytes": 10187,
-      "sha256": "4fbcd81c040421c04de10bfd58b693157b2d6ad278aa133131e25542f14d6b68",
-      "runtimeCommit": "f965cccfb82321e7e76f0af3f1237f741d0142cc"
+    "2026-10-24-0cf4db8-side-panel.json": {
+      "bytes": 261206,
+      "sha256": "fe9d437d6ccb748159b4ff42285d781b6bcd6a051879b9d798874ddb18828be7"
     },
-    "2026-10-24-f965ccc-fatal-restart.png": {
-      "bytes": 37647,
-      "sha256": "f7a0b6d4339048183d2f90e70c6fa76bd0a1ddfe19d7e52dbab97777792895a0",
-      "runtimeCommit": "f965cccfb82321e7e76f0af3f1237f741d0142cc"
+    "2026-10-24-0cf4db8-side-panel.png": {
+      "bytes": 38574,
+      "sha256": "930baf73c4240b42019d7cb48256c4abb6d3ac516f5fbda09c3ed085d3e4e616"
     }
   },
   "recording": {
     "schema": "cube-performance@2",
-    "events": 2115,
-    "durationMs": 30956.599999964237,
+    "events": 1877,
+    "durationMs": 26980.69999998808,
     "stopReason": "export",
     "identity": {
-      "commit": "2a69f465daf0c8b06e5870ca7bf999f127531812",
-      "committedAt": "2026-10-24T20:44:13+03:00",
+      "commit": "0cf4db87b99a1a00d7afee5e689a52a4697d5616",
+      "committedAt": "2026-10-24T21:03:35+03:00",
       "pullRequest": "https://github.com/Vaquum/Market-State-Cube-Explorer/pull/218",
-      "timeOrigin": 1792863921435.2,
+      "timeOrigin": 1792865186328.7,
       "live": true,
       "page": "fake-page-1",
       "pack": "f60aae4c3e8c6cfd6e7f8af528024e963edd9ca96d8c6c96cc635300caab278a",
@@ -97,14 +94,9 @@
     "actions": "Wait for initially unarmed fatal startup; Query; Start; Export; Start; Start again; Export",
     "draws": 0,
     "finalReadiness": "terminal-unavailable",
-    "armedReloadAlsoVerified": true,
-    "runtimeCommit": "f965cccfb82321e7e76f0af3f1237f741d0142cc",
-    "sourceIndexSHA256": "82e5c08757639463065eb992be598dde825668285ceb288238c2fc7942a5470f",
-    "servedDocumentSHA256": "bfa4ed25adc772ddd4d024197ff2706337c13398a6b0dd4717600981d8d1f285",
-    "recorderSHA256": "82cc6b9d3c495166330579f3b370fb67bc6fbf28964ca1e2a9ff3ca5c4175892",
-    "scope": "Retained native proof from f965ccc, not a claim of a new fatal capture on the normal runtime. Recorder bytes unchanged; current browser suite retains armed and initially-unarmed fatal/start/restart cases."
+    "armedReloadAlsoVerified": true
   },
-  "capture": "Normal native screenshot and exact page export through authorized IAB tab1; historical fatal proof explicitly identifies its separate runtime. Same compact JSON supplied to download.",
+  "capture": "Native screenshots and exact page export fields through authorized IAB tab1; same compact JSON supplied to download",
   "consoleWarningsErrors": [],
   "restoration": "Normal viewport retained and original production address reopened, with application scale canonicalization."
 }
