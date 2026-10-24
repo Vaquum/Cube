@@ -128,6 +128,18 @@ def check(answer: object, start: int, end: int, step: int) -> None:
     forces = mapping(grid["forces"], "grid.forces", set(FORCES))
     for force in FORCES:
         series(forces[force], f"grid.forces.{force}", n)
+    if "forceInputs" in grid:
+        inputs = mapping(grid["forceInputs"], "grid.forceInputs", set(FORCES))
+        for force in FORCES:
+            item = mapping(inputs[force], f"grid.forceInputs.{force}", {"components", "masks"})
+            names, masks = item["components"], item["masks"]
+            if not isinstance(names, list) or len(names) > 20 or any(not isinstance(name, str) for name in names) or len(set(names)) != len(names) or any(
+                    name not in top["components"] or top["components"][name]["force"] != force for name in names):
+                fail(f"grid.forceInputs.{force}.components", "must name distinct components of this force")
+            if not isinstance(masks, list) or len(masks) != n or any(type(mask) is not int or not 0 <= mask < 2**len(names) for mask in masks):
+                fail(f"grid.forceInputs.{force}.masks", "must contain a valid component mask for every grid time")
+            if any((mask == 0) != (value is None) for mask, value in zip(masks, forces[force])):
+                fail(f"grid.forceInputs.{force}", "component coverage must agree with force availability")
     series(grid["attention"], "grid.attention", n, 0, 1)
     series(grid["close"], "grid.close", n)
     if not all(c is None or c > 0 for c in grid["close"]):

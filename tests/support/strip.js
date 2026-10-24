@@ -233,7 +233,11 @@ class SyntheticStrip {
       const known = Object.entries(COMPONENTS).filter(([, c]) => c[0] === f).map(([name]) => parts[name][k]).filter((v) => v !== null);
       return known.length ? round(known.reduce((s, v) => s + v, 0)) : null;
     })]));
-    const grid = { t0: from, step, forces, attention: take(this.attention), close: take(this.close, 2), next24h: take(this.next24h), dvol: take(this.dvol, 2) };
+    const forceInputs = Object.fromEntries(FORCES.map((force) => {
+      const components = Object.entries(COMPONENTS).filter(([, c]) => c[0] === force).map(([name]) => name);
+      return [force, { components, masks: Array.from({ length: n }, (_, k) => components.reduce((mask, name, j) => mask + (parts[name][k] !== null ? 2 ** j : 0), 0)) }];
+    }));
+    const grid = { t0: from, step, forces, forceInputs, attention: take(this.attention), close: take(this.close, 2), next24h: take(this.next24h), dvol: take(this.dvol, 2) };
     if (n <= 3000) grid.parts = parts;
     const events = this.events.filter((e) => e.schedule.some((s) => (s.at ?? s.lastAt) >= from - DAY && (s.at ?? s.lastAt) < to + HORIZON));
     return {
