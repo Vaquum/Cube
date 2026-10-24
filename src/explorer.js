@@ -16193,9 +16193,14 @@
   // A bridge that serves the strip declares it in the page (tools/strip_contract.py); a page without the declaration never asks.
   const STRIP_SERVED = Boolean(document.querySelector('meta[name="explorer-strip"]')),
     STRIP_HINT = el("strip").dataset.hint;
-  const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
-    attentionParts: null, snapshot: null, cutoff: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", coverage: "", coverageStats: null, busy: null, timer: 0,
-    failed: { key: "", at: -Infinity }, horizon: null, hits: [], tipStamp: "" };
+  const STRIP_UNCAPTURED = "Forces data was not captured in this investigation";
+  function stripRuntime(status = STRIP_SERVED ? "idle" : "unconfigured") {
+    return { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
+      attentionParts: null, snapshot: null, cutoff: null, status, detail: status === "uncaptured" ? STRIP_UNCAPTURED : "", model: "", coverage: "", coverageStats: null, busy: null, timer: 0,
+      failed: { key: "", at: -Infinity }, horizon: null, hits: [], tipStamp: "" };
+  }
+  // Every Strip consumer reads this investigation's runtime; live tab data is held separately.
+  let stripLive = stripRuntime(), stripRt = stripLive;
   const stripReadoutStamp = () => [stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at].join("|");
   const stripChoices = () => (PACK.live ? STRIP_CHOICES : ["off"]),
     stripForce = () => (S.strip.startsWith("forces.") ? S.strip.slice(7) : null),
@@ -16252,14 +16257,14 @@
   const stripCovers = (held, want) => Boolean(held) && held.step === want.step && held.from <= want.need[0] && held.to > want.need[1];
   function scheduleStrip() {
     clearTimeout(stripRt.timer);
-    if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED) return;
+    if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED || activeAnalysis?.mode === "captured") return;
     stripRt.timer = setTimeout(pumpStrip, 200);
   }
   // One read at a time, in no slot of the cube's: the view's grid first, then the history. A grid that failed is asked for again only
   // after a minute, and a held one again once it is five minutes old (the view at the live edge) or half an hour (the history).
   async function pumpStrip() {
     // A bridge that answers that the strip is not configured is believed until the page is loaded again.
-    if (S.strip === "off" || !PACK.live || !STRIP_SERVED || stripRt.busy || stripRt.status === "unconfigured") return;
+    if (S.strip === "off" || !PACK.live || !STRIP_SERVED || stripRt.busy || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured") return;
     const view = stripViewWant(), history = stripHistoryWant(), now = performance.now(),
       liveEdge = (held) => held.to > msAt(Math.ceil(CUT)),
       want = !stripCovers(stripRt.view, view) || (liveEdge(stripRt.view) && now - stripRt.view.at > 300000) ? view
@@ -16267,7 +16272,8 @@
     if (!want) return;
     const key = `${want.kind}|${want.from}|${want.to}|${want.step}`;
     if (key === stripRt.failed.key && now - stripRt.failed.at < 60000) return;
-    const controller = new AbortController();
+    const controller = new AbortController(), owner = stripRt, revision = analysisRevision;
+    const owned = () => stripRt === owner && analysisRevision === revision && activeAnalysis?.mode !== "captured";
     stripRt.busy = { key, controller };
     if (!stripRt.view) stripRt.status = "loading";
     try {
@@ -16275,6 +16281,7 @@
       target.username = target.password = "";
       const response = await fetch(target, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]) }),
         body = await response.json().catch(() => null);
+      if (!owned() || controller.signal.aborted) return;
       offerReload(body);
       if (response.ok && body?.schema === "cube-strip@2") stripApply(want, body);
       else {
@@ -16287,6 +16294,7 @@
         }
       }
     } catch (error) {
+      if (!owned()) return;
       if (!controller.signal.aborted) {
         stripRt.failed = { key, at: now };
         if (!stripRt.view) {
@@ -16295,10 +16303,8 @@
         }
       } else if (!stripRt.view) stripRt.status = "idle";
     } finally {
-      stripRt.busy = null;
-      renderStrip();
-      requestDraw();
-      scheduleStrip();
+      owner.busy = null;
+      if (stripRt === owner) { renderStrip(); requestDraw(); scheduleStrip(); }
     }
   }
   function stripApply(want, body) {
@@ -16627,6 +16633,7 @@
   function stripStatusText() {
     return {
       unconfigured: "Strip data is not served here yet",
+      uncaptured: STRIP_UNCAPTURED,
       failed: `Strip unavailable: ${stripRt.detail}`,
       loading: "Reading the strip…",
       idle: "Reading the strip…",
@@ -25398,7 +25405,7 @@
     const value = Agent.validate(document), checked = E.codec.validatePortable(value.scene, viewEnv());
     if (!checked.ok || checked.dropped.length) throw Error(checked.reasons.join("; ") || "Scene contains unavailable settings");
     if (value.snapshot && (value.snapshot.origin !== T0 || value.snapshot.baseSeconds !== BASE || value.snapshot.basePrice !== PR)) throw Error("Captured canvas uses a different cube lattice");
-    const prior = activeAnalysis, before = await agentDocument("view", null, false);
+    const prior = activeAnalysis, priorStrip = stripRt, before = await agentDocument("view", null, false);
     if (!analysisOrigin) analysisOrigin = agentSnapshot(false);
     try {
       if (drawingCollection().objects.length && JSON.stringify(drawingCollection()) !== JSON.stringify(value.scene.drawings)) {
@@ -25406,6 +25413,8 @@
         if (!preserved.ok) throw Error("Existing drawings could not be preserved: " + preserved.reason);
       }
       activeAnalysis = value; analysisRevision++;
+      clearTimeout(stripRt.timer); stripRt.busy?.controller.abort();
+      stripRt = value.mode === "captured" ? stripRuntime("uncaptured") : stripLive;
       clearTimeout(live.timer); clearTimeout(cube.timer); clearTimeout(motion.timer);
       cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
@@ -25427,7 +25436,7 @@
       if (value.mode === "live") scheduleLive(3);
       return { id: value.id, mode: value.mode };
     } catch (error) {
-      activeAnalysis = prior; analysisRevision++;
+      activeAnalysis = prior; analysisRevision++; stripRt = priorStrip;
       if (before.snapshot) agentInstallSnapshot(before.snapshot);
       applyView(portableView(E.codec.validatePortable(before.scene, viewEnv()).value, before.scene.id));
       throw error;
@@ -25471,6 +25480,8 @@
       unchanged();
       analysisPrevious = before;
       activeAnalysis = null; analysisHash = null; committingRevision = ++analysisRevision;
+      clearTimeout(stripRt.timer); stripRt.busy?.controller.abort();
+      stripLive = stripRt = stripRuntime();
       agentInstallSnapshot(analysisOrigin);
     });
     const committed = () => { if (analysisRevision !== committingRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
@@ -25479,8 +25490,8 @@
     const after = await agentDocument(); committed();
     const difference = Agent.diff(Agent.forExport(before), after);
     activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null }); analysisRevision++;
-    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes.";
-    scheduleLive(3); return { document: after, ...difference };
+    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
+    scheduleStrip(); scheduleLive(3); return { document: after, ...difference };
   }
   function agentRestorePrevious() {
     if (!analysisPrevious) throw Error("No previous capture is available on this page");
