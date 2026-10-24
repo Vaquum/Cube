@@ -68,3 +68,20 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
   expect(draws.some(e => !e.refinement && e.status === "requested-output-submitted")).toBe(true);
   expect(report.events.some(e => e.type === "presentation-proxy" && e.scope === "ol-drawer-body")).toBe(true);
 });
+test("opening Continuations waits for its own history/computation rather than chart submission", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&vis=2&r=9,0"); await probe.waitForReady();
+  await controls(page); await page.locator("#ol-diagnostics-start").click();
+  const gate = fake.on({ route: "/cube/columns" }).gate();
+  try {
+    await page.locator("#ol-canvas").focus(); await page.keyboard.press("c");
+    await gate.arrived(); await expect(page.locator("#ol-evidence")).toHaveAttribute("aria-busy", "true");
+    gate.open(); await expect(page.locator("#ol-evidence")).toHaveAttribute("aria-busy", "false");
+    await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive())).toBe(false);
+    const report = await exported(page), input = report.events.find(e => e.type === "input" && e.scope === "ol-evidence");
+    expect(input).toBeTruthy();
+    const complete = report.events.find(e => e.type === "presentation-proxy" && e.id === input.id);
+    expect(complete).toBeTruthy();
+    const phases = report.events.filter(e => e.type === "phase-end" && e.name === "continuations" && e.outcome === "completed");
+    expect(phases.length).toBeGreaterThan(0); expect(complete.at).toBeGreaterThanOrEqual(phases.at(-1).at);
+  } finally { gate.open(); }
+});

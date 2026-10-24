@@ -22439,12 +22439,12 @@
     }
     function input(scope, detail) {
       if (!active) return null;
-      const previous = pending.get(scope);
+      const owner = detail.owner ?? scope, previous = pending.get(owner);
       if (previous) mark("interaction-superseded", { id: previous.id });
-      const p = { id: ++serial, session, scope, inputAt: now(), quiet: 0 };
-      pending.set(scope, p); mark("input", { id: p.id, scope, ...detail }); return p;
+      const p = { id: ++serial, session, scope, owner, inputAt: now(), quiet: 0 };
+      pending.set(owner, p); mark("input", { id: p.id, scope, ...detail }); return p;
     }
-    const owns = p => active && p && p.session === session && pending.get(p.scope) === p;
+    const owns = p => active && p && p.session === session && pending.get(p.owner) === p;
     function acknowledge(p, requested) {
       if (!owns(p)) return;
       p.requested = requested;
@@ -22467,6 +22467,10 @@
       mark("frame", { interval, hidden });
       for (const p of pending.values()) {
         const state = scopes(p.scope), relevantChart = p.scope === "ol-canvas";
+        if (state.unavailable) {
+          mark("interaction-unavailable", { id: p.id, scope: p.scope, reason: "scope closed or removed before completion" });
+          pending.delete(p.owner); continue;
+        }
         const current = !relevantChart || chart && chart.requested.revision >= p.requested?.revision;
         const status = relevantChart && chart ? readiness(chart) : "scope-submitted";
         const terminal = ["requested-output-submitted", "terminal-fallback", "terminal-unavailable"].includes(status);
@@ -22474,7 +22478,7 @@
         p.quiet = quiet ? p.quiet + 1 : 0;
         if (p.quiet < 2) continue;
         mark("presentation-proxy", { id: p.id, scope: p.scope, duration: now() - p.inputAt, status });
-        pending.delete(p.scope);
+        pending.delete(p.owner);
       }
     }
     return Object.freeze({ start, stop, mark, phase, input, acknowledge, draw, frame,
@@ -22483,7 +22487,7 @@
   function mount({ root, requested, snapshot, identity, download }) {
     const el = id => root.querySelector("#ol-diagnostics-" + id);
     const ignored = node => node.closest('#ol-diagnostics,#ol-help-tooltip,#ol-tip,[role="tooltip"]');
-    let raf = 0, lastFrame = null, observers = [], generation = 0;
+    let raf = 0, lastFrame = null, observers = [], generation = 0, crossedHidden = false;
     const recorder = create({ now: () => performance.now(), setTimer: setTimeout, clearTimer: clearTimeout, changed: refresh });
     function refresh() {
       if (!recorder.active) {
@@ -22496,7 +22500,7 @@
     }
     function scopeState(id) {
       const node = document.getElementById(id);
-      if (!node) return { moving: false, busy: false };
+      if (!node || node.closest("[hidden],[inert]") || !node.getClientRects().length) return { unavailable: true };
       const moving = [node, ...node.querySelectorAll("[data-motion-running]")].some(n => n.hasAttribute("data-motion-running") && !ignored(n));
       // Opening a panel is independent of optional work inside it. Study/table
       // controls use their own scope and retain their own busy contract.
@@ -22506,7 +22510,8 @@
     }
     function tick(time, owned) {
       if (!recorder.active || generation !== owned) return;
-      recorder.frame({ interval: lastFrame === null ? null : time - lastFrame, hidden: document.hidden, scopes: scopeState, chart: snapshot() });
+      recorder.frame({ interval: lastFrame === null ? null : time - lastFrame, hidden: document.hidden || crossedHidden, scopes: scopeState, chart: snapshot() });
+      crossedHidden = document.hidden;
       lastFrame = time;
       if (recorder.active) raf = requestAnimationFrame(time => tick(time, owned));
     }
@@ -22533,17 +22538,21 @@
           observer.observe({ type, buffered: true, ...(type === "event" ? { durationThreshold: 16 } : {}) }); observers.push(observer);
         } catch { recorder.mark("metric-unavailable", { metric: type }); }
       }
-      lastFrame = null; raf = requestAnimationFrame(time => tick(time, owned));
+      lastFrame = null; crossedHidden = document.hidden; raf = requestAnimationFrame(time => tick(time, owned));
     }
     function capture(event) {
       if (!recorder.active || !(event.target instanceof Element) || ignored(event.target)) return;
       if (event.type === "pointermove" && !event.buttons) return;
       const target = event.target.closest("button,input,select,summary,a,canvas") ?? event.target;
       const controlled = target.getAttribute("aria-controls"), drawer = target.hasAttribute("data-drawer");
-      const explicit = drawer ? "ol-drawer-body" : controlled && document.getElementById(controlled) ? controlled : null;
+      const key = event.type === "keydown" ? (event.key ?? "").toLowerCase() : "";
+      const studyScope = target.id === "ol-evidence-tab" ? "ol-evidence" : target.id === "ol-context-tab" ? "ol-context" :
+        target.id === "ol-canvas" && key === "c" ? root.querySelector("#ol-evidence-tab").getAttribute("aria-pressed") === "true" ? "ol-context" : "ol-evidence" : null;
+      const explicit = studyScope ?? (drawer || target.id === "ol-canvas" && key === "t" ? "ol-drawer-body" :
+        target.id === "ol-canvas" && key === "i" ? "ol-side-body" : controlled && document.getElementById(controlled) ? controlled : null);
       const container = target.closest("#ol-comparisonWorkspace,#ol-evidence,.ol-panel,#ol-controls,#ol-side-body");
       const scope = explicit ?? (container && container.id !== "ol-controls" ? container.id : "ol-canvas");
-      const p = recorder.input(scope, { event: event.type, target: target.id || target.tagName.toLowerCase(), trusted: event.isTrusted, eventTime: event.timeStamp });
+      const p = recorder.input(scope, { owner: studyScope ? "inspector-tab" : scope, event: event.type, target: target.id || target.tagName.toLowerCase(), trusted: event.isTrusted, eventTime: event.timeStamp });
       // Native dispatch may checkpoint microtasks between capture and bubble
       // listeners. A task observes the application handlers after dispatch.
       setTimeout(() => recorder.acknowledge(p, requested()), 0);
@@ -22551,6 +22560,11 @@
     // Listeners are inert until explicitly started. No input text, clipboard,
     // query strings or credentials are included in the export.
     for (const type of ["click", "change", "keydown", "wheel", "pointerdown", "pointermove"]) root.addEventListener(type, capture, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", () => {
+      if (!recorder.active) return;
+      crossedHidden ||= document.hidden;
+      recorder.mark("visibility", { hidden: document.hidden });
+    });
     root.addEventListener("comparison-render", event => {
       if (recorder.active) recorder.mark("comparison-render", { revision: event.detail.revision });
     });

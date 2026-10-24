@@ -18,7 +18,7 @@ requested state and task-queue delay. It does not establish visible feedback. A 
 application submission, not compositor presentation. Draw revisions may advance
 as dependencies arrive; only the latest interaction in a scope owns completion.
 The first subsequent draw, data-ready submission and presentation proxy are separate
-events. Superseded inputs and unfinished interactions remain explicit.
+events. Superseded inputs, closed scopes and unfinished interactions remain explicit.
 
 Chart readiness distinguishes pending data, retained/blended refinement, a loaded
 coarser fallback, requested output submission and terminal unavailable/fallback.
@@ -32,7 +32,8 @@ Presentation is a proxy: two sampled frames with no relevant scope motion or bus
 state. Chart completion additionally requires current requested output submission
 or a terminal result. Scope comes from the controlled panel or nearest workspace;
 chart controls use the canvas. Opening a panel excludes optional background work
-inside it. Tooltips are excluded. This is not a general causal trace of every UI
+inside it. The Continuations tab and C shortcut use the study's busy scope.
+Tooltips are excluded. This is not a general causal trace of every UI
 event and it must not replace a case's semantic assertions or existing benchmark gates.
 
 Native frame intervals, supported Resource/NavigationTiming, raw EventTiming
@@ -40,7 +41,7 @@ Native frame intervals, supported Resource/NavigationTiming, raw EventTiming
 entries can predate recording; their own timestamps distinguish them. Unsupported
 metrics are marked unavailable. These samples do not establish INP, LCP, physical
 display latency, CPU/GPU attribution, heap growth or a cache-cold load. Frame samples
-stop when hidden by the browser; a returned long interval remains labelled and is
+stop when hidden by the browser; an interval crossing a hidden state is labelled and is
 not a visible-frame guarantee. Collection overhead is included.
 
 Application phases split cube/movement fetch-to-headers, body read/JSON parse and

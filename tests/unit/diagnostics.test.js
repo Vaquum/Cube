@@ -60,6 +60,15 @@ test("unrelated tooltip activity does not delay another scope, and hidden frames
   frame(false); frame(false);
   assert.equal(events(r, "presentation-proxy")[0].scope, "comparison");
 });
+test("changed inspector tabs supersede the previous scope, and closed scopes cannot claim presentation", () => {
+  const f = fixture(), r = f.recorder; r.start({});
+  const old = r.input("evidence", { owner: "inspector-tab" }), current = r.input("context", { owner: "inspector-tab" });
+  r.acknowledge(old, state().requested); r.acknowledge(current, state().requested);
+  assert.deepEqual(events(r, "acknowledgment").map(e => e.id), [current.id]);
+  r.frame({ interval: 16, hidden: false, scopes: () => ({ unavailable: true }), chart: state() });
+  assert.equal(events(r, "interaction-unavailable")[0].id, current.id);
+  assert.equal(events(r, "presentation-proxy").length, 0);
+});
 test("phase elapsed time includes yields; duplicate ends and stopped callbacks are ignored", () => {
   const f = fixture(), r = f.recorder; r.start({});
   const end = r.phase("decode", { source: "history" }); f.advance(25); end("obsolete"); end();
