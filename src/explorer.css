@@ -3678,6 +3678,7 @@
 #origo-lens .ol-reference-status { flex: none; min-height: 3.2em; margin: 0; font-size: var(--fs-s); color: var(--ol-muted); }
 #origo-lens #ol-reference-shortcuts { align-self: flex-start; }
 #origo-lens #ol-reference-spotlight { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 60; pointer-events: none; }
+#origo-lens #ol-reference-spotlight[data-in-reference] { z-index: 62; }
 #origo-lens .ol-reference-shade { fill: rgb(0 0 0 / 65%); pointer-events: auto; }
 #origo-lens .ol-reference-frame { fill: none; stroke: var(--ol-ink); stroke-width: 2; pointer-events: none; }
 #origo-lens .ol-main[data-reference="open"] {
