@@ -1,0 +1,9 @@
+{
+  "kind": "synthetic",
+  "expectationSource": "hand-computed",
+  "generator": null,
+  "seed": null,
+  "extractedOn": "2026-10-24",
+  "source": "Issue #205: refresh captures without reading the unused bounding rectangle between them.",
+  "notes": "Every trade is 0.01 BTC at its base row's lower edge, so row r contains r*1.25 USDT per trade. Sparse captures straddle the exact 4096-column bound. The dense profile is 3000 columns by 8 rows: 24000 cells, while 2500 columns by 8 rows is exactly the production 20000-cell agent limit. Mixed captures use n=1,m=1, including a half-time and half-price region. All expected regions and bounds come from this geometry; no generator or fake aggregation supplies the expected outcomes."
+}
