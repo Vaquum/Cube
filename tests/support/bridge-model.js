@@ -253,7 +253,7 @@ function cubeSummary(summary, response, n, m) {
     last_column_unfinished: Boolean(summary.last_column_unfinished),
     volume: summary.volume, trade_count: Math.trunc(summary.trade_count), taker_buy_volume: summary.taker_buy_volume,
     taker_buy_trade_count: Math.trunc(summary.taker_buy_trade_count), poc: summary.poc ?? null, taker_buy_poc: summary.taker_buy_poc ?? null,
-    cell_count: Math.trunc(summary.cell_count ?? 0), source: "cube",
+    ...(summary.cell_count == null ? {} : { cell_count: Math.trunc(summary.cell_count) }), source: "cube",
   };
 }
 
