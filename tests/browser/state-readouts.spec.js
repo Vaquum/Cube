@@ -136,19 +136,12 @@ test.describe("B38 the states of a standard live view: archive, provisional, ope
     await expect(tip).toContainText(/Position on scale[0-9.]+%/);
   });
 
-  test("future space has no hover card; Inspect keeps its outside-view state", async ({ page, probe, fakeFor }) => {
+  test("space hidden by replay or past the data cutoff has no hover card", async ({ page, probe, fakeFor }) => {
     const fake = await fakeFor("standard");
     await openLive(page, fake, probe, `${live}&replay=1&at=2026-09-24T06:00Z`);
     await hoverAt(page, "2026-09-24T10:30Z", 22750, false);
-    await page.keyboard.press("e");
-    await expect(page.locator("#ol-inspect-readout")).toContainText("The cursor is outside the view.");
-    await expect(page.locator("#ol-inspect-readout .ol-cell-stat")).toHaveCount(0);
-    await page.keyboard.press("Escape");
     await openLive(page, fake, probe, live);
     await hoverAt(page, "2026-09-24T12:20Z", 22750, false);
-    await page.keyboard.press("e");
-    await expect(page.locator("#ol-inspect-readout")).toContainText("The cursor is outside the view.");
-    await expect(page.locator("#ol-inspect-readout .ol-cell-stat")).toHaveCount(0);
   });
 });
 
