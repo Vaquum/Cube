@@ -1,0 +1,20 @@
+{
+  "origin": "public providers captured locally",
+  "funding": {
+    "provider_observations": 71,
+    "retained_observations": 71,
+    "later_backfill_observations": 70,
+    "backfilled_times_retrospective": true,
+    "expanded_native_live_window_retrospective": true,
+    "first_observation_unchanged": true
+  },
+  "social": {
+    "capture_seconds": 62.62,
+    "minute_rows": 2,
+    "complete_minutes_admitted": 1,
+    "creates_in_admitted_minutes": 2516,
+    "partial_minute_deferred_until_complete": true,
+    "all_complete_counts_equal": true,
+    "raw_posts_retained": false
+  }
+}

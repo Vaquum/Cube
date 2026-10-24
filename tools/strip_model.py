@@ -238,11 +238,18 @@ def observations(source: str, records: list, meta: dict, received_ms: int) -> li
                 extra = {k: v.get(k) for k in ("bitcoin_articles", "panel_articles", "tone_scored_articles")}
                 out.append(Obs("gdelt", r["id"], at, _num(v.get("tone_mean")), extra, at + 15 * MINUTE))
     elif source == "bluesky_live":
+        continuous = (meta.get("mode") or (meta.get("source_metadata") or {}).get("mode") or
+                      (meta.get("session") or {}).get("mode")) == "continuous_checkpointed"
         for r in records:
             v, at, m = r.get("values") or {}, ms(r.get("observed_at")), r.get("metadata") or {}
+            if continuous and (m.get("full_minute_connection_coverage") is not True or m.get("cursor_gap_overlap") is not False):
+                continue
             if at is not None:
                 extra = {k: v.get(k) for k in ("creates", "bitcoin_creates", "bullish_word_matches", "bearish_word_matches")}
                 extra["dictionary"] = m.get("dictionary_version")
+                if continuous:
+                    extra.update(mode="continuous_checkpointed", connected_seconds=m.get("connected_seconds"),
+                                 full_minute_connection_coverage=True, cursor_gap_overlap=False)
                 out.append(Obs("bluesky", r["id"], at, None, extra, ms(m.get("interval_end")) or at + MINUTE))
     elif source == "wikimedia_daily":
         for r in records:
@@ -330,12 +337,10 @@ class Store:
         return dict(self.db.execute("SELECT series, MIN(observed_ms) FROM obs NOT INDEXED WHERE rowid > ? GROUP BY series", (row,)).fetchall())
 
     def retro_until(self, series: str) -> int | None:
-        """Where a series' values stop being retrospective: its first value known live, or after its last retrospective one."""
-        live = self.db.execute("SELECT MIN(known_ms) FROM obs WHERE series = ? AND retro = 0", (series,)).fetchone()[0]
-        if live is not None:
-            return live
+        """Conservative prefix: the first live row after every reconstructed row, or no live boundary yet."""
         retro = self.db.execute("SELECT MAX(known_ms) FROM obs WHERE series = ? AND retro = 1", (series,)).fetchone()[0]
-        return retro + 1 if retro is not None else None
+        return self.db.execute("SELECT MIN(known_ms) FROM obs WHERE series = ? AND retro = 0 AND known_ms > ?",
+                               (series, -1 if retro is None else retro)).fetchone()[0]
 
     def newest_observed(self, series: str) -> int | None:
         row = self.db.execute("SELECT MAX(observed_ms) FROM obs WHERE series = ?", (series,)).fetchone()
@@ -355,12 +360,14 @@ class Model:
         self.store = store
 
     def ingest(self, source: str, dataset_id: str, records: list, meta: dict, received_at: str | None, published_ms: int,
-               interval_ms: int) -> int:
+               interval_ms: int, *, retrospective: bool = False) -> int:
         """One source's dataset, first published at ``published_ms``. Returns how many observations were new.
 
         An observation is known at the publication that first carried it. The first dataset of a source also carries
         older observations of its native window: those that its source made public more than one collection interval
-        before the dataset was received are retrospective, known at the time their source rule gives."""
+        before the dataset was received are retrospective, known at the time their source rule gives. Explicit
+        historical backfills and newly exposed native history from before collection began use that same rule
+        even after the source has begun live collection."""
         db = self.store.db
         with self.store.lock:
             if self.store.has_dataset(source, dataset_id):
@@ -370,7 +377,7 @@ class Model:
             fresh = 0
             for o in observations(source, records, meta, received_ms):
                 rule = o.rule_known_ms if o.rule_known_ms is not None else o.observed_ms
-                retro = first is None and rule < received_ms - interval_ms
+                retro = (first is None or retrospective or rule < first - interval_ms) and rule < received_ms - interval_ms
                 known = min(rule, published_ms) if retro else published_ms
                 cursor = db.execute("INSERT OR IGNORE INTO obs VALUES (?, ?, ?, ?, ?, ?, ?)",
                                     (o.series, o.obs_id, o.observed_ms, known, int(retro), o.value,
@@ -565,12 +572,9 @@ class SortedWindow:
 
 
 def _retro_until(rows: list[tuple]) -> int | None:
-    """Where a series' values stop being retrospective: its first value known live, or after its last retrospective one."""
-    live = [r[1] for r in rows if not r[2]]
-    if live:
-        return min(live)
-    retro = [r[1] for r in rows if r[2]]
-    return max(retro) + 1 if retro else None
+    """Conservative prefix: the first live row after every reconstructed row, or no live boundary yet."""
+    retro = max((r[1] for r in rows if r[2]), default=-1)
+    return min((r[1] for r in rows if not r[2] and r[1] > retro), default=None)
 
 
 def macro_evidence(code: str, rows: list[tuple]) -> Evidence:
@@ -608,8 +612,9 @@ def funding_evidence(deribit: list[tuple], hyperliquid: list[tuple]) -> Evidence
         window.add(h, mean)
         if z is not None:
             ev.append((max(k for _, k in hours[h]), 0.6 * math.tanh(z / 2), {"z": round(z, 2), "annualised": round(mean, 2), "venues": len(hours[h])}))
-    retro = [x for x in (_retro_until(deribit), _retro_until(hyperliquid)) if x is not None]
-    return Evidence.of("positioning.funding", ev, 3 * HOUR, max(retro) if retro else None)
+    boundaries = [_retro_until(rows) for rows in (deribit, hyperliquid) if rows]
+    retro = max(boundaries) if boundaries and all(x is not None for x in boundaries) else None
+    return Evidence.of("positioning.funding", ev, 3 * HOUR, retro)
 
 
 def stablecoin_evidence(rows: list[tuple]) -> Evidence:
