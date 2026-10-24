@@ -334,6 +334,19 @@ test("MCP selection refresh rejects a source revision after the camera read", as
   await gate.arrived();fake.revise({day:"2021-01-01",factor:2});gate.open();
   assert.match(await result,/differ.*pack/);assert.deepEqual(d,before);
 });
+
+test("selection configuration normalizes base edges and updates requested geometry without replacing recorded evidence", () => {
+  const before=document(),selection=structuredClone(before.selection),patch={selection:[.1,.9,200.1,201.1]};
+  const after=A.configure(before,patch);assert.deepEqual(after.scene.view.selection,[0,1,200,201]);assert.deepEqual(after.scene.query,{t1:0,t2:1,p1:200,p2:201,tR:0,pR:0});assert.deepEqual(after.selection,selection);assert.deepEqual(patch.selection,[.1,.9,200.1,201.1]);
+  assert.deepEqual(A.configure(after,{selection:null}).scene.query,before.scene.query);
+  assert.throws(()=>A.configure(before,{selection:[2.1,2.2,200.1,200.2]}),/base column and row/);
+});
+
+test("clearing selection preserves camera padding while clipping requested time to known history",()=>{
+  const d=document();d.scene.view.viewport=[0,2.8,200,202];d.scene.view.selection=[0,1,200,201];d.scene=A.seal(d.scene);
+  const cleared=A.configure(A.seal(d),{selection:null});assert.deepEqual(cleared.scene.view.viewport,[0,2.8,200,202]);assert.deepEqual(cleared.scene.query,{t1:0,t2:2,p1:200,p2:202,tR:0,pR:0});
+});
+
 test("selection read availability changes separately from measured quantities",()=>{
   const measured=document();measured.selection.metrics={volume:400,taker_buy_volume:200,trade_count:3,taker_buy_trade_count:2,poc:25062.5,taker_buy_poc:25062.5,tR:56.25,pR:125,cell_count:2};
   for(const tag of ["pending","failed","hidden"]){const unavailable=structuredClone(measured);unavailable.selection.metrics={tag,value:null,reason:tag};unavailable.selection.state=tag;
