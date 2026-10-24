@@ -19,6 +19,8 @@ application submission, not compositor presentation. Draw revisions may advance
 as dependencies arrive; only the latest interaction in a scope owns completion.
 The first subsequent draw, data-ready submission and presentation proxy are separate
 events. Superseded inputs, closed scopes and unfinished interactions remain explicit.
+Draw attribution can be appended after acknowledgment; its `at` value retains
+the original draw timestamp. Use timestamps rather than array order for durations.
 
 Chart readiness distinguishes pending data, retained/blended refinement, a loaded
 coarser fallback, requested output submission and terminal unavailable/fallback.

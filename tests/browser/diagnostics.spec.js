@@ -59,9 +59,13 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
   // session's n=6 identity must never label the now-current n=7 raster.
   await page.locator("#ol-canvas").focus(); await page.keyboard.press("]"); await probe.waitForReady();
   await expect(page.locator("#ol-n")).toHaveText("n 7");
-  await page.locator("#ol-diagnostics-start").click();
-  await page.evaluate(() => { window.__holdDiagnosticsCalibration = true; });
-  await page.locator("#ol-canvas").focus(); await page.keyboard.press("]");
+  // Start and retarget in one dispatch turn, before a fresh recorded frame
+  // could conceal reuse of the preceding session's stale raster identity.
+  await page.evaluate(() => {
+    document.querySelector("#ol-diagnostics-start").click(); window.__holdDiagnosticsCalibration = true;
+    const canvas = document.querySelector("#ol-canvas"); canvas.focus();
+    for (const type of ["keydown", "keyup"]) canvas.dispatchEvent(new KeyboardEvent(type, { key: "]", code: "BracketRight", bubbles: true, cancelable: true }));
+  });
   await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", "waiting");
   await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive()), { timeout: 3000 }).toBe(false);
   // Release through a real resize, which advances the draw revision without new input.

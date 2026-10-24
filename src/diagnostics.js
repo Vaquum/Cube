@@ -10,7 +10,7 @@
   const DEFINITIONS = Object.freeze({
     clock: "performance.now() milliseconds relative to performance.timeOrigin; browser entries use the same origin",
     acknowledgment: "Zero-delay task after input dispatch; records post-handler requested state including task-queue delay, not a verified paint",
-    draw: "Application draw() entry to completed canvas/DOM submission; includes CPU work, excludes compositor presentation",
+    draw: "Application draw() entry to completed canvas/DOM submission; includes CPU work, excludes compositor presentation. Attribution deferred until acknowledgment retains its original at timestamp",
     presentation: "Two consecutive sampled animation frames with no relevant scope motion/busy state; chart scope additionally requires a completed requested draw or explicit terminal result",
     frames: "Native requestAnimationFrame intervals while recording, including the recorder's own overhead; hidden intervals are labelled",
     resources: "Browser ResourceTiming/NavigationTiming; cross-origin fields can be zero without Timing-Allow-Origin",
@@ -44,7 +44,7 @@
       report.events.push({ type, at: now(), ...detail });
     }
     function start(identity) {
-      stop("restarted"); session++; serial = 0; active = true;
+      stop("restarted"); pending.clear(); session++; serial = 0; active = true;
       report = { schema: "cube-performance@1", identity, limits: { ...limits }, definitions: DEFINITIONS, started: now(), events: [] };
       timer = setTimer(() => stop("time-limit"), limits.milliseconds);
       mark("recording-start"); changed();
@@ -63,25 +63,38 @@
       if (!active) return null;
       const owner = detail.owner ?? scope, previous = pending.get(owner);
       if (previous) mark("interaction-superseded", { id: previous.id });
+      if (!active) return null;
       const p = { id: ++serial, session, scope, owner, inputAt: now(), quiet: 0 };
-      pending.set(owner, p); mark("input", { id: p.id, scope, ...detail }); return p;
+      mark("input", { id: p.id, scope, ...detail });
+      if (!active) return null;
+      pending.set(owner, p); return p;
     }
     const owns = p => active && p && p.session === session && pending.get(p.owner) === p;
     function acknowledge(p, requested) {
       if (!owns(p)) return;
       p.requested = requested;
       mark("acknowledgment", { id: p.id, duration: now() - p.inputAt, requested });
+      const early = p.earlyDraws ?? []; delete p.earlyDraws;
+      for (const draw of early) attributeDraw(p, draw);
+    }
+    function attributeDraw(p, { state, status, at }) {
+      if (!owns(p) || !p.requested || p.requested.revision > state.requested.revision) return;
+      if (!p.drawn) { p.drawn = true; mark("interaction-draw", { at, id: p.id, duration: at - p.inputAt, status }); }
+      if (!p.ready && ["requested-output-submitted", "terminal-fallback", "terminal-unavailable"].includes(status)) {
+        p.ready = true; mark("interaction-data-ready", { at, id: p.id, duration: at - p.inputAt, status });
+      }
     }
     function draw(state, duration) {
       if (!active) return;
       const status = readiness(state);
       mark("draw", { duration, status, ...state });
       for (const p of pending.values()) {
-        if (p.scope !== "ol-canvas" || !p.requested || p.requested.revision > state.requested.revision) continue;
-        if (!p.drawn) { p.drawn = true; mark("interaction-draw", { id: p.id, duration: now() - p.inputAt, status }); }
-        if (!p.ready && ["requested-output-submitted", "terminal-fallback", "terminal-unavailable"].includes(status)) {
-          p.ready = true; mark("interaction-data-ready", { id: p.id, duration: now() - p.inputAt, status });
-        }
+        if (p.scope !== "ol-canvas") continue;
+        const draw = { state, status, at: now() };
+        // Only the current canvas owner retains references, bounded by the
+        // recording's event limit. A frame may precede the acknowledgment task.
+        if (!p.requested) (p.earlyDraws ??= []).push(draw);
+        else attributeDraw(p, draw);
       }
     }
     function frame({ interval, hidden, scopes, chart }) {

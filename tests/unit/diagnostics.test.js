@@ -45,6 +45,18 @@ test("data arrivals advance draw revision without losing the initiating interact
   const frame = () => r.frame({ interval: 16, hidden: false, scopes: () => ({ moving: false, busy: false }), chart: state(4) });
   frame(); frame(); assert.equal(events(r, "presentation-proxy")[0].id, p.id);
 });
+test("draws before acknowledgment retain their original timing and ignore obsolete requested revisions", () => {
+  const f = fixture(), r = f.recorder; r.start({});
+  const p = r.input("ol-canvas", {});
+  f.advance(5); r.draw(state(1), 2); f.advance(5); r.draw(state(2), 3);
+  f.advance(20); r.acknowledge(p, state(2).requested);
+  for (const type of ["interaction-draw", "interaction-data-ready"]) {
+    assert.equal(events(r, type).length, 1); assert.equal(events(r, type)[0].id, p.id);
+    assert.equal(events(r, type)[0].at, 10); assert.equal(events(r, type)[0].duration, 10);
+  }
+  const frame = () => r.frame({ interval: 16, hidden: false, scopes: () => ({ moving: false, busy: false }), chart: state(2) });
+  frame(); frame(); assert.equal(events(r, "presentation-proxy")[0].id, p.id);
+});
 test("new input owns completion and old-session callbacks cannot contaminate a recording", () => {
   const f = fixture(), r = f.recorder; r.start({});
   const end = r.phase("history"), first = r.input("ol-canvas", {}), second = r.input("ol-canvas", {});
@@ -84,4 +96,12 @@ test("recordings stop at the sample/time bounds and exported snapshots are indep
   assert.equal(r.active, false); assert.equal(r.export().events.length, 3); assert.equal(r.export().stopReason, "event-limit");
   const copy = r.export(); copy.events.length = 0; assert.equal(r.export().events.length, 3);
   r.start({}); f.expire(); assert.equal(r.active, false); assert.equal(r.export().stopReason, "time-limit");
+});
+test("a limit hit during supersession cannot leave an orphan in a restarted recording", () => {
+  const f = fixture({ events: 3, milliseconds: 100 }), r = f.recorder; r.start({});
+  const old = r.input("ol-canvas", {}); r.acknowledge(old, state().requested);
+  assert.equal(r.input("ol-canvas", {}), null); assert.equal(r.active, false);
+  r.start({}); r.stop();
+  assert.deepEqual(r.export().unfinishedInteractions, []);
+  assert.equal(events(r, "input").length, 0);
 });
