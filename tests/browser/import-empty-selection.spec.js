@@ -1,8 +1,9 @@
 "use strict";
 const {test,expect}=require("./fixtures.js");
 const VIEW="#t=2021-01-01T00:00Z~2021-01-01T00:06Z&p=24800~25500&r=0,0&auto=0&vis=2&lines=";
-async function outgoing(page,fakeFor,probe,kind) {
-  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+async function outgoing(page,fakeFor,probe,kind,forces=false) {
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW+(forces?"&rc=1&strip=forces":""));await probe.waitForReady();
+  if(forces)await expect(page.locator("#ol-strip")).toHaveAttribute("data-state","ready");
   const original=await page.evaluate(()=>window.cubeAgent.export());
   await page.evaluate(selection=>window.cubeAgent.configure({selection}),kind==="replay"?[2,3,200,202]:[2.1,2.2,200.1,200.2]);
   if(kind==="replay") {await page.locator("#ol-canvas").focus();await page.keyboard.press("r");for(let i=0;i<7;i++)await page.keyboard.press(",");}
@@ -16,13 +17,15 @@ for(const kind of ["replay","rounded"]) test(`valid import restores while outgoi
   await expect(page.locator("#ol-analysis-status")).toContainText("Captured evidence");
 });
 for(const kind of ["replay","rounded"]) test(`a runtime import failure preserves the empty ${kind} selection and source`,async({page,fakeFor,probe})=>{
-  const original=await outgoing(page,fakeFor,probe,kind),before={url:page.url(),query:await page.locator("#ol-query-text").inputValue()};
+  const original=await outgoing(page,fakeFor,probe,kind,true),before={url:page.url(),query:await page.locator("#ol-query-text").inputValue(),cutoff:await page.locator("#ol-strip").getAttribute("data-cutoff")};
   const failure=await page.evaluate(async d=>{
     // A valid JSON packet with a malformed cache fails during installation, after source mutation.
     d.snapshot.cache.candleRanges={cubeMap:[["bad",null]]};
     try {await window.cubeAgent.apply(window.explorerAgent.seal(d));return "unexpected success";}catch(error){return error.message;}
   },original);
   expect(failure).toMatch(/generation/);expect(page.url()).toBe(before.url);
+  await expect(page.locator("#ol-strip")).toHaveAttribute("data-state","ready");
+  await expect(page.locator("#ol-strip")).toHaveAttribute("data-cutoff",before.cutoff);
   expect(await page.locator("#ol-query-text").inputValue()).toBe(before.query);
   expect(await page.evaluate(()=>window.cubeAgent.export().then(()=>"unexpected success",error=>error.message))).toContain("query rectangle is not ordered");
   // The valid document can still be applied after rollback.
