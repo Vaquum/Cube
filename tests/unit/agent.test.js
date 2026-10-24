@@ -332,3 +332,10 @@ test("MCP selection refresh rejects a source revision after the camera read", as
   await gate.arrived();fake.revise({day:"2021-01-01",factor:2});gate.open();
   assert.match(await result,/differ.*pack/);assert.deepEqual(d,before);
 });
+
+test("selection configuration normalizes base edges and updates requested geometry without replacing recorded evidence", () => {
+  const before=document(),selection=structuredClone(before.selection),patch={selection:[.1,.9,200.1,201.1]};
+  const after=A.configure(before,patch);assert.deepEqual(after.scene.view.selection,[0,1,200,201]);assert.deepEqual(after.scene.query,{t1:0,t2:1,p1:200,p2:201,tR:0,pR:0});assert.deepEqual(after.selection,selection);assert.deepEqual(patch.selection,[.1,.9,200.1,201.1]);
+  assert.deepEqual(A.configure(after,{selection:null}).scene.query,before.scene.query);
+  assert.throws(()=>A.configure(before,{selection:[2.1,2.2,200.1,200.2]}),/base column and row/);
+});

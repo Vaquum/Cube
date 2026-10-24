@@ -121,3 +121,8 @@ than asserting that a hypothesis has been established.
 
 Future interactive canvas sequences, optional replay, narration and annotation
 overlays are design work tracked in [Present mode #131](https://github.com/Vaquum/Market-State-Cube-Explorer/issues/131).
+
+Agent selection edits snap to base edges, as canvas gestures do; a rectangle that
+rounds empty is rejected before mutation. Agent editing can clear a selection or
+move/disable replay while the selected region is wholly beyond its edge. Empty
+measured rectangles remain unexportable; the editing seed is private runtime state.

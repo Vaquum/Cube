@@ -208,9 +208,19 @@
     const rowControls = E.codec.validatePortable(d.scene, {}).value.view;
     for (const key of ["rowControlsVersion", "rows", "period", "background", "backgroundPeriod"]) d.scene.view[key] = rowControls[key];
     if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "background", "backgroundPeriod", "lines", "selection", "replay", "anchor", "scale", "readMode"])) fail("Unknown scene setting");
+    if (patch.selection !== undefined && patch.selection !== null) {
+      if (!Array.isArray(patch.selection) || patch.selection.length !== 4 || !patch.selection.every(Number.isFinite)) fail("Selection requires four finite base edges");
+      const selection = patch.selection.map((x) => Math.floor(x + .5));
+      if (selection.some((x) => x < 0) || selection[0] >= selection[1] || selection[2] >= selection[3]) fail("Selection must cover at least one base column and row");
+      patch = { ...patch, selection };
+    }
     if (patch.readMode !== undefined) { if (!["captured", "live"].includes(patch.readMode)) fail("Read mode is captured or live"); d.mode = patch.readMode; }
     Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport", "readMode"].includes(key))));
     if (patch.viewport) { d.scene.view.viewport = patch.viewport; d.scene.view.window = ""; Object.assign(d.scene.query, { t1: patch.viewport[0], t2: patch.viewport[1], p1: patch.viewport[2], p2: patch.viewport[3] }); }
+    if (patch.selection !== undefined) {
+      const r = patch.selection ?? d.scene.view.viewport;
+      Object.assign(d.scene.query, { t1: Math.floor(r[0] + .5), t2: Math.floor(r[1] + .5), p1: Math.floor(r[2] + .5), p2: Math.floor(r[3] + .5) });
+    }
     if (patch.resolution) { [d.scene.query.tR, d.scene.query.pR] = patch.resolution; d.scene.view.auto = false; }
     d.scene = seal(d.scene);
     return validate(seal(d));

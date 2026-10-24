@@ -25526,10 +25526,22 @@
     if (!analysisPrevious) throw Error("No previous capture is available on this page");
     return agentImport(analysisPrevious);
   }
+  async function agentEditDocument() {
+    const b = requestedBounds();
+    if (b[0] < b[1] && b[2] < b[3]) return agentDocument("view", null, false);
+    if (!ready || !last) throw Error("Wait for a committed canvas before editing an investigation");
+    // This private editing seed carries the real view and source without
+    // requiring its empty measured rectangle to be a public portable query.
+    const scene = portablePayload(), end = Math.ceil(CUT);
+    const t1 = Math.max(0, Math.min(Math.floor(S.tA), end - 1)), p1 = Math.max(0, Math.floor(S.pA));
+    scene.query = { t1, t2: Math.max(t1 + 1, Math.min(end, Math.ceil(S.tB))), p1, p2: Math.max(p1 + 1, Math.ceil(S.pB)), tR: S.n, pR: S.m };
+    scene.observation.cutoffMs = wholeMs(comparisonMs(CUT));
+    return Agent.validate(Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene: Agent.seal(scene), comparison: structuredClone(comparisonModel), snapshot: agentSnapshot(false), selection: structuredClone(activeAnalysis?.selection ?? null), focus: null }));
+  }
   function agentInit() {
     const report = (operation) => Promise.resolve().then(operation).catch((error) => { el("analysis-status").textContent = error.message; throw error; });
     const edit = async (operation, requestedMode) => {
-      const mode = requestedMode ?? activeAnalysis?.mode ?? "live", current = await agentDocument("view", null, false), next = operation(current);
+      const mode = requestedMode ?? activeAnalysis?.mode ?? "live", current = await agentEditDocument(), next = operation(current);
       return agentImport(Agent.seal({ ...next, mode, snapshot: mode === "live" ? null : next.snapshot }));
     };
     window.cubeAgent = {
