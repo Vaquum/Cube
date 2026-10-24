@@ -267,6 +267,35 @@ test("production agent route uses exact six-parameter rounding and dyadic bounds
   const script = `import sys\nsys.path.insert(0,'tools')\nimport cube_bridge as c\ncurrent={'cutoffBase':2.1}\na={'t1':['2021-01-01T00:00:00Z'],'t2':['2021-01-01T00:02:00Z'],'p1':['25000'],'p2':['25250'],'tR':['56.25'],'pR':['125']}\nassert c.agent_rectangle(a,current)=={'n':0,'m':0,'b0':0,'b1':3,'r0':200,'r1':202}\nfor field,value in [('tR','60'),('pR','100'),('p1','NaN')]:\n b={**a,field:[value]}\n try:c.agent_rectangle(b,current);raise AssertionError('invalid accepted')\n except ValueError:pass\nprint('agent route verified')\n`;
   const run = spawnSync("python3", ["-c", script], { encoding: "utf8" }); assert.equal(run.status, 0, run.stderr); assert.match(run.stdout, /verified/);
 });
+test("selection diffs normalize legacy quantities without geometry or provenance noise", () => {
+  const packet = metrics => { const d = document(); d.selection.metrics = metrics; return A.seal(d); };
+  const before = packet({volume:0,takerBuyVolume:0,trades:0,takerBuyTrades:0,pocRow:null});
+  const after = packet({volume:0,taker_buy_volume:0,trade_count:0,taker_buy_trade_count:0,poc:null,taker_buy_poc:null,pR:125,t1:"later",cell_count:0,source:"changed",state_token:"new"});
+  assert.deepEqual(A.diff(before,after).changes,[]);
+  const changed=packet({volume:10,taker_buy_volume:0,trade_count:1,taker_buy_trade_count:0,poc:25062.5,taker_buy_poc:null,pR:125});
+  assert.deepEqual(A.diff(after,changed).changes.map(c=>c.metric),["volume","trade_count","poc"]);
+  assert.equal(before.selection.metrics.volume,0);
+});
+test("price-valued POC changes require compatible measured rows and preserve real changes", () => {
+  const packet = metrics => { const d = document(); d.selection.metrics = metrics; return A.seal(d); };
+  const before=packet({volume:400,poc:25062.5,taker_buy_poc:25062.5,pocRowWidth:125});
+  const after=packet({volume:400,poc:25187.5,taker_buy_poc:25187.5,pR:125});
+  assert.deepEqual(A.diff(before,after).changes.map(c=>c.metric),["poc","taker_buy_poc"]);
+  const coarse=packet({volume:400,poc:25500,taker_buy_poc:25500,pocRowWidth:1000});
+  const incompatible=A.diff(coarse,after);
+  assert.deepEqual(incompatible.changes,[]);
+  assert.deepEqual(incompatible.unavailableSelectionMetrics.map(c=>c.metric),["poc","taker_buy_poc"]);
+  const legacy=packet({volume:400,takerBuyVolume:100,pocRow:200});
+  assert.equal(A.diff(legacy,after).unavailableSelectionMetrics.length,2);
+  const legacyShift=packet({volume:400,takerBuyVolume:100,pocRow:201});
+  assert.equal(A.diff(legacy,legacyShift).unavailableSelectionMetrics.length,2);
+});
+test("typed selection availability remains explicit and never becomes a measured zero", () => {
+  const before=document();before.selection.metrics={tag:"hidden",value:null,reason:"Unavailable in replay"};
+  const after=structuredClone(before);after.selection.metrics={tag:"failed",value:null,reason:"Read failed"};
+  const change=A.diff(A.seal(before),A.seal(after)).changes;
+  assert.equal(change.length,1);assert.equal(change[0].metric,"state");assert.equal(change[0].before.tag,"hidden");assert.equal(change[0].after.tag,"failed");
+});
 
 test("MCP refresh rereads the recorded selection through camera and resolution edits", async (t) => {
   const {startFake}=require("../support/cube-fake.js"),{dispatch}=await import("../../tools/cube-agent.mjs");
