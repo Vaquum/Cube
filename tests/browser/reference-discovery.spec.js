@@ -13,6 +13,9 @@ async function open(page, fakeFor, probe) {
 for (const [term, id, content] of [
   ['Since (UTC)', 'window', 'UTC midnight'],
   ['Last year', 'window', 'previous complete UTC calendar year'],
+  ['Fit the price range', 'window', 'F fits price once'],
+  ['ISO A', 'columns', 'm = round(ISO A + ISO B × n)'],
+  ['Calibrated on', 'scales', 'fitting population, count and exclusions'],
   ['Invalid input', 'state-glossary', 'correct the input/source'],
   ['No coarser parent', 'state-glossary', 'Required comparison input absent'],
   ['precision', 'feature-rules', 'fraction of flagged bars that were marked'],

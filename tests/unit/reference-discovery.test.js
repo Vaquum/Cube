@@ -3,11 +3,7 @@
 // reach the appropriate semantic topic, including fields rendered only in article tables.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const context = { window: {} };
-vm.runInNewContext(fs.readFileSync(require.resolve('../../src/reference.js'), 'utf8'), context);
-const search = context.window.explorerReference.search;
+const { search } = require('../../src/reference.js');
 const cases = [
   ['Since (UTC)', 'window'], ['Last year', 'window'], ['45d', 'window'],
   ['Invalid input', 'state-glossary'], ['No coarser parent', 'state-glossary'],
@@ -23,7 +19,7 @@ const cases = [
   ['12 and 28 EMA · 3.75m', 'average-rules'], ['Asia session VWAP', 'vwap-rules'],
   ['Show Since (UTC)', 'window'], ['Show axes settings', 'columns'],
   ['Manual domain', 'scales'], ['Current axis', 'profiles'],
-  ['Frozen', 'columns'], ['Keyboard shortcuts', 'system'],
+  ['Frozen', 'columns'], ['ISO A', 'columns'], ['Eligibility upper bound', 'columns'], ['Calibrated on', 'scales'], ['At the endpoint', 'scales'], ['Fit the price range', 'window'], ['45 days', 'window'], ['Row volume versus mean traded row', 'rows'], ['Actual measured bounds', 'query'], ['Independent axes · Auto', 'profiles'], ['Continue →', 'measures'], ['Loaded period POC', 'comparison-math'], ['Keyboard shortcuts', 'system'],
 ];
 for (const [term, id] of cases) test(`reference search: ${term} reaches ${id}`, () => {
   assert.ok(search(term).some(topic => topic.id === id), `${term} must reach ${id}`);

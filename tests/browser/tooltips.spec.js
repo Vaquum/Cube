@@ -169,7 +169,9 @@ test("title-only help hides on leave and value labels take precedence over broad
     distance: window.explorerHelp.meaning("POC distance", "poc"),
     path: window.explorerHelp.meaning("Path / price span", "path"),
   }));
-  expect(meanings.distance).toContain("Signed price distance");
+  // The collection metric is a nonnegative band gap; signed ATR context is separate.
+  expect(meanings.distance).toContain("Nonnegative distance");
+  expect(meanings.distance).toContain("contains or touches");
   expect(meanings.path).toContain("divided by the price-row width");
 });
 test("changing a hovered value refreshes its help without polling or stale title restoration", async ({ page, fakeFor, probe }) => {

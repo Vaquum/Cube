@@ -12,7 +12,7 @@ Covered means an existing System reference topic explains purpose, interpretatio
 
 `src/view.html` contains **211 control declarations**: 1 a, 156 button, 31 input, 4 summary, 14 select, 1 canvas, 2 div, 2 textarea. This includes the conditional Find features template and hidden dialogs; it is a source count, not a count of simultaneously visible controls or semantic kinds. Each declaration is reconciled below. Anonymous controls are identified by their existing parent/role/data attribute and repeated selectors retain their instance count. Read-only textareas are copy/restore surfaces. Footers, summaries and other noninteractive reads are reconciled in the producer inventory.
 
-Every row uses System reference search by its visible name (aliases in `src/reference.js`); Show points to the topic’s control/region. Settings belong inside their article. No action is rebound to open documentation.
+Every row uses System reference search by its stable UI name (aliases in `src/reference.js`; omit instance values such as the current year, price, date or lattice coordinates); Show points to the topic’s control/region. Settings belong inside their article. No action is rebound to open documentation.
 
 | Topic | Declarations | Static source selectors (all under `src/view.html`) |
 |---|---:|---|
@@ -119,7 +119,7 @@ These **8 reading families** have no per-mark DOM control. The reference’s Sho
 
 ## Evidence and limits
 
-Source reconciliation includes recorded/live/Mill restrictions; desktop/phone arrangements; hidden/empty/loading/error/disabled/filtered/replay states; measure/basis changes; selection/lens/folded profiles; drawer/dialog/menu producers and repeated records. New article vocabulary is indexed centrally. Existing topics supply shared concepts; new tables explain field-level semantics, and six articles fill source/context/layout/query/feature-rule/reference gaps.
+A local fake-backed runtime walk also checked generated menus, Query/Compare and scale/axis/profile details. It found and repaired vocabulary gaps in preset names, flow actions, comparison controls, scale diagnostics and model-provenance fields. Source reconciliation includes recorded/live/Mill restrictions; desktop/phone arrangements; hidden/empty/loading/error/disabled/filtered/replay states; measure/basis changes; selection/lens/folded profiles; drawer/dialog/menu producers and repeated records. New article vocabulary is indexed centrally. Existing topics supply shared concepts; new tables explain field-level semantics, and six articles fill source/context/layout/query/feature-rule/reference gaps.
 
 `tests/unit/reference-discovery.test.js` uses literal UI terms and independently specified denominators/workflow limits. `tests/browser/reference-discovery.spec.js` verifies search/table content, no-match recovery, generated Since reveal on desktop/phone, Query reveal, axes/profile targets, and absent/present Mill tabs without discovery. Existing reference, time-window, tooltips and controls-a11y suites guard neighboring behavior. CI still runs the full suite; no universal checkbox or new all-control CI gate is introduced.
 
