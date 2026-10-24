@@ -78,7 +78,14 @@ The adapter exposes `cube_capabilities`, `cube_inspect`, `cube_query`,
 `cube_compare`, `cube_configure`, `cube_replay`, `cube_annotate`, `cube_share` and
 `cube_refresh`. Discover exact argument schemas with MCP `tools/list`.
 `cube_query` reads the current source and returns a captured document;
-`cube_refresh` returns the new document and explicit metric changes.
+`cube_refresh` returns the new document and explicit metric changes. Selection
+changes use common quantity names (`volume`, `taker_buy_volume`, `trade_count`,
+`taker_buy_trade_count`, `poc`, `taker_buy_poc`), accepting older browser aliases.
+Summary geometry and provenance remain in the document and do not count as
+measurement changes. Browser POC centres are exported in USDT with the actual
+measured `pocRowWidth`; the legacy `pocRow` address remains available. POCs with
+unknown or different measured row widths are disclosed in
+`unavailableSelectionMetrics` rather than reported as a market change.
 
 For ordinary HTTP clients:
 

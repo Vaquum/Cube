@@ -159,12 +159,28 @@
       old.delete(cell.id);
     }
     for (const cell of old.keys()) changes.push({ cell, change: "removed" });
-    for (const metric of new Set([...Object.keys(a.selection?.metrics || {}), ...Object.keys(b.selection?.metrics || {})])) {
-      const prior = a.selection?.metrics?.[metric] ?? null, value = b.selection?.metrics?.[metric] ?? null;
+    // Browser packets retain their original aliases; HTTP summaries include geometry
+    // and provenance too. Compare quantities in common units, not packet members.
+    const am = a.selection?.metrics || {}, bm = b.selection?.metrics || {};
+    const quantities = { volume: "volume", taker_buy_volume: "takerBuyVolume", trade_count: "trades", taker_buy_trade_count: "takerBuyTrades" };
+    for (const [metric, alias] of Object.entries(quantities)) {
+      const prior = (Object.hasOwn(am, metric) ? am[metric] : am[alias]) ?? null, value = (Object.hasOwn(bm, metric) ? bm[metric] : bm[alias]) ?? null;
       if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
     }
-    return { previous: a.id, current: b.id, changes };
+    const priorState = am.tag ? am : null, state = bm.tag ? bm : null;
+    if (E.hash.canonical(priorState) !== E.hash.canonical(state)) changes.push({ selection: true, metric: "state", before: priorState, after: state });
+    const unavailableSelectionMetrics = [];
+    for (const [metric, amount, alias] of [["poc", "volume", "volume"], ["taker_buy_poc", "taker_buy_volume", "takerBuyVolume"]]) {
+      const point = (m) => Object.hasOwn(m, metric) ? m[metric] : (m[amount] ?? m[alias]) === 0 ? null : undefined;
+      const prior = point(am), value = point(bm), aw = am.pocRowWidth ?? am.pR, bw = bm.pocRowWidth ?? bm.pR;
+      if (prior === undefined && value === undefined) continue;
+      if (prior === undefined || value === undefined || (Number.isFinite(prior) && Number.isFinite(value) && (!(aw > 0) || aw !== bw))) {
+        unavailableSelectionMetrics.push({ metric, reason: "POC comparison requires known matching measured price row widths and price-valued centres" });
+      } else if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
+    }
+    return { previous: a.id, current: b.id, changes, ...(unavailableSelectionMetrics.length ? { unavailableSelectionMetrics } : {}) };
   }
+
   function redact(capture, edge) {
     const cell = structuredClone(capture);
     if (edge === null) return cell;
