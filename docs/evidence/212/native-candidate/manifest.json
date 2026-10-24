@@ -1,0 +1,32 @@
+{
+  "schema": "cube-presentation-native-proof@1",
+  "runtime": "5592683b86f1811047332bd9706957dcbb841523",
+  "sourceIndexSha256": "a5c4c478f1377d19138d43669f97df0660238d0176e741aa99975ffe6d6612d7",
+  "scope": "Synthetic native side-panel correctness witness; actual geometry is retained per observation. Not a canonical 390x844 latency sample.",
+  "limits": [
+    "DOM observation follows tool transport; screenshot is later and unsynchronized.",
+    "Style/layout and focus are observed while the exit marker is active. No physical-display timestamp is claimed."
+  ],
+  "files": [
+    {
+      "path": "build.json",
+      "bytes": 618,
+      "sha256": "3659abd15688c2d535b5dd64875b2041fa857ff0b38db3f14f396580c38350f8"
+    },
+    {
+      "path": "closing-layout.json",
+      "bytes": 1515,
+      "sha256": "66ca4b4cc38ab22d414cd9f6636b432cfa230ed1b69b4b53ba5c94fe19e4ec60"
+    },
+    {
+      "path": "closing-layout.png",
+      "bytes": 19867,
+      "sha256": "c712365f5ecd730866f80c6db8bb7ce973a8f693eb0de274901319bc9f61842e"
+    },
+    {
+      "path": "outside-focus.json",
+      "bytes": 326,
+      "sha256": "a666aca1f4665876818cb7ac5334f51affd051746eb1a5ec7e64aae8d3043134"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "candidate": "5592683b86f1811047332bd9706957dcbb841523",
+  "before": {
+    "bar": {
+      "bottom": 48.77347946166992,
+      "height": 48.77347946166992,
+      "left": 0,
+      "right": 344.04144287109375,
+      "top": 0,
+      "width": 344.04144287109375,
+      "x": 0,
+      "y": 0
+    },
+    "direction": "column",
+    "position": "fixed",
+    "sheet": {
+      "bottom": 574.0828323364258,
+      "height": 449.0042419433594,
+      "left": 0,
+      "right": 344.04144287109375,
+      "top": 125.0785903930664,
+      "width": 344.04144287109375,
+      "x": 0,
+      "y": 125.0785903930664
+    },
+    "sheetState": "open"
+  },
+  "closing": {
+    "bar": {
+      "bottom": 48.77347946166992,
+      "height": 48.77347946166992,
+      "left": 0,
+      "right": 344.04144287109375,
+      "top": 0,
+      "width": 344.04144287109375,
+      "x": 0,
+      "y": 0
+    },
+    "direction": "column",
+    "focus": "ol-sheet-toggle",
+    "interactivity": "inert",
+    "position": "fixed",
+    "retained": true,
+    "running": true,
+    "sheet": {
+      "bottom": 998.6154174804688,
+      "height": 449.0042114257813,
+      "left": 0,
+      "right": 344.04144287109375,
+      "top": 549.6112060546875,
+      "width": 344.04144287109375,
+      "x": 0,
+      "y": 549.6112060546875
+    },
+    "sheetState": "closed"
+  },
+  "limitation": "Native side-panel DOM observation after tool transport; screenshot is later and unsynchronized. Actual native geometry differs from canonical 390x844 CI; this is not a latency benchmark."
+}

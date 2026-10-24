@@ -54,7 +54,7 @@ jobs:
         reference:
           - name: '#211 merge'
             sha: d8449f3acab8af9fd2d0dd46bd2a95f148a189c6
-          - name: 'same-source control'
+          - name: 'implementation parent'
             sha: 86032217dd848006c3ffe241e50a0a52e91f3129
     runs-on: ubuntu-24.04
     timeout-minutes: 30
