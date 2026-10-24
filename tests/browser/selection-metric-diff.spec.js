@@ -42,8 +42,8 @@ test("historical selection support ends at its rectangle and remains visible aft
 test("empty recorded support remains unavailable instead of becoming a false source revision",async({page,fakeFor,probe})=>{
   const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
   await page.evaluate(async()=>{const d=await window.cubeAgent.export();d.snapshot.sources=d.snapshot.sources.filter(s=>s.id==="overview");d.snapshot.live=false;d.snapshot.cache={};d.scene.view.selection=[0,6,201,203];d.scene.query={...d.scene.query,t1:0,t2:6,p1:201,p2:203};d.scene=window.explorerAgent.seal(d.scene);await window.cubeAgent.apply(window.explorerAgent.seal(d));});
-  const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.metrics.tag).toBe("unsupported");expect(d.selection.metrics.value).toBeNull();
-  const result=await refresh(fake,d);expect(result.changes).toEqual([]);expect(result.selectionState.before.state).toBe("unsupported");expect(result.selectionState.after.values.volume).toBe(327.375);
+  const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.metrics.tag).toBe("unsupported");expect(d.selection.metrics.value).toBeNull();expect(d.selection.query).toMatchObject({tR:0,pR:0});
+  const result=await refresh(fake,d);expect(result.changes).toEqual([]);expect(result.selectionState.before.state).toBe("unsupported");expect(result.selectionState.after.values.volume).toBe(327.375);expect(result.document.selection.metrics.poc).toBe(25187.5);
 });
 test("real MCP refresh reports pending/failed availability once without numeric revisions",async({page,fakeFor,probe})=>{
   const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();const original=await page.evaluate(()=>window.cubeAgent.export());
@@ -72,4 +72,11 @@ test("copying a future comparison cell during replay exports unavailable selecti
   await page.locator('#ol-comparisonWorkspace .ol-comparison-focus [data-comparison-action="copy"]').click();
   await expect.poll(()=>page.evaluate(()=>Boolean(window.copiedHidden))).toBe(true);
   const d=await page.evaluate(()=>window.explorerAgent.parse(window.copiedHidden));expect(d.comparison.captures[0].metrics["volume.amount"].tag).toBe("hidden");expect(d.selection.state).toBe("hidden");expect(d.selection.metrics).toMatchObject({tag:"hidden",value:null});expect(d.selection.metrics.cell_count).toBeUndefined();
+});
+
+test("coarse exact readings with partial boundary columns retain occupied-cell count across refresh",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  await page.evaluate(()=>window.cubeAgent.configure({resolution:[2,1],selection:[1,3,201,203]}));await probe.waitForReady();
+  const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.state).toBe("exact");expect(d.selection.query).toMatchObject({t1:1,t2:3,tR:2,pR:1});expect(d.selection.metrics.cell_count).toBeGreaterThan(0);
+  const result=await refresh(fake,d);expect(result.changes.filter(c=>c.selection)).toEqual([]);expect(result.unavailableSelectionMetrics??[]).toEqual([]);
 });

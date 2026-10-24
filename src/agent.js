@@ -200,10 +200,11 @@
       if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
     }
     const unavailableSelectionMetrics = [];
-    for (const [metric, amount, alias] of [["poc", "volume", "volume"], ["taker_buy_poc", "taker_buy_volume", "takerBuyVolume"]]) {
-      const point = (m) => Object.hasOwn(m, metric) ? m[metric] : Object.hasOwn(m, "pocRowWidth") || Object.hasOwn(m, "pR") || (m[amount] ?? m[alias]) === 0 ? null : undefined;
+    for (const metric of ["poc", "taker_buy_poc"]) {
+      const point = (m) => Object.hasOwn(m, metric) ? m[metric] : undefined;
       const prior = point(am), value = point(bm), aw = am.pocRowWidth ?? am.pR, bw = bm.pocRowWidth ?? bm.pR;
-      if (prior === undefined && value === undefined && !Object.hasOwn(am, "pocRow") && !Object.hasOwn(bm, "pocRow")) continue;
+      if (prior === undefined && value === undefined && !Object.hasOwn(am, "pocRow") && !Object.hasOwn(bm, "pocRow") && !aw && !bw) continue;
+      if ((prior === undefined && aw) || (value === undefined && bw)) { unavailableSelectionMetrics.push({ metric, reason: "POC value is missing from a captured selection; an absent field does not assert a measured removal" }); continue; }
       if (prior === undefined || value === undefined || (Number.isFinite(prior) && Number.isFinite(value) && (!(aw > 0) || aw !== bw))) {
         unavailableSelectionMetrics.push({ metric, reason: "POC comparison requires known matching measured price row widths and price-valued centres" });
       } else if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
@@ -213,7 +214,8 @@
       const grid = (m) => { const g = m.cellGrid ?? m; return Number.isFinite(g.tR) && g.tR > 0 && Number.isFinite(g.pR) && g.pR > 0 ? { tR: g.tR, pR: g.pR } : null; }, ag = grid(am), bg = grid(bm);
       const region = (d) => { const q = d.selection.query, f = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 }; return [q.t1, Math.min(q.t2, (d.selection.measuredThrough / 1000 - f.origin) / f.baseSeconds), q.p1, q.p2]; };
       const sameRegion = E.hash.canonical(region(a)) === E.hash.canonical(region(b));
-      if (!countSupported(am) || !countSupported(bm) || !ag || !bg || !sameRegion || E.hash.canonical(ag) !== E.hash.canonical(bg)) unavailableSelectionMetrics.push({ metric: "cell_count", reason: "Occupied-cell counts require matching observed regions and measured time/price grids" });
+      if (countSupported(am) && countSupported(bm) && (!Object.hasOwn(am, "cell_count") || !Object.hasOwn(bm, "cell_count"))) unavailableSelectionMetrics.push({ metric: "cell_count", reason: "Occupied-cell count is missing from a captured selection; an absent field does not assert measured zero" });
+      else if (!countSupported(am) || !countSupported(bm) || !ag || !bg || !sameRegion || E.hash.canonical(ag) !== E.hash.canonical(bg)) unavailableSelectionMetrics.push({ metric: "cell_count", reason: "Occupied-cell counts require matching observed regions and measured time/price grids" });
       else if ((am.cell_count ?? null) !== (bm.cell_count ?? null)) changes.push({ selection: true, metric: "cell_count", before: am.cell_count ?? null, after: bm.cell_count ?? null });
     }
     return { previous: a.id, current: b.id, changes, ...(unavailableSelectionMetrics.length ? { unavailableSelectionMetrics } : {}) };

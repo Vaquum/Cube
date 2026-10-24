@@ -25398,7 +25398,7 @@
     if (last.meas.state === "recorded") {
       const [t1, t2, p1, p2] = last.meas.b;
       if (t1 < t2 && p1 < p2) Object.assign(selection.query, { t1, t2: Math.ceil(t2), p1, p2 });
-      else { selection.state = "unavailable"; selection.metrics = { tag: "unsupported", value: null, reason: "No whole captured cells cover this requested region" }; }
+      else { selection.query = { ...scene.query }; selection.state = "unsupported"; selection.metrics = { tag: "unsupported", value: null, reason: "No whole captured cells cover this requested region" }; }
     }
     if (["pending", "failed"].includes(last.meas.state)) selection.metrics = { tag: last.meas.state, value: null, reason: last.meas.error ?? "Selection measurement is not ready" };
     if (scope === "cell" && captures.length === 1) {

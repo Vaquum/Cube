@@ -345,7 +345,8 @@ test("same-grid occupied cell counts and supported POC removals remain observabl
   const after=structuredClone(before);after.selection.metrics.cell_count=1;
   assert.deepEqual(A.diff(A.seal(before),A.seal(after)).changes.map(c=>c.metric),["cell_count"]);
   delete after.selection.metrics.cell_count;delete after.selection.metrics.poc;
-  const removed=A.diff(A.seal(before),A.seal(after));assert.deepEqual(removed.changes.map(c=>c.metric).sort(),["cell_count","poc"]);
+  const removed=A.diff(A.seal(before),A.seal(after));assert.deepEqual(removed.changes,[]);assert.deepEqual(removed.unavailableSelectionMetrics.map(x=>x.metric).sort(),["cell_count","poc"]);
+  const explicit=structuredClone(after);explicit.selection.metrics.cell_count=null;explicit.selection.metrics.poc=null;assert.deepEqual(A.diff(A.seal(before),A.seal(explicit)).changes.map(c=>c.metric).sort(),["cell_count","poc"]);
   const legacy=structuredClone(before);legacy.selection.metrics={volume:400,takerBuyVolume:200,trades:3,takerBuyTrades:2,pocRow:200};
   const incompatible=A.diff(A.seal(legacy),A.seal(before));assert.deepEqual(incompatible.changes,[]);assert.ok(incompatible.unavailableSelectionMetrics.some(x=>x.metric==="cell_count"));
 });
@@ -366,4 +367,12 @@ test("legacy copied-cell refresh recovers observed prices only for the matching 
 test("a future captured cell cannot borrow the current scene query end to bypass replay redaction",()=>{
   const d=document();d.scene.view.replay=true;d.scene.view.anchor=1;d.scene=A.seal(d.scene);d.selection.state="captured-cell";d.selection.query={...d.scene.query,t2:1};d.selection.measuredThrough=epoch+112500;
   const result=A.forExport(A.seal(d));assert.equal(result.selection.state,"hidden");assert.deepEqual(result.selection.metrics,{tag:"hidden",value:null,reason:"Unavailable in replay"});assert.equal(d.selection.measuredThrough,epoch+112500);
+});
+
+test("bridge summaries preserve absent occupied-cell counts instead of inventing zero",()=>{
+  const {cubeSummary}=require("../support/bridge-model.js"),summary={volume:400,trade_count:3,taker_buy_volume:200,taker_buy_trade_count:2};
+  const input=[summary,{...summary,cell_count:null},{...summary,cell_count:0},{...summary,cell_count:2}],fake=input.map(s=>cubeSummary(s,{},0,0));
+  const script="import json,sys\nsys.path.insert(0,'tools')\nimport cube_bridge as b\nprint(json.dumps([b.cube_summary(s,{},0,0) for s in json.load(sys.stdin)]))";
+  const run=spawnSync("python3",["-c",script],{input:JSON.stringify(input),encoding:"utf8"});assert.equal(run.status,0,run.stderr);const real=JSON.parse(run.stdout);
+  for(const results of [fake,real]){assert.equal(Object.hasOwn(results[0],"cell_count"),false);assert.equal(Object.hasOwn(results[1],"cell_count"),false);assert.equal(results[2].cell_count,0);assert.equal(results[3].cell_count,2);}
 });

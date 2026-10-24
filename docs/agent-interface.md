@@ -138,7 +138,8 @@ can lie outside a clipped observed price band; `pocRowWidth` identifies that gri
 Selection comparisons report numeric differences in `changes`. Whole-reading
 availability is separate: `selectionState` contains before/after states and the
 measured side's canonical values. Pending, failed, hidden and unavailable reads
-never become invented numeric revisions. Supported POC removals remain changes;
+never become invented numeric revisions. Supported POC values changing to explicit null remain changes; missing fields are
+disclosed as unavailable rather than interpreted as measured removals.
 occupied `cell_count` requires the same observed region and measured `cellGrid`
 (time seconds and price USDT). Legacy missing grids/fields are disclosed in
 `unavailableSelectionMetrics`. New browser `supportVersion: 1` records actual
@@ -152,3 +153,7 @@ versus growth of the observed interval. No blanket numeric tolerance is applied.
 New browser selections record their actual measurement resolution in
 `selection.query`, preserving the reduction/grid used by the original observation
 when refreshing through MCP, even if the requested display level was finer.
+An unavailable reading retains its requested level because it has no observed grid.
+The bridge preserves an absent source occupied-cell count as unavailable, without
+defaulting it to zero. Selection summaries can miss distribution changes that preserve their totals,
+POCs and occupied-cell count; per-cell captures retain that finer evidence.
