@@ -179,10 +179,12 @@ class StripService:
         pub = self.reader.publication(model.SOURCES, self.held, as_of=as_of, manifest=manifest)
         published = ms(pub.published_at) or int(self.clock() * 1000)
         for source, dataset in pub.datasets.items():
+            if source in self.history_errors:
+                continue
             interval = int((pub.states.get(source) or {}).get("collection_interval_seconds") or 300) * 1000
             self.model.ingest(source, dataset.dataset_id, dataset.records, dataset.meta, dataset.received_at, published, interval)
             self.held[source] = dataset
-        if pub.calendar is not None:
+        if pub.calendar is not None and "calendar" not in self.history_errors:
             self.model.ingest_calendar(pub.calendar.dataset_id, pub.calendar.records, published)
             self.held["calendar"] = pub.calendar
         self.pinned = pub.snapshot_id
@@ -197,8 +199,9 @@ class StripService:
         """Read version metadata, then complete pinned datasets oldest first.
 
         The first full scan repairs older caches whose bootstrap stopped at 300
-        versions. Subsequent scans stop at acknowledged history. Failed sources
-        retry independently; a response-size limit never becomes empty history.
+        versions by reconstructing each source in publication order. Subsequent
+        scans stop at acknowledged history. Replay is atomic per source; failed
+        sources keep their prior state and block live ingestion until recovered.
         """
         self.history_retry_at = self.clock() + 300
         for source in sources if sources is not None else (*model.SOURCES, "calendar"):
@@ -217,7 +220,6 @@ class StripService:
                         if complete:
                             done = True
                             break
-                        continue
                     versions.append(v)
                 next_before, next_id = page.get("next_before"), page.get("next_before_id")
                 if done or not batch or next_before is None:
@@ -226,20 +228,32 @@ class StripService:
                     error = "history_cursor_did_not_advance"
                     break
                 before, before_id = next_before, next_id
-            for v in reversed(versions):
+            if not error:
+                previous = self.store.version
+                self.store.db.execute("SAVEPOINT history_replay")
                 try:
-                    data = self.reader.version(source, v)
-                except FieldDataError as failed:
-                    error = str(failed)
-                    continue
-                published = ms(v.get("first_published_at")) or int(self.clock() * 1000)
-                if source == "calendar":
-                    self.model.ingest_calendar(data.dataset_id, data.records, published)
-                    continue
-                interval = 300_000 if source in ("deribit_options", "deribit_dvol", "deribit_futures_basis", "gdelt_gkg", "bluesky_live",
-                                                 "mempool_retarget") else 3_600_000 if source.endswith("_funding") or source == "wikimedia_hourly" else 21_600_000
-                self.model.ingest(source, data.dataset_id, data.records, data.meta, data.received_at, published, interval)
+                    if not complete and versions:
+                        self.store.reset_source(source)
+                    for v in reversed(versions):
+                        data = self.reader.version(source, v)
+                        published = ms(v.get("first_published_at")) or int(self.clock() * 1000)
+                        if source == "calendar":
+                            self.model.ingest_calendar(data.dataset_id, data.records, published)
+                            continue
+                        interval = 300_000 if source in ("deribit_options", "deribit_dvol", "deribit_futures_basis", "gdelt_gkg", "bluesky_live",
+                                                         "mempool_retarget") else 3_600_000 if source.endswith("_funding") or source == "wikimedia_hourly" else 21_600_000
+                        self.model.ingest(source, data.dataset_id, data.records, data.meta, data.received_at, published, interval)
+                except Exception as failed:
+                    self.store.db.execute("ROLLBACK TO history_replay")
+                    self.store.version = previous
+                    error = str(failed) if isinstance(failed, FieldDataError) else type(failed).__name__
+                finally:
+                    self.store.db.execute("RELEASE history_replay")
+                if not error and not complete and versions:
+                    self.cache.clear()
+                    self.held.pop(source, None)
             if error:
+                self.store.mark_history_pending(source)
                 self.history_errors[source] = error
             else:
                 self.store.mark_history_complete(source)

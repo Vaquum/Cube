@@ -303,6 +303,18 @@ class Store:
     def mark_history_complete(self, source: str) -> None:
         self.db.execute("INSERT OR IGNORE INTO history_sync VALUES (?)", (source,))
 
+    def mark_history_pending(self, source: str) -> None:
+        self.db.execute("DELETE FROM history_sync WHERE source=?", (source,))
+
+    def reset_source(self, source: str) -> None:
+        """Reconstruct one source in publication order inside the caller's replay transaction."""
+        for series in SERIES_OF.get(source, ()):
+            self.db.execute("DELETE FROM obs WHERE series=?", (series,))
+        if source == "calendar":
+            self.db.execute("DELETE FROM calendar")
+        self.db.execute("DELETE FROM datasets WHERE source=?", (source,))
+        self.db.execute("DELETE FROM seen WHERE source=?", (source,))
+
     def rows(self, series: str, since: int | None = None) -> list[tuple]:
         """(observed, known, retro, value, extra) of a series, in time order; those observed from ``since`` on, when given."""
         return self.db.execute("SELECT observed_ms, known_ms, retro, value, extra FROM obs WHERE series = ? AND observed_ms >= ? "

@@ -110,8 +110,65 @@ test("native replay paginates pinned bodies and repairs a truncated cache withou
   assert.equal(out.legacy,1201);assert.equal(out.legacyAsOf.length,1);assert.ok(out.legacyAsOf[0]);
   assert.equal(out.mismatch,"history_dataset_mismatch");
   assert.equal(out.truncated,"incomplete_dataset");
-  assert.equal(out.firstScan.datasets,350);assert.equal(out.firstScan.complete,false);
+  assert.equal(out.firstScan.datasets,300);assert.equal(out.firstScan.complete,false);
   assert.match(out.firstScan.errors.deribit_funding,/503/);assert.equal(out.firstScan.dataReads,51);assert.equal(out.firstScan.metadataPages,4);
-  assert.equal(out.recovered.datasets,351);assert.equal(out.recovered.complete,true);assert.deepEqual(out.recovered.errors,{});assert.equal(out.recovered.dataReads,1);
+  assert.equal(out.recovered.datasets,351);assert.equal(out.recovered.complete,true);assert.deepEqual(out.recovered.errors,{});assert.equal(out.recovered.dataReads,351);
   assert.deepEqual(out.repeat,{requests:1,dataReads:0});
+});
+
+test("failed replay survives restart, blocks live overtaking, and reconstructs first-seen values and withdrawals", () => {
+  const script=String.raw`
+import datetime as dt, json, sys, tempfile
+sys.path.insert(0,'tools')
+from field_data import Dataset, FieldDataError, Publication
+from strip_service import StripService
+from strip_model import HOUR
+NOW=1792843200000
+def iso(t):return dt.datetime.fromtimestamp(t/1000,dt.UTC).isoformat().replace('+00:00','Z')
+def funding(i):return [{'id':'shared' if i>1 else 'first','kind':'funding','observed_at':iso(NOW),
+                        'values':{'interest_1h':i/100000}}]
+event={'id':'event','kind':'event','values':{'title':'CPI','category':'inflation','status':'scheduled',
+       'schedule':{'kind':'instant','at':iso(NOW+10*HOUR)},'schedule_certainty':'confirmed',
+       'context':{'importance':'high'}},'metadata':{'revision_id':'r1'}}
+class Reader:
+    def __init__(self,source):self.source=source;self.latest=1;self.fail=set();self.requests=0
+    def history(self,source,**kw):
+        return {'versions':[{'dataset_id':str(i),'first_published_at':iso(NOW+i*HOUR)} for i in range(self.latest,0,-1)]}
+    def version(self,source,v):
+        i=int(v['dataset_id'])
+        if i in self.fail:raise FieldDataError('temporary',503)
+        rows=([event] if i<3 else []) if source=='calendar' else funding(i)
+        return Dataset(source,str(i),iso(NOW+i*HOUR),rows,{}, {},'ok')
+    def publication(self,*a,**kw):
+        data=self.version(self.source,{'dataset_id':str(self.latest)})
+        return Publication('a'*64,iso(NOW+self.latest*HOUR),None,{},
+                           datasets={} if self.source=='calendar' else {self.source:data},
+                           calendar=data if self.source=='calendar' else None)
+with tempfile.TemporaryDirectory() as root:
+    r=Reader('deribit_funding');path=root+'/strip.sqlite'
+    s=StripService(r,path);s.bootstrap((r.source,));assert s.store.history_complete(r.source)
+    r.latest=3;r.fail={2};s.bootstrap((r.source,))
+    assert not s.store.history_complete(r.source)
+    s.update();assert not s.store.has_dataset(r.source,'3')
+    assert len(s.store.rows('funding:deribit'))==1
+    s.store.db.close()
+    s=StripService(r,path);s.bootstrap((r.source,));s.update()
+    assert r.source in s.history_errors and not s.store.has_dataset(r.source,'3')
+    r.fail.clear();s.bootstrap((r.source,))
+    row=s.store.db.execute("SELECT known_ms,value FROM obs WHERE obs_id='shared'").fetchone()
+    assert row[0]==NOW+2*HOUR and abs(row[1]-17.52)<1e-10,row
+    assert s.store.has_dataset(r.source,'2') and s.store.has_dataset(r.source,'3')
+    assert not s.history_errors and s.store.history_complete(r.source)
+    # A former capped cache already holds the newer, empty calendar.
+    c=Reader('calendar');c.latest=3;c.fail={1}
+    s=StripService(c,':memory:');s.model.ingest_calendar('3',[],NOW+3*HOUR)
+    s.bootstrap(('calendar',));assert len(s.store.calendar_rows())==0
+    c.fail.clear();s.bootstrap(('calendar',))
+    rows=s.store.calendar_rows();assert len(rows)==2,rows
+    assert rows[-1][2]==NOW+3*HOUR and json.loads(rows[-1][3])['status']=='withdrawn',rows
+    print(json.dumps({'knownAt':row[0],'calendarRevisions':len(rows),'pendingAfterRestart':True}))
+`;
+  const run=spawnSync("python3",["-c",script],{cwd:path.resolve(__dirname,"../.."),encoding:"utf8",timeout:25000});
+  assert.equal(run.status,0,run.stderr);
+  assert.equal(JSON.parse(run.stdout).calendarRevisions,2);
 });
