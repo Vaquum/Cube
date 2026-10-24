@@ -25,9 +25,21 @@ const instrumentation = ['tools/benchmark/presentation.v1.json', 'tools/benchmar
 const hashes = Object.fromEntries(instrumentation.map(file => [file, hash(fs.readFileSync(file))]));
 const sources = [protocol.baseline, head].map((sha, i) => presentationBuild(sha, 'presentation-' + i,
   'https://github.com/Vaquum/Market-State-Cube-Explorer/pull/' + (i ? process.env.PRESENTATION_PR_NUMBER : '218')));
-const sourceHash = (sha, file) => hash(execFileSync('git', ['show', sha + ':' + file], { maxBuffer: 64 * 1024 * 1024 }));
-const frozen = protocol.frozenFiles.map(file => ({ file, baseline: sourceHash(protocol.baseline, file), candidate: sourceHash(head, file) }));
-if (frozen.some(file => file.baseline !== file.candidate)) throw Error('A frozen movement/diagnostics/guard file changed.');
+const source = (sha, file) => execFileSync('git', ['show', sha + ':' + file], { maxBuffer: 64 * 1024 * 1024 });
+function admitted(file, bytes) {
+  if (file !== protocol.stylesheetAllowance.file) return bytes;
+  let css = bytes.toString('utf8');
+  for (const { before, after } of protocol.stylesheetAllowance.replacements) if (css.includes(after)) {
+    if (css.split(after).length !== 2) throw Error('Duplicate admitted stylesheet selector');
+    css = css.replace(after, before);
+  }
+  return css;
+}
+const frozen = protocol.frozenFiles.map(file => {
+  const a = source(protocol.baseline, file), b = source(head, file);
+  return { file, baseline: hash(a), candidate: hash(b), admittedBaseline: hash(admitted(file, a)), admittedCandidate: hash(admitted(file, b)) };
+});
+if (frozen.some(file => file.admittedBaseline !== file.admittedCandidate)) throw Error('A frozen movement/diagnostics/guard file changed beyond the two declared sheet selectors.');
 const candidateChanged = sources[0].indexSha256 !== sources[1].indexSha256;
 const initialPath = 'docs/evidence/212/baseline/summary.json';
 const initial = fs.existsSync(initialPath) ? JSON.parse(fs.readFileSync(initialPath)) : null;

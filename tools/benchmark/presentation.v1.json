@@ -29,6 +29,14 @@
   "budgetEvidence": "Run the existing motion guard unchanged against the explicit #211 baseline. Retain absolute budget outcomes and relative guard outcomes separately. A shared CI host and side-panel diagnostics do not certify designated-host or cumulative #96 acceptance.",
   "guardSourceControl": "Also run that unmodified guard against 86032217dd848006c3ffe241e50a0a52e91f3129: before #212 product edits this has identical product bytes to the runner checkout. Retain it as a source/host control, separately from the #211 comparison; it does not replace a failed guard or waive an absolute budget.",
   "frozenFiles": ["src/motion.js", "src/explorer.css", "src/diagnostics.js", "tools/benchmark_motion.mjs", "tools/benchmark/motion-metrics.mjs", "tests/browser/tactile-flow.spec.js", "tests/browser/motion-responsiveness.spec.js", "tests/unit/motion.test.js"],
+  "stylesheetAllowance": {
+    "file": "src/explorer.css",
+    "reason": "The pre-candidate trace and native #211 baseline reproduce fixed→static/column→row layout during phone Close: a 49→139 px toolbar, with final restoration at spring completion. Admit only these two exact selector additions to retain the already-defined sheet layout during its inert exit. Every declaration, duration/easing and other stylesheet byte remains frozen. Recollect A/A with this final admission protocol before product edits; metric, cases, tolerances and material criterion are unchanged.",
+    "replacements": [
+      { "before": "#origo-lens[data-sheet=\"open\"] .ol-controls {", "after": "#origo-lens[data-sheet=\"open\"] .ol-controls,\n  #origo-lens .ol-controls[data-flow-retained] {" },
+      { "before": "#origo-lens[data-sheet=\"open\"] .ol-sheet-head {", "after": "#origo-lens[data-sheet=\"open\"] .ol-sheet-head,\n  #origo-lens .ol-controls[data-flow-retained] .ol-sheet-head {" }
+    ]
+  },
   "primaryCases": [
     { "id": "phone-open", "layout": "phone", "actors": "Controls sheet, its ancestors, toggle/icon" },
     { "id": "phone-close", "layout": "phone", "actors": "Retained Controls exit, its ancestors, toggle/icon; immediate Close focus ownership" },
