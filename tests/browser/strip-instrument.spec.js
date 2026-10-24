@@ -68,6 +68,65 @@ async function hoverBand(page, g, fraction = 0.5) {
   return card;
 }
 
+test("Ahead shows first-publication loading and refreshes a failed response without moving the Inspect cursor", async ({ page, fakeFor, allowConsole }) => {
+  const fake = await fakeFor("mini"), view = rectangle(fake), gate = fake.on({ route: "/cube/strip" }).gate();
+  allowConsole(/Failed to load resource: the server responded with a status of 502/);
+  await page.goto(`${fake.url}/${view.hash}`);
+  await gate.arrived();
+  await expect(page.locator("#ol-strip")).toHaveAttribute("data-state", "loading");
+  await page.keyboard.press("e");
+  await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
+  await page.locator("#ol-inspect-strip-view").selectOption("ahead");
+  const navigator = page.locator("#ol-inspect"), card = page.locator("#ol-inspect-readout"),
+    position = () => navigator.evaluate((n) => ({ c: n.dataset.c, r: n.dataset.r, ts: n.dataset.ts }));
+  await expect(card).toHaveAttribute("data-presentation", "strip-sources");
+  await expect(card.locator('[data-field="stripStatus"]')).toHaveAttribute("data-fact", "loading");
+  await expect(card.locator('[data-field="publishedAt"]')).toHaveAttribute("data-canonical", "unsupported");
+  await expect(card.locator('[data-field="publishedAt"]')).toHaveText("Unavailable");
+  await expect(card.locator('[data-field="aheadEvents"]')).toHaveCount(0);
+  const before = await position();
+  gate.fail(502, { error: "strip_upstream_failed", detail: "Synthetic first publication failed" });
+  // The response alone refreshes the card; there is no pointer, keyboard or viewport operation after gate.fail.
+  await expect(page.locator("#ol-strip")).toHaveAttribute("data-state", "failed");
+  await expect(card.locator('[data-field="stripStatus"]')).toHaveAttribute("data-fact", "failed");
+  await expect(card.locator('[data-field="stripDetail"]')).toHaveAttribute("data-fact", "Synthetic first publication failed");
+  await expect(card.locator('[data-field="publishedAt"]')).toHaveAttribute("data-canonical", "unsupported");
+  await expect(card.locator('[data-field="aheadEvents"]')).toHaveCount(0);
+  await expect(page.locator("#ol-inspect-strip-view")).toHaveValue("ahead");
+  expect(await position()).toEqual(before);
+});
+
+test("Ahead keeps an unconfigured strip explicit instead of claiming an empty scheduled calendar", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini", { strip: "off" }), view = rectangle(fake);
+  await page.goto(`${fake.url}/${view.hash}`);
+  await probe.waitForReady();
+  await expect(page.locator("#ol-strip")).toHaveAttribute("data-state", "unconfigured");
+  await page.keyboard.press("e");
+  await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
+  await page.locator("#ol-inspect-strip-view").selectOption("ahead");
+  const card = page.locator("#ol-inspect-readout");
+  await expect(card).toHaveAttribute("data-presentation", "strip-sources");
+  await expect(card.locator('[data-field="stripStatus"]')).toHaveAttribute("data-fact", "unconfigured");
+  await expect(card.locator('[data-field="publishedAt"]')).toHaveAttribute("data-canonical", "unsupported");
+  await expect(card.locator('[data-field="aheadEvents"]')).toHaveCount(0);
+  expect(fake.log().filter((e) => e.path === "/cube/strip")).toEqual([]);
+});
+
+test("Ahead reports a legitimate zero after an empty calendar publication has loaded", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini"), view = rectangle(fake);
+  await coverageResponse(page, { inputs: 10, attention: 4, events: [] });
+  await open(page, fake, probe, view.hash);
+  await page.keyboard.press("e");
+  await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
+  await page.locator("#ol-inspect-strip-view").selectOption("ahead");
+  const card = page.locator("#ol-inspect-readout");
+  await expect(card).toHaveAttribute("data-presentation", "strip-ahead");
+  await expect(card.locator('[data-field="aheadEvents"]')).toBeVisible();
+  expect(await canonical(card, "aheadEvents")).toBe(0);
+  expect(await canonical(card, "horizonDays")).toBe(90);
+  expect(JSON.parse(await card.getAttribute("data-observation")).pack).not.toBeNull();
+});
+
 for (const state of [
   { inputs: 0, attention: 0, status: "none", caption: "No data · Inputs 0/10 · Attention 0/4" },
   { inputs: 1, attention: 1, status: "limited", caption: "Limited data · Inputs 1/10 · Attention 1/4" },

@@ -6865,7 +6865,7 @@
         tipRows(tip, entry.name, "Calendar lines", [["Kind", entry.name], ["Drawn", occlusion.off.has("clock|" + entry.key) ? "no: held back by the 20% budget" : spaced(CLOCK[entry.key].gap) ? "yes" : "too close together at this zoom"]], "A calendar definition, not a measured trade event");
         if (event) calendarReferencePresentation(tip, { events: [event] });
         tip.hidden = false;
-      } else if (s === "strip" && inspect.stripPart === "sources") stripSourceCard(tip, stripFieldEdge(last.cut));
+      } else if (s === "strip" && (!stripRt.view || inspect.stripPart === "sources")) stripSourceCard(tip, stripFieldEdge(last.cut));
       else if (s === "strip" && inspect.stripPart === "ahead") stripAheadCard(tip, stripAheadEvents(stripFieldEdge(last.cut)).map((hit) => hit.e), stripFieldEdge(last.cut));
       else tooltip(hover, { redraw: false });
       inspect.forced = was;
@@ -7159,7 +7159,7 @@
   // A draw that changed what the cursor stands on (the view, the level, the data) reads it again, so a pan or a refresh never leaves a stale readout.
   function inspectSync() {
     if (!inspect.on) return;
-    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", rowReadoutStamp(), comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.strip, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
+    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", rowReadoutStamp(), comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.strip, stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
     if (sig === inspect.sig) return;
     inspect.sig = sig;
     inspectRender(false, false);
