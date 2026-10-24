@@ -25756,7 +25756,11 @@
       if (element?.closest("#ol-view-keys")) el("view-keys").hidden = false;
       if (PHONE.matches && element?.closest("#ol-controls")) setSheet(true);
       if (element?.closest("#ol-lines-pop") && el("lines-pop").hidden) el("lines").click();
-      if (target.selector && element?.getClientRects().length) Flow.scrollToActor(element,"nearest");
+      if (target.selector === "#ol-diagnostics-start") {
+        el("diagnostics").open = true;
+        // The drawer's disclosure is established after its mutation callbacks.
+        requestAnimationFrame(() => Flow.scrollToActor(element,"nearest"));
+      } else if (target.selector && element?.getClientRects().length) Flow.scrollToActor(element,"nearest");
       else if (PHONE.matches && target.region && canvas.getClientRects().length) Flow.scrollToActor(canvas,"nearest");
     },
     closeTransient: () => closePop(true),
