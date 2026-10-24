@@ -20,8 +20,8 @@ from dataclasses import dataclass, field
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 PAGE_LIMIT = 500
-# The service allows offsets up to 100,000; a source holds at most 1,000 records, the calendar at most 1,000 events.
-MAX_PAGES = 200
+# Bound progress by the API's offset range, independent of adaptive page size.
+MAX_OFFSET = 100_000
 SNAPSHOT_ID = re.compile(r"[0-9a-f]{64}\Z")
 SOURCE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z")
 
@@ -138,9 +138,15 @@ class FieldDataReader:
 
     def pages(self, path: str, pin: str, source: str, query: dict | None = None) -> Dataset:
         """Every page of one pinned dataset, keeping the pin and filters on each, checked to be that publication's."""
-        records, offset, first = [], 0, None
-        for _ in range(MAX_PAGES):
-            page = self.get(path, {"snapshot_id": pin, **(query or {}), "limit": PAGE_LIMIT, "offset": offset})
+        records, offset, first, limit = [], 0, None, PAGE_LIMIT
+        while True:
+            try:
+                page = self.get(path, {"snapshot_id": pin, **(query or {}), "limit": limit, "offset": offset})
+            except FieldDataError as error:
+                if limit > 1 and (error.status == 413 or error.code == "response_too_large"):
+                    limit = max(1, limit // 2)
+                    continue
+                raise
             if page.get("snapshot_id") != pin or page.get("source") != source:
                 raise FieldDataError("snapshot_or_source_mismatch")
             data = page.get("data")
@@ -151,11 +157,17 @@ class FieldDataReader:
             elif page.get("dataset_id") != first.get("dataset_id"):
                 raise FieldDataError("dataset_changed_between_pages")
             records.extend(data["records"])
-            offset = (page.get("page") or {}).get("next_offset")
-            if offset is None:
+            next_offset = (page.get("page") or {}).get("next_offset")
+            if next_offset is None:
+                total = (page.get("page") or {}).get("total")
+                if type(total) is int and len(records) != total:
+                    raise FieldDataError("incomplete_dataset")
                 break
-        else:
-            raise FieldDataError("too_many_pages")
+            if type(next_offset) is not int or next_offset <= offset:
+                raise FieldDataError("page_cursor_did_not_advance")
+            if next_offset > MAX_OFFSET:
+                raise FieldDataError("too_many_pages")
+            offset = next_offset
         data = first["data"]
         return Dataset(source=source, dataset_id=str(first.get("dataset_id")), received_at=data.get("received_at"),
                        records=records, meta=data.get("meta") or {}, state=first.get("state") or {},
@@ -210,7 +222,21 @@ class FieldDataReader:
         result.requests = self.requests - start
         return result
 
-    def history(self, source: str, *, before: str | None = None, before_id: str | None = None, limit: int = 16) -> dict:
-        """One page of a source's published dataset versions with their data, newest first."""
-        query = {"limit": limit, "include_data": 1, "before": before, "before_id": before_id}
+    def history(self, source: str, *, before: str | None = None, before_id: str | None = None, limit: int = 100) -> dict:
+        """Version metadata, newest first. Read complete bodies separately under their publication pins."""
+        query = {"limit": limit, "include_data": 0, "before": before, "before_id": before_id}
         return self.get("/v1/history/" + source, query)
+
+    def version(self, source: str, version: dict) -> Dataset:
+        """Every record of one historical version, including native/calendar indexes."""
+        pin = version.get("first_snapshot_id")
+        if pin is None:  # compatibility with the service before explicit historical pins
+            if not version.get("first_published_at"):
+                raise FieldDataError("invalid_history_version")
+            pin = self.snapshot(as_of=version["first_published_at"])["snapshot_id"]
+        if not isinstance(pin, str) or not SNAPSHOT_ID.fullmatch(pin):
+            raise FieldDataError("invalid_history_snapshot")
+        dataset = self.pages("/v1/calendar" if source == "calendar" else "/v1/data/" + source, pin, source)
+        if dataset.dataset_id != version.get("dataset_id"):
+            raise FieldDataError("history_dataset_mismatch")
+        return dataset

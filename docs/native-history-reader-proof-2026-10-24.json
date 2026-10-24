@@ -1,0 +1,25 @@
+{
+  "origin": "saved real provider captures served by actual local field-data-api",
+  "sources": {
+    "fred_macro_daily": {
+      "input_records": 2014,
+      "retained_records": 2014,
+      "all_fields_equal": true,
+      "historical_pin_matches": true
+    },
+    "defillama_stablecoins": {
+      "input_records": 3251,
+      "retained_records": 3251,
+      "all_fields_equal": true,
+      "historical_pin_matches": true
+    }
+  },
+  "model_observations": 5265,
+  "repeat_bootstrap_unchanged": true,
+  "repeat_metadata_requests": 13,
+  "unit_validation": {
+    "passed": 2198,
+    "skipped": 6,
+    "failed": 0
+  }
+}
