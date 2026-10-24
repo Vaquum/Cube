@@ -85,6 +85,13 @@ test("explicit refresh diffs changed metrics while retaining the original immuta
   assert.ok(changes.changes.some((change) => change.metric === "volume.amount" && change.before.value === 300 && change.after.value === 600));
   assert.equal(before.comparison.captures[0].metrics["volume.amount"].value, 300);
 });
+test("captured Forces text discloses missing evidence without altering the packet", () => {
+  const d = document(); d.scene.view.strip = "forces"; d.scene = A.seal(d.scene);
+  const captured = A.validate(A.seal(d)), text = A.text(captured);
+  assert.match(text, /Forces data was not captured in this investigation/);
+  assert.deepEqual(A.parse(text), captured);
+  assert.doesNotMatch(A.text(A.seal({ ...captured, mode: "live", snapshot: null })), /Forces data was not captured/);
+});
 test("configuring the canvas preserves the recorded selection region and totals", () => {
   const before = document(), selection = structuredClone(before.selection);
   const after = A.configure(before, { viewport: [2, 4, 202, 204], resolution: [1, 1] });
