@@ -57,6 +57,7 @@ class API(BaseHTTPRequestHandler):
                 fail_once.remove(i);return self.send(503,{'error':'storage_unavailable'})
             data=funding(i);records=data['records'];dataset=versions[i]['dataset_id']
         return self.send(200,{'source':source,'snapshot_id':pin,'dataset_id':dataset,'state':{'status':'ok'},
+            'publication_kind':'backfill' if source=='fred_macro_daily' else 'live',
             'data':{**data,'records':records[offset:offset+limit]},
             'page':{'total':len(records),'next_offset':offset+limit if offset+limit<len(records) else None}})
 
@@ -67,6 +68,7 @@ out={}
 version=reader.history('fred_macro_daily')['versions'][0]
 data=reader.version('fred_macro_daily',version)
 out['large']={'records':len(data.records),'padding':sum(len(r['values']['padding']) for r in data.records),
+              'kind':data.publication_kind,
               'pins':sorted({q['snapshot_id'] for p,q in seen if p.startswith('/v1/data/')}),
               'limits':[int(q['limit']) for p,q in seen if p.startswith('/v1/data/')]}
 limit_mode='service';seen.clear()
@@ -104,6 +106,7 @@ test("native replay paginates pinned bodies and repairs a truncated cache withou
   const run=spawnSync("python3",["-c",SCRIPT],{cwd:path.resolve(__dirname,"../.."),encoding:"utf8",timeout:25000});
   assert.equal(run.status,0,run.stderr);const out=JSON.parse(run.stdout);
   assert.equal(out.large.records,1201);assert.equal(out.large.padding,1201*5000);
+  assert.equal(out.large.kind,'backfill');
   assert.deepEqual(out.large.pins,["a".repeat(64)]);
   assert.deepEqual(out.large.limits,[500,250,250,250,250,250]);
   assert.equal(out.serviceLimit,1201);assert.deepEqual(out.serviceLimits,[500,250,250,250,250,250]);

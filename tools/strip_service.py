@@ -182,7 +182,8 @@ class StripService:
             if source in self.history_errors:
                 continue
             interval = int((pub.states.get(source) or {}).get("collection_interval_seconds") or 300) * 1000
-            self.model.ingest(source, dataset.dataset_id, dataset.records, dataset.meta, dataset.received_at, published, interval)
+            self.model.ingest(source, dataset.dataset_id, dataset.records, dataset.meta, dataset.received_at, published, interval,
+                              retrospective=dataset.publication_kind == "backfill")
             self.held[source] = dataset
         if pub.calendar is not None and "calendar" not in self.history_errors:
             self.model.ingest_calendar(pub.calendar.dataset_id, pub.calendar.records, published)
@@ -242,7 +243,8 @@ class StripService:
                             continue
                         interval = 300_000 if source in ("deribit_options", "deribit_dvol", "deribit_futures_basis", "gdelt_gkg", "bluesky_live",
                                                          "mempool_retarget") else 3_600_000 if source.endswith("_funding") or source == "wikimedia_hourly" else 21_600_000
-                        self.model.ingest(source, data.dataset_id, data.records, data.meta, data.received_at, published, interval)
+                        self.model.ingest(source, data.dataset_id, data.records, data.meta, data.received_at, published, interval,
+                                          retrospective=data.publication_kind == "backfill")
                 except Exception as failed:
                     self.store.db.execute("ROLLBACK TO history_replay")
                     self.store.version = previous

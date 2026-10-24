@@ -63,6 +63,7 @@ class Dataset:
     state: dict
     status: str
     projection_version: str | None = None
+    publication_kind: str = "live"
 
 
 @dataclass
@@ -172,7 +173,7 @@ class FieldDataReader:
         return Dataset(source=source, dataset_id=str(first.get("dataset_id")), received_at=data.get("received_at"),
                        records=records, meta=data.get("meta") or {}, state=first.get("state") or {},
                        status=str(first.get("status") or (first.get("state") or {}).get("status") or "ok"),
-                       projection_version=data.get("projection_version"))
+                       projection_version=data.get("projection_version"), publication_kind=first.get("publication_kind", "live"))
 
     def publication(self, sources: tuple[str, ...], held: dict | None = None, *, as_of: str | None = None,
                     manifest: dict | None = None) -> Publication:
