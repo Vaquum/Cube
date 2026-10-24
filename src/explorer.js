@@ -25394,7 +25394,7 @@
         Object.assign(scene, Agent.seal(scene));
       }
     }
-    let selection = { query: { ...scene.query }, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null, poc: last.query.poc === null ? null : (last.query.poc + .5) * PR * 2 ** last.query.m, taker_buy_poc: last.query.bpoc === null ? null : (last.query.bpoc + .5) * PR * 2 ** last.query.m, pocRowWidth: PR * 2 ** last.query.m, cell_count: last.meas.summary?.cell_count ?? last.query.cells.filter((z) => z.v > 0 || z.ct > 0).length, cellGrid: { tR: BASE * 2 ** last.query.n, pR: PR * 2 ** last.query.m }, supportVersion: 1 }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut, last.meas.b[1]))), state: last.meas.state };
+    let selection = { query: { ...scene.query, tR: last.query.n, pR: last.query.m }, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null, poc: last.query.poc === null ? null : (last.query.poc + .5) * PR * 2 ** last.query.m, taker_buy_poc: last.query.bpoc === null ? null : (last.query.bpoc + .5) * PR * 2 ** last.query.m, pocRowWidth: PR * 2 ** last.query.m, cell_count: last.meas.summary?.cell_count ?? last.query.cells.filter((z) => z.v > 0 || z.ct > 0).length, cellGrid: { tR: BASE * 2 ** last.query.n, pR: PR * 2 ** last.query.m }, supportVersion: 1 }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut, last.meas.b[1]))), state: last.meas.state };
     if (last.meas.state === "recorded") {
       const [t1, t2, p1, p2] = last.meas.b;
       if (t1 < t2 && p1 < p2) Object.assign(selection.query, { t1, t2, p1, p2 });
@@ -25520,7 +25520,7 @@
       unchanged(); const body = await response.json(); unchanged();
       if (!response.ok) throw Error("Refresh failed; captured evidence retained: " + (body.detail || body.error || response.status));
       if (body.summary.state_token !== token) throw Error("Source changed during refresh; captured evidence retained");
-      selection = { query: q, metrics: body.summary, source: String(packBody.pack.source ?? "Current source"), measuredThrough: wholeMs(comparisonMs(body.block.b1)), state: "cube" };
+      selection = { query: { ...q, tR: n }, metrics: body.summary, source: String(packBody.pack.source ?? "Current source"), measuredThrough: wholeMs(comparisonMs(body.block.b1)), state: "cube" };
     }
     // Each capture is at most one cell, so its own observed region respects
     // both the column and returned-cell limits without reading between captures.

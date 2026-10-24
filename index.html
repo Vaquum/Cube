@@ -20104,7 +20104,8 @@
     const observation = (s) => {
       if (!s) return { state: "absent" };
       const m = s.metrics;
-      if (m.tag) return { state: m.tag, reason: m.reason ?? "" };
+      const tag = m.tag ?? (["pending", "failed", "hidden", "unavailable", "unsupported"].includes(s.state) ? s.state : null);
+      if (tag) return { state: tag, reason: m.reason ?? "" };
       if (s.state === "recorded" && m.supportVersion !== 1) return { state: "unsupported", reason: "Legacy recorded selection lacks its actual observed bounds" };
       const values = Object.fromEntries(Object.entries(quantities).map(([key, alias]) => [key, quantity(m, key, alias)]));
       for (const key of ["poc", "taker_buy_poc", "cell_count"]) if (Object.hasOwn(m, key)) values[key] = m[key];
@@ -20132,7 +20133,8 @@
     const countSupported = (m) => Object.hasOwn(m, "cell_count") || m.cellGrid || Number.isFinite(m.tR) && Number.isFinite(m.pR);
     if (countSupported(am) || countSupported(bm)) {
       const grid = (m) => { const g = m.cellGrid ?? m; return Number.isFinite(g.tR) && g.tR > 0 && Number.isFinite(g.pR) && g.pR > 0 ? { tR: g.tR, pR: g.pR } : null; }, ag = grid(am), bg = grid(bm);
-      const sameRegion = ["t1", "t2", "p1", "p2"].every((key) => a.selection.query[key] === b.selection.query[key]);
+      const region = (d) => { const q = d.selection.query, f = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 }; return [q.t1, Math.min(q.t2, (d.selection.measuredThrough / 1000 - f.origin) / f.baseSeconds), q.p1, q.p2]; };
+      const sameRegion = E.hash.canonical(region(a)) === E.hash.canonical(region(b));
       if (!countSupported(am) || !countSupported(bm) || !ag || !bg || !sameRegion || E.hash.canonical(ag) !== E.hash.canonical(bg)) unavailableSelectionMetrics.push({ metric: "cell_count", reason: "Occupied-cell counts require matching observed regions and measured time/price grids" });
       else if ((am.cell_count ?? null) !== (bm.cell_count ?? null)) changes.push({ selection: true, metric: "cell_count", before: am.cell_count ?? null, after: bm.cell_count ?? null });
     }
@@ -47936,7 +47938,7 @@
         Object.assign(scene, Agent.seal(scene));
       }
     }
-    let selection = { query: { ...scene.query }, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null, poc: last.query.poc === null ? null : (last.query.poc + .5) * PR * 2 ** last.query.m, taker_buy_poc: last.query.bpoc === null ? null : (last.query.bpoc + .5) * PR * 2 ** last.query.m, pocRowWidth: PR * 2 ** last.query.m, cell_count: last.meas.summary?.cell_count ?? last.query.cells.filter((z) => z.v > 0 || z.ct > 0).length, cellGrid: { tR: BASE * 2 ** last.query.n, pR: PR * 2 ** last.query.m }, supportVersion: 1 }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut, last.meas.b[1]))), state: last.meas.state };
+    let selection = { query: { ...scene.query, tR: last.query.n, pR: last.query.m }, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null, poc: last.query.poc === null ? null : (last.query.poc + .5) * PR * 2 ** last.query.m, taker_buy_poc: last.query.bpoc === null ? null : (last.query.bpoc + .5) * PR * 2 ** last.query.m, pocRowWidth: PR * 2 ** last.query.m, cell_count: last.meas.summary?.cell_count ?? last.query.cells.filter((z) => z.v > 0 || z.ct > 0).length, cellGrid: { tR: BASE * 2 ** last.query.n, pR: PR * 2 ** last.query.m }, supportVersion: 1 }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut, last.meas.b[1]))), state: last.meas.state };
     if (last.meas.state === "recorded") {
       const [t1, t2, p1, p2] = last.meas.b;
       if (t1 < t2 && p1 < p2) Object.assign(selection.query, { t1, t2, p1, p2 });
@@ -48062,7 +48064,7 @@
       unchanged(); const body = await response.json(); unchanged();
       if (!response.ok) throw Error("Refresh failed; captured evidence retained: " + (body.detail || body.error || response.status));
       if (body.summary.state_token !== token) throw Error("Source changed during refresh; captured evidence retained");
-      selection = { query: q, metrics: body.summary, source: String(packBody.pack.source ?? "Current source"), measuredThrough: wholeMs(comparisonMs(body.block.b1)), state: "cube" };
+      selection = { query: { ...q, tR: n }, metrics: body.summary, source: String(packBody.pack.source ?? "Current source"), measuredThrough: wholeMs(comparisonMs(body.block.b1)), state: "cube" };
     }
     // Each capture is at most one cell, so its own observed region respects
     // both the column and returned-cell limits without reading between captures.

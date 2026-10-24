@@ -337,6 +337,7 @@ test("selection read availability changes separately from measured quantities",(
   for(const tag of ["pending","failed","hidden"]){const unavailable=structuredClone(measured);unavailable.selection.metrics={tag,value:null,reason:tag};unavailable.selection.state=tag;
     for(const [a,b] of [[unavailable,measured],[measured,unavailable]]){const diff=A.diff(A.seal(a),A.seal(b));assert.deepEqual(diff.changes,[]);assert.ok(diff.selectionState);assert.equal(diff.unavailableSelectionMetrics,undefined);}
     assert.deepEqual(A.diff(A.seal(unavailable),A.seal(unavailable)).changes,[]);
+    const stateOnly=structuredClone(measured);stateOnly.selection.state=tag;const transition=A.diff(A.seal(measured),A.seal(stateOnly));assert.deepEqual(transition.changes,[]);assert.equal(transition.selectionState.after.state,tag);
   }
 });
 test("same-grid occupied cell counts and supported POC removals remain observable",()=>{

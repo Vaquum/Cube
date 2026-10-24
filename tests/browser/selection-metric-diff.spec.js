@@ -49,3 +49,10 @@ test("real MCP refresh reports pending/failed availability once without numeric 
   const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();const original=await page.evaluate(()=>window.cubeAgent.export());
   for(const tag of ["pending","failed"]){const d=await page.evaluate(([d,tag])=>{d.selection.metrics={tag,value:null,reason:tag};d.selection.state=tag;return window.explorerAgent.seal(d);},[original,tag]);const result=await refresh(fake,d);expect(result.changes).toEqual([]);expect(result.selectionState.before.state).toBe(tag);expect(result.selectionState.after.values.volume).toBe(953.375);}
 });
+test("coarse-source selections retain their actual reduction level through unchanged refresh",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor({cutoffIso:"2021-01-01T00:05:00Z",trades:[400,800,1200].map((qty,i)=>({t_ms:i*60000+1000,price:2500000,qty,takerBuy:true}))});
+  await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  await page.evaluate(async()=>{const d=await window.cubeAgent.export();d.snapshot.sources=d.snapshot.sources.filter(s=>s.id==="overview");d.snapshot.cache={};d.scene.view.viewport=[0,6,200,208];d.scene.view.selection=null;d.scene.query={t1:0,t2:6,p1:200,p2:208,tR:0,pR:0};d.scene=window.explorerAgent.seal(d.scene);await window.cubeAgent.apply(window.explorerAgent.seal(d));});
+  const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.query).toMatchObject({tR:12,pR:3});
+  const result=await refresh(fake,d);expect(result.document.selection.query).toEqual(d.selection.query);expect(result.changes.filter(c=>c.selection)).toEqual([]);
+});

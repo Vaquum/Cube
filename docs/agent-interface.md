@@ -148,3 +148,7 @@ Historical measurement time ends at the observed region, which keeps already-kno
 readings visible in replay. Full source/support metadata remains in the returned
 document; a numeric difference alone does not classify a historical source revision
 versus growth of the observed interval. No blanket numeric tolerance is applied.
+
+New browser selections record their actual measurement resolution in
+`selection.query`, preserving the reduction/grid used by the original observation
+when refreshing through MCP, even if the requested display level was finer.

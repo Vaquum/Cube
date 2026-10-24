@@ -182,7 +182,8 @@
     const observation = (s) => {
       if (!s) return { state: "absent" };
       const m = s.metrics;
-      if (m.tag) return { state: m.tag, reason: m.reason ?? "" };
+      const tag = m.tag ?? (["pending", "failed", "hidden", "unavailable", "unsupported"].includes(s.state) ? s.state : null);
+      if (tag) return { state: tag, reason: m.reason ?? "" };
       if (s.state === "recorded" && m.supportVersion !== 1) return { state: "unsupported", reason: "Legacy recorded selection lacks its actual observed bounds" };
       const values = Object.fromEntries(Object.entries(quantities).map(([key, alias]) => [key, quantity(m, key, alias)]));
       for (const key of ["poc", "taker_buy_poc", "cell_count"]) if (Object.hasOwn(m, key)) values[key] = m[key];
@@ -210,7 +211,8 @@
     const countSupported = (m) => Object.hasOwn(m, "cell_count") || m.cellGrid || Number.isFinite(m.tR) && Number.isFinite(m.pR);
     if (countSupported(am) || countSupported(bm)) {
       const grid = (m) => { const g = m.cellGrid ?? m; return Number.isFinite(g.tR) && g.tR > 0 && Number.isFinite(g.pR) && g.pR > 0 ? { tR: g.tR, pR: g.pR } : null; }, ag = grid(am), bg = grid(bm);
-      const sameRegion = ["t1", "t2", "p1", "p2"].every((key) => a.selection.query[key] === b.selection.query[key]);
+      const region = (d) => { const q = d.selection.query, f = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 }; return [q.t1, Math.min(q.t2, (d.selection.measuredThrough / 1000 - f.origin) / f.baseSeconds), q.p1, q.p2]; };
+      const sameRegion = E.hash.canonical(region(a)) === E.hash.canonical(region(b));
       if (!countSupported(am) || !countSupported(bm) || !ag || !bg || !sameRegion || E.hash.canonical(ag) !== E.hash.canonical(bg)) unavailableSelectionMetrics.push({ metric: "cell_count", reason: "Occupied-cell counts require matching observed regions and measured time/price grids" });
       else if ((am.cell_count ?? null) !== (bm.cell_count ?? null)) changes.push({ selection: true, metric: "cell_count", before: am.cell_count ?? null, after: bm.cell_count ?? null });
     }
