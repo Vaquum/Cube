@@ -265,7 +265,9 @@ for (const context of [
   const fake = await fakeFor("mini"), view = rectangle(fake), states = await syntheticStates(page, view);
   states.release();
   await page.goto(`${fake.url}/${view.hash}`);
-  await probe.waitForReady(); await probe.waitForQuiet();
+  await probe.waitForReady();
+  await expect.poll(() => fake.log().filter((e) => e.path === "/cube/strip" && Number(e.query.to) - Number(e.query.from) > 60 * DAY && e.status === 200).length).toBeGreaterThan(0);
+  await probe.waitForQuiet();
   if (context.fraction) await hover(page, context.fraction, context.kind);
   else {
     const g = await layoutOf(page), box = await page.locator("#ol-canvas").boundingBox();
