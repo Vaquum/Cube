@@ -3698,6 +3698,7 @@
 #origo-lens .ol-reference-status { flex: none; min-height: 3.2em; margin: 0; font-size: var(--fs-s); color: var(--ol-muted); }
 #origo-lens #ol-reference-shortcuts { align-self: flex-start; }
 #origo-lens #ol-reference-spotlight { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 60; pointer-events: none; }
+#origo-lens #ol-reference-spotlight[data-in-reference] { z-index: 62; }
 #origo-lens .ol-reference-shade { fill: rgb(0 0 0 / 65%); pointer-events: auto; }
 #origo-lens .ol-reference-frame { fill: none; stroke: var(--ol-ink); stroke-width: 2; pointer-events: none; }
 #origo-lens .ol-main[data-reference="open"] {
@@ -20572,8 +20573,10 @@
       if (target.region) return region(target.region);
       const element = root.querySelector(target.selector);
       if (!element || element.closest("[hidden], [inert]") || !element.getClientRects().length) return null;
-      const rect = element.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0 ? { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height, inReference: Boolean(element.closest("#ol-reference")), overReference: element.closest("#ol-controls") && root.dataset.sheet === "open" } : null;
+      const rect = element.getBoundingClientRect(), body = element.closest("#ol-reference-body")?.getBoundingClientRect(),
+        left = Math.max(rect.left, body?.left ?? rect.left), top = Math.max(rect.top, body?.top ?? rect.top),
+        right = Math.min(rect.right, body?.right ?? rect.right), bottom = Math.min(rect.bottom, body?.bottom ?? rect.bottom);
+      return right > left && bottom > top ? { left, top, right, bottom, width: right - left, height: bottom - top, inReference: Boolean(element.closest("#ol-reference")), overReference: element.closest("#ol-controls") && root.dataset.sheet === "open" } : null;
     }
     function refresh(currentFrame = false) {
       if (pane.hidden) return;
@@ -20604,7 +20607,9 @@
       if (!raw) {
         overlay.style.display = "none";
         const reasons = { rows: "Background is off. Use Background to enable the strip.", selection: "No selection. Choose Select and drag a rectangle.", events: "No event lanes. Enable an event family in Lines.", columns: "The column pane is unavailable in this view.", profiles: "Profile tracks are folded. Use Profiles to reveal them." };
-        el("status").textContent = reasons[active.region] || "This part is not visible. Open its panel or control, then Show again."; return;
+        el("status").textContent = active.selector && pane.querySelector(active.selector)?.closest("#ol-reference-body")
+          ? "This setting is outside the visible article. Scroll it into view to highlight it."
+          : reasons[active.region] || "This part is not visible. Open its panel or control, then Show again."; return;
       }
       let left = Math.max(0, raw.left - 4), top = Math.max(0, raw.top - 4), right = Math.min(innerWidth, raw.right + 4), bottom = Math.min(innerHeight, raw.bottom + 4);
       // Clip the target to the visible workspace and leave the docked reference unobscured.
@@ -20614,8 +20619,10 @@
       }
       if (right <= left || bottom <= top) { overlay.style.display = "none"; el("status").textContent = "This part is outside the visible area. Scroll it into view to highlight it."; return; }
       const rect = { left, top, width: right - left, height: bottom - top }, path = `M0,0H${innerWidth}V${innerHeight}H0Z${hole(doc)}${raw.inReference ? "" : hole(rect)}`;
-      if (path !== lastShape) {
-        lastShape = path; overlay.setAttribute("viewBox", `0 0 ${innerWidth} ${innerHeight}`); shade.setAttribute("d", path);
+      const shape = `${path}|${left},${top},${rect.width},${rect.height}`;
+      overlay.toggleAttribute("data-in-reference", Boolean(raw.inReference));
+      if (shape !== lastShape) {
+        lastShape = shape; overlay.setAttribute("viewBox", `0 0 ${innerWidth} ${innerHeight}`); shade.setAttribute("d", path);
         for (const [key, value] of Object.entries({ x: left, y: top, width: rect.width, height: rect.height })) frame.setAttribute(key, value);
       }
       overlay.style.display = "block";

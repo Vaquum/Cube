@@ -105,3 +105,37 @@ test('Mill-enabled page reveals its existing tab without starting feature discov
   await expect(page.locator('#ol-reference-status')).toContainText('Highlighted: Find features panel');
   expect(discover).toBe(0);
 });
+
+for (const [topic, selector, label] of [
+  ['columns', '#ol-axis-chip', 'Show axes settings'],
+  ['profiles', '#ol-profile-chip', 'Show profile settings'],
+]) for (const phone of [false, true]) test(`local ${topic} spotlight paints above the article and tracks scrolling (${phone ? 'phone' : 'desktop'})`, async ({ page, fakeFor, probe }) => {
+  if (phone) await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, fakeFor, probe);
+  await page.locator('#ol-reference-topic').selectOption(topic);
+  await page.getByRole('button', { name: label, exact: true }).click();
+  await expectSettingVisible(page, selector);
+  const overlay = page.locator('#ol-reference-spotlight');
+  await expect(overlay).toBeVisible();
+  expect(await overlay.evaluate(node => Number(getComputedStyle(node).zIndex))).toBeGreaterThan(
+    await page.locator('#ol-reference').evaluate(node => Number(getComputedStyle(node).zIndex)));
+  async function geometry() {
+    return page.locator(selector).evaluate(node => {
+      const target = node.getBoundingClientRect(), body = document.querySelector('#ol-reference-body').getBoundingClientRect(),
+        frame = document.querySelector('.ol-reference-frame').getBoundingClientRect(),
+        top = Math.max(target.top, body.top) - 4, bottom = Math.min(target.bottom, body.bottom) + 4;
+      return { top: frame.top, error: Math.max(Math.abs(frame.top - top), Math.abs(frame.bottom - bottom)) };
+    });
+  }
+  await expect.poll(async () => (await geometry()).error).toBeLessThan(1);
+  const before = await geometry(), path = await page.locator('.ol-reference-shade').getAttribute('d');
+  if (!phone && topic === 'profiles') await page.screenshot({ path: 'reports/reference-local-spotlight.png' });
+  await page.locator('#ol-reference-body').evaluate(node => { node.scrollTop -= 20; });
+  await expect.poll(async () => (await geometry()).top).toBeGreaterThan(before.top + 10);
+  await expect.poll(async () => (await geometry()).error).toBeLessThan(1);
+  // The article's hole stays fixed; the frame must update on its own geometry.
+  expect(await page.locator('.ol-reference-shade').getAttribute('d')).toBe(path);
+  await page.locator('#ol-reference-body').evaluate(node => { node.scrollTop -= 200; });
+  await expect(overlay).toBeHidden();
+  await expect(page.locator('#ol-reference-status')).toContainText('outside the visible article');
+});
