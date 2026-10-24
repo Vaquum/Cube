@@ -12806,6 +12806,7 @@
     if (end <= start) return { state: "none", points: [], end };
     const src = exactSource([start, end, 0, 2 ** 32], 4, 0) || developingPocReads.get(developingPocKey(d));
     if (!src) {
+      if (activeAnalysis?.mode === "captured") return { state: "unsupported", error: "Developing daily POC support was not captured in this investigation", points: [], end };
       const error = cube.failed.get(developingPocKey(d));
       return { state: error ? "failed" : "pending", error, points: [], end };
     }
@@ -17650,7 +17651,7 @@
     if (!S.lines.includes(key) || CLOCK[key]) return { text: "" };
     if (key === "devpoc") {
       const days = developingPocDays(), r = days.length ? developingPocDay(days[0]) : { state: "none", points: [] }, point = developingPocPoint({ r }, Math.min(S.tB, activeCutoff()));
-      return { text: r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "none" ? "no completed sample" : "…",
+      return { text: r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "unsupported" ? "not captured" : r.state === "none" ? "no completed sample" : "…",
         title: r.error || `Cumulative since 00:00 UTC${point ? "; as of " + when(point[0]) + " UTC" : ""}; 15-minute samples and live so far. Wide views show the latest visible day; zoom in for earlier daily trails.` };
     }
     if (key === "vvwap") {
@@ -25324,7 +25325,7 @@
   }
   function agentSnapshot(causal = true) {
     const replay = causal && S.replay, edge = causal ? activeCutoff() : CUT, source = (s) => ({ id: s.id, n: s.n, m: s.m, b0: s.b0, b1: Math.min(s.b1, edge), col0: s.col0, col1: Math.ceil(Math.min(s.b1, edge) / 2 ** s.n), ...(s.end === undefined ? {} : { end: Math.min(s.end, edge) }), ...(s.token === undefined ? {} : { token: s.token }), cells: s.cells.filter((z) => !replay || (z.c + 1) * 2 ** s.n <= edge) });
-    const maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
+    const maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, developingPocReads, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
     const cache = {};
     for (const [key, map] of Object.entries(maps)) {
       // Replay exports only supports already known at its edge. Raw future caches never travel.
@@ -25348,7 +25349,7 @@
     CUT = E.time.msToBase(frame.cutoffMs, T0, BASE); CANON = frame.canonicalThroughMs === null ? null : E.time.msToBase(frame.canonicalThroughMs, T0, BASE);
     PACK.live = frame.live; PACK.source = frame.source; PACK.state_token = frame.token;
     PACK.cutoff = new Date(frame.cutoffMs).toISOString(); PACK.canonical_through = frame.canonicalThroughMs === null ? null : new Date(frame.canonicalThroughMs).toISOString();
-    const cache = agentRevive(frame.cache || {}), maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
+    const cache = agentRevive(frame.cache || {}), maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, developingPocReads, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
     for (const [key, map] of Object.entries(maps)) {
       map.clear();
       if (cache[key] instanceof Map) for (const [id, value] of cache[key]) {
@@ -25356,7 +25357,7 @@
         map.set(id, value);
       }
     }
-    groups.clear(); bounded.clear(); seriesMemo.clear(); evidenceCache.clear(); coreBarContexts.clear(); cellContextResults.clear(); cellMotionResults.clear(); candleMemo.clear();
+    developingPocMemo.clear(); groups.clear(); bounded.clear(); seriesMemo.clear(); evidenceCache.clear(); coreBarContexts.clear(); cellContextResults.clear(); cellMotionResults.clear(); candleMemo.clear();
     barsVersion++; candleVersion++; comparisonSourceRevision++;
     referenceView = null; motion.view = null; if (sources.reference && sources.recent) rebuildReference();
     S.dataset = Object.keys(sources)[0];
