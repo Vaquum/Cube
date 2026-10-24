@@ -295,8 +295,8 @@ test("price-valued POC changes require compatible measured rows and preserve rea
 test("typed selection availability remains explicit and never becomes a measured zero", () => {
   const before=document();before.selection.metrics={tag:"hidden",value:null,reason:"Unavailable in replay"};
   const after=structuredClone(before);after.selection.metrics={tag:"failed",value:null,reason:"Read failed"};
-  const change=A.diff(A.seal(before),A.seal(after)).changes;
-  assert.equal(change.length,1);assert.equal(change[0].metric,"state");assert.equal(change[0].before.tag,"hidden");assert.equal(change[0].after.tag,"failed");
+  const diff=A.diff(A.seal(before),A.seal(after));
+  assert.deepEqual(diff.changes,[]);assert.equal(diff.selectionState.before.state,"hidden");assert.equal(diff.selectionState.after.state,"failed");
 });
 
 test("MCP refresh rereads the recorded selection through camera and resolution edits", async (t) => {
@@ -334,6 +334,41 @@ test("MCP selection refresh rejects a source revision after the camera read", as
   await gate.arrived();fake.revise({day:"2021-01-01",factor:2});gate.open();
   assert.match(await result,/differ.*pack/);assert.deepEqual(d,before);
 });
+
+test("selection configuration normalizes base edges and updates requested geometry without replacing recorded evidence", () => {
+  const before=document(),selection=structuredClone(before.selection),patch={selection:[.1,.9,200.1,201.1]};
+  const after=A.configure(before,patch);assert.deepEqual(after.scene.view.selection,[0,1,200,201]);assert.deepEqual(after.scene.query,{t1:0,t2:1,p1:200,p2:201,tR:0,pR:0});assert.deepEqual(after.selection,selection);assert.deepEqual(patch.selection,[.1,.9,200.1,201.1]);
+  assert.deepEqual(A.configure(after,{selection:null}).scene.query,before.scene.query);
+  assert.throws(()=>A.configure(before,{selection:[2.1,2.2,200.1,200.2]}),/base column and row/);
+});
+
+test("clearing selection preserves camera padding while clipping requested time to known history",()=>{
+  const d=document();d.scene.view.viewport=[0,2.8,200,202];d.scene.view.selection=[0,1,200,201];d.scene=A.seal(d.scene);
+  const cleared=A.configure(A.seal(d),{selection:null});assert.deepEqual(cleared.scene.view.viewport,[0,2.8,200,202]);assert.deepEqual(cleared.scene.query,{t1:0,t2:2,p1:200,p2:202,tR:0,pR:0});
+});
+
+test("selection read availability changes separately from measured quantities",()=>{
+  const measured=document();measured.selection.metrics={volume:400,taker_buy_volume:200,trade_count:3,taker_buy_trade_count:2,poc:25062.5,taker_buy_poc:25062.5,tR:56.25,pR:125,cell_count:2};
+  for(const tag of ["pending","failed","hidden"]){const unavailable=structuredClone(measured);unavailable.selection.metrics={tag,value:null,reason:tag};unavailable.selection.state=tag;
+    for(const [a,b] of [[unavailable,measured],[measured,unavailable]]){const diff=A.diff(A.seal(a),A.seal(b));assert.deepEqual(diff.changes,[]);assert.ok(diff.selectionState);assert.equal(diff.unavailableSelectionMetrics,undefined);}
+    assert.deepEqual(A.diff(A.seal(unavailable),A.seal(unavailable)).changes,[]);
+    const stateOnly=structuredClone(measured);stateOnly.selection.state=tag;const transition=A.diff(A.seal(measured),A.seal(stateOnly));assert.deepEqual(transition.changes,[]);assert.equal(transition.selectionState.after.state,tag);
+  }
+});
+test("same-grid occupied cell counts and supported POC removals remain observable",()=>{
+  const before=document();before.selection.metrics={volume:400,trade_count:3,taker_buy_volume:200,taker_buy_trade_count:2,poc:25062.5,taker_buy_poc:25062.5,tR:56.25,pR:125,cell_count:2};
+  const after=structuredClone(before);after.selection.metrics.cell_count=1;
+  assert.deepEqual(A.diff(A.seal(before),A.seal(after)).changes.map(c=>c.metric),["cell_count"]);
+  delete after.selection.metrics.cell_count;delete after.selection.metrics.poc;
+  const removed=A.diff(A.seal(before),A.seal(after));assert.deepEqual(removed.changes,[]);assert.deepEqual(removed.unavailableSelectionMetrics.map(x=>x.metric).sort(),["cell_count","poc"]);
+  const explicit=structuredClone(after);explicit.selection.metrics.cell_count=null;explicit.selection.metrics.poc=null;assert.deepEqual(A.diff(A.seal(before),A.seal(explicit)).changes.map(c=>c.metric).sort(),["cell_count","poc"]);
+  const legacy=structuredClone(before);legacy.selection.metrics={volume:400,takerBuyVolume:200,trades:3,takerBuyTrades:2,pocRow:200};
+  const incompatible=A.diff(A.seal(legacy),A.seal(before));assert.deepEqual(incompatible.changes,[]);assert.ok(incompatible.unavailableSelectionMetrics.some(x=>x.metric==="cell_count"));
+});
+test("legacy recorded totals without actual bounds are disclosed as unsupported comparisons",()=>{
+  const before=document();before.selection.state="recorded";before.selection.metrics={volume:0,trades:0,takerBuyVolume:0,takerBuyTrades:0,pocRow:null};
+  const after=document(),diff=A.diff(A.seal(before),after);assert.deepEqual(diff.changes.filter(x=>x.selection),[]);assert.equal(diff.selectionState.before.state,"unsupported");
+});
 test("legacy copied-cell refresh recovers observed prices only for the matching recorded address", () => {
   const a=answer();a.query={n:1,m:1,b0:1,b1:2,r0:201,r1:202};a.cells=[{c:0,r:100,v:300,bv:100,ct:2,bt:1}];
   const d=A.fromQuery(a);d.selection.state="captured-cell";d.selection.query.p1=200;d.selection.query.p2=202;
@@ -342,4 +377,17 @@ test("legacy copied-cell refresh recovers observed prices only for the matching 
   const ambiguous=structuredClone(d);ambiguous.comparison.captures.push(structuredClone(ambiguous.comparison.captures[0]));assert.deepEqual(A.selectionQuery(ambiguous),d.selection.query);
   d.selection.query.t1=0;assert.deepEqual(A.selectionQuery(d),d.selection.query);
   assert.equal(A.selectionQuery({...d,selection:null}),null);
+});
+
+test("a future captured cell cannot borrow the current scene query end to bypass replay redaction",()=>{
+  const d=document();d.scene.view.replay=true;d.scene.view.anchor=1;d.scene=A.seal(d.scene);d.selection.state="captured-cell";d.selection.query={...d.scene.query,t2:1};d.selection.measuredThrough=epoch+112500;
+  const result=A.forExport(A.seal(d));assert.equal(result.selection.state,"hidden");assert.deepEqual(result.selection.metrics,{tag:"hidden",value:null,reason:"Unavailable in replay"});assert.equal(d.selection.measuredThrough,epoch+112500);
+});
+
+test("bridge summaries preserve absent occupied-cell counts instead of inventing zero",()=>{
+  const {cubeSummary}=require("../support/bridge-model.js"),summary={volume:400,trade_count:3,taker_buy_volume:200,taker_buy_trade_count:2};
+  const input=[summary,{...summary,cell_count:null},{...summary,cell_count:0},{...summary,cell_count:2}],fake=input.map(s=>cubeSummary(s,{},0,0));
+  const script="import json,sys\nsys.path.insert(0,'tools')\nimport cube_bridge as b\nprint(json.dumps([b.cube_summary(s,{},0,0) for s in json.load(sys.stdin)]))";
+  const run=spawnSync("python3",["-c",script],{input:JSON.stringify(input),encoding:"utf8"});assert.equal(run.status,0,run.stderr);const real=JSON.parse(run.stdout);
+  for(const results of [fake,real]){assert.equal(Object.hasOwn(results[0],"cell_count"),false);assert.equal(Object.hasOwn(results[1],"cell_count"),false);assert.equal(results[2].cell_count,0);assert.equal(results[3].cell_count,2);}
 });

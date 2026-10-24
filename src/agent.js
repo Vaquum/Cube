@@ -139,8 +139,12 @@
     return Math.min(d.scene.observation.cutoffMs, (geometry.origin + position * geometry.baseSeconds) * 1000);
   }
   function forExport(document) {
-    const d = validate(document), edge = replayEdge(d);
-    if (d.selection) d.selection.query = selectionQuery(d);
+    const d = validate(document), edge = replayEdge(d), geometry = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 };
+    if (d.selection) {
+      d.selection.query = selectionQuery(d);
+      const end = Math.round((geometry.origin + d.selection.query.t2 * geometry.baseSeconds) * 1000);
+      if (d.selection.state !== "captured-cell" && Number.isFinite(end)) d.selection.measuredThrough = Math.min(d.selection.measuredThrough, end);
+    }
     if (edge === null) return seal(d);
     if (d.comparison) {
       d.comparison.captures = d.comparison.captures.map((cell) => redact(cell, edge));
@@ -201,20 +205,45 @@
     // and provenance too. Compare quantities in common units, not packet members.
     const am = a.selection?.metrics || {}, bm = b.selection?.metrics || {};
     const quantities = { volume: "volume", taker_buy_volume: "takerBuyVolume", trade_count: "trades", taker_buy_trade_count: "takerBuyTrades" };
+    const quantity = (m, key, alias) => (Object.hasOwn(m, key) ? m[key] : m[alias]) ?? null;
+    const observation = (s) => {
+      if (!s) return { state: "absent" };
+      const m = s.metrics;
+      const tag = m.tag ?? (["pending", "failed", "hidden", "unavailable", "unsupported"].includes(s.state) ? s.state : null);
+      if (tag) return { state: tag, reason: m.reason ?? "" };
+      if (s.state === "recorded" && m.supportVersion !== 1) return { state: "unsupported", reason: "Legacy recorded selection lacks its actual observed bounds" };
+      const values = Object.fromEntries(Object.entries(quantities).map(([key, alias]) => [key, quantity(m, key, alias)]));
+      for (const key of ["poc", "taker_buy_poc", "cell_count"]) if (Object.hasOwn(m, key)) values[key] = m[key];
+      return { state: "measured", values };
+    };
+    const priorObservation = observation(a.selection), nextObservation = observation(b.selection);
+    if (priorObservation.state !== "measured" || nextObservation.state !== "measured") {
+      const selectionState = E.hash.canonical(priorObservation) === E.hash.canonical(nextObservation) ? null : { before: priorObservation, after: nextObservation };
+      const unsupported = [priorObservation, nextObservation].find((r) => r.state === "unsupported");
+      return { previous: a.id, current: b.id, changes, ...(selectionState ? { selectionState } : {}), ...(unsupported ? { unavailableSelectionMetrics: [{ metric: "selection", reason: unsupported.reason }] } : {}) };
+    }
     for (const [metric, alias] of Object.entries(quantities)) {
-      const prior = (Object.hasOwn(am, metric) ? am[metric] : am[alias]) ?? null, value = (Object.hasOwn(bm, metric) ? bm[metric] : bm[alias]) ?? null;
+      const prior = quantity(am, metric, alias), value = quantity(bm, metric, alias);
       if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
     }
-    const priorState = am.tag ? am : null, state = bm.tag ? bm : null;
-    if (E.hash.canonical(priorState) !== E.hash.canonical(state)) changes.push({ selection: true, metric: "state", before: priorState, after: state });
     const unavailableSelectionMetrics = [];
-    for (const [metric, amount, alias] of [["poc", "volume", "volume"], ["taker_buy_poc", "taker_buy_volume", "takerBuyVolume"]]) {
-      const point = (m) => Object.hasOwn(m, metric) ? m[metric] : (m[amount] ?? m[alias]) === 0 ? null : undefined;
+    for (const metric of ["poc", "taker_buy_poc"]) {
+      const point = (m) => Object.hasOwn(m, metric) ? m[metric] : undefined;
       const prior = point(am), value = point(bm), aw = am.pocRowWidth ?? am.pR, bw = bm.pocRowWidth ?? bm.pR;
-      if (prior === undefined && value === undefined && !Object.hasOwn(am, "pocRow") && !Object.hasOwn(bm, "pocRow")) continue;
+      if (prior === undefined && value === undefined && !Object.hasOwn(am, "pocRow") && !Object.hasOwn(bm, "pocRow") && !aw && !bw) continue;
+      if ((prior === undefined && aw) || (value === undefined && bw)) { unavailableSelectionMetrics.push({ metric, reason: "POC value is missing from a captured selection; an absent field does not assert a measured removal" }); continue; }
       if (prior === undefined || value === undefined || (Number.isFinite(prior) && Number.isFinite(value) && (!(aw > 0) || aw !== bw))) {
         unavailableSelectionMetrics.push({ metric, reason: "POC comparison requires known matching measured price row widths and price-valued centres" });
       } else if (E.hash.canonical(prior) !== E.hash.canonical(value)) changes.push({ selection: true, metric, before: prior, after: value });
+    }
+    const countSupported = (m) => Object.hasOwn(m, "cell_count") || m.cellGrid || Number.isFinite(m.tR) && Number.isFinite(m.pR);
+    if (countSupported(am) || countSupported(bm)) {
+      const grid = (m) => { const g = m.cellGrid ?? m; return Number.isFinite(g.tR) && g.tR > 0 && Number.isFinite(g.pR) && g.pR > 0 ? { tR: g.tR, pR: g.pR } : null; }, ag = grid(am), bg = grid(bm);
+      const region = (d) => { const q = d.selection.query, f = d.snapshot || { origin: 1609459200, baseSeconds: 56.25 }; return [q.t1, Math.min(q.t2, (d.selection.measuredThrough / 1000 - f.origin) / f.baseSeconds), q.p1, q.p2]; };
+      const sameRegion = E.hash.canonical(region(a)) === E.hash.canonical(region(b));
+      if (countSupported(am) && countSupported(bm) && (!Object.hasOwn(am, "cell_count") || !Object.hasOwn(bm, "cell_count"))) unavailableSelectionMetrics.push({ metric: "cell_count", reason: "Occupied-cell count is missing from a captured selection; an absent field does not assert measured zero" });
+      else if (!countSupported(am) || !countSupported(bm) || !ag || !bg || !sameRegion || E.hash.canonical(ag) !== E.hash.canonical(bg)) unavailableSelectionMetrics.push({ metric: "cell_count", reason: "Occupied-cell counts require matching observed regions and measured time/price grids" });
+      else if ((am.cell_count ?? null) !== (bm.cell_count ?? null)) changes.push({ selection: true, metric: "cell_count", before: am.cell_count ?? null, after: bm.cell_count ?? null });
     }
     return { previous: a.id, current: b.id, changes, ...(unavailableSelectionMetrics.length ? { unavailableSelectionMetrics } : {}) };
   }
@@ -245,9 +274,20 @@
     const rowControls = E.codec.validatePortable(d.scene, {}).value.view;
     for (const key of ["rowControlsVersion", "rows", "period", "background", "backgroundPeriod"]) d.scene.view[key] = rowControls[key];
     if (!keys(patch, ["viewport", "resolution", "mode", "pane", "rows", "period", "background", "backgroundPeriod", "lines", "selection", "replay", "anchor", "scale", "readMode"])) fail("Unknown scene setting");
+    if (patch.selection !== undefined && patch.selection !== null) {
+      if (!Array.isArray(patch.selection) || patch.selection.length !== 4 || !patch.selection.every(Number.isFinite)) fail("Selection requires four finite base edges");
+      const selection = patch.selection.map((x) => Math.floor(x + .5));
+      if (selection.some((x) => x < 0) || selection[0] >= selection[1] || selection[2] >= selection[3]) fail("Selection must cover at least one base column and row");
+      patch = { ...patch, selection };
+    }
     if (patch.readMode !== undefined) { if (!["captured", "live"].includes(patch.readMode)) fail("Read mode is captured or live"); d.mode = patch.readMode; }
     Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport", "readMode"].includes(key))));
     if (patch.viewport) { d.scene.view.viewport = patch.viewport; d.scene.view.window = ""; Object.assign(d.scene.query, { t1: patch.viewport[0], t2: patch.viewport[1], p1: patch.viewport[2], p2: patch.viewport[3] }); }
+    if (patch.selection !== undefined) {
+      const r = patch.selection ?? d.scene.view.viewport, f = d.snapshot || { origin: 1609459200, baseSeconds: 56.25, cutoffMs: d.scene.observation.cutoffMs };
+      const cut = ((f.sourceCutoffMs ?? f.cutoffMs) / 1000 - f.origin) / f.baseSeconds, end = Math.ceil(cut), edge = (x) => Math.min(end, Math.max(0, Math.floor(x + .5)));
+      Object.assign(d.scene.query, { t1: edge(r[0]), t2: r[1] >= cut ? end : edge(r[1]), p1: Math.max(0, Math.floor(r[2] + .5)), p2: Math.max(0, Math.floor(r[3] + .5)) });
+    }
     if (patch.resolution) { [d.scene.query.tR, d.scene.query.pR] = patch.resolution; d.scene.view.auto = false; }
     d.scene = seal(d.scene);
     return validate(seal(d));
