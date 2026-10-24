@@ -59,7 +59,7 @@ export async function dispatch(name, args = {}) {
   if (name === "cube_refresh") {
     const fresh = A.fromQuery(await request("/cube/agent/query?proto=2&" + new URLSearchParams(queryOf(document))));
     if (document.selection) {
-      const token = fresh.snapshot.token, answer = await request("/cube/agent/query?proto=2&" + new URLSearchParams({ ...queryOf(document, document.selection.query), pack: token }));
+      const token = fresh.snapshot.token, answer = await request("/cube/agent/query?proto=2&" + new URLSearchParams({ ...queryOf(document, A.selectionQuery(document)), pack: token }));
       if (answer.frame.token !== token) throw Error("Source changed during refresh; previous evidence retained");
       fresh.selection = A.fromQuery(answer).selection;
       fresh.snapshot.cutoffMs = Math.max(fresh.snapshot.cutoffMs, answer.frame.cutoffMs);

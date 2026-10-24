@@ -25392,7 +25392,7 @@
         const viewport = [cell.c * ts, (cell.c + 1) * ts, cell.r * ps, (cell.r + 1) * ps];
         scene.view.viewport = viewport; scene.view.window = ""; scene.view.auto = false;
         scene.view.selection = [start, stop, cell.observed.low / PR, cell.observed.high / PR];
-        Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: viewport[2], p2: viewport[3], tR: n, pR: m });
+        Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: cell.observed.low / PR, p2: cell.observed.high / PR, tR: n, pR: m });
         Object.assign(scene, Agent.seal(scene));
       }
     }
@@ -25401,6 +25401,12 @@
     if (scope === "cell" && captures.length === 1) {
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
       selection = { query: { ...scene.query }, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null, poc: numeric("volume.amount") > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, taker_buy_poc: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, pocRowWidth: PR * 2 ** cell.level.m }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
+    }
+    // Camera/drawing edits do not replace the investigation's recorded selection.
+    // Explicit selection/cell copies still capture the current requested region.
+    if (activeAnalysis && (scope === "view" || scope === "comparison")) {
+      selection = structuredClone(activeAnalysis.selection);
+      if (selection) selection.query = Agent.selectionQuery(activeAnalysis);
     }
     const document = Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null });
     return causal ? Agent.forExport(document) : Agent.validate(document);
@@ -25468,7 +25474,7 @@
       analysisHash = hash;
       if (hash) history.replaceState(null, "", location.pathname + location.search + hash);
       recordView("Investigation"); update(); save();
-      el("analysis-status").textContent = value.mode === "captured" ? "Captured evidence · values stay fixed. Refresh explicitly to compare the current source." : "Live query · the canvas follows the current source; comparison captures retain their original values.";
+      el("analysis-status").textContent = value.mode === "captured" ? "Captured evidence · recorded selection retained. Refresh explicitly to compare the current source." : "Live query · the canvas follows the current source; comparison captures retain their original values.";
       before.drawings.commit("Open investigation", drawingCollection());
       drawingStore = before.drawings; drawingPersist();
       if (value.mode === "live") scheduleLive(3);
@@ -25500,6 +25506,19 @@
     if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
     unchanged();
     const token = packBody.pack.state_token;
+    let selection = null;
+    if (before.selection) {
+      const q = Agent.selectionQuery(before), cutoff = E.time.msToBase(Date.parse(packBody.pack.cutoff), T0, BASE);
+      const b1 = Math.min(q.t2, Math.ceil(cutoff)); let n = q.tR;
+      while (n < N_MAX && Math.ceil(b1 / 2 ** n) - Math.floor(q.t1 / 2 ** n) > TILE_COLUMNS) n++;
+      // The ordinary browser summary supports the full captured canvas. The
+      // JSON agent-cell endpoint has a separate, lower 20,000-cell limit.
+      const response = await fetch("/cube/query?proto=2&" + new URLSearchParams({ n, m: q.pR, b0: q.t1, b1, r0: q.p1, r1: q.p2, pack: token }));
+      unchanged(); const body = await response.json(); unchanged();
+      if (!response.ok) throw Error("Refresh failed; captured evidence retained: " + (body.detail || body.error || response.status));
+      if (body.summary.state_token !== token) throw Error("Source changed during refresh; captured evidence retained");
+      selection = { query: q, metrics: body.summary, source: String(packBody.pack.source ?? "Current source"), measuredThrough: wholeMs(comparisonMs(body.block.b1)), state: "cube" };
+    }
     // Each capture is at most one cell, so its own observed region respects
     // both the column and returned-cell limits without reading between captures.
     for (const cell of before.comparison.captures) {
@@ -25535,9 +25554,9 @@
     const committed = () => { if (analysisRevision !== committingRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
     committed();
     comparisonCommit({ ...before.comparison, captures: refreshed }, true, true); update();
-    const after = await agentDocument(); committed();
+    const after = Agent.forExport(Agent.seal({ ...await agentDocument(), selection })); committed();
     const difference = Agent.diff(Agent.forExport(before), after);
-    activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null }); analysisRevision++;
+    activeAnalysis = Agent.seal({ ...after, selection, mode: "live", snapshot: null }); analysisRevision++;
     el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (difference.unavailableSelectionMetrics?.length ? " POC changes cannot be compared across these captured price rows." : "") + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
     scheduleStrip(); scheduleLive(3); return { document: after, ...difference };
   }

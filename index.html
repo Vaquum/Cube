@@ -20040,10 +20040,10 @@
   function text(document, { link: href = null } = {}) {
     const d = forExport(document), cells = d.comparison?.captures || [];
     const edge = replayEdge(d), basis = C.analyze(cells, { edge, basis: d.comparison?.basis }).basis;
-    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
+    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Document created: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
     if (cells.some((cell) => !cell.context?.histories?.length)) sections.push("Frozen histories not captured for some cells; missing context is unavailable, not zero.");
     if (d.mode === "captured" && d.scene.view.strip && d.scene.view.strip !== "off") sections.push("Forces data was not captured in this investigation; missing evidence is unavailable, not zero.");
-    if (d.selection) sections.push("Selection: " + JSON.stringify(d.selection));
+    if (d.selection) sections.push("Recorded selection: " + JSON.stringify(d.selection));
     if (href) sections.push("Open canvas: " + href);
     sections.push("```json\n" + JSON.stringify(d) + "\n```");
     return sections.join("\n\n");
@@ -20062,7 +20062,8 @@
   }
   function forExport(document) {
     const d = validate(document), edge = replayEdge(d);
-    if (edge === null) return d;
+    if (d.selection) d.selection.query = selectionQuery(d);
+    if (edge === null) return seal(d);
     if (d.comparison) {
       d.comparison.captures = d.comparison.captures.map((cell) => redact(cell, edge));
       if (d.comparison.poc && Math.max(d.comparison.poc.supportEnd ?? Infinity, d.comparison.poc.knownThrough ?? Infinity) > edge) d.comparison.poc = null;
@@ -20098,6 +20099,15 @@
     put("visibleVwaps", entries("visibleVwaps").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
     put("developingPocReads", entries("developingPocReads").filter(([, r]) => Number.isFinite(r.b1) && r.b1 <= cut));
     return output;
+  }
+  function selectionQuery(d) {
+    const q = d.selection ? { ...d.selection.query } : null, f = d.snapshot;
+    if (!q || !f || d.selection.state !== "captured-cell") return q;
+    // Older cell copies used nominal prices despite retaining observed-only totals.
+    // Match the complete recorded address before recovering its observed prices.
+    const matches = d.comparison?.captures.filter((c) => c.level.n === q.tR && c.level.m === q.pR && q.t1 === Math.floor((c.observed.t0 / 1000 - f.origin) / f.baseSeconds) && q.t2 === Math.ceil((c.observed.t1 / 1000 - f.origin) / f.baseSeconds) && q.p1 === c.nominal.low / f.basePrice && q.p2 === c.nominal.high / f.basePrice) ?? [];
+    if (matches.length === 1) Object.assign(q, { p1: matches[0].observed.low / f.basePrice, p2: matches[0].observed.high / f.basePrice });
+    return q;
   }
   function diff(before, after) {
     const a = validate(before), b = validate(after), changes = [];
@@ -20188,7 +20198,7 @@
     const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
     return validate(seal({ schema: SCHEMA, instrument: "BTC/USDT", createdAt: Date.now(), mode: "captured", scene, snapshot, comparison: { comparisonVersion: 2, instrument: "BTC/USDT", selectedMetric: "volume", captures, focus: captures[0]?.id ?? null, reference: null, basis: "auto", sort: { key: "time", direction: "asc" }, view: "grid", page: 0, poc: null, expanded: false, restoreLayout: null }, selection: { query: { ...scene.query }, metrics: summary, source: f.source, measuredThrough: f.cutoffMs, state: "exact" }, focus: null }));
   }
-  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, redact, configure, annotate, fromQuery, forExport });
+  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, selectionQuery, redact, configure, annotate, fromQuery, forExport });
 });
 </script>
     <script>(() => {
@@ -47926,7 +47936,7 @@
         const viewport = [cell.c * ts, (cell.c + 1) * ts, cell.r * ps, (cell.r + 1) * ps];
         scene.view.viewport = viewport; scene.view.window = ""; scene.view.auto = false;
         scene.view.selection = [start, stop, cell.observed.low / PR, cell.observed.high / PR];
-        Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: viewport[2], p2: viewport[3], tR: n, pR: m });
+        Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: cell.observed.low / PR, p2: cell.observed.high / PR, tR: n, pR: m });
         Object.assign(scene, Agent.seal(scene));
       }
     }
@@ -47935,6 +47945,12 @@
     if (scope === "cell" && captures.length === 1) {
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
       selection = { query: { ...scene.query }, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null, poc: numeric("volume.amount") > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, taker_buy_poc: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, pocRowWidth: PR * 2 ** cell.level.m }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
+    }
+    // Camera/drawing edits do not replace the investigation's recorded selection.
+    // Explicit selection/cell copies still capture the current requested region.
+    if (activeAnalysis && (scope === "view" || scope === "comparison")) {
+      selection = structuredClone(activeAnalysis.selection);
+      if (selection) selection.query = Agent.selectionQuery(activeAnalysis);
     }
     const document = Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null });
     return causal ? Agent.forExport(document) : Agent.validate(document);
@@ -48002,7 +48018,7 @@
       analysisHash = hash;
       if (hash) history.replaceState(null, "", location.pathname + location.search + hash);
       recordView("Investigation"); update(); save();
-      el("analysis-status").textContent = value.mode === "captured" ? "Captured evidence · values stay fixed. Refresh explicitly to compare the current source." : "Live query · the canvas follows the current source; comparison captures retain their original values.";
+      el("analysis-status").textContent = value.mode === "captured" ? "Captured evidence · recorded selection retained. Refresh explicitly to compare the current source." : "Live query · the canvas follows the current source; comparison captures retain their original values.";
       before.drawings.commit("Open investigation", drawingCollection());
       drawingStore = before.drawings; drawingPersist();
       if (value.mode === "live") scheduleLive(3);
@@ -48034,6 +48050,19 @@
     if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
     unchanged();
     const token = packBody.pack.state_token;
+    let selection = null;
+    if (before.selection) {
+      const q = Agent.selectionQuery(before), cutoff = E.time.msToBase(Date.parse(packBody.pack.cutoff), T0, BASE);
+      const b1 = Math.min(q.t2, Math.ceil(cutoff)); let n = q.tR;
+      while (n < N_MAX && Math.ceil(b1 / 2 ** n) - Math.floor(q.t1 / 2 ** n) > TILE_COLUMNS) n++;
+      // The ordinary browser summary supports the full captured canvas. The
+      // JSON agent-cell endpoint has a separate, lower 20,000-cell limit.
+      const response = await fetch("/cube/query?proto=2&" + new URLSearchParams({ n, m: q.pR, b0: q.t1, b1, r0: q.p1, r1: q.p2, pack: token }));
+      unchanged(); const body = await response.json(); unchanged();
+      if (!response.ok) throw Error("Refresh failed; captured evidence retained: " + (body.detail || body.error || response.status));
+      if (body.summary.state_token !== token) throw Error("Source changed during refresh; captured evidence retained");
+      selection = { query: q, metrics: body.summary, source: String(packBody.pack.source ?? "Current source"), measuredThrough: wholeMs(comparisonMs(body.block.b1)), state: "cube" };
+    }
     // Each capture is at most one cell, so its own observed region respects
     // both the column and returned-cell limits without reading between captures.
     for (const cell of before.comparison.captures) {
@@ -48069,9 +48098,9 @@
     const committed = () => { if (analysisRevision !== committingRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
     committed();
     comparisonCommit({ ...before.comparison, captures: refreshed }, true, true); update();
-    const after = await agentDocument(); committed();
+    const after = Agent.forExport(Agent.seal({ ...await agentDocument(), selection })); committed();
     const difference = Agent.diff(Agent.forExport(before), after);
-    activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null }); analysisRevision++;
+    activeAnalysis = Agent.seal({ ...after, selection, mode: "live", snapshot: null }); analysisRevision++;
     el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (difference.unavailableSelectionMetrics?.length ? " POC changes cannot be compared across these captured price rows." : "") + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
     scheduleStrip(); scheduleLive(3); return { document: after, ...difference };
   }
