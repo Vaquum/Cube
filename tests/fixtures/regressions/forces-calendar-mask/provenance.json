@@ -1,0 +1,9 @@
+{
+  "kind": "recorded",
+  "expectationSource": "hand-computed",
+  "generator": null,
+  "seed": null,
+  "source": "Read-only GET /cube/strip?proto=2&from=1792797300000&to=1792827000000&step=900000 from the production Cube bridge on 37.27.112.167, captured 2026-10-24 at the 07:20:01.005 UTC publication. The full response is retained unchanged.",
+  "extractedOn": "2026-10-24",
+  "notes": "Snapshot 007ac15f8af94e0ffd24376bb0aad8cec1160fbf29fa95f0dfc03a3918a85b0e. In its last four hours, 38 scheduled events contribute light whose sum stays above 1 (approximately 1.265 to 1.375), while the strongest contribution is approximately 0.228 to 0.247. Net force and attention vary. The browser oracle computes each known event contribution independently and takes its maximum, verifies the reference beam height (20*(0.2+0.5*light)) and opacity (0.85*light), and checks final composed force colours outside it. A mini synthetic price cube uses this publication cutoff; no recorded force, attention or calendar values are generated or retimed."
+}

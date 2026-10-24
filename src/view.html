@@ -1758,11 +1758,15 @@
               ><button type="button" role="tab" data-surface="rows" aria-selected="false" tabindex="-1" class="cursor-interaction" data-hint="Inspect the second vertical profile using its own measure and period">Rows</button
               ><button type="button" role="tab" data-surface="background" aria-selected="false" tabindex="-1" class="cursor-interaction" data-hint="Inspect the backdrop and its native colour-strip rows using the Background measure and period">Background</button
               ><button type="button" role="tab" data-surface="columns" aria-selected="false" tabindex="-1" class="cursor-interaction">Columns</button
+              ><button type="button" role="tab" data-surface="strip" aria-selected="false" tabindex="-1" class="cursor-interaction">Strip</button
               ><button type="button" role="tab" data-surface="references" aria-selected="false" tabindex="-1" class="cursor-interaction">References</button
               ><button type="button" role="tab" data-surface="lens" aria-selected="false" tabindex="-1" class="cursor-interaction">Lens</button>
             </div>
           </div>
           <div class="ol-inspect-position" id="ol-inspect-position"></div>
+          <select id="ol-inspect-strip-view" class="cursor-interaction" aria-label="Strip measurements">
+            <option value="forces">Forces</option><option value="sources">Sources</option><option value="ahead">Ahead</option>
+          </select>
           <div class="ol-inspect-readout" id="ol-inspect-readout"></div>
           <div class="ol-inspect-boundary" id="ol-inspect-boundary"></div>
           <div class="ol-inspect-steps" role="group" aria-label="Move the cursor">
