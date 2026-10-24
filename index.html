@@ -2727,7 +2727,8 @@
     display: none;
   }
   /* One column that scrolls; wrapping would start a second column off-screen. */
-  #origo-lens[data-sheet="open"] .ol-controls {
+  #origo-lens[data-sheet="open"] .ol-controls,
+  #origo-lens .ol-controls[data-flow-retained] {
     position: fixed;
     left: 0;
     right: 0;
@@ -2746,7 +2747,8 @@
     border-radius: var(--r-l) var(--r-l) 0 0;
     box-shadow: 0 calc(-1 * var(--sp-3)) var(--sp-6) var(--ol-shadow);
   }
-  #origo-lens[data-sheet="open"] .ol-sheet-head {
+  #origo-lens[data-sheet="open"] .ol-sheet-head,
+  #origo-lens .ol-controls[data-flow-retained] .ol-sheet-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -31046,9 +31048,13 @@
     });
   }
   function setSheet(open) {
+    const at = document.activeElement,
+      restoreFocus = !open && PHONE.matches && root.dataset.sheet === "open" &&
+        (!at || at === document.body || el("controls").contains(at));
     root.dataset.sheet = open ? "open" : "closed";
     el("sheet-toggle").setAttribute("aria-expanded", String(open));
     if (!open) closePop();
+    if (restoreFocus) el("sheet-toggle").focus({ preventScroll: true });
   }
   // On a phone the controls open in a sheet, and the chart header's newer
   // menus with them (Columns, Background and Rows), before POC lines; wider,
@@ -46746,7 +46752,6 @@
     if (closePop(true)) return;
     if (root.dataset.sheet === "open") {
       setSheet(false);
-      el("sheet-toggle").focus();
       return;
     }
     if (trendTool) { drawingCancelOperation(); setTool(drawingEntryTool); return; }

@@ -1,0 +1,10 @@
+{
+  "sha": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+  "committedAt": "2026-10-24T21:39:11+03:00",
+  "sourceIndexSha256": "0c17185509ecfc633c21c644887e4097cffc0230b801767a33ff13783ffb1abc",
+  "modification": "Deployment-style commit/time metadata only. No motion hooks or browser instrumentation.",
+  "fixture": "standard seed 20260924; existing fake server 8791; synthetic diagnostic only.",
+  "pullRequest": "https://github.com/Vaquum/Market-State-Cube-Explorer/pull/218",
+  "templateIndexSha256": "4b7b5eab73a34d5c896f09581833ac8914180f72fcf02c689cf92f44aa38388c",
+  "fixtureInjection": "The live fake additionally injects synthetic PACK/bridge timing and its optional strip declaration. The hash above identifies the staged template, not that varying HTTP body."
+}

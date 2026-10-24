@@ -1,0 +1,6426 @@
+{
+  "schema": "cube-presentation@1",
+  "kind": "harness-preflight-not-calibration",
+  "protocol": {
+    "schema": "cube-presentation@1",
+    "baseline": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+    "purpose": "Diagnose avoidable presentation work after #211. A null performance finding is valid; the phone-close focus correction is separate from any latency claim.",
+    "pairs": 5,
+    "ordering": "AB, BA, AB, BA, AB, in declared case order; one unrecorded warm-up of the case before each recorded trial",
+    "fixture": {
+      "profile": "bench",
+      "seed": 20260924,
+      "cutoff": "2026-09-24T12:02:00.000000Z"
+    },
+    "desktop": {
+      "width": 1500,
+      "height": 950
+    },
+    "phone": {
+      "width": 390,
+      "height": 844
+    },
+    "reducedMotion": "no-preference",
+    "captureMs": 2200,
+    "finalStabilityMs": 250,
+    "minimumFinalFrames": 3,
+    "samplingPrecision": {
+      "positionCssPx": 0.001,
+      "opacity": 0.0000152587890625,
+      "rotationDeg": 0.001,
+      "timeMs": 0.01
+    },
+    "caps": {
+      "actors": 1024,
+      "actorSamples": 262144,
+      "channelEvents": 4096
+    },
+    "tolerances": {
+      "positionCssPx": 0.5,
+      "opacity": 0.00392156862745098,
+      "rotationDeg": 0.5,
+      "stablePositionCssPx": 0.05,
+      "stableOpacity": 0.0009765625,
+      "stableRotationDeg": 0.05
+    },
+    "completion": "Post-frame DOM samples: native rAF followed by a zero-delay task. Earliest sample after which every relevant visible actor stays within the declared tolerances of a verified stable final pose. Departures finish when their effective opacity or clipped visible extent falls below tolerance and stays there. Include declared ancestors, inert retiring ghosts and CSS icon/dialog transitions. Marker clearance and #211 proxies are separate observations. This is styled-DOM submission, not physical display presentation.",
+    "acknowledgment": "After-dispatch witness: window-bubble microtask after target/document handlers, with an explicit next-task fallback for stopped propagation. Authoritative logical state, focused element, immediate values and intended action. Keep native event timestamp, handler witness, task/frame observations and side-panel transport distinct. A capture-listener microtask is not an after-dispatch witness.",
+    "excess": "Report independent completion minus acknowledgment minus the unchanged SPRING.duration. Also retain first relevant spring start, per-owner/channel generations, dynamic target changes, last restart, marker clearance and CSS work. Negative excess is valid.",
+    "validity": "Verify actor counts, actual destination order/membership and intended logical result. Repeated no-op actions, unsupported capability paths, superseded requests, missing/censored endpoints and unstable final poses retain explicit outcomes and raw samples; they are never successful zero-duration reorders.",
+    "improvement": {
+      "primaryStatistic": "Median paired baseline minus candidate independent completion, separately per declared case",
+      "noiseFloor": "Maximum of the case A/A p95 absolute paired difference and two median sampled frame intervals",
+      "hostPolicy": "Collect initial A/A before product edits. Any later A/B run first repeats A/A on that same worker with the same protocol; use the larger initial/current floor. Shared-worker variability remains a limitation. A changed metric or instrument requires a fresh pre-candidate baseline.",
+      "materialCriterion": "Paired median improvement exceeds the frozen A/A floor, at least four of five pairs improve, and a corresponding unnecessary restart/chaining/work-count reduction is demonstrated with unchanged logical/visual endpoints",
+      "noChange": "If no avoidable work is demonstrated under the unchanged movement contract, retain the null finding. Never shorten motion to satisfy this issue. A focused phone-close focus repair does not constitute a latency gain."
+    },
+    "budgets": {
+      "drawMs": 10,
+      "frameMs": 20,
+      "inputMs": 50,
+      "drawDeltaMs": 0.5,
+      "frameDeltaMs": 2,
+      "inputDeltaMs": 5,
+      "slowFrameShareDelta": 0.01
+    },
+    "budgetEvidence": "Run the existing motion guard unchanged against the explicit #211 baseline. Retain absolute budget outcomes and relative guard outcomes separately. A shared CI host and side-panel diagnostics do not certify designated-host or cumulative #96 acceptance.",
+    "guardSourceControl": "Also run that unmodified guard against 86032217dd848006c3ffe241e50a0a52e91f3129: before #212 product edits this has identical product bytes to the runner checkout. Retain it as a source/host control, separately from the #211 comparison; it does not replace a failed guard or waive an absolute budget.",
+    "frozenFiles": [
+      "src/motion.js",
+      "src/explorer.css",
+      "src/diagnostics.js",
+      "tools/benchmark_motion.mjs",
+      "tools/benchmark/motion-metrics.mjs",
+      "tests/browser/tactile-flow.spec.js",
+      "tests/browser/motion-responsiveness.spec.js",
+      "tests/unit/motion.test.js"
+    ],
+    "stylesheetAllowance": {
+      "file": "src/explorer.css",
+      "reason": "The pre-candidate trace and native #211 baseline reproduce fixed→static/column→row layout during phone Close: a 49→139 px toolbar, with final restoration at spring completion. Admit only these two exact selector additions to retain the already-defined sheet layout during its inert exit. Every declaration, duration/easing and other stylesheet byte remains frozen. Recollect A/A with this final admission protocol before product edits; metric, cases, tolerances and material criterion are unchanged.",
+      "replacements": [
+        {
+          "before": "#origo-lens[data-sheet=\"open\"] .ol-controls {",
+          "after": "#origo-lens[data-sheet=\"open\"] .ol-controls,\n  #origo-lens .ol-controls[data-flow-retained] {"
+        },
+        {
+          "before": "#origo-lens[data-sheet=\"open\"] .ol-sheet-head {",
+          "after": "#origo-lens[data-sheet=\"open\"] .ol-sheet-head,\n  #origo-lens .ol-controls[data-flow-retained] .ol-sheet-head {"
+        }
+      ]
+    },
+    "primaryCases": [
+      {
+        "id": "phone-open",
+        "layout": "phone",
+        "actors": "Controls sheet, its ancestors, toggle/icon"
+      },
+      {
+        "id": "phone-close",
+        "layout": "phone",
+        "actors": "Retained Controls exit, its ancestors, toggle/icon; immediate Close focus ownership"
+      },
+      {
+        "id": "drawer-open",
+        "layout": "desktop",
+        "actors": "Drawer size/panel, main grid/canvas geometry, active panel and trigger"
+      },
+      {
+        "id": "drawer-close",
+        "layout": "desktop",
+        "actors": "Drawer exit/size, main grid/canvas geometry, trigger"
+      },
+      {
+        "id": "drawer-tab",
+        "layout": "desktop",
+        "actors": "Cells to Query; outgoing/incoming panel, drawer size, main grid/canvas geometry"
+      },
+      {
+        "id": "inspector-open",
+        "layout": "desktop",
+        "actors": "Main grid, inspector panel/body, canvas geometry, toggle/icon"
+      },
+      {
+        "id": "inspector-close",
+        "layout": "desktop",
+        "actors": "Main grid, retained inspector exit, canvas geometry, toggle/icon"
+      },
+      {
+        "id": "cells-sort",
+        "layout": "desktop",
+        "profile": "uniform",
+        "camera": "2026-09-24T11:43:07.500Z~2026-09-24T12:01:52.500Z;25000~25625;r=0,0",
+        "actors": "20 complete base columns × five uniform occupied price rows = exactly 100 source and mounted rows, retained semantic keys/actions; clipped visible roots and ancestors"
+      },
+      {
+        "id": "cells-next",
+        "layout": "desktop",
+        "profile": "uniform",
+        "camera": "2026-09-24T11:05:37.500Z~2026-09-24T12:01:52.500Z;25000~25625;r=0,0",
+        "actors": "60 complete base columns × five rows = 300 source cells; 100-row page membership change, arrivals and application-root retirement ghosts"
+      },
+      {
+        "id": "cells-previous",
+        "layout": "desktop",
+        "profile": "uniform",
+        "camera": "2026-09-24T11:05:37.500Z~2026-09-24T12:01:52.500Z;25000~25625;r=0,0",
+        "actors": "Previous 100-row page within the same 300-cell cohort, arrivals, ghosts and scroll bounds"
+      },
+      {
+        "id": "comparison-sort",
+        "layout": "desktop",
+        "captures": 24,
+        "view": "grid-expanded",
+        "actors": "Retained cohort; changed time-ascending to volume-descending order and ancestors"
+      },
+      {
+        "id": "comparison-direction",
+        "layout": "desktop",
+        "captures": 24,
+        "view": "grid-expanded",
+        "actors": "Retained cohort, actual ascending/descending reversal"
+      },
+      {
+        "id": "comparison-basis-reorder",
+        "layout": "desktop",
+        "captures": 24,
+        "view": "grid-expanded",
+        "actors": "Volume-sorted cohort with declared varying observed durations; Amount→Intensity basis causes a verified changed destination order; exact readings update directly"
+      },
+      {
+        "id": "comparison-membership",
+        "layout": "desktop",
+        "captures": 128,
+        "view": "grid-expanded",
+        "actors": "Sort changes the 24-entry mounted page; arrivals, departures and clipped ghosts"
+      },
+      {
+        "id": "comparison-next",
+        "layout": "desktop",
+        "captures": 128,
+        "view": "grid-expanded",
+        "actors": "Next 24-entry page, bounded mounting, arrivals/departures and ghosts"
+      }
+    ],
+    "continuityCases": [
+      {
+        "id": "phone-reverse-100",
+        "delayMs": 100
+      },
+      {
+        "id": "phone-reverse-400",
+        "delayMs": 400
+      },
+      {
+        "id": "inspector-reverse-100",
+        "delayMs": 100
+      },
+      {
+        "id": "inspector-reverse-400",
+        "delayMs": 400
+      },
+      {
+        "id": "cells-resort-during-motion",
+        "delayMs": 100
+      },
+      {
+        "id": "cells-page-during-retirement",
+        "delayMs": 100
+      },
+      {
+        "id": "comparison-sort-A-B-A",
+        "delayMs": 100
+      }
+    ],
+    "controls": [
+      {
+        "id": "help-css",
+        "purpose": "CSS-only Help dialog arrival"
+      },
+      {
+        "id": "phone-reduced",
+        "pairs": 5,
+        "purpose": "Reduced-motion phone-sheet A/A"
+      },
+      {
+        "id": "phone-escape",
+        "purpose": "Phone Escape immediate focus, compared with primary Close"
+      },
+      {
+        "id": "phone-close-outside",
+        "purpose": "Programmatic Close preserves deliberately moved canvas focus"
+      },
+      {
+        "id": "phone-escape-outside",
+        "purpose": "Escape preserves deliberately moved canvas focus"
+      },
+      {
+        "id": "comparison-reading",
+        "purpose": "selectedMetric changes the primary reading; verify retained order and do not claim a capture-cohort reorder"
+      }
+    ],
+    "compatibility": "Keep existing tactile-flow, motion-unit, responsiveness, help/startup and lifecycle guards unmodified. Verify logical close/inertness and focus before settling; retained actor identity/callbacks and finite continuous reversal trajectories. Keep reduced-motion changes, hidden/pagehide, resize/print holds, grip takeover, native canvas resizing, direct values, replay and input drafts intact.",
+    "artifacts": "Retain the frozen protocol/instrumentation hashes, full source/build hashes, browser/viewport/DPR/capabilities, case preconditions/order, every raw pose/channel sample and #211 recording, including invalid/superseded samples. Publish compressed raw evidence and a hash manifest. A/A must be collected before product changes; a corrected measurement definition requires a fresh A/A baseline."
+  },
+  "runnerCommit": "331367ee46766d751b18c5f71a26fb604c1426c4",
+  "prHead": null,
+  "instrumentation": {
+    "tools/benchmark/presentation.v1.json": "1a6f51112f27b942092dc0d7faedea815b32614b99151646011ed475c3ef0367",
+    "tools/benchmark/presentation-probe.js": "7f799b73b013ea78e483dadff7f0fd82cb481fe87ca8d8a4b75d35653d07e469",
+    "tools/benchmark/presentation-build.mjs": "9ae3a683934e1dbcae86b4d726ab13539f7af6974b438602d50390eb231b89eb",
+    "tools/benchmark/presentation-cases.mjs": "aca5e72f99f40e293e226925a191ca2643f8c5cd11d548d29645060e6f74c416",
+    "tools/benchmark/presentation-metrics.cjs": "e8d5f03e60c920a674e48334a56abb9b5bca03d7dca3577ee801106b1d0a90b0",
+    "tools/benchmark_presentation.mjs": "dc492212477e5cf91197de398c2599a354bd53905bc24813339228853c593d58"
+  },
+  "frozen": [
+    {
+      "file": "src/motion.js",
+      "baseline": "fd3551b389588dd145e9a328393470cba197d08bef5b9f4f992a00d5340b6500",
+      "candidate": "fd3551b389588dd145e9a328393470cba197d08bef5b9f4f992a00d5340b6500",
+      "admittedBaseline": "fd3551b389588dd145e9a328393470cba197d08bef5b9f4f992a00d5340b6500",
+      "admittedCandidate": "fd3551b389588dd145e9a328393470cba197d08bef5b9f4f992a00d5340b6500"
+    },
+    {
+      "file": "src/explorer.css",
+      "baseline": "c84e69d1c2d5da4b8187cc39a6d56cf82cfb9d477b53256db7dcb5a15c7f70fb",
+      "candidate": "c84e69d1c2d5da4b8187cc39a6d56cf82cfb9d477b53256db7dcb5a15c7f70fb",
+      "admittedBaseline": "c84e69d1c2d5da4b8187cc39a6d56cf82cfb9d477b53256db7dcb5a15c7f70fb",
+      "admittedCandidate": "c84e69d1c2d5da4b8187cc39a6d56cf82cfb9d477b53256db7dcb5a15c7f70fb"
+    },
+    {
+      "file": "src/diagnostics.js",
+      "baseline": "82cc6b9d3c495166330579f3b370fb67bc6fbf28964ca1e2a9ff3ca5c4175892",
+      "candidate": "82cc6b9d3c495166330579f3b370fb67bc6fbf28964ca1e2a9ff3ca5c4175892",
+      "admittedBaseline": "82cc6b9d3c495166330579f3b370fb67bc6fbf28964ca1e2a9ff3ca5c4175892",
+      "admittedCandidate": "82cc6b9d3c495166330579f3b370fb67bc6fbf28964ca1e2a9ff3ca5c4175892"
+    },
+    {
+      "file": "tools/benchmark_motion.mjs",
+      "baseline": "472447dd776df783b6625b2b32f05cd57e357a9bd2585aa83fb4fe8a95bea8f3",
+      "candidate": "472447dd776df783b6625b2b32f05cd57e357a9bd2585aa83fb4fe8a95bea8f3",
+      "admittedBaseline": "472447dd776df783b6625b2b32f05cd57e357a9bd2585aa83fb4fe8a95bea8f3",
+      "admittedCandidate": "472447dd776df783b6625b2b32f05cd57e357a9bd2585aa83fb4fe8a95bea8f3"
+    },
+    {
+      "file": "tools/benchmark/motion-metrics.mjs",
+      "baseline": "0655169353c4808705441f6878bf7d2b9daf52a3ee76b7adc12ffe6b71831e46",
+      "candidate": "0655169353c4808705441f6878bf7d2b9daf52a3ee76b7adc12ffe6b71831e46",
+      "admittedBaseline": "0655169353c4808705441f6878bf7d2b9daf52a3ee76b7adc12ffe6b71831e46",
+      "admittedCandidate": "0655169353c4808705441f6878bf7d2b9daf52a3ee76b7adc12ffe6b71831e46"
+    },
+    {
+      "file": "tests/browser/tactile-flow.spec.js",
+      "baseline": "daaa71461dc04a7ba98d118bcfe55a218a6340929103538b985e0289d5b69f6c",
+      "candidate": "daaa71461dc04a7ba98d118bcfe55a218a6340929103538b985e0289d5b69f6c",
+      "admittedBaseline": "daaa71461dc04a7ba98d118bcfe55a218a6340929103538b985e0289d5b69f6c",
+      "admittedCandidate": "daaa71461dc04a7ba98d118bcfe55a218a6340929103538b985e0289d5b69f6c"
+    },
+    {
+      "file": "tests/browser/motion-responsiveness.spec.js",
+      "baseline": "30cf76f84d04a9ad6048a8e14fd402e9d343a3842bf7f205c9db8e121baaebdd",
+      "candidate": "30cf76f84d04a9ad6048a8e14fd402e9d343a3842bf7f205c9db8e121baaebdd",
+      "admittedBaseline": "30cf76f84d04a9ad6048a8e14fd402e9d343a3842bf7f205c9db8e121baaebdd",
+      "admittedCandidate": "30cf76f84d04a9ad6048a8e14fd402e9d343a3842bf7f205c9db8e121baaebdd"
+    },
+    {
+      "file": "tests/unit/motion.test.js",
+      "baseline": "8748027140d171ed03f4417d93b03fcd5c1349ec51a17fc6ce6497b08a47a2c1",
+      "candidate": "8748027140d171ed03f4417d93b03fcd5c1349ec51a17fc6ce6497b08a47a2c1",
+      "admittedBaseline": "8748027140d171ed03f4417d93b03fcd5c1349ec51a17fc6ce6497b08a47a2c1",
+      "admittedCandidate": "8748027140d171ed03f4417d93b03fcd5c1349ec51a17fc6ce6497b08a47a2c1"
+    }
+  ],
+  "builds": [
+    {
+      "sha": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "indexSha256": "0c17185509ecfc633c21c644887e4097cffc0230b801767a33ff13783ffb1abc",
+      "vendorSha256": "f2094bbf6141b359722c4fe454eb6c4b0f0e42cc10cc7af921fc158fceb86539",
+      "instrumentedIndexSha256": "ad0cea1ebe675582b3c998d24e63f935f19a7d28b4c2c763ff11a1dd6d625df5",
+      "committedAt": "2026-10-24T21:39:11+03:00",
+      "modification": "Exact committed index/vendor with deployment-style build metadata and five test-only motion hooks. Independent DOM observer supplied through the test context; no production source is modified."
+    },
+    {
+      "sha": "331367ee46766d751b18c5f71a26fb604c1426c4",
+      "indexSha256": "3a2384e5a2c8b9667bc22e7b2b4b7ea3560328805e128a91d6fd9970ccfbeca1",
+      "vendorSha256": "f2094bbf6141b359722c4fe454eb6c4b0f0e42cc10cc7af921fc158fceb86539",
+      "instrumentedIndexSha256": "9f122e122f8b6309841d701e941ce4af61cf965a84a2f5666ddd1e5f23d1437f",
+      "committedAt": "2026-10-24T20:12:22Z",
+      "modification": "Exact committed index/vendor with deployment-style build metadata and five test-only motion hooks. Independent DOM observer supplied through the test context; no production source is modified."
+    }
+  ],
+  "floors": {
+    "phone-open": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "phone-close": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "drawer-open": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "drawer-close": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "drawer-tab": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "inspector-open": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "inspector-close": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "cells-sort": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "cells-next": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "cells-previous": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "comparison-sort": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "comparison-direction": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "comparison-basis-reorder": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "comparison-membership": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "comparison-next": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    },
+    "phone-reduced": {
+      "outcome": "inconclusive",
+      "reason": "Five complete A/A pairs are required"
+    }
+  },
+  "comparisons": [],
+  "samples": [
+    {
+      "stage": "aa",
+      "case": "phone-open",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 592.9,
+      "excessMs": -71.10000000000002,
+      "markerMs": 676.4,
+      "cssMs": 126.6,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "auto",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.6,
+        "p95Ms": 1
+      },
+      "cssAnimations": 1,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-open-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-open",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 593.8000000000001,
+      "excessMs": -70.19999999999993,
+      "markerMs": 677.8000000000001,
+      "cssMs": 111,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.19999999999999574,
+          "lastAt": -0.19999999999999574
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "auto",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.9
+      },
+      "cssAnimations": 1,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-open-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-close",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 664.3,
+      "excessMs": 0.2999999999999545,
+      "markerMs": 664.3,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-close",
+        "firstFrameFocus": "BODY",
+        "finalFocus": "BODY",
+        "immediateInteractivity": "inert",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-close-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-close",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 663.8000000000001,
+      "excessMs": -0.1999999999999318,
+      "markerMs": 663.8000000000001,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-close",
+        "firstFrameFocus": "BODY",
+        "finalFocus": "BODY",
+        "immediateInteractivity": "inert",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.6
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-close-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "drawer-open",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 583.8,
+      "excessMs": -80.20000000000005,
+      "markerMs": 1559.2,
+      "cssMs": 148.8,
+      "medianFrameMs": 16.600000000000136,
+      "actors": 23,
+      "channels": [
+        {
+          "key": "8:size",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000014,
+          "lastAt": -1.1000000000000014
+        },
+        {
+          "key": "8:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.20000000000000284,
+          "lastAt": -0.20000000000000284
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 93.4,
+          "lastAt": 93.4
+        },
+        {
+          "key": "2:cells",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 888.9,
+          "lastAt": 888.9
+        }
+      ],
+      "validation": [
+        {
+          "name": "drawer logical destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.9,
+        "p95Ms": 1.3
+      },
+      "cssAnimations": 6,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-drawer-open-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "drawer-open",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 586.1999999999999,
+      "excessMs": -77.80000000000007,
+      "markerMs": 1560,
+      "cssMs": 154.39999999999998,
+      "medianFrameMs": 16.60000000000025,
+      "actors": 23,
+      "channels": [
+        {
+          "key": "8:size",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "8:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 92.8,
+          "lastAt": 92.8
+        },
+        {
+          "key": "2:cells",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 889.0999999999999,
+          "lastAt": 889.0999999999999
+        }
+      ],
+      "validation": [
+        {
+          "name": "drawer logical destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.1,
+        "p95Ms": 1.4
+      },
+      "cssAnimations": 6,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-drawer-open-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "drawer-close",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 663.1999999999999,
+      "excessMs": -0.8000000000000682,
+      "markerMs": 826.1,
+      "cssMs": 156.8,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 18,
+      "channels": [
+        {
+          "key": "8:size",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -6.600000000000001,
+          "lastAt": -6.600000000000001
+        },
+        {
+          "key": "8:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.20000000000000284,
+          "lastAt": -0.20000000000000284
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 149.4,
+          "lastAt": 149.4
+        },
+        {
+          "key": "2:cells",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 162.6,
+          "lastAt": 162.6
+        }
+      ],
+      "validation": [
+        {
+          "name": "drawer logical destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.8,
+        "p95Ms": 1.3
+      },
+      "cssAnimations": 6,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-drawer-close-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "drawer-close",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 671.5,
+      "excessMs": 7.5,
+      "markerMs": 819.3,
+      "cssMs": 176.4,
+      "medianFrameMs": 16.600000000000136,
+      "actors": 18,
+      "channels": [
+        {
+          "key": "8:size",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -6.399999999999999,
+          "lastAt": -6.399999999999999
+        },
+        {
+          "key": "8:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 140.6,
+          "lastAt": 140.6
+        },
+        {
+          "key": "2:cells",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 154.6,
+          "lastAt": 154.6
+        }
+      ],
+      "validation": [
+        {
+          "name": "drawer logical destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.8500000000000001,
+        "p95Ms": 1.3
+      },
+      "cssAnimations": 6,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-drawer-close-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "drawer-tab",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 273.40000000000003,
+      "excessMs": -390.59999999999997,
+      "markerMs": 674.7,
+      "cssMs": 123.5,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 19,
+      "channels": [
+        {
+          "key": "9:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -2.3999999999999986,
+          "lastAt": -2.3999999999999986
+        },
+        {
+          "key": "10:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        }
+      ],
+      "validation": [
+        {
+          "name": "drawer logical destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.9,
+        "p95Ms": 1.3
+      },
+      "cssAnimations": 10,
+      "ghostCount": 0,
+      "targetChanges": 2,
+      "callbackCount": 2,
+      "raw": "aa-drawer-tab-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "drawer-tab",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 273.59999999999997,
+      "excessMs": -390.40000000000003,
+      "markerMs": 674.6,
+      "cssMs": 107.4,
+      "medianFrameMs": 16.600000000000364,
+      "actors": 19,
+      "channels": [
+        {
+          "key": "9:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -2.3000000000000043,
+          "lastAt": -2.3000000000000043
+        },
+        {
+          "key": "10:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        }
+      ],
+      "validation": [
+        {
+          "name": "drawer logical destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.9,
+        "p95Ms": 1.9
+      },
+      "cssAnimations": 10,
+      "ghostCount": 0,
+      "targetChanges": 2,
+      "callbackCount": 2,
+      "raw": "aa-drawer-tab-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "inspector-open",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 596.8000000000001,
+      "excessMs": -67.19999999999993,
+      "markerMs": 781.8000000000001,
+      "cssMs": 693.5,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 15,
+      "channels": [
+        {
+          "key": "1:grid",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999986,
+          "lastAt": -0.8999999999999986
+        },
+        {
+          "key": "6:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.09999999999999432,
+          "lastAt": -0.09999999999999432
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 98.00000000000001,
+          "lastAt": 98.00000000000001
+        },
+        {
+          "key": "2:cells",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 116.2,
+          "lastAt": 116.2
+        }
+      ],
+      "validation": [
+        {
+          "name": "inspector destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.8,
+        "p95Ms": 1.4
+      },
+      "cssAnimations": 4,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-inspector-open-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "inspector-open",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 590.4,
+      "excessMs": -73.60000000000002,
+      "markerMs": 782,
+      "cssMs": 693.8,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 15,
+      "channels": [
+        {
+          "key": "1:grid",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8000000000000043,
+          "lastAt": -0.8000000000000043
+        },
+        {
+          "key": "6:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 97.4,
+          "lastAt": 97.4
+        },
+        {
+          "key": "2:cells",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 114.30000000000001,
+          "lastAt": 114.30000000000001
+        }
+      ],
+      "validation": [
+        {
+          "name": "inspector destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.7,
+        "p95Ms": 1.2
+      },
+      "cssAnimations": 4,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-inspector-open-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "inspector-close",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 602.1,
+      "excessMs": -61.89999999999998,
+      "markerMs": 1565.6000000000001,
+      "cssMs": 687.3000000000001,
+      "medianFrameMs": 16.700000000000045,
+      "actors": 13,
+      "channels": [
+        {
+          "key": "1:grid",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.6999999999999957,
+          "lastAt": -0.6999999999999957
+        },
+        {
+          "key": "6:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 0,
+          "lastAt": 0
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 131.10000000000002,
+          "lastAt": 131.10000000000002
+        },
+        {
+          "key": "2:cells",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 896,
+          "lastAt": 896
+        }
+      ],
+      "validation": [
+        {
+          "name": "inspector destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.7,
+        "p95Ms": 1.1
+      },
+      "cssAnimations": 2,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-inspector-close-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "inspector-close",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 600.4,
+      "excessMs": -63.60000000000002,
+      "markerMs": 1565.7,
+      "cssMs": 684.9,
+      "medianFrameMs": 16.700000000000045,
+      "actors": 13,
+      "channels": [
+        {
+          "key": "1:grid",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.7999999999999972,
+          "lastAt": -0.7999999999999972
+        },
+        {
+          "key": "6:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000142,
+          "lastAt": -0.10000000000000142
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 130.8,
+          "lastAt": 130.8
+        },
+        {
+          "key": "2:cells",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 896.1,
+          "lastAt": 896.1
+        }
+      ],
+      "validation": [
+        {
+          "name": "inspector destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.7,
+        "p95Ms": 1
+      },
+      "cssAnimations": 2,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-inspector-close-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-sort",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 673.8000000000001,
+      "excessMs": 9.800000000000068,
+      "markerMs": 673.8000000000001,
+      "cssMs": 119.2,
+      "medianFrameMs": 16.700000000000045,
+      "actors": 30,
+      "channels": [
+        {
+          "key": "85:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "86:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "87:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.0999999999999943,
+          "lastAt": -1.0999999999999943
+        },
+        {
+          "key": "88:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.0999999999999943,
+          "lastAt": -1.0999999999999943
+        },
+        {
+          "key": "89:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "90:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "5:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "6:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "7:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999915,
+          "lastAt": -0.8999999999999915
+        },
+        {
+          "key": "8:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999915,
+          "lastAt": -0.8999999999999915
+        },
+        {
+          "key": "9:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999915,
+          "lastAt": -0.8999999999999915
+        },
+        {
+          "key": "10:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999915,
+          "lastAt": -0.8999999999999915
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retained row identity and direct readings",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 2,
+        "p95Ms": 2.3
+      },
+      "cssAnimations": 1,
+      "ghostCount": 0,
+      "targetChanges": 12,
+      "callbackCount": 12,
+      "raw": "aa-cells-sort-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-sort",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 668,
+      "excessMs": 4,
+      "markerMs": 668,
+      "cssMs": 114,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 30,
+      "channels": [
+        {
+          "key": "85:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.3000000000000114,
+          "lastAt": -1.3000000000000114
+        },
+        {
+          "key": "86:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "87:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "88:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "89:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "90:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "5:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "6:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "7:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "8:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "9:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "10:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.9000000000000057,
+          "lastAt": -0.9000000000000057
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retained row identity and direct readings",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.9,
+        "p95Ms": 2.3
+      },
+      "cssAnimations": 1,
+      "ghostCount": 0,
+      "targetChanges": 12,
+      "callbackCount": 12,
+      "raw": "aa-cells-sort-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-next",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 286.90000000000003,
+      "excessMs": -377.09999999999997,
+      "markerMs": 671.9,
+      "cssMs": 104.49999999999999,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 37,
+      "channels": [
+        {
+          "key": "119:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -13.299999999999997,
+          "lastAt": -13.299999999999997
+        },
+        {
+          "key": "120:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -11,
+          "lastAt": -11
+        },
+        {
+          "key": "121:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -8.799999999999997,
+          "lastAt": -8.799999999999997
+        },
+        {
+          "key": "122:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -7,
+          "lastAt": -7
+        },
+        {
+          "key": "123:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -5.1000000000000085,
+          "lastAt": -5.1000000000000085
+        },
+        {
+          "key": "124:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.299999999999997,
+          "lastAt": -3.299999999999997
+        },
+        {
+          "key": "125:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "126:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "127:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "128:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "129:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "130:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 2,
+        "p95Ms": 2.8
+      },
+      "cssAnimations": 1,
+      "ghostCount": 6,
+      "targetChanges": 12,
+      "callbackCount": 12,
+      "raw": "aa-cells-next-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-next",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 242.10000000000002,
+      "excessMs": -421.9,
+      "markerMs": 627.6,
+      "cssMs": 110.6,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 37,
+      "channels": [
+        {
+          "key": "119:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -15.900000000000006,
+          "lastAt": -15.900000000000006
+        },
+        {
+          "key": "120:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -13.099999999999994,
+          "lastAt": -13.099999999999994
+        },
+        {
+          "key": "121:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -10.299999999999997,
+          "lastAt": -10.299999999999997
+        },
+        {
+          "key": "122:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -8,
+          "lastAt": -8
+        },
+        {
+          "key": "123:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -5.700000000000003,
+          "lastAt": -5.700000000000003
+        },
+        {
+          "key": "124:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.5,
+          "lastAt": -3.5
+        },
+        {
+          "key": "125:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "126:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "127:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "128:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "129:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "130:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 2.1,
+        "p95Ms": 2.9
+      },
+      "cssAnimations": 1,
+      "ghostCount": 6,
+      "targetChanges": 12,
+      "callbackCount": 12,
+      "raw": "aa-cells-next-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-previous",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 258.70000000000005,
+      "excessMs": -405.29999999999995,
+      "markerMs": 644.9,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 36,
+      "channels": [
+        {
+          "key": "119:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -11.700000000000003,
+          "lastAt": -11.700000000000003
+        },
+        {
+          "key": "120:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -9.700000000000003,
+          "lastAt": -9.700000000000003
+        },
+        {
+          "key": "121:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -8,
+          "lastAt": -8
+        },
+        {
+          "key": "122:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -6.400000000000006,
+          "lastAt": -6.400000000000006
+        },
+        {
+          "key": "123:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -4.800000000000011,
+          "lastAt": -4.800000000000011
+        },
+        {
+          "key": "124:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.200000000000003,
+          "lastAt": -3.200000000000003
+        },
+        {
+          "key": "125:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "126:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "127:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "128:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "129:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "130:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 2,
+        "p95Ms": 2.9
+      },
+      "cssAnimations": 0,
+      "ghostCount": 6,
+      "targetChanges": 12,
+      "callbackCount": 12,
+      "raw": "aa-cells-previous-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-previous",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 285.09999999999997,
+      "excessMs": -378.90000000000003,
+      "markerMs": 672.1,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 36,
+      "channels": [
+        {
+          "key": "119:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -15.200000000000003,
+          "lastAt": -15.200000000000003
+        },
+        {
+          "key": "120:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -12.5,
+          "lastAt": -12.5
+        },
+        {
+          "key": "121:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -10,
+          "lastAt": -10
+        },
+        {
+          "key": "122:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -7.700000000000003,
+          "lastAt": -7.700000000000003
+        },
+        {
+          "key": "123:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -5.599999999999994,
+          "lastAt": -5.599999999999994
+        },
+        {
+          "key": "124:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.5,
+          "lastAt": -3.5
+        },
+        {
+          "key": "125:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.3999999999999915,
+          "lastAt": -0.3999999999999915
+        },
+        {
+          "key": "126:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "127:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "128:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "129:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        },
+        {
+          "key": "130:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.29999999999999716,
+          "lastAt": -0.29999999999999716
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 2.3,
+        "p95Ms": 3
+      },
+      "cssAnimations": 0,
+      "ghostCount": 6,
+      "targetChanges": 12,
+      "callbackCount": 12,
+      "raw": "aa-cells-previous-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-sort",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 665.6,
+      "excessMs": 1.6000000000000227,
+      "markerMs": 665.6,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999875,
+      "actors": 21,
+      "channels": [
+        {
+          "key": "28:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2999999999999972,
+          "lastAt": -1.2999999999999972
+        },
+        {
+          "key": "27:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1999999999999886,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "26:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1999999999999886,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "7:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.0999999999999943,
+          "lastAt": -1.0999999999999943
+        },
+        {
+          "key": "6:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.0999999999999943,
+          "lastAt": -1.0999999999999943
+        },
+        {
+          "key": "5:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.0999999999999943,
+          "lastAt": -1.0999999999999943
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 1.4
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 6,
+      "callbackCount": 6,
+      "raw": "aa-comparison-sort-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-sort",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 629,
+      "excessMs": -35,
+      "markerMs": 629,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 21,
+      "channels": [
+        {
+          "key": "28:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2999999999999972,
+          "lastAt": -1.2999999999999972
+        },
+        {
+          "key": "27:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1999999999999886,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "26:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1999999999999886,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "7:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1999999999999886,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "6:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "5:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.1,
+        "p95Ms": 1.5
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 6,
+      "callbackCount": 6,
+      "raw": "aa-comparison-sort-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-direction",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 665,
+      "excessMs": 1,
+      "markerMs": 665,
+      "cssMs": 96.50000000000001,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 24,
+      "channels": [
+        {
+          "key": "28:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2999999999999972,
+          "lastAt": -1.2999999999999972
+        },
+        {
+          "key": "27:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2999999999999972,
+          "lastAt": -1.2999999999999972
+        },
+        {
+          "key": "26:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2999999999999972,
+          "lastAt": -1.2999999999999972
+        },
+        {
+          "key": "7:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "6:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        },
+        {
+          "key": "5:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.2000000000000028,
+          "lastAt": -1.2000000000000028
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 1.5
+      },
+      "cssAnimations": 1,
+      "ghostCount": 0,
+      "targetChanges": 6,
+      "callbackCount": 6,
+      "raw": "aa-comparison-direction-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-direction",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 664.7,
+      "excessMs": 0.7000000000000455,
+      "markerMs": 664.7,
+      "cssMs": 113.69999999999999,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 24,
+      "channels": [
+        {
+          "key": "28:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "27:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "26:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "7:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "6:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1000000000000085,
+          "lastAt": -1.1000000000000085
+        },
+        {
+          "key": "5:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 1.7
+      },
+      "cssAnimations": 1,
+      "ghostCount": 0,
+      "targetChanges": 6,
+      "callbackCount": 6,
+      "raw": "aa-comparison-direction-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-basis-reorder",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 615.6999999999999,
+      "excessMs": -48.30000000000007,
+      "markerMs": 667.8,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 20,
+      "channels": [
+        {
+          "key": "9:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.1999999999999886,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "13:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.0999999999999943,
+          "lastAt": -1.0999999999999943
+        },
+        {
+          "key": "6:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1.0999999999999943,
+          "lastAt": -1.0999999999999943
+        },
+        {
+          "key": "7:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "immediate intensity readings",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 1.5
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-comparison-basis-reorder-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-basis-reorder",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 569.5,
+      "excessMs": -94.5,
+      "markerMs": 621.6,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 20,
+      "channels": [
+        {
+          "key": "9:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "13:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "6:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.9000000000000057,
+          "lastAt": -0.9000000000000057
+        },
+        {
+          "key": "7:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.9000000000000057,
+          "lastAt": -0.9000000000000057
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "immediate intensity readings",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.1,
+        "p95Ms": 1.3
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 4,
+      "callbackCount": 4,
+      "raw": "aa-comparison-basis-reorder-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-membership",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 240.79999999999998,
+      "excessMs": -423.20000000000005,
+      "markerMs": 624,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 24,
+      "channels": [
+        {
+          "key": "40:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -6,
+          "lastAt": -6
+        },
+        {
+          "key": "41:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -4.5,
+          "lastAt": -4.5
+        },
+        {
+          "key": "42:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.1999999999999886,
+          "lastAt": -3.1999999999999886
+        },
+        {
+          "key": "43:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.7999999999999972,
+          "lastAt": -0.7999999999999972
+        },
+        {
+          "key": "44:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.6999999999999886,
+          "lastAt": -0.6999999999999886
+        },
+        {
+          "key": "45:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.6999999999999886,
+          "lastAt": -0.6999999999999886
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 2.1
+      },
+      "cssAnimations": 0,
+      "ghostCount": 3,
+      "targetChanges": 6,
+      "callbackCount": 6,
+      "raw": "aa-comparison-membership-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-membership",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 240.59999999999997,
+      "excessMs": -423.40000000000003,
+      "markerMs": 623.8000000000001,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 24,
+      "channels": [
+        {
+          "key": "40:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -6.3999999999999915,
+          "lastAt": -6.3999999999999915
+        },
+        {
+          "key": "41:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -4.8999999999999915,
+          "lastAt": -4.8999999999999915
+        },
+        {
+          "key": "42:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.3999999999999915,
+          "lastAt": -3.3999999999999915
+        },
+        {
+          "key": "43:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999915,
+          "lastAt": -0.8999999999999915
+        },
+        {
+          "key": "44:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999915,
+          "lastAt": -0.8999999999999915
+        },
+        {
+          "key": "45:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.7999999999999972,
+          "lastAt": -0.7999999999999972
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 2
+      },
+      "cssAnimations": 0,
+      "ghostCount": 3,
+      "targetChanges": 6,
+      "callbackCount": 6,
+      "raw": "aa-comparison-membership-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-next",
+      "group": "primary",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 237.20000000000002,
+      "excessMs": -426.79999999999995,
+      "markerMs": 622.4,
+      "cssMs": 123.30000000000001,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 26,
+      "channels": [
+        {
+          "key": "40:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -6.5,
+          "lastAt": -6.5
+        },
+        {
+          "key": "41:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -4.799999999999997,
+          "lastAt": -4.799999999999997
+        },
+        {
+          "key": "42:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.5,
+          "lastAt": -3.5
+        },
+        {
+          "key": "43:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -1,
+          "lastAt": -1
+        },
+        {
+          "key": "44:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999915,
+          "lastAt": -0.8999999999999915
+        },
+        {
+          "key": "45:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.8999999999999915,
+          "lastAt": -0.8999999999999915
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.3,
+        "p95Ms": 2.4
+      },
+      "cssAnimations": 1,
+      "ghostCount": 3,
+      "targetChanges": 6,
+      "callbackCount": 6,
+      "raw": "aa-comparison-next-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-next",
+      "group": "primary",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 240.3,
+      "excessMs": -423.7,
+      "markerMs": 624,
+      "cssMs": 107.60000000000001,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 26,
+      "channels": [
+        {
+          "key": "40:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -5.8999999999999915,
+          "lastAt": -5.8999999999999915
+        },
+        {
+          "key": "41:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -4.5,
+          "lastAt": -4.5
+        },
+        {
+          "key": "42:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.200000000000003,
+          "lastAt": -3.200000000000003
+        },
+        {
+          "key": "43:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.7999999999999972,
+          "lastAt": -0.7999999999999972
+        },
+        {
+          "key": "44:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.7999999999999972,
+          "lastAt": -0.7999999999999972
+        },
+        {
+          "key": "45:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.7999999999999972,
+          "lastAt": -0.7999999999999972
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 2.2
+      },
+      "cssAnimations": 1,
+      "ghostCount": 3,
+      "targetChanges": 6,
+      "callbackCount": 6,
+      "raw": "aa-comparison-next-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-reverse-100",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 591.7,
+      "excessMs": -72.29999999999995,
+      "markerMs": 658.9000000000001,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -200.5,
+          "lastAt": -0.10000000000002274
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "auto",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 3,
+      "callbackCount": 1,
+      "raw": "aa-phone-reverse-100-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-reverse-100",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 591.6,
+      "excessMs": -72.39999999999998,
+      "markerMs": 658.9,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -200.6,
+          "lastAt": 0
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "auto",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.6
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 3,
+      "callbackCount": 1,
+      "raw": "aa-phone-reverse-100-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-reverse-400",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 589.7,
+      "excessMs": -74.29999999999995,
+      "markerMs": 656.8,
+      "cssMs": 0,
+      "medianFrameMs": 16.69999999999999,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -800.8,
+          "lastAt": 0
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "auto",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 3,
+      "callbackCount": 1,
+      "raw": "aa-phone-reverse-400-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-reverse-400",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 590,
+      "excessMs": -74,
+      "markerMs": 657.5,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -800,
+          "lastAt": 0
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "auto",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 3,
+      "callbackCount": 1,
+      "raw": "aa-phone-reverse-400-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "inspector-reverse-100",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 595.3000000000001,
+      "excessMs": -68.69999999999993,
+      "markerMs": 748.2,
+      "cssMs": 664.1,
+      "medianFrameMs": 16.700000000000045,
+      "actors": 13,
+      "channels": [
+        {
+          "key": "1:grid",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -234,
+          "lastAt": -4.200000000000017
+        },
+        {
+          "key": "6:panel",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -232.20000000000002,
+          "lastAt": 0
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 3,
+          "retargets": 0,
+          "firstAt": -138.4,
+          "lastAt": 64.49999999999997
+        },
+        {
+          "key": "2:cells",
+          "starts": 3,
+          "retargets": 0,
+          "firstAt": -119.4,
+          "lastAt": 82.29999999999998
+        }
+      ],
+      "validation": [
+        {
+          "name": "inspector destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.6,
+        "p95Ms": 1.2
+      },
+      "cssAnimations": 3,
+      "ghostCount": 0,
+      "targetChanges": 12,
+      "callbackCount": 4,
+      "raw": "aa-inspector-reverse-100-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "inspector-reverse-100",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 602,
+      "excessMs": -62,
+      "markerMs": 767.2,
+      "cssMs": 643.4,
+      "medianFrameMs": 16.700000000000045,
+      "actors": 13,
+      "channels": [
+        {
+          "key": "1:grid",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -248.4,
+          "lastAt": -4.5
+        },
+        {
+          "key": "6:panel",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -247.70000000000002,
+          "lastAt": 0
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 3,
+          "retargets": 0,
+          "firstAt": -154.9,
+          "lastAt": 96.99999999999997
+        },
+        {
+          "key": "2:cells",
+          "starts": 3,
+          "retargets": 0,
+          "firstAt": -135.3,
+          "lastAt": 116.4
+        }
+      ],
+      "validation": [
+        {
+          "name": "inspector destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.7,
+        "p95Ms": 1.2
+      },
+      "cssAnimations": 3,
+      "ghostCount": 0,
+      "targetChanges": 12,
+      "callbackCount": 4,
+      "raw": "aa-inspector-reverse-100-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "inspector-reverse-400",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 594.4999999999999,
+      "excessMs": -69.50000000000011,
+      "markerMs": 798.6999999999999,
+      "cssMs": 667.1,
+      "medianFrameMs": 17.900000000000006,
+      "actors": 13,
+      "channels": [
+        {
+          "key": "1:grid",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -850.6,
+          "lastAt": -3.8999999999999773
+        },
+        {
+          "key": "6:panel",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -850,
+          "lastAt": 0
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 3,
+          "retargets": 0,
+          "firstAt": -755.7,
+          "lastAt": 115.79999999999995
+        },
+        {
+          "key": "2:cells",
+          "starts": 3,
+          "retargets": 0,
+          "firstAt": -738.2,
+          "lastAt": 133.79999999999995
+        }
+      ],
+      "validation": [
+        {
+          "name": "inspector destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.8,
+        "p95Ms": 1.2
+      },
+      "cssAnimations": 3,
+      "ghostCount": 0,
+      "targetChanges": 12,
+      "callbackCount": 4,
+      "raw": "aa-inspector-reverse-400-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "inspector-reverse-400",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 596.1,
+      "excessMs": -67.89999999999998,
+      "markerMs": 788.5000000000001,
+      "cssMs": 653.3000000000001,
+      "medianFrameMs": 17.300000000000182,
+      "actors": 13,
+      "channels": [
+        {
+          "key": "1:grid",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -877.1999999999999,
+          "lastAt": -4.899999999999977
+        },
+        {
+          "key": "6:panel",
+          "starts": 3,
+          "retargets": 2,
+          "firstAt": -876.5,
+          "lastAt": 0
+        },
+        {
+          "key": "2:cells-camera",
+          "starts": 3,
+          "retargets": 0,
+          "firstAt": -782.6999999999999,
+          "lastAt": 107.60000000000002
+        },
+        {
+          "key": "2:cells",
+          "starts": 3,
+          "retargets": 0,
+          "firstAt": -765.6999999999999,
+          "lastAt": 124
+        }
+      ],
+      "validation": [
+        {
+          "name": "inspector destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.8,
+        "p95Ms": 1.3
+      },
+      "cssAnimations": 3,
+      "ghostCount": 0,
+      "targetChanges": 12,
+      "callbackCount": 4,
+      "raw": "aa-inspector-reverse-400-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-resort-during-motion",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 619.7,
+      "excessMs": -44.299999999999955,
+      "markerMs": 655.7,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 24,
+      "channels": [
+        {
+          "key": "85:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.9,
+          "lastAt": -149.9
+        },
+        {
+          "key": "86:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "87:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "88:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "89:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "90:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.7,
+          "lastAt": -149.7
+        },
+        {
+          "key": "5:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.7,
+          "lastAt": -1
+        },
+        {
+          "key": "6:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.7,
+          "lastAt": -1
+        },
+        {
+          "key": "7:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.6,
+          "lastAt": -1
+        },
+        {
+          "key": "8:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.6,
+          "lastAt": -1
+        },
+        {
+          "key": "9:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.6,
+          "lastAt": -0.9000000000000057
+        },
+        {
+          "key": "10:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.5,
+          "lastAt": -0.9000000000000057
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retained row identity and direct readings",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.8,
+        "p95Ms": 2.6
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 12,
+      "callbackCount": 6,
+      "raw": "aa-cells-resort-during-motion-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-resort-during-motion",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 609.4,
+      "excessMs": -54.60000000000002,
+      "markerMs": 646,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 24,
+      "channels": [
+        {
+          "key": "85:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.9,
+          "lastAt": -149.9
+        },
+        {
+          "key": "86:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "87:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "88:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "89:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "90:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149.8,
+          "lastAt": -149.8
+        },
+        {
+          "key": "5:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.7,
+          "lastAt": -1.3000000000000114
+        },
+        {
+          "key": "6:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.6,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "7:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.6,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "8:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.6,
+          "lastAt": -1.1999999999999886
+        },
+        {
+          "key": "9:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.6,
+          "lastAt": -1.0999999999999943
+        },
+        {
+          "key": "10:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -149.6,
+          "lastAt": -1.0999999999999943
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retained row identity and direct readings",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.8,
+        "p95Ms": 2.2
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 12,
+      "callbackCount": 6,
+      "raw": "aa-cells-resort-during-motion-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-page-during-retirement",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 256.8,
+      "excessMs": -407.2,
+      "markerMs": 641.1,
+      "cssMs": 0,
+      "medianFrameMs": 16.600000000000136,
+      "actors": 48,
+      "channels": [
+        {
+          "key": "119:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -159.5,
+          "lastAt": -159.5
+        },
+        {
+          "key": "120:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -156.9,
+          "lastAt": -156.9
+        },
+        {
+          "key": "121:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -154.5,
+          "lastAt": -154.5
+        },
+        {
+          "key": "122:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -152.3,
+          "lastAt": -152.3
+        },
+        {
+          "key": "123:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -150.3,
+          "lastAt": -150.3
+        },
+        {
+          "key": "124:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -148.4,
+          "lastAt": -148.4
+        },
+        {
+          "key": "125:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -144.6,
+          "lastAt": -144.6
+        },
+        {
+          "key": "126:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -144.5,
+          "lastAt": -144.5
+        },
+        {
+          "key": "127:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -144.5,
+          "lastAt": -144.5
+        },
+        {
+          "key": "128:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -144.5,
+          "lastAt": -144.5
+        },
+        {
+          "key": "129:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -144.5,
+          "lastAt": -144.5
+        },
+        {
+          "key": "130:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -144.5,
+          "lastAt": -144.5
+        },
+        {
+          "key": "225:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -13.400000000000006,
+          "lastAt": -13.400000000000006
+        },
+        {
+          "key": "226:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -11.300000000000011,
+          "lastAt": -11.300000000000011
+        },
+        {
+          "key": "227:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -9.300000000000011,
+          "lastAt": -9.300000000000011
+        },
+        {
+          "key": "228:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -7.300000000000011,
+          "lastAt": -7.300000000000011
+        },
+        {
+          "key": "229:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -5.400000000000006,
+          "lastAt": -5.400000000000006
+        },
+        {
+          "key": "230:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.4000000000000057,
+          "lastAt": -3.4000000000000057
+        },
+        {
+          "key": "231:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "232:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        },
+        {
+          "key": "233:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        },
+        {
+          "key": "234:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        },
+        {
+          "key": "235:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        },
+        {
+          "key": "236:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 2.2,
+        "p95Ms": 3.1
+      },
+      "cssAnimations": 0,
+      "ghostCount": 12,
+      "targetChanges": 24,
+      "callbackCount": 24,
+      "raw": "aa-cells-page-during-retirement-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "cells-page-during-retirement",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 288.6,
+      "excessMs": -375.4,
+      "markerMs": 672,
+      "cssMs": 0,
+      "medianFrameMs": 16.600000000000136,
+      "actors": 48,
+      "channels": [
+        {
+          "key": "119:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -154.4,
+          "lastAt": -154.4
+        },
+        {
+          "key": "120:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -152.4,
+          "lastAt": -152.4
+        },
+        {
+          "key": "121:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -150.6,
+          "lastAt": -150.6
+        },
+        {
+          "key": "122:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -149,
+          "lastAt": -149
+        },
+        {
+          "key": "123:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -147.4,
+          "lastAt": -147.4
+        },
+        {
+          "key": "124:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -145.9,
+          "lastAt": -145.9
+        },
+        {
+          "key": "125:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -143.1,
+          "lastAt": -143.1
+        },
+        {
+          "key": "126:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -143,
+          "lastAt": -143
+        },
+        {
+          "key": "127:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -143,
+          "lastAt": -143
+        },
+        {
+          "key": "128:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -143,
+          "lastAt": -143
+        },
+        {
+          "key": "129:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -143,
+          "lastAt": -143
+        },
+        {
+          "key": "130:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -143,
+          "lastAt": -143
+        },
+        {
+          "key": "225:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -12.800000000000011,
+          "lastAt": -12.800000000000011
+        },
+        {
+          "key": "226:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -10.599999999999994,
+          "lastAt": -10.599999999999994
+        },
+        {
+          "key": "227:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -8.800000000000011,
+          "lastAt": -8.800000000000011
+        },
+        {
+          "key": "228:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -6.900000000000006,
+          "lastAt": -6.900000000000006
+        },
+        {
+          "key": "229:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -5,
+          "lastAt": -5
+        },
+        {
+          "key": "230:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -3.4000000000000057,
+          "lastAt": -3.4000000000000057
+        },
+        {
+          "key": "231:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "232:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.4000000000000057,
+          "lastAt": -0.4000000000000057
+        },
+        {
+          "key": "233:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        },
+        {
+          "key": "234:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        },
+        {
+          "key": "235:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        },
+        {
+          "key": "236:entry",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.30000000000001137,
+          "lastAt": -0.30000000000001137
+        }
+      ],
+      "validation": [
+        {
+          "name": "100 real destination rows in exact independent order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 2,
+        "p95Ms": 2.8
+      },
+      "cssAnimations": 0,
+      "ghostCount": 12,
+      "targetChanges": 24,
+      "callbackCount": 24,
+      "raw": "aa-cells-page-during-retirement-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-sort-A-B-A",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 637.9,
+      "excessMs": -26.100000000000023,
+      "markerMs": 637.9,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 18,
+      "channels": [
+        {
+          "key": "28:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -152.39999999999998,
+          "lastAt": -152.39999999999998
+        },
+        {
+          "key": "27:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -152.39999999999998,
+          "lastAt": -152.39999999999998
+        },
+        {
+          "key": "26:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -152.39999999999998,
+          "lastAt": -152.39999999999998
+        },
+        {
+          "key": "7:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -152.3,
+          "lastAt": -0.9000000000000057
+        },
+        {
+          "key": "6:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -152.3,
+          "lastAt": -0.9000000000000057
+        },
+        {
+          "key": "5:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -152.2,
+          "lastAt": -0.9000000000000057
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 1.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 6,
+      "callbackCount": 3,
+      "raw": "aa-comparison-sort-A-B-A-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-sort-A-B-A",
+      "group": "continuity",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 637.3,
+      "excessMs": -26.700000000000045,
+      "markerMs": 637.3,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 18,
+      "channels": [
+        {
+          "key": "28:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -152.7,
+          "lastAt": -152.7
+        },
+        {
+          "key": "27:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -152.7,
+          "lastAt": -152.7
+        },
+        {
+          "key": "26:layout",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -152.6,
+          "lastAt": -152.6
+        },
+        {
+          "key": "7:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -152.6,
+          "lastAt": -1
+        },
+        {
+          "key": "6:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -152.6,
+          "lastAt": -1
+        },
+        {
+          "key": "5:layout",
+          "starts": 2,
+          "retargets": 1,
+          "firstAt": -152.5,
+          "lastAt": -1
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "retarget retains existing velocity",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 1.6
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 6,
+      "callbackCount": 3,
+      "raw": "aa-comparison-sort-A-B-A-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "help-css",
+      "group": "control",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 290.40000000000003,
+      "excessMs": -373.59999999999997,
+      "markerMs": 0,
+      "cssMs": 675.0999999999999,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 9,
+      "channels": [],
+      "validation": [
+        {
+          "name": "CSS help destination and observer positive control",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.4,
+        "p95Ms": 0.8
+      },
+      "cssAnimations": 2,
+      "ghostCount": 0,
+      "targetChanges": 0,
+      "callbackCount": 0,
+      "raw": "aa-help-css-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "help-css",
+      "group": "control",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 290.6,
+      "excessMs": -373.4,
+      "markerMs": 0,
+      "cssMs": 675.0999999999999,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 9,
+      "channels": [],
+      "validation": [
+        {
+          "name": "CSS help destination and observer positive control",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.4,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 2,
+      "ghostCount": 0,
+      "targetChanges": 0,
+      "callbackCount": 0,
+      "raw": "aa-help-css-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-reduced",
+      "group": "control",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 14,
+      "excessMs": -650,
+      "markerMs": 0,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.09999999999999432,
+          "lastAt": -0.09999999999999432
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "auto",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": true
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.6
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-reduced-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-reduced",
+      "group": "control",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 12.900000000000006,
+      "excessMs": -651.1,
+      "markerMs": 0,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.09999999999999432,
+          "lastAt": -0.09999999999999432
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "auto",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": true
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.6
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-reduced-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-escape",
+      "group": "control",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 676.6,
+      "excessMs": 12.600000000000023,
+      "markerMs": 676.6,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000053,
+          "lastAt": -0.10000000000000053
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "inert",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-escape-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-escape",
+      "group": "control",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 677,
+      "excessMs": 13,
+      "markerMs": 677,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999932,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000053,
+          "lastAt": -0.10000000000000053
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "inert",
+        "expectedCloseFocus": "ol-sheet-toggle"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-escape-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-close-outside",
+      "group": "control",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 673.3,
+      "excessMs": 9.299999999999955,
+      "markerMs": 673.3,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": 0,
+          "lastAt": 0
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-canvas",
+        "firstFrameFocus": "ol-canvas",
+        "finalFocus": "ol-canvas",
+        "immediateInteractivity": "inert",
+        "expectedCloseFocus": "ol-canvas"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.8
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-close-outside-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-close-outside",
+      "group": "control",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 673.5999999999999,
+      "excessMs": 9.599999999999909,
+      "markerMs": 673.5999999999999,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.09999999999999964,
+          "lastAt": -0.09999999999999964
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-canvas",
+        "firstFrameFocus": "ol-canvas",
+        "finalFocus": "ol-canvas",
+        "immediateInteractivity": "inert",
+        "expectedCloseFocus": "ol-canvas"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-close-outside-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-escape-outside",
+      "group": "control",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 676,
+      "excessMs": 12,
+      "markerMs": 676,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.10000000000000053,
+          "lastAt": -0.10000000000000053
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "inert",
+        "expectedCloseFocus": "ol-canvas"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-escape-outside-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "phone-escape-outside",
+      "group": "control",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 676.7,
+      "excessMs": 12.700000000000045,
+      "markerMs": 676.7,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 8,
+      "channels": [
+        {
+          "key": "3:panel",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -0.09999999999999964,
+          "lastAt": -0.09999999999999964
+        }
+      ],
+      "compatibility": {
+        "immediateFocus": "ol-sheet-toggle",
+        "firstFrameFocus": "ol-sheet-toggle",
+        "finalFocus": "ol-sheet-toggle",
+        "immediateInteractivity": "inert",
+        "expectedCloseFocus": "ol-canvas"
+      },
+      "validation": [
+        {
+          "name": "logical sheet destination",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          390,
+          844
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 0.5,
+        "p95Ms": 0.7
+      },
+      "cssAnimations": 0,
+      "ghostCount": 0,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-phone-escape-outside-0-B.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-reading",
+      "group": "control",
+      "pair": 0,
+      "arm": "A",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 226.10000000000002,
+      "excessMs": -437.9,
+      "markerMs": 625.9,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 19,
+      "channels": [
+        {
+          "key": "40:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -49.1,
+          "lastAt": -49.1
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "immediate size reading with unchanged order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 1.6
+      },
+      "cssAnimations": 0,
+      "ghostCount": 1,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-comparison-reading-0-A.json.gz",
+      "diagnosticsTruncated": false
+    },
+    {
+      "stage": "aa",
+      "case": "comparison-reading",
+      "group": "control",
+      "pair": 0,
+      "arm": "B",
+      "build": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+      "outcome": "complete",
+      "presentationMs": 224.7,
+      "excessMs": -439.3,
+      "markerMs": 624.8,
+      "cssMs": 0,
+      "medianFrameMs": 16.699999999999818,
+      "actors": 19,
+      "channels": [
+        {
+          "key": "40:retirement",
+          "starts": 1,
+          "retargets": 0,
+          "firstAt": -50.5,
+          "lastAt": -50.5
+        }
+      ],
+      "validation": [
+        {
+          "name": "24 cards with exact independent destination order",
+          "ok": true
+        },
+        {
+          "name": "retained capture identity",
+          "ok": true
+        },
+        {
+          "name": "immediate size reading with unchanged order",
+          "ok": true
+        },
+        {
+          "name": "retirement ghosts are inert and stripped of descendant IDs",
+          "ok": true
+        },
+        {
+          "name": "completion belongs to latest channel generation",
+          "ok": true
+        }
+      ],
+      "environment": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+        "viewport": [
+          1500,
+          950
+        ],
+        "dpr": 1,
+        "inert": true,
+        "reducedMotion": false
+      },
+      "observer": {
+        "medianMs": 1.2,
+        "p95Ms": 1.4
+      },
+      "cssAnimations": 0,
+      "ghostCount": 1,
+      "targetChanges": 1,
+      "callbackCount": 1,
+      "raw": "aa-comparison-reading-0-B.json.gz",
+      "diagnosticsTruncated": false
+    }
+  ],
+  "environment": {
+    "os": "linux",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "node": "v22.23.3",
+    "browser": "153.0.8010.12",
+    "actionsRun": "40128741733"
+  },
+  "limitations": [
+    "Styled-DOM submission is not physical display presentation.",
+    "Identical observers add DOM/style reads; per-sample observer cost is retained.",
+    "Shared CI worker does not certify designated-host or cumulative #96 budgets.",
+    "Compatibility observations are separate from latency gains."
+  ],
+  "complete": true
+}
