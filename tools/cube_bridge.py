@@ -927,7 +927,7 @@ def cube_summary(summary: dict, response: dict, n: int, m: int) -> dict:
         "volume": summary["volume"], "trade_count": int(summary["trade_count"]),
         "taker_buy_volume": summary["taker_buy_volume"], "taker_buy_trade_count": int(summary["taker_buy_trade_count"]),
         "poc": summary.get("poc"), "taker_buy_poc": summary.get("taker_buy_poc"),
-        "cell_count": int(summary.get("cell_count", 0)), "source": "cube",
+        **({"cell_count": int(summary["cell_count"])} if summary.get("cell_count") is not None else {}), "source": "cube",
     }
 
 
