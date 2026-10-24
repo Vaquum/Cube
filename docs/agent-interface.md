@@ -78,7 +78,7 @@ The adapter exposes `cube_capabilities`, `cube_inspect`, `cube_query`,
 `cube_compare`, `cube_configure`, `cube_replay`, `cube_annotate`, `cube_share` and
 `cube_refresh`. Discover exact argument schemas with MCP `tools/list`.
 `cube_query` reads the current source and returns a captured document;
-`cube_refresh` rereads `document.selection.query` and each captured cell at their original bounds, pinned to one source token, then returns the new document and explicit metric changes. `scene.query` remains the camera; a null recorded selection stays null. The configuration patch `selection` edits the drawn `scene.view.selection` rectangle, rather than replacing the recorded selection region.
+`cube_refresh` rereads `document.selection.query` and each captured cell at their original bounds, pinned to one source token, then returns the new document and explicit metric changes. `scene.view.viewport` remains the camera; browser `scene.query` describes the drawn rectangle when present, otherwise the camera; a null recorded selection stays null. The configuration patch `selection` edits the drawn `scene.view.selection` rectangle, rather than replacing the recorded selection region.
 
 Selection
 changes use common quantity names (`volume`, `taker_buy_volume`, `trade_count`,
@@ -88,6 +88,9 @@ measurement changes. Browser POC centres are exported in USDT with the actual
 measured `pocRowWidth`; the legacy `pocRow` address remains available. POCs with
 unknown or different measured row widths are disclosed in
 `unavailableSelectionMetrics` rather than reported as a market change.
+Browser camera edits, inspection exports and Share retain the investigation's
+recorded selection (including an explicit null). Explicit selection/cell copies
+capture the current requested region; refresh rereads the recorded region.
 
 For ordinary HTTP clients:
 
@@ -121,3 +124,13 @@ than asserting that a hypothesis has been established.
 
 Future interactive canvas sequences, optional replay, narration and annotation
 overlays are design work tracked in [Present mode #131](https://github.com/Vaquum/Market-State-Cube-Explorer/issues/131).
+
+Each document's selection is recorded evidence carried by the investigation,
+including in live mode. Editing the camera or drawing a rectangle does not replace
+it. `export("selection")` / Copy selection records the current reading; applying
+that resulting document explicitly adopts it as the investigation. Share captures
+the current source snapshot while retaining the investigation's recorded selection.
+Exported text labels the document creation time separately from measurement
+provenance. Legacy cell-copy bounds are normalized from unique retained support on
+inspect/configure/share/refresh exports. POCs name measured price-row centres and
+can lie outside a clipped observed price band; `pocRowWidth` identifies that grid.
