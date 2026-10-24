@@ -24153,8 +24153,12 @@
     try { return change(); } finally { diagnosticCommitting = before; }
   }
   function diagnosticSnapshot() {
-    return { ...(loadingLine.fatal ? { rendered:null, pending:false, error:[loadingLine.fatal] } : diagnosticFrame ?? {}),
-      requested: diagnosticRequested(), target: diagnosticTarget(), applicable: !comparisonModel.expanded };
+    const requested = diagnosticRequested(),
+      frame = loadingLine.fatal ? { rendered:null, pending:false, error:[loadingLine.fatal] } : diagnosticFrame;
+    // Draw errors belong to that intent. Startup failure remains global even
+    // before any draw; a replacement view must await its own failure/output.
+    return { ...frame, error: loadingLine.fatal || frame?.requested?.intent === requested.intent ? frame?.error ?? null : null,
+      requested, target: diagnosticTarget(), applicable: !comparisonModel.expanded };
   }
   function diagnosticTarget() {
     if (S.mode === "candles") {

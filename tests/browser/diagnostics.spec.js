@@ -304,6 +304,48 @@ test("tile failure remains terminal while calibration still owes refinement", as
   const report = await exported(page);
   expect(report.events.some(e => ["draw","readiness"].includes(e.type) && e.error?.some(message => message.includes("diagnostic tile failure")) && e.status === "terminal-fallback")).toBe(true);
 });
+test("a replacement intent cannot inherit the preceding draw's failure before its own draw", async ({ page, fakeFor, probe, allowConsole }) => {
+  await page.addInitScript(() => {
+    let api; window.__diagnosticSnapshots = [];
+    Object.defineProperty(window, "explorerDiagnostics", { get: () => api, set: value => {
+      api = { ...value, mount: options => value.mount({ ...options, snapshot: () => {
+        const snapshot = options.snapshot();
+        window.__diagnosticSnapshots.push(structuredClone(snapshot));
+        return snapshot;
+      } }) };
+    } });
+  });
+  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&r=5,1"); await probe.waitForReady();
+  await controls(page); await page.locator("#ol-diagnostics-start").click();
+  allowConsole(/Failed to load resource/);
+  const failure = fake.on({ route: "/cube/tile" }).fail({ status: 503, body: { error: "preceding tile failure" } });
+  await page.locator("#ol-bounds-start").fill("2026-03-28T00:00");
+  await page.locator('#ol-bounds-form button[type="submit"]').click();
+  await expect(page.locator("#ol-loading")).toContainText("preceding tile failure"); await settledFrames(page);
+  await expect.poll(() => page.evaluate(() => window.__diagnosticSnapshots.at(-1)?.error?.some(e => e.includes("preceding tile failure")))).toBe(true);
+  const failedTile = fake.log().find(e => e.path === "/cube/tile" && e.status === 503);
+  failure.remove();
+  fake.on({ route: "/cube/tile", when: q => q.b0 === failedTile.query.b0 }).fail({ status: 503, body: { error: "preceding tile failure" } });
+  const gate = fake.on({ route: "/cube/tile", when: q => q.b0 !== failedTile.query.b0 }).gate();
+  try {
+    await page.locator("#ol-bounds-start").fill("2026-04-28T00:00");
+    // Submit after the recorder's current frame: its next snapshot runs before
+    // the newly queued application draw. The transport gate holds the answer.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => {
+      window.__diagnosticSnapshots = [];
+      document.querySelector("#ol-bounds-form").requestSubmit(); resolve();
+    })));
+    await gate.arrived();
+    const preDraw = await page.evaluate(() => window.__diagnosticSnapshots.filter(s => s.rendered && s.requested.intent !== s.rendered.intent));
+    expect(preDraw.length).toBeGreaterThan(0);
+    expect(preDraw.every(s => s.error === null)).toBe(true);
+    gate.fail(503, { error: "replacement tile failure" });
+    await expect(page.locator("#ol-loading")).toContainText("replacement tile failure"); await settledFrames(page);
+    const report = await exported(page), replacement = report.events.filter(e => e.type === "request").at(-1).requested.intent;
+    expect(report.events.filter(e => e.type === "readiness" && e.requested.intent === replacement && e.rendered?.intent !== replacement).every(e => e.status === "pending-data" && e.error === null)).toBe(true);
+    expect(report.events.some(e => e.type === "draw" && e.requested.intent === replacement && e.status === "terminal-fallback" && e.error?.some(message => message.includes("replacement tile failure")))).toBe(true);
+  } finally { gate.open(); }
+});
 test("recording controls have a reference Show route, help, names and native keyboard order", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("mini"); await page.goto(fake.url + "/#w=24h&r=4,0"); await probe.waitForReady();
   await page.locator("#ol-reference-toggle").click(); await page.locator("#ol-reference-search").fill("Performance recording");
