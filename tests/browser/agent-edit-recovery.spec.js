@@ -16,3 +16,9 @@ test("agent selection rounding refuses an empty base rectangle without changing 
   const error=await page.evaluate(()=>window.cubeAgent.configure({selection:[2.1,2.2,200.1,200.2]}).then(()=>null,e=>e.message));expect(error).toMatch(/base column and row/);
   const after=await page.evaluate(()=>window.cubeAgent.export());expect(after.scene.view).toEqual(before.scene.view);expect(after.selection).toEqual(before.selection);
 });
+test("clearing a selection clips the requested query to history while retaining camera padding",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");fake.advance({toIso:"2021-01-01T00:06:00Z"});await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  await page.evaluate(async()=>{const d=await window.cubeAgent.export();d.scene.view.viewport=[0,8,198,204];d.scene.view.selection=[0,2,200,202];d.scene=window.explorerAgent.seal(d.scene);await window.cubeAgent.apply(window.explorerAgent.seal(d));});await probe.waitForReady();
+  const before=await page.evaluate(()=>window.cubeAgent.export());expect(Math.floor(before.scene.view.viewport[1]+.5)).toBeGreaterThan(7);
+  await page.evaluate(()=>window.cubeAgent.configure({selection:null}));await probe.waitForReady();const after=await page.evaluate(()=>window.cubeAgent.export());expect(after.scene.view.selection).toBeNull();expect(after.scene.query.t2).toBe(7);expect(after.scene.view.viewport).toEqual(before.scene.view.viewport);
+});

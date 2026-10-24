@@ -218,8 +218,9 @@
     Object.assign(d.scene.view, Object.fromEntries(Object.entries(patch).filter(([key]) => !["resolution", "viewport", "readMode"].includes(key))));
     if (patch.viewport) { d.scene.view.viewport = patch.viewport; d.scene.view.window = ""; Object.assign(d.scene.query, { t1: patch.viewport[0], t2: patch.viewport[1], p1: patch.viewport[2], p2: patch.viewport[3] }); }
     if (patch.selection !== undefined) {
-      const r = patch.selection ?? d.scene.view.viewport;
-      Object.assign(d.scene.query, { t1: Math.floor(r[0] + .5), t2: Math.floor(r[1] + .5), p1: Math.floor(r[2] + .5), p2: Math.floor(r[3] + .5) });
+      const r = patch.selection ?? d.scene.view.viewport, f = d.snapshot || { origin: 1609459200, baseSeconds: 56.25, cutoffMs: d.scene.observation.cutoffMs };
+      const cut = ((f.sourceCutoffMs ?? f.cutoffMs) / 1000 - f.origin) / f.baseSeconds, end = Math.ceil(cut), edge = (x) => Math.min(end, Math.max(0, Math.floor(x + .5)));
+      Object.assign(d.scene.query, { t1: edge(r[0]), t2: r[1] >= cut ? end : edge(r[1]), p1: Math.max(0, Math.floor(r[2] + .5)), p2: Math.max(0, Math.floor(r[3] + .5)) });
     }
     if (patch.resolution) { [d.scene.query.tR, d.scene.query.pR] = patch.resolution; d.scene.view.auto = false; }
     d.scene = seal(d.scene);

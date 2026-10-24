@@ -339,3 +339,8 @@ test("selection configuration normalizes base edges and updates requested geomet
   assert.deepEqual(A.configure(after,{selection:null}).scene.query,before.scene.query);
   assert.throws(()=>A.configure(before,{selection:[2.1,2.2,200.1,200.2]}),/base column and row/);
 });
+
+test("clearing selection preserves camera padding while clipping requested time to known history",()=>{
+  const d=document();d.scene.view.viewport=[0,2.8,200,202];d.scene.view.selection=[0,1,200,201];d.scene=A.seal(d.scene);
+  const cleared=A.configure(A.seal(d),{selection:null});assert.deepEqual(cleared.scene.view.viewport,[0,2.8,200,202]);assert.deepEqual(cleared.scene.query,{t1:0,t2:2,p1:200,p2:202,tR:0,pR:0});
+});
