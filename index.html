@@ -20106,6 +20106,7 @@
     }).filter(([, r]) => r.b > r.a));
     for (const name of ["lineResults", "lineLatest"]) put(name, entries(name).filter(([, r]) => Array.isArray(r.span) && r.span[1] <= cut));
     put("visibleVwaps", entries("visibleVwaps").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
+    put("developingPocReads", entries("developingPocReads").filter(([, r]) => Number.isFinite(r.b1) && r.b1 <= cut));
     return output;
   }
   function diff(before, after) {
@@ -35829,6 +35830,7 @@
     if (end <= start) return { state: "none", points: [], end };
     const src = exactSource([start, end, 0, 2 ** 32], 4, 0) || developingPocReads.get(developingPocKey(d));
     if (!src) {
+      if (activeAnalysis?.mode === "captured") return { state: "unsupported", error: "Developing daily POC support was not captured in this investigation", points: [], end };
       const error = cube.failed.get(developingPocKey(d));
       return { state: error ? "failed" : "pending", error, points: [], end };
     }
@@ -39303,10 +39305,10 @@
     return { kind: "history", from: Math.max(0, to - STRIP_HISTORY), to, step, need: [to - STRIP_HISTORY, to - step] };
   }
   const stripCovers = (held, want) => Boolean(held) && held.step === want.step && held.from <= want.need[0] && held.to > want.need[1];
-  function scheduleStrip() {
-    clearTimeout(stripRt.timer);
-    if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED || activeAnalysis?.mode === "captured") return;
-    stripRt.timer = setTimeout(pumpStrip, 200);
+  function scheduleStrip(wait = 200) {
+    clearTimeout(stripRt.timer); stripRt.timer = 0;
+    if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured" || !Number.isFinite(wait)) return;
+    stripRt.timer = setTimeout(pumpStrip, Math.max(200, wait));
   }
   // One read at a time, in no slot of the cube's: the view's grid first, then the history. A grid that failed is asked for again only
   // after a minute, and a held one again once it is five minutes old (the view at the live edge) or half an hour (the history).
@@ -39315,11 +39317,13 @@
     if (S.strip === "off" || !PACK.live || !STRIP_SERVED || stripRt.busy || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured") return;
     const view = stripViewWant(), history = stripHistoryWant(), now = performance.now(),
       liveEdge = (held) => held.to > msAt(Math.ceil(CUT)),
-      want = !stripCovers(stripRt.view, view) || (liveEdge(stripRt.view) && now - stripRt.view.at > 300000) ? view
-        : !stripCovers(stripRt.history, history) || now - stripRt.history.at > 1800000 ? history : null;
-    if (!want) return;
+      viewDue = stripRt.view && liveEdge(stripRt.view) ? stripRt.view.at + 300000 : Infinity,
+      historyDue = stripRt.history ? stripRt.history.at + 1800000 : -Infinity,
+      want = !stripCovers(stripRt.view, view) || now >= viewDue ? view
+        : !stripCovers(stripRt.history, history) || now >= historyDue ? history : null;
+    if (!want) { scheduleStrip(Math.min(viewDue, historyDue) - now); return; }
     const key = `${want.kind}|${want.from}|${want.to}|${want.step}`;
-    if (key === stripRt.failed.key && now - stripRt.failed.at < 60000) return;
+    if (key === stripRt.failed.key && now < stripRt.failed.at + 60000) { scheduleStrip(stripRt.failed.at + 60000 - now); return; }
     const controller = new AbortController(), owner = stripRt, revision = analysisRevision;
     const owned = () => stripRt === owner && analysisRevision === revision && activeAnalysis?.mode !== "captured";
     stripRt.busy = { key, controller };
@@ -39334,7 +39338,7 @@
       if (response.ok && body?.schema === "cube-strip@2") stripApply(want, body);
       else {
         // A bridge still reading its first publication is asked again in 15 seconds, any other failure after a minute.
-        stripRt.failed = { key, at: body?.error === "strip_loading" ? now - 45000 : now };
+        stripRt.failed = { key, at: performance.now() - (body?.error === "strip_loading" ? 45000 : 0) };
         if (body?.error === "strip_not_configured") stripRt.status = "unconfigured";
         else if (!stripRt.view) {
           stripRt.status = body?.error === "strip_loading" ? "loading" : "failed";
@@ -39344,7 +39348,7 @@
     } catch (error) {
       if (!owned()) return;
       if (!controller.signal.aborted) {
-        stripRt.failed = { key, at: now };
+        stripRt.failed = { key, at: performance.now() };
         if (!stripRt.view) {
           stripRt.status = "failed";
           stripRt.detail = error.message;
@@ -40671,7 +40675,7 @@
     if (!S.lines.includes(key) || CLOCK[key]) return { text: "" };
     if (key === "devpoc") {
       const days = developingPocDays(), r = days.length ? developingPocDay(days[0]) : { state: "none", points: [] }, point = developingPocPoint({ r }, Math.min(S.tB, activeCutoff()));
-      return { text: r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "none" ? "no completed sample" : "…",
+      return { text: r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "unsupported" ? "not captured" : r.state === "none" ? "no completed sample" : "…",
         title: r.error || `Cumulative since 00:00 UTC${point ? "; as of " + when(point[0]) + " UTC" : ""}; 15-minute samples and live so far. Wide views show the latest visible day; zoom in for earlier daily trails.` };
     }
     if (key === "vvwap") {
@@ -48430,7 +48434,7 @@
   }
   function agentSnapshot(causal = true) {
     const replay = causal && S.replay, edge = causal ? activeCutoff() : CUT, source = (s) => ({ id: s.id, n: s.n, m: s.m, b0: s.b0, b1: Math.min(s.b1, edge), col0: s.col0, col1: Math.ceil(Math.min(s.b1, edge) / 2 ** s.n), ...(s.end === undefined ? {} : { end: Math.min(s.end, edge) }), ...(s.token === undefined ? {} : { token: s.token }), cells: s.cells.filter((z) => !replay || (z.c + 1) * 2 ** s.n <= edge) });
-    const maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
+    const maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, developingPocReads, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
     const cache = {};
     for (const [key, map] of Object.entries(maps)) {
       // Replay exports only supports already known at its edge. Raw future caches never travel.
@@ -48454,7 +48458,7 @@
     CUT = E.time.msToBase(frame.cutoffMs, T0, BASE); CANON = frame.canonicalThroughMs === null ? null : E.time.msToBase(frame.canonicalThroughMs, T0, BASE);
     PACK.live = frame.live; PACK.source = frame.source; PACK.state_token = frame.token;
     PACK.cutoff = new Date(frame.cutoffMs).toISOString(); PACK.canonical_through = frame.canonicalThroughMs === null ? null : new Date(frame.canonicalThroughMs).toISOString();
-    const cache = agentRevive(frame.cache || {}), maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
+    const cache = agentRevive(frame.cache || {}), maps = { measured, motionMeasured: motion.measured, histories, barChunks, barEdges, lineResults, lineLatest, lineParts, dayReads, touches, visibleVwaps, developingPocReads, dwellResults, dwellLatest, candleRanges: candleCache.ranges };
     for (const [key, map] of Object.entries(maps)) {
       map.clear();
       if (cache[key] instanceof Map) for (const [id, value] of cache[key]) {
@@ -48462,7 +48466,7 @@
         map.set(id, value);
       }
     }
-    groups.clear(); bounded.clear(); seriesMemo.clear(); evidenceCache.clear(); coreBarContexts.clear(); cellContextResults.clear(); cellMotionResults.clear(); candleMemo.clear();
+    developingPocMemo.clear(); groups.clear(); bounded.clear(); seriesMemo.clear(); evidenceCache.clear(); coreBarContexts.clear(); cellContextResults.clear(); cellMotionResults.clear(); candleMemo.clear();
     barsVersion++; candleVersion++; comparisonSourceRevision++;
     referenceView = null; motion.view = null; if (sources.reference && sources.recent) rebuildReference();
     S.dataset = Object.keys(sources)[0];
