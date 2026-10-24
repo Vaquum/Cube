@@ -16461,7 +16461,8 @@
   function stripApply(want, body) {
     const grid = body.grid,
       held = { from: want.from, to: want.to, step: grid.step, t0: grid.t0, forces: grid.forces, attention: grid.attention, close: grid.close,
-        next24h: grid.next24h, dvol: grid.dvol, parts: grid.parts ?? null, cutoff: body.cutoff, snapshot: body.snapshot, model: body.model, at: performance.now() };
+        next24h: grid.next24h, dvol: grid.dvol, parts: grid.parts ?? null, forceInputs: grid.forceInputs ?? null, components: body.components,
+        cutoff: body.cutoff, snapshot: body.snapshot, model: body.model, at: performance.now() };
     stripRt[want.kind] = held;
     for (const e of body.events) stripRt.events.set(e.id, e);
     for (const j of body.jumps) stripRt.jumps.set(j.id, { ...j, jump: true, name: "Unscheduled move", short: "Move", family: "news" });
@@ -16879,18 +16880,34 @@
   // The track record (docs/strip.md): BTC over the next 24 hours after the past moments whose forces lay nearest these, at least six
   // hours apart, against all past moments six hours apart, from the hourly history whatever the view's step. Only moments whose next 24
   // hours had passed by both this moment and the edge count, so none overlaps this moment's own outcome or is unknown at the edge.
+  const stripTrackInputs = new WeakMap();
   function stripTrack(ms, edge, force) {
     const held = stripRt.history;
     if (!held) return null;
     const step = held.step, gap = Math.max(1, Math.round((6 * STRIP_HOUR) / step)),
       last = Math.min(held.next24h.length, Math.ceil((Math.min(ms, edge) - STRIP_DAY - held.t0) / step)) - 1;
     if (last < 0) return { dims: [], near: [], all: [], step, t0: held.t0 };
-    const now = Object.fromEntries(STRIP_FORCES.map((f) => [f, stripAt(held, ms, f)]));
+    // Compare the same contributing inputs. A stablecoin-only sum is not comparable to a sum that also includes funding and options.
+    let inputs = stripTrackInputs.get(held);
+    if (!inputs) {
+      inputs = Object.fromEntries(STRIP_FORCES.map((f) => {
+        if (held.forceInputs?.[f]) return [f, held.forceInputs[f].masks];
+        const names = Object.entries(held.components ?? {}).filter(([, c]) => c.force === f).map(([name]) => name);
+        return [f, !names.length || names.some((name) => !Array.isArray(held.parts?.[name])) ? []
+          : held.next24h.map((_, i) => names.reduce((value, name, j) => value + (held.parts[name][i] !== null ? 2 ** j : 0), 0))];
+      }));
+      stripTrackInputs.set(held, inputs);
+    }
+    const mask = (f, i) => inputs[f][i] ?? null, at = Math.floor((ms - held.t0) / step),
+      now = Object.fromEntries(STRIP_FORCES.map((f) => [f, stripAt(held, ms, f)])),
+      masks = Object.fromEntries(STRIP_FORCES.map((f) => [f, mask(f, at)]));
     const dims = (force ? [force] : STRIP_FORCES).filter((f) => {
-      if (now[f] === null) return false;
-      let known = 0;
-      for (let i = 0; i <= last; i++) if (held.forces[f][i] !== null) known++;
-      return known > 0.5 * (last + 1);
+      if (now[f] === null || !masks[f]) return false;
+      let known = 0, previous = -gap;
+      for (let i = 0; i <= last; i++) if (held.next24h[i] !== null && held.forces[f][i] !== null && mask(f, i) === masks[f] && i - previous >= gap) {
+        known++; previous = i;
+      }
+      return known >= STRIP_SUPPORT;
     });
     const pool = [], all = [];
     for (let i = 0; i <= last; i++) {
@@ -16901,7 +16918,7 @@
       let d = 0, known = true;
       for (const f of dims) {
         const v = held.forces[f][i];
-        if (v === null) {
+        if (v === null || mask(f, i) !== masks[f]) {
           known = false;
           break;
         }
@@ -17026,7 +17043,7 @@
       }, outcome = take("trackOutcomeShare", "Outcome"), counts = document.createElement("dl"), quantiles = uiEl("div", "ol-strip-q3"),
       distribution = uiEl("div", "ol-strip-distribution");
     outcome.classList.add("ol-strip-outcome");
-    if (!trackPart.group.profile) {
+    if (!trackPart.group.profile || trackRows.has("trackStatus")) {
       const stateRow = trackRows.get("trackStatus"), state = stateRow?.querySelector("dd"), label = state?.textContent ?? "Unavailable",
         marker = uiEl("span", "", label);
       marker.dataset.field = "trackStatus"; marker.dataset.fact = label; marker.dataset.canonical = "unsupported";
@@ -17040,7 +17057,10 @@
       if (field !== "trackOutcomeBaseShare") row.querySelector("dt").textContent = label;
       counts.append(row);
     }
-    if (trackPart.group.profile) distribution.append(trackPart.group.profile);
+    if (trackPart.group.profile) {
+      distribution.dataset.state = trackPart.group.profile.dataset.distribution ?? "matched";
+      distribution.append(trackPart.group.profile);
+    }
     else {
       distribution.dataset.state = "unavailable";
       distribution.append(uiEl("span", "", trackRows.get("trackStatus")?.querySelector("dd")?.textContent ?? "Unavailable"));
@@ -17055,7 +17075,7 @@
       }
       cell.append(list); quantiles.append(cell);
     }
-    track.append(uiEl("h3", "", "BTC · next 24 h · similar moments"), outcome, counts, distribution, quantiles);
+    track.append(uiEl("h3", "", `BTC · next 24 h · ${distribution.dataset.state === "baseline" ? "all moments" : "similar moments"}`), outcome, counts, distribution, quantiles);
     const hint = uiEl("div", "ol-cell-state ol-strip-inspect-hint", "Inspect → Strip: all measurements");
     tip.replaceChildren(header, summary, forces, event, track, hint, tip.querySelector(".ol-cell-details"));
   }
@@ -17105,9 +17125,10 @@
     const T = stripTrack(ms, edge, force), metrics = [stripNumber("Required samples", STRIP_SUPPORT, "trackRequired")];
     if (!T) return { name: "Track record · next 24 h", metrics: [stripFact("Status", "Loading", "trackStatus"), ...metrics] };
     metrics.unshift(stripNumber("Similar moments", T.near.length, "trackNear"), stripNumber("All moments", T.all.length, "trackAll"), stripNumber("Compared forces", T.dims.length, "trackDimensions"));
-    if (T.all.length < STRIP_SUPPORT || !T.dims.length || T.near.length < STRIP_SUPPORT)
+    if (T.all.length < STRIP_SUPPORT)
       return { name: "Track record · next 24 h", metrics: [stripFact("Status", "Insufficient history", "trackStatus"), ...metrics] };
-    const rs = T.near.map((p) => p.r).sort((a, b) => a - b), as = T.all.map((p) => p.r).sort((a, b) => a - b),
+    const supported = T.dims.length > 0 && T.near.length >= STRIP_SUPPORT,
+      rs = supported ? T.near.map((p) => p.r).sort((a, b) => a - b) : [], as = T.all.map((p) => p.r).sort((a, b) => a - b),
       share = (list) => list.filter((p) => p.r < 0).length / list.length,
       days = new Set(T.near.map((p) => Math.floor((T.t0 + p.i * T.step) / STRIP_DAY))).size,
       reach = Math.max(3, Math.ceil(Math.max(-stripQuantile(as, 0.02), stripQuantile(as, 0.98)))), n = 16, width = (2 * reach) / n,
@@ -17115,19 +17136,23 @@
         const out = Array.from({ length: n }, (_, k) => [-reach + k * width, -reach + (k + 1) * width, 0]);
         for (const p of list) out[clamp(Math.floor((p.r + reach) / width), 0, n - 1)][2]++;
         return out;
-      }, bins = count(T.near), outline = count(T.all).map(([a, b, c]) => [a, b, (c / T.all.length) * T.near.length]),
+      }, bins = count(supported ? T.near : []), outline = count(T.all).map(([a, b, c]) => [a, b, supported ? (c / T.all.length) * T.near.length : c]),
       then = ms + STRIP_DAY < edge ? stripAt(stripRt.history, ms, "next24h") : null,
       left = STRIP_FORCES.filter((f) => (force ? f === force : true) && !T.dims.includes(f)).map((f) => STRIP_NAMES[f]);
-    metrics.push(stripNumber("Sample days", days, "trackDays"), stripNumber("Negative returns", share(T.near), "trackShare", "share"),
+    if (!supported) metrics.unshift(stripFact("Status", `Need ${STRIP_SUPPORT} · have ${T.near.length}`, "trackStatus"));
+    metrics.push(stripNumber("Sample days", days, "trackDays"), stripNumber("Negative returns", supported ? share(T.near) : null, "trackShare", "share"),
       stripNumber("All · negative returns", share(T.all), "trackBaseShare", "share"));
     const outcomes = [{ name: "Fell", sign: -1 }, { name: "Rose", sign: 1 }, { name: "Flat", sign: 0 }],
       outcomeShare = (list, sign) => list.filter((p) => Math.sign(p.r) === sign).length / list.length,
-      outcome = outcomes.reduce((best, next) => outcomeShare(T.near, next.sign) > outcomeShare(T.near, best.sign) ? next : best);
-    metrics.push(stripNumber(`${outcome.name} in`, outcomeShare(T.near, outcome.sign), "trackOutcomeShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })),
+      shown = supported ? T.near : T.all,
+      outcome = outcomes.reduce((best, next) => outcomeShare(shown, next.sign) > outcomeShare(shown, best.sign) ? next : best);
+    metrics.push(stripNumber(supported ? `${outcome.name} in` : "Similar", supported ? outcomeShare(T.near, outcome.sign) : null, "trackOutcomeShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })),
       stripNumber(`All · ${outcome.name.toLowerCase()}`, outcomeShare(T.all, outcome.sign), "trackOutcomeBaseShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })));
     for (const q of [0.05, 0.5, 0.95]) {
       const name = `p${Math.round(q * 100)}`, field = `P${Math.round(q * 100)}`;
-      metrics.push(stripNumber(name, stripQuantile(rs, q), `track${field}`, "%"), stripNumber(`All · ${name}`, stripQuantile(as, q), `trackAll${field}`, "%"));
+      const conditional = stripNumber(name, stripQuantile(rs, q), `track${field}`, "%");
+      if (!supported) conditional.text = "—";
+      metrics.push(conditional, stripNumber(`All · ${name}`, stripQuantile(as, q), `trackAll${field}`, "%"));
     }
     if (then !== null) metrics.push(stripNumber("Observed next 24 h", then, "trackObserved", "%"));
     if (left.length) metrics.push(stripFact("Excluded forces", left.join(" · "), "trackExcluded"));
@@ -17135,9 +17160,11 @@
       .filter((name) => T.t0 + Math.min(...T.near.map((p) => p.i)) * T.step < stripRetroUntil(name))
       .map((name) => stripRt.components[name].label);
     if (retro.length) metrics.push(stripFact("Retrospective inputs", retro.join(" · "), "trackRetrospective"));
-    return { name: "Track record · next 24 h", metrics,
-      profile: stripHist(bins, { h: 84, outline, marks: [{ x: stripQuantile(rs, 0.05), label: "p5" }, { x: stripQuantile(rs, 0.5), label: "p50", mid: true }, { x: stripQuantile(rs, 0.95), label: "p95" }],
-        ticks: [{ x: -reach, label: `−${reach}%` }, { x: 0, label: "0" }, { x: reach, label: `+${reach}%` }] }) };
+    const quantiles = supported ? rs : as,
+      profile = stripHist(bins, { h: 84, outline, marks: [{ x: stripQuantile(quantiles, 0.05), label: "p5" }, { x: stripQuantile(quantiles, 0.5), label: "p50", mid: true }, { x: stripQuantile(quantiles, 0.95), label: "p95" }],
+        ticks: [{ x: -reach, label: `−${reach}%` }, { x: 0, label: "0" }, { x: reach, label: `+${reach}%` }] });
+    profile.dataset.distribution = supported ? "matched" : "baseline";
+    return { name: "Track record · next 24 h", metrics, profile };
   }
   function stripForcesCard(tip, ms, edge) {
     const force = stripForce(), held = stripHeld(ms), support = stripSupport(held, ms, force), available = support.inRange && ms < edge,

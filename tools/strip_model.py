@@ -896,11 +896,15 @@ class State:
         if hit is not None:
             return hit
         times = list(range(start, end, step))
-        forces = {}
+        forces, force_inputs = {}, {}
         for force in FORCES:
-            parts = [self.components[name].sample(times) for name, (f, _) in COMPONENTS.items() if f == force and name in self.components]
+            names = [name for name, (f, _) in COMPONENTS.items() if f == force and name in self.components]
+            parts = [self.components[name].sample(times) for name in names]
             forces[force] = [None if all(p[k] is None for p in parts) else round(sum(p[k] for p in parts if p[k] is not None), 4)
                              for k in range(len(times))] if parts else [None] * len(times)
+            force_inputs[force] = {"components": names,
+                                   "masks": [sum(1 << j for j, part in enumerate(parts) if part[k] is not None)
+                                             for k in range(len(times))]}
         weights = [(self.attention[name].sample(times), w) for name, (_, w) in ATTENTION.items() if name in self.attention]
         attention = []
         for k in range(len(times)):
@@ -911,7 +915,7 @@ class State:
         cutoff = self.prices.cutoff
         next24h = [None if c is None or c2 is None or cutoff is None or t + DAY > cutoff else round((c2 / c - 1) * 100, 4)
                    for t, c, c2 in zip(times, closes, later)]
-        grid = {"t0": start, "step": step, "forces": forces, "attention": attention,
+        grid = {"t0": start, "step": step, "forces": forces, "forceInputs": force_inputs, "attention": attention,
                 "close": [None if c is None else round(c, 2) for c in closes], "next24h": next24h,
                 "dvol": [None if v is None else round(v, 2) for v in self.dvol.sample(times)]}
         if len(times) <= 3000:

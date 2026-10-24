@@ -1,0 +1,28 @@
+{
+  "origin": "saved production responses replayed locally; actual page matcher",
+  "model": "field-strip@1",
+  "snapshot": {
+    "id": "0b2c03111be2e855d07ed0f73d1bdeca457a3f5e864b5e95c0a786ade6ba3e76",
+    "publishedAt": 1792867501021,
+    "scheduledFor": 1792867500000,
+    "requests": 5
+  },
+  "at": "2026-10-24T18:45:01.020Z",
+  "priceGridHours": 17520,
+  "previousComparedForces": [],
+  "comparedForces": [
+    "macro"
+  ],
+  "similarMoments": 40,
+  "requiredMoments": 30,
+  "allMoments": 2916,
+  "conditionalAvailable": true,
+  "baselineAvailable": true,
+  "baselineQuantiles": {
+    "p5": -3.467075,
+    "p50": 0.060450000000000004,
+    "p95": 3.832
+  },
+  "selectedInputsIdentical": true,
+  "allSelectedOutcomesCompleted": true
+}
