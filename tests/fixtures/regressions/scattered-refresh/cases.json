@@ -1,0 +1,9 @@
+{
+  "sparseColumns": [0,4095,4096,5000],
+  "dense": {"columns":3000,"rows":8,"firstRow":200},
+  "mixed": [
+    {"bounds":[0,2,200,202],"n":1,"m":1,"volume":501.25},
+    {"bounds":[5000,5002,200,202],"n":1,"m":1,"volume":501.25},
+    {"bounds":[4,5,200,201],"n":1,"m":1,"volume":250}
+  ]
+}

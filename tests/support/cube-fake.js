@@ -385,6 +385,7 @@ class FakeCube {
         const t1 = wire.baseUnits(args.t1[0]), t2 = wire.baseUnits(args.t2[0]);
         const spec = rectangle(Object.fromEntries(Object.entries({ n, m, b0: Math.floor(t1 + .5), b1: t2 >= cutoff ? Math.ceil(cutoff) : Math.floor(t2 + .5), r0: Math.floor(Number(args.p1[0]) / wire.BASE_PRICE + .5), r1: Math.floor(Number(args.p2[0]) / wire.BASE_PRICE + .5) }).map(([key, value]) => [key, [String(value)]])), true);
         const measured = bridge.measure(spec, pack.state_token), block = wire.decodeBlock(measured.block);
+        if (block.count > 20000) throw new ValueError("Agent query exceeds 20,000 cells; narrow the region or use coarser resolution");
         const cells = Array.from({ length: block.count }, (_, i) => ({ c: block.col[i], r: block.row[i], v: block.vol[i], bv: block.tbvol[i], ct: block.cnt[i], bt: block.tbcnt[i] }));
         return json({ query: spec, cells, summary: measured.summary, frame: { baseSeconds: wire.BASE_SECONDS, basePrice: wire.BASE_PRICE, origin: wire.T0, cutoffMs: (wire.T0 + Math.min(spec.b1, cutoff) * wire.BASE_SECONDS) * 1000, sourceCutoffMs: (wire.T0 + cutoff * wire.BASE_SECONDS) * 1000, canonicalThroughMs: pack.canonical_through ? Date.parse(pack.canonical_through) : null, source: pack.source, token: pack.state_token, live: true } });
       }
