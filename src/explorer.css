@@ -1426,62 +1426,99 @@
   font-weight: 400;
   color: var(--ol-muted);
 }
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-2);
-  margin-top: var(--sp-2);
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats > .ol-cell-stat {
-  display: block;
-  padding: 0;
-  border: 0;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats > .ol-cell-stat dt {
-  font-size: var(--fs-m);
-  line-height: 1.3;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats > .ol-cell-stat dd {
-  font-size: 20px;
-  margin-top: var(--sp-1);
-  line-height: 1.2;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats > .ol-strip-tug {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-cell-group {
-  margin-top: 6px;
-  padding-top: 6px;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-cell-group > dl { margin: 0; }
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] .ol-cell-group h3 {
-  margin-bottom: var(--sp-1);
-  font-size: var(--fs-m);
-  line-height: 1.3;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] .ol-cell-group .ol-cell-stat {
-  padding: 4px 0;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] .ol-cell-group .ol-cell-stat :is(dt, dd) {
-  font-size: var(--fs-m);
-  line-height: 1.3;
-}
 #origo-lens [data-presentation^="strip-"] .ol-cell-stat[hidden] { display: none; }
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] [data-compact="track"] > dl {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-1) var(--sp-2);
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] [data-compact="track"] .ol-cell-stat {
-  display: block;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] [data-compact="track"] .ol-cell-stat dd { text-align: left; }
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] .ol-cell-stat[hidden] { display: none; }
 #origo-lens .ol-strip-inspect-hint { margin-top: var(--sp-2); }
 #origo-lens .ol-inspect:not([data-surface="strip"]) #ol-inspect-strip-view { display: none; }
-@media (max-height: 840px) {
-  #origo-lens .ol-tip[data-presentation="strip-forces"][data-strip-detail="compact"] > [data-compact="track"] { display: none; }
+/* The strip is a fixed instrument while the pointer traverses it. The two body slots share a reserved area; the distribution
+   always has its own full area, including when its values are unavailable. Inspect keeps its ordinary document flow. */
+#origo-lens #ol-tip[data-strip-detail="compact"] {
+  z-index: 21;
+  width: 336px;
+  height: 484px;
+  padding: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 36px 50px 90px 250px 16px;
+  gap: 4px;
+}
+#origo-lens #ol-tip[data-strip-detail="compact"]:not([hidden]) { display: grid; }
+#origo-lens #ol-tip .ol-strip-slot { min-width: 0; min-height: 0; overflow: hidden; }
+#origo-lens #ol-tip [data-strip-slot="header"] { grid-area: 1 / 1; }
+#origo-lens #ol-tip [data-strip-slot="summary"] { grid-area: 2 / 1; }
+#origo-lens #ol-tip [data-strip-slot="forces"] { grid-area: 3 / 1; }
+#origo-lens #ol-tip [data-strip-slot="event"] { grid-area: 3 / 1; }
+#origo-lens #ol-tip [data-strip-slot="event"] { display: grid; grid-template-rows: repeat(4, 22px); }
+#origo-lens #ol-tip [data-strip-slot="track"] {
+  grid-area: 4 / 1;
+  display: grid;
+  grid-template-rows: 18px 32px 40px 84px 68px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ol-line);
+}
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-inspect-hint { grid-area: 5 / 1; margin: 0; }
+#origo-lens #ol-tip[data-strip-detail="compact"] :is(h3, .ol-tip-sub, .ol-cell-stat dt, .ol-cell-stat dd) {
+  margin: 0;
+  font-size: var(--fs-m);
+  line-height: 1.3;
+}
+#origo-lens #ol-tip[data-strip-detail="compact"] :is(h3, .ol-tip-head, .ol-tip-sub, dt, dd) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-tip-head { font-size: 16px; line-height: 20px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-tip-sub { font-size: var(--fs-s); }
+#origo-lens #ol-tip[data-strip-detail="compact"] :is(dl, svg) { margin: 0; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-cell-stat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  padding: 0;
+  border: 0;
+  gap: 4px;
+}
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-cell-stat dd { grid-column: 2; text-align: right; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-core-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-core-stats .ol-cell-stat { display: block; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-core-stats dd { height: 34px; font-size: 24px; line-height: 32px; text-align: left; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-core-stats [data-primary="true"] dd { font-size: 28px; }
+#origo-lens #ol-tip :is(.ol-strip-date, .ol-strip-time) { display: block; font-size: var(--fs-s); line-height: 14px; }
+#origo-lens #ol-tip [data-strip-slot="event"] .ol-cell-group { margin: 0 0 8px; padding: 0; border: 0; }
+#origo-lens #ol-tip[data-strip-detail="compact"] [data-strip-slot="event"] .ol-cell-stat { grid-template-columns: 90px minmax(0, 1fr); min-height: 22px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-outcome { grid-template-columns: 110px minmax(0, 1fr); gap: 5px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-outcome :is(dt, dd) { font-size: 28px; line-height: 32px; font-weight: 600; color: var(--ol-ink); }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-outcome dd { text-align: left; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-outcome[data-unavailable="true"] :is(dt, dd) { font-size: var(--fs-l); }
+#origo-lens #ol-tip .ol-strip-sample-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-sample-counts .ol-cell-stat { display: block; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-sample-counts dt { font-size: var(--fs-m); text-align: left; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-sample-counts dd { font-size: 14px; line-height: 20px; text-align: left; }
+#origo-lens #ol-tip .ol-strip-distribution { height: 84px; }
+#origo-lens #ol-tip .ol-strip-distribution svg { width: 100%; height: 84px; }
+#origo-lens #ol-tip .ol-strip-distribution[data-state="unavailable"] { display: grid; place-items: center; background: var(--ol-panel); color: var(--ol-muted); font-size: var(--fs-m); }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 { margin: 0; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 dl { display: grid; grid-template-rows: 42px 24px; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:first-child { display: block; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:first-child dt { font-size: var(--fs-m); line-height: 16px; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:first-child dd { font-size: 20px; line-height: 26px; font-weight: 600; text-align: left; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:last-child :is(dt, dd) { font-size: 14px; line-height: 22px; color: var(--ol-muted); }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:last-child { grid-template-columns: 22px minmax(0, 1fr); }
+/* Short screens keep both visual parts at readable type sizes, side by side, with the same bottom anchor. */
+@media (max-height: 700px) {
+  #origo-lens #ol-tip[data-strip-detail="compact"] {
+    width: 672px;
+    height: 280px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 36px 50px 138px 16px;
+    column-gap: 16px;
+  }
+  #origo-lens #ol-tip [data-strip-slot="track"] {
+    grid-area: 1 / 2 / 4 / 3;
+    grid-template-rows: 18px 32px 32px 84px 66px;
+    padding: 0 0 0 12px;
+    border-top: 0;
+    border-left: 1px solid var(--ol-line);
+  }
+  #origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-inspect-hint { grid-area: 4 / 1 / 5 / 3; }
 }
 #origo-lens .ol-strip-q3 {
   display: grid;

@@ -1446,62 +1446,99 @@
   font-weight: 400;
   color: var(--ol-muted);
 }
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-2);
-  margin-top: var(--sp-2);
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats > .ol-cell-stat {
-  display: block;
-  padding: 0;
-  border: 0;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats > .ol-cell-stat dt {
-  font-size: var(--fs-m);
-  line-height: 1.3;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats > .ol-cell-stat dd {
-  font-size: 20px;
-  margin-top: var(--sp-1);
-  line-height: 1.2;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-core-stats > .ol-strip-tug {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-cell-group {
-  margin-top: 6px;
-  padding-top: 6px;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] > .ol-cell-group > dl { margin: 0; }
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] .ol-cell-group h3 {
-  margin-bottom: var(--sp-1);
-  font-size: var(--fs-m);
-  line-height: 1.3;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] .ol-cell-group .ol-cell-stat {
-  padding: 4px 0;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] .ol-cell-group .ol-cell-stat :is(dt, dd) {
-  font-size: var(--fs-m);
-  line-height: 1.3;
-}
 #origo-lens [data-presentation^="strip-"] .ol-cell-stat[hidden] { display: none; }
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] [data-compact="track"] > dl {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-1) var(--sp-2);
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] [data-compact="track"] .ol-cell-stat {
-  display: block;
-}
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] [data-compact="track"] .ol-cell-stat dd { text-align: left; }
-#origo-lens .ol-tip[data-presentation^="strip-"][data-strip-detail="compact"] .ol-cell-stat[hidden] { display: none; }
 #origo-lens .ol-strip-inspect-hint { margin-top: var(--sp-2); }
 #origo-lens .ol-inspect:not([data-surface="strip"]) #ol-inspect-strip-view { display: none; }
-@media (max-height: 840px) {
-  #origo-lens .ol-tip[data-presentation="strip-forces"][data-strip-detail="compact"] > [data-compact="track"] { display: none; }
+/* The strip is a fixed instrument while the pointer traverses it. The two body slots share a reserved area; the distribution
+   always has its own full area, including when its values are unavailable. Inspect keeps its ordinary document flow. */
+#origo-lens #ol-tip[data-strip-detail="compact"] {
+  z-index: 21;
+  width: 336px;
+  height: 484px;
+  padding: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 36px 50px 90px 250px 16px;
+  gap: 4px;
+}
+#origo-lens #ol-tip[data-strip-detail="compact"]:not([hidden]) { display: grid; }
+#origo-lens #ol-tip .ol-strip-slot { min-width: 0; min-height: 0; overflow: hidden; }
+#origo-lens #ol-tip [data-strip-slot="header"] { grid-area: 1 / 1; }
+#origo-lens #ol-tip [data-strip-slot="summary"] { grid-area: 2 / 1; }
+#origo-lens #ol-tip [data-strip-slot="forces"] { grid-area: 3 / 1; }
+#origo-lens #ol-tip [data-strip-slot="event"] { grid-area: 3 / 1; }
+#origo-lens #ol-tip [data-strip-slot="event"] { display: grid; grid-template-rows: repeat(4, 22px); }
+#origo-lens #ol-tip [data-strip-slot="track"] {
+  grid-area: 4 / 1;
+  display: grid;
+  grid-template-rows: 18px 32px 40px 84px 68px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ol-line);
+}
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-inspect-hint { grid-area: 5 / 1; margin: 0; }
+#origo-lens #ol-tip[data-strip-detail="compact"] :is(h3, .ol-tip-sub, .ol-cell-stat dt, .ol-cell-stat dd) {
+  margin: 0;
+  font-size: var(--fs-m);
+  line-height: 1.3;
+}
+#origo-lens #ol-tip[data-strip-detail="compact"] :is(h3, .ol-tip-head, .ol-tip-sub, dt, dd) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-tip-head { font-size: 16px; line-height: 20px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-tip-sub { font-size: var(--fs-s); }
+#origo-lens #ol-tip[data-strip-detail="compact"] :is(dl, svg) { margin: 0; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-cell-stat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  padding: 0;
+  border: 0;
+  gap: 4px;
+}
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-cell-stat dd { grid-column: 2; text-align: right; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-core-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-core-stats .ol-cell-stat { display: block; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-core-stats dd { height: 34px; font-size: 24px; line-height: 32px; text-align: left; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-core-stats [data-primary="true"] dd { font-size: 28px; }
+#origo-lens #ol-tip :is(.ol-strip-date, .ol-strip-time) { display: block; font-size: var(--fs-s); line-height: 14px; }
+#origo-lens #ol-tip [data-strip-slot="event"] .ol-cell-group { margin: 0 0 8px; padding: 0; border: 0; }
+#origo-lens #ol-tip[data-strip-detail="compact"] [data-strip-slot="event"] .ol-cell-stat { grid-template-columns: 90px minmax(0, 1fr); min-height: 22px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-outcome { grid-template-columns: 110px minmax(0, 1fr); gap: 5px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-outcome :is(dt, dd) { font-size: 28px; line-height: 32px; font-weight: 600; color: var(--ol-ink); }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-outcome dd { text-align: left; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-outcome[data-unavailable="true"] :is(dt, dd) { font-size: var(--fs-l); }
+#origo-lens #ol-tip .ol-strip-sample-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-sample-counts .ol-cell-stat { display: block; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-sample-counts dt { font-size: var(--fs-m); text-align: left; }
+#origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-sample-counts dd { font-size: 14px; line-height: 20px; text-align: left; }
+#origo-lens #ol-tip .ol-strip-distribution { height: 84px; }
+#origo-lens #ol-tip .ol-strip-distribution svg { width: 100%; height: 84px; }
+#origo-lens #ol-tip .ol-strip-distribution[data-state="unavailable"] { display: grid; place-items: center; background: var(--ol-panel); color: var(--ol-muted); font-size: var(--fs-m); }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 { margin: 0; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 dl { display: grid; grid-template-rows: 42px 24px; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:first-child { display: block; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:first-child dt { font-size: var(--fs-m); line-height: 16px; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:first-child dd { font-size: 20px; line-height: 26px; font-weight: 600; text-align: left; }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:last-child :is(dt, dd) { font-size: 14px; line-height: 22px; color: var(--ol-muted); }
+#origo-lens #ol-tip [data-strip-slot="track"] .ol-strip-q3 .ol-cell-stat:last-child { grid-template-columns: 22px minmax(0, 1fr); }
+/* Short screens keep both visual parts at readable type sizes, side by side, with the same bottom anchor. */
+@media (max-height: 700px) {
+  #origo-lens #ol-tip[data-strip-detail="compact"] {
+    width: 672px;
+    height: 280px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 36px 50px 138px 16px;
+    column-gap: 16px;
+  }
+  #origo-lens #ol-tip [data-strip-slot="track"] {
+    grid-area: 1 / 2 / 4 / 3;
+    grid-template-rows: 18px 32px 32px 84px 66px;
+    padding: 0 0 0 12px;
+    border-top: 0;
+    border-left: 1px solid var(--ol-line);
+  }
+  #origo-lens #ol-tip[data-strip-detail="compact"] .ol-strip-inspect-hint { grid-area: 4 / 1 / 5 / 3; }
 }
 #origo-lens .ol-strip-q3 {
   display: grid;
@@ -28799,7 +28836,8 @@
   function refreshTip() {
     const tip = el("tip"),
       waitingCell = hover?.emptyCell && !inspect.on && !lensShown() && !drag && canvas.matches(":hover");
-    if (hover && last?.sc && (waitingCell || (!tip.hidden && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision)))) tooltip(hover, { redraw: false });
+    if (hover && last?.sc && (waitingCell || (!tip.hidden && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision
+      || tip.dataset.stripDetail === "compact" && stripRt.tipStamp !== stripReadoutStamp())))) tooltip(hover, { redraw: false });
     // The readout key is named on the tip only while the tip shows (the pointer leaving, a pan or a tool hides
     // it without going through tooltip()); the attribute stays, empty, so a reader can always find it.
     if (tip.hidden && tip.dataset.readout) tip.dataset.readout = "";
@@ -29020,6 +29058,7 @@
     }
     // After a tap, the row section's control for the level line.
     if (nav.touchTip && !onLine && (inPlot(p) || onProfile(p))) tip.append(levelButton(Math.floor(p.p / ps)));
+    if (!tip.querySelector(":scope > [data-strip-slot]")) delete tip.dataset.stripDetail;
     tip.hidden = false;
     // Beside the pointer, right of it where it fits, and inside the panes, so it
     // never covers the cell under the pointer or the axis readouts.
@@ -29027,8 +29066,10 @@
       th = tip.offsetHeight,
       right = p.x + 16,
       left = right + tw <= G.x + G.w - 4 || onProfile(p) ? right : p.x - 16 - tw;
-    tip.style.left = clamp(onProfile(p) ? p.x - 16 - tw : left, 4, G.width - tw - 4) + "px";
-    tip.style.top = clamp(p.y - th / 2, G.y + 4, G.y + G.h - th - 4) + "px";
+    tip.style.left = clamp(tip.dataset.stripDetail === "compact" ? p.x - tw / 2 : onProfile(p) ? p.x - 16 - tw : left, 4, G.width - tw - 4) + "px";
+    tip.style.top = tip.dataset.stripDetail === "compact"
+      ? G.by + STRIP_LABELS - th - 8 + "px"
+      : clamp(p.y - th / 2, G.y + 4, G.y + G.h - th - 4) + "px";
     // The readout the tip was built from (a cell's here; a pane's or a row's set by their own sections):
     // named on the tip so the same record can be found in the table, and located on the legend.
     if (readout) scaleRt.tipReadout = readout;
@@ -38636,7 +38677,8 @@
     STRIP_HINT = el("strip").dataset.hint;
   const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
     attentionParts: null, snapshot: null, cutoff: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", coverage: "", coverageStats: null, busy: null, timer: 0,
-    failed: { key: "", at: -Infinity }, horizon: null, hits: [] };
+    failed: { key: "", at: -Infinity }, horizon: null, hits: [], tipStamp: "" };
+  const stripReadoutStamp = () => [stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at].join("|");
   const stripChoices = () => (PACK.live ? STRIP_CHOICES : ["off"]),
     stripForce = () => (S.strip.startsWith("forces.") ? S.strip.slice(7) : null),
     stripBase = (ms) => (ms / 1000 - T0) / BASE,
@@ -39106,24 +39148,25 @@
   const stripLabel = (s, attrs) => stripSvg("text", { "font-size": TYPE.s, ...attrs }, [document.createTextNode(s)]);
   // The four forces as arrows from a common centre; the instrument's primary figure carries their net separately.
   function stripTug(rows, w = 272) {
-    const rowH = inspect.on && inspect.surface === "strip" && hover?.inspect ? 22 : 18,
+    const detailed = inspect.on && inspect.surface === "strip" && hover?.inspect, rowH = 22,
       h = rows.length * rowH + 2, nameW = 84, valW = 46, cx = nameW + (w - nameW - valW) / 2, half = (w - nameW - valW) / 2 - 8,
       ext = Math.max(0.6, ...rows.map((r) => (r.v === null ? 0 : Math.abs(r.v)))),
       svg = stripSvg("svg", { width: w, height: h, viewBox: `0 0 ${w} ${h}`, role: "img",
-        "aria-label": rows.map((r) => `${r.name}: ${r.v === null ? r.note : signed(r.v, (x) => x.toFixed(2))}`).join("; "), class: "ol-strip-tug" });
+        "aria-label": rows.map((r) => `${r.name}: ${r.v === null ? r.note : signed(r.v, (x) => x.toFixed(2))}${r.retrospective ? "; retrospective inputs" : ""}`).join("; "), class: "ol-strip-tug" });
     svg.append(stripSvg("line", { x1: cx, y1: 0, x2: cx, y2: h, stroke: colors.line }));
     rows.forEach((r, i) => {
       const y = 1 + i * rowH + rowH / 2;
       if (r.net) svg.append(stripSvg("line", { x1: 0, y1: y - rowH / 2, x2: w, y2: y - rowH / 2, stroke: colors.line }));
-      svg.append(stripLabel(r.name, { x: 0, y: y + 4, fill: r.net || r.on ? colors.ink : colors.muted, "font-weight": r.net || r.on ? 600 : 400 }));
+      svg.append(stripLabel(r.name, { x: 0, y: y + 4, fill: r.net || r.on ? colors.ink : colors.muted, "font-size": detailed ? TYPE.s : 13, "font-weight": r.net || r.on ? 600 : 400 }));
+      if (r.retrospective) svg.append(stripLabel("R", { x: nameW - 3, y: y + 4, fill: colors.muted, "text-anchor": "end", "data-force": r.force, "data-status": "retrospective", "aria-label": "Retrospective inputs" }));
       if (r.v === null) {
-        svg.append(stripLabel(r.note, { x: cx + 6, y: y + 4, fill: colors.muted }));
+        svg.append(stripLabel(r.note, { x: cx + 6, y: y + 4, fill: colors.muted, "font-size": detailed ? TYPE.s : 13 }));
         return;
       }
       const len = (Math.abs(r.v) / ext) * half, dir = r.v >= 0 ? 1 : -1, th = r.net ? 9 : 6, c = r.v >= 0 ? colors.positive : colors.negative, xe = cx + dir * len;
       svg.append(stripSvg("rect", { x: Math.min(cx, xe).toFixed(1), y: (y - th / 2).toFixed(1), width: Math.max(1, len).toFixed(1), height: th, fill: c }));
       svg.append(stripSvg("path", { d: `M${xe.toFixed(1)},${(y - th / 2 - 3).toFixed(1)}L${(xe + dir * 7).toFixed(1)},${y.toFixed(1)}L${xe.toFixed(1)},${(y + th / 2 + 3).toFixed(1)}Z`, fill: c }));
-      svg.append(stripLabel(signed(r.v, (x) => x.toFixed(2)), { x: w, y: y + 4, fill: colors.ink, "font-weight": 600, "text-anchor": "end" }));
+      svg.append(stripLabel(signed(r.v, (x) => x.toFixed(2)), { x: w, y: y + 4, fill: colors.ink, "font-size": detailed ? TYPE.s : 14, "font-weight": 600, "text-anchor": "end" }));
     });
     return svg;
   }
@@ -39142,7 +39185,7 @@
     for (const m of marks) {
       const x = X(m.x).toFixed(1);
       svg.append(stripSvg("line", { x1: x, y1: top - 1, x2: x, y2: bottom, stroke: colors.ink, "stroke-width": m.mid ? 1.5 : 1, ...(m.mid ? {} : { "stroke-dasharray": "3 2" }) }));
-      svg.append(stripLabel(m.label, { x: clamp(X(m.x), 12, w - 12).toFixed(1), y: 10, fill: m.mid ? colors.ink : colors.muted, "text-anchor": "middle" }));
+      svg.append(stripLabel(m.label, { x: clamp(X(m.x), 12, w - 12).toFixed(1), y: 12, fill: m.mid ? colors.ink : colors.muted, "text-anchor": "middle" }));
     }
     svg.append(stripSvg("line", { x1: 0, y1: bottom + 0.5, x2: w, y2: bottom + 0.5, stroke: colors.line }));
     for (const t of ticks) {
@@ -39216,16 +39259,19 @@
     tip.replaceChildren(uiEl("div", "ol-tip-head", title));
     scaleRt.tipReadout = null;
     const detailed = inspect.on && inspect.surface === "strip" && Boolean(hover?.inspect);
+    if (!detailed && !groups.some((group) => group.name === "Track record · next 24 h")) {
+      const supported = stripRt.view && ms < edge && stripSupport(stripHeld(ms), ms).inRange;
+      groups = [...groups, supported ? stripTrackPart(ms, edge, stripForce())
+        : { name: "Track record · next 24 h", metrics: [stripFact("Status", stripRt.status, "trackStatus")] }];
+    }
     const observation = cardObservation(primary.result, (held?.model ?? stripRt.model) || "field-strip@1", primary.unit, [stripBase(ms), stripBase(ms)], null,
       { source: "field-data-api", pack: (held?.snapshot ?? stripRt.snapshot)?.id ?? null, measuredThrough: stripBase(held?.cutoff ?? stripRt.cutoff ?? edge), completeness: status, visibility: "visible" });
     coreCardPresentation(tip, { primary, companions, groups, observation, profile, detailed });
     const details = tip.querySelector(".ol-cell-details"), context = tip.querySelector(".ol-cell-context");
-    let events = 0;
-    const sources = document.createElement("section"); sources.className = "ol-cell-group";
-    sources.append(uiEl("h3", "", "Current sources"), document.createElement("dl"));
-    // Hover keeps the measurements compact; Inspect exposes every support, timing and source record.
+    const sections = [];
     [...details.querySelectorAll(":scope > .ol-cell-group")].forEach((section, i) => {
       if (groups[i].profile) section.insertBefore(groups[i].profile, section.children[1]);
+      sections.push({ section, group: groups[i] });
       for (const metric of groups[i].metrics) {
         const value = [...section.querySelectorAll("dd")].find((dd) => dd.dataset.field === (metric.field ?? metric.label));
         if (value && metric.status) {
@@ -39240,63 +39286,102 @@
           } else if (metric.status !== "Known" && value.textContent.trim() !== metric.status) value.append(uiEl("span", "ol-strip-status", metric.status));
         }
       }
-      if (detailed) { tip.insertBefore(section, context); return; }
-      const name = groups[i].name;
-      if (presentation === "strip-forces") {
-        if (name.endsWith(" · inputs") && name !== "Attention · inputs") tip.insertBefore(section, context);
-        else if (name === "Track record · next 24 h") {
-          section.dataset.compact = "track";
-          const near = groups[i].metrics.find((metric) => metric.field === "trackNear");
-          if (groups[i].profile && near) section.querySelector("h3").textContent = `Next 24 h · n=${near.result.value}`;
-          const keep = new Set(groups[i].profile ? ["trackP5", "trackP50", "trackP95"] : ["trackNear", "trackStatus"]);
-          for (const row of section.querySelectorAll(".ol-cell-stat")) row.hidden = !keep.has(row.querySelector("dd")?.dataset.field);
-          tip.insertBefore(section, context);
-        }
-      } else if (presentation === "strip-sources") {
-        if (name === "Encoding" || name === "Availability") tip.insertBefore(section, context);
-        else if (name.startsWith("Current · ")) {
-          const row = section.querySelector(".ol-cell-stat");
-          row.querySelector("dt").textContent = name.slice("Current · ".length);
-          sources.lastElementChild.append(row);
-        }
-      } else if (presentation === "strip-ahead") {
-        if (groups[i].kind === "ahead-event") {
-          for (const row of section.querySelectorAll(".ol-cell-stat")) if (row.querySelector("dd")?.dataset.field.endsWith(".precision")) row.hidden = true;
-          if (events++ < 3) tip.insertBefore(section, context);
-        } else if (name === "Options · ATM volatility") {
-          for (const row of section.querySelectorAll(".ol-cell-stat")) {
-            const field = row.querySelector("dd")?.dataset.field;
-            row.hidden = !field?.startsWith("options.") || ["options.skew", "options.putCall"].includes(field);
-          }
-          tip.insertBefore(section, context);
-        } else if (name === "1 day · risk-neutral") tip.insertBefore(section, context);
-      } else if (presentation === "strip-event") {
-        if (name === "Provenance") return;
-        if (name === "Schedule") {
-          const keep = new Set(["eventAt", "eventPrecision", "eventImportance", "eventCertainty", "eventStatus"]);
-          for (const row of section.querySelectorAll(".ol-cell-stat")) row.hidden = !keep.has(row.querySelector("dd")?.dataset.field);
-        }
-        tip.insertBefore(section, context);
-      }
+      if (detailed) tip.insertBefore(section, context);
     });
-    if (!detailed && sources.lastElementChild.children.length) tip.insertBefore(sources, context);
-    if (!detailed && presentation === "strip-ahead" && events > 3) {
-      const count = uiEl("div", "ol-cell-state", `${events - 3} more important events · Inspect → Ahead`);
-      count.dataset.field = "aheadRemaining"; count.dataset.canonical = String(events - 3);
-      tip.insertBefore(count, context);
-    }
-    if (!detailed) {
-      const badge = uiEl("span", "ol-strip-status", status);
-      if (status !== "Known" && status !== "Scheduled") tip.querySelector(".ol-tip-head").append(badge);
-      for (const value of tip.querySelectorAll(':scope > .ol-cell-stats dd[data-typed], :scope > .ol-cell-stats dd[data-fact="Unavailable"]')) {
-        value.setAttribute("aria-label", value.title || "Unavailable");
-        value.textContent = "—";
-      }
-      tip.append(uiEl("div", "ol-cell-state ol-strip-inspect-hint", "Inspect → Strip: all measurements"));
-    }
     context.remove();
     tip.dataset.presentation = presentation;
     tip.dataset.stripDetail = detailed ? "full" : "compact";
+    if (!detailed) stripHoverFrame(tip, { sections, presentation, ms, status, profile });
+  }
+  // A strip sweep replaces values in a fixed instrument: neither a missing observation nor an event changes its geometry.
+  function stripHoverFrame(tip, { sections, presentation, ms, status, profile }) {
+    stripRt.tipStamp = stripReadoutStamp();
+    const slot = (name) => { const node = uiEl("div", "ol-strip-slot"); node.dataset.stripSlot = name; return node; },
+      header = slot("header"), summary = slot("summary"), forces = slot("forces"), event = slot("event"), track = slot("track"),
+      head = tip.querySelector(".ol-tip-head"), stats = tip.querySelector(".ol-core-stats");
+    head.title = head.textContent;
+    if (status !== "Known" && status !== "Scheduled") head.append(uiEl("span", "ol-strip-status", status));
+    header.append(head, uiEl("div", "ol-tip-sub", `${when(stripBase(ms))} UTC`));
+    if (profile) forces.append(profile);
+    for (const value of stats.querySelectorAll('dd[data-typed], dd[data-fact="Unavailable"]')) {
+      value.setAttribute("aria-label", `${value.previousElementSibling.textContent}: ${value.textContent}`);
+      value.textContent = "—";
+    }
+    stats.querySelector('[data-field="coverage"] .ol-reading-unit')?.remove();
+    if (presentation === "strip-sources") for (const value of stats.querySelectorAll('dd[data-field="publishedAt"], dd[data-field="fieldCutoff"]')) {
+      const number = Number(value.dataset.canonical);
+      if (Number.isFinite(number)) {
+        value.title = value.textContent;
+        const [date, time] = new Date(number).toISOString().split("T");
+        value.replaceChildren(uiEl("span", "ol-strip-date", date), uiEl("span", "ol-strip-time", time));
+      }
+    }
+    summary.append(stats);
+    const trackPart = sections.find(({ group }) => group.name === "Track record · next 24 h");
+    const contextFields = presentation === "strip-event" ? ["eventAt", "eventPrecision", "eventImportance", "eventCertainty"]
+      : presentation === "strip-sources" ? ["hueEncoding", "intensityEncoding", "lightEncoding", "seamEncoding"] : [];
+    for (const field of contextFields) {
+      const value = tip.querySelector(`dd[data-field="${field}"]`);
+      if (value) event.append(value.parentElement);
+    }
+    if (presentation === "strip-ahead") {
+      const ahead = sections.filter(({ group }) => group.kind === "ahead-event");
+      for (let i = 0; i < 3; i++) {
+        const item = ahead[i], row = item?.section.querySelector(".ol-cell-stat") ?? uiEl("div", "ol-cell-stat");
+        if (item) row.querySelector("dt").textContent = item.group.name;
+        else {
+          const value = document.createElement("dd"); value.dataset.field = `aheadEmpty${i}`; value.dataset.canonical = "unsupported"; value.textContent = "—";
+          row.append(Object.assign(document.createElement("dt"), { textContent: ["Next event", "Second event", "Third event"][i] }), value);
+        }
+        event.append(row);
+      }
+      const remaining = uiEl("div", "ol-cell-stat"), value = document.createElement("dd"), count = Math.max(0, ahead.length - 3);
+      value.dataset.field = "aheadRemaining"; value.dataset.canonical = String(count); value.textContent = String(count);
+      remaining.append(Object.assign(document.createElement("dt"), { textContent: "More events" }), value); event.append(remaining);
+    }
+    const trackRows = new Map([...trackPart.section.querySelectorAll(".ol-cell-stat")].map((row) => [row.querySelector("dd").dataset.field, row])),
+      take = (field, label) => {
+        const row = trackRows.get(field);
+        if (row) return row;
+        const empty = uiEl("div", "ol-cell-stat"), value = document.createElement("dd");
+        value.dataset.field = field; value.dataset.canonical = "unsupported"; value.textContent = "—";
+        empty.append(Object.assign(document.createElement("dt"), { textContent: label }), value);
+        return empty;
+      }, outcome = take("trackOutcomeShare", "Outcome"), counts = document.createElement("dl"), quantiles = uiEl("div", "ol-strip-q3"),
+      distribution = uiEl("div", "ol-strip-distribution");
+    outcome.classList.add("ol-strip-outcome");
+    if (!trackPart.group.profile) {
+      const stateRow = trackRows.get("trackStatus"), state = stateRow?.querySelector("dd"), label = state?.textContent ?? "Unavailable",
+        marker = uiEl("span", "", label);
+      marker.dataset.field = "trackStatus"; marker.dataset.fact = label; marker.dataset.canonical = "unsupported";
+      stateRow?.remove();
+      outcome.querySelector("dd").replaceChildren(marker);
+      outcome.dataset.unavailable = "true";
+    }
+    counts.className = "ol-strip-sample-counts";
+    for (const [field, label] of [["trackNear", "Moments"], ["trackDays", "Days"], ["trackAll", "All moments"], ["trackOutcomeBaseShare", "All · outcome"]]) {
+      const row = take(field, label);
+      if (field !== "trackOutcomeBaseShare") row.querySelector("dt").textContent = label;
+      counts.append(row);
+    }
+    if (trackPart.group.profile) distribution.append(trackPart.group.profile);
+    else {
+      distribution.dataset.state = "unavailable";
+      distribution.append(uiEl("span", "", trackRows.get("trackStatus")?.querySelector("dd")?.textContent ?? "Unavailable"));
+    }
+    for (const p of [5, 50, 95]) {
+      const cell = uiEl("div"), list = document.createElement("dl");
+      for (const field of [`trackP${p}`, `trackAllP${p}`]) {
+        const row = take(field, field.startsWith("trackAll") ? "All" : `p${p}`), value = row.querySelector("dd"), number = Number(value.dataset.canonical);
+        if (Number.isFinite(number)) value.textContent = stripPct(number, 1);
+        if (field.startsWith("trackAll")) row.querySelector("dt").textContent = "All";
+        list.append(row);
+      }
+      cell.append(list); quantiles.append(cell);
+    }
+    track.append(uiEl("h3", "", "BTC · next 24 h · similar moments"), outcome, counts, distribution, quantiles);
+    const hint = uiEl("div", "ol-cell-state ol-strip-inspect-hint", "Inspect → Strip: all measurements");
+    tip.replaceChildren(header, summary, forces, event, track, hint, tip.querySelector(".ol-cell-details"));
   }
   function stripTiming(ms, edge, held = stripRt.view) {
     const feeds = [...new Set([...STRIP_FORCES.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention])],
@@ -39359,6 +39444,11 @@
       left = STRIP_FORCES.filter((f) => (force ? f === force : true) && !T.dims.includes(f)).map((f) => STRIP_NAMES[f]);
     metrics.push(stripNumber("Sample days", days, "trackDays"), stripNumber("Negative returns", share(T.near), "trackShare", "share"),
       stripNumber("All · negative returns", share(T.all), "trackBaseShare", "share"));
+    const outcomes = [{ name: "Fell", sign: -1 }, { name: "Rose", sign: 1 }, { name: "Flat", sign: 0 }],
+      outcomeShare = (list, sign) => list.filter((p) => Math.sign(p.r) === sign).length / list.length,
+      outcome = outcomes.reduce((best, next) => outcomeShare(T.near, next.sign) > outcomeShare(T.near, best.sign) ? next : best);
+    metrics.push(stripNumber(`${outcome.name} in`, outcomeShare(T.near, outcome.sign), "trackOutcomeShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })),
+      stripNumber(`All · ${outcome.name.toLowerCase()}`, outcomeShare(T.all, outcome.sign), "trackOutcomeBaseShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })));
     for (const q of [0.05, 0.5, 0.95]) {
       const name = `p${Math.round(q * 100)}`, field = `P${Math.round(q * 100)}`;
       metrics.push(stripNumber(name, stripQuantile(rs, q), `track${field}`, "%"), stripNumber(`All · ${name}`, stripQuantile(as, q), `trackAll${field}`, "%"));
@@ -39370,14 +39460,15 @@
       .map((name) => stripRt.components[name].label);
     if (retro.length) metrics.push(stripFact("Retrospective inputs", retro.join(" · "), "trackRetrospective"));
     return { name: "Track record · next 24 h", metrics,
-      profile: stripHist(bins, { h: inspect.on && inspect.surface === "strip" && hover?.inspect ? 84 : 64, outline, marks: [{ x: stripQuantile(rs, 0.05), label: "p5" }, { x: stripQuantile(rs, 0.5), label: "p50", mid: true }, { x: stripQuantile(rs, 0.95), label: "p95" }],
+      profile: stripHist(bins, { h: 84, outline, marks: [{ x: stripQuantile(rs, 0.05), label: "p5" }, { x: stripQuantile(rs, 0.5), label: "p50", mid: true }, { x: stripQuantile(rs, 0.95), label: "p95" }],
         ticks: [{ x: -reach, label: `−${reach}%` }, { x: 0, label: "0" }, { x: reach, label: `+${reach}%` }] }) };
   }
   function stripForcesCard(tip, ms, edge) {
     const force = stripForce(), held = stripHeld(ms), support = stripSupport(held, ms, force), available = support.inRange && ms < edge,
       values = STRIP_FORCES.map((f) => available ? stripAt(held, ms, f) : null), shown = force ? [force] : STRIP_FORCES,
       attention = available ? stripAt(held, ms, "attention") : null,
-      rows = STRIP_FORCES.map((f, j) => ({ name: STRIP_NAMES[f], v: values[j], on: f === force, note: "Unavailable" })),
+      rows = STRIP_FORCES.map((f, j) => ({ name: STRIP_NAMES[f], force: f, v: values[j], on: f === force, note: "Unavailable",
+        retrospective: available && Object.entries(stripRt.components ?? {}).some(([name, c]) => c.force === f && stripAt(held, ms, name) !== null && ms < stripRetroUntil(name)) })),
       lean = available ? stripLean(held, ms, force) : null,
       feeds = [...new Set([...shown.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention])],
       status = !available ? ms >= (held?.cutoff ?? stripRt.view?.cutoff ?? stripRt.cutoff ?? Infinity) ? "After field cutoff" : ms >= edge ? "After effective edge" : "Unavailable"
