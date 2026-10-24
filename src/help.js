@@ -132,7 +132,7 @@
     "features-copy": "Copy the selected feature's fitted rule as a Limen manifest.",
     "features-unpreview": "End the feature preview and restore the regular Columns measure.",
     "features-clear-windows": "Remove all marked feature windows from this session.",
-    "reference-search": "Filter reference topics by words in their purpose, interpretation or use.",
+    "reference-search": "Filter reference topics by UI names, article text, tables and Show labels.",
     "reference-topic": "Choose the System reference topic to read in the left panel.",
     "reference-back": "Return to the reference panel after locating a control or chart region.",
     "reference-prev": "Read the previous matching System reference topic.",
