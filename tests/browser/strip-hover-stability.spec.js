@@ -282,6 +282,14 @@ for (const context of [
   const detail = page.locator("#ol-inspect-readout");
   await expect(detail).toHaveAttribute("data-presentation", context.kind);
   const extra = detail.locator(`[data-field="${context.field}"]`);
-  await extra.scrollIntoViewIfNeeded();
+  await expect(extra).toBeVisible();
+  // Inspect can replace a readout during its reveal. Scroll its stable container with the real pointer, rather than
+  // retaining an individual row handle through that replacement.
+  const position = await page.locator("#ol-inspect").evaluate((node, field) => {
+    const b = node.getBoundingClientRect(), r = node.querySelector(`[data-field="${field}"]`).getBoundingClientRect();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2, delta: r.top - b.y - b.height / 2 };
+  }, context.field);
+  await page.mouse.move(position.x, position.y);
+  await page.mouse.wheel(0, position.delta);
   await expect(extra).toBeInViewport();
 });
