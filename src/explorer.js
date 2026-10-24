@@ -5451,6 +5451,7 @@
     const movementEnd = region ? region.motionTime[1] : partial ? last.mv?.end : moving.samples.at(-1)?.end;
     const activityTime = region?.time ?? [Math.max(c * ts, bounds[0]), Math.min((c + 1) * ts, bounds[1], last.cut)];
     const time = readout?.support?.time ?? activityTime;
+    const band = region?.band ?? readout?.support?.price ?? [r * ps, (r + 1) * ps];
     const column = region ? region.column : cellColumn(n, m, c, last.cut, activityTime, rowHistory);
     const composition = E.measure.cellComposition({ z: current, column, hidden, read: region?.refusal });
     const finite = (record) => record?.result.tag === "finite" ? record.result.value : null;
@@ -5571,9 +5572,9 @@
           value.dataset.canonical = String(selectedResult.tag === "finite" ? selectedResult.value : selectedResult.tag);
           if (selectedResult.tag !== "finite") value.textContent = E.result.describe(selectedResult).short;
         }
-        const observation = cardObservation(selectedResult, readout?.measure?.formula ?? "cells.volume.amount@1", readout?.measure?.unit ?? "usdt", time, region ? region.band.map(v => v * PR) : [r * ps * PR, (r + 1) * ps * PR], {
+        const observation = cardObservation(selectedResult, readout?.measure?.formula ?? "cells.volume.amount@1", readout?.measure?.unit ?? "usdt", time, band.map(v => v * PR), {
           level: { n, m }, denominators: [{ formula: "context.daily-atr@1", numerator: null, denominator: atr, time: [Math.max(0, (Math.floor(c * ts / DAYS) - 1) * DAYS), Math.floor(c * ts / DAYS) * DAYS], source: "Prior completed UTC day · Wilder ATR(14)" }, ...measurementDenominators(selected, time)],
-          history: values.map((value, i) => ({ time: region ? (metric.movement ? moving : rowHistory).samples[i]?.time ?? [0,0] : [Math.max(0, (c - 11 + i) * ts), Math.max(0, Math.min((c - 10 + i) * ts, last.cut))], price: region ? region.band.map(v => v * PR) : [r * ps * PR, (r + 1) * ps * PR], denominators: measurementDenominators(selected, [Math.max(0, (c - 11 + i) * ts), Math.max(0, Math.min((c - 10 + i) * ts, last.cut))]), result: typedHistory[i] })),
+          history: values.map((value, i) => ({ time: region ? (metric.movement ? moving : rowHistory).samples[i]?.time ?? [0,0] : [Math.max(0, (c - 11 + i) * ts), Math.max(0, Math.min((c - 10 + i) * ts, last.cut))], price: region ? region.band.map(v => v * PR) : i === 11 ? band.map(v => v * PR) : [r * ps * PR, (r + 1) * ps * PR], denominators: measurementDenominators(selected, [Math.max(0, (c - 11 + i) * ts), Math.max(0, Math.min((c - 10 + i) * ts, last.cut))]), result: typedHistory[i] })),
         });
         if (region) observation.denominators = [region.seasonal, { ...E.measure.normalized(region.response.result.tag === "finite" ? region.response.result.value : NaN, region.response.atr), time: region.response.time }];
         tip.dataset.observation = JSON.stringify(observation);
@@ -5642,7 +5643,7 @@
       }
     }
     const head = tip.querySelector(".ol-tip-head"), sub = tip.querySelector(".ol-tip-sub");
-    if (sub) sub.textContent = `${price((region?.band[0] ?? r * ps) * PR)}–${price((region?.band[1] ?? (r + 1) * ps) * PR)} USDT`;
+    if (sub) sub.textContent = `${price(band[0] * PR)}–${price(band[1] * PR)} USDT`;
     const originalNotes = [...tip.querySelectorAll(".ol-tip-note")];
     const state = document.createElement("div"); state.className = "ol-cell-state";
     state.textContent = [region?.refusal ? E.result.describe(E.result.make(region.refusal.state, { reason: region.refusal.reason })).short : region && ["pending", "failed"].includes(readout?.typed?.tag) ? E.result.describe(readout.typed).long : open ? "Still open" : "Complete", readout?.support?.portion ? region ? "Clipped support" : "Partial cell" : "", CANON !== null && (region ? region.time[1] : (c + 1) * ts) > CANON ? "Provisional" : "", region ? !region.refusal && current.ct === 0 ? `No trades in this ${region.scope}` : "" : !z ? "No trades in this cell" : "", readout?.exposure?.short ? "Short exposure" : ""].filter(Boolean).join(" · ");
@@ -6243,6 +6244,18 @@
     }
     return last.shown.map.get(c + "," + r) ?? null;
   }
+  // Outward-rounded fallback counters cannot describe a clipped cell. Whole cells
+  // and measured inward portions remain readable while other rectangles wait.
+  function cellPartialRead(c, r, ts, ps, motion = false) {
+    if (!last) return null;
+    const frame = motion ? last.mv : last, meas = motion ? frame?.rect : last.meas;
+    if (frame?.shown === (motion ? meas?.query : last.query) && ["exact", "cube", "recorded"].includes(meas?.state)) return null;
+    const b = last.b, end = Math.min((c + 1) * ts, motion ? frame?.src?.end ?? last.sourceEnd : last.sourceEnd);
+    if (!(b[0] > c * ts || Math.min(b[1], last.cut) < end || b[2] > r * ps || b[3] < (r + 1) * ps)) return null;
+    const state = ["pending", "failed"].includes(meas?.state) ? meas.state : "unsupported";
+    return { state, reason: state === "pending" ? "Measuring this partial cell" : state === "failed" ? "Partial cell not measured: " + meas.error : "Partial cell support unavailable at this level" };
+  }
+
   // The Readout of one cell from the frame of the draw, or null when there is none to give: no cell, no
   // frame, or a fault (which also turns the scale display off, and then the words fall back to the plain
   // facts). `interaction` names who is asking ("hover", or null for a table row).
@@ -6250,7 +6263,8 @@
     const frame = last?.sc?.cells;
     if (!z || !frame) return null;
     try {
-      return frame.readout(z, { interaction });
+      const read = cellPartialRead(z.c, z.r, 2 ** renderN(), 2 ** renderM(), movementMode());
+      return frame.readout(z, { interaction, ...(read ? { read } : {}) });
     } catch (error) {
       scaleFault(error);
       return null;
@@ -6597,7 +6611,9 @@
         unavailable = p.t < src.b0 || p.t >= Math.min(src.b1, last.cut) || !inside,
         open = !S.replay && c * ts < CUT && (c + 1) * ts > CUT,
         head = `${range(c * ts, (c + 1) * ts)} UTC · ${dur(ts * BASE)}`,
-        coarse = renderN() > S.n || renderM() > S.m ? ["Detail", "coarser than requested"] : null;
+        coarse = renderN() > S.n || renderM() > S.m ? ["Detail", "coarser than requested"] : null,
+        activityRefusal = cellPartialRead(c, r, ts, ps),
+        refusal = movementMode() ? cellPartialRead(c, r, ts, ps, true) : activityRefusal;
       // Pointer cards belong to drawn cells; Inspect can still explain an empty location.
       if (!p.inspect && (unavailable || (!z && !(movementMode() && last.mv?.shown?.map.has(cellKey(c, r)))))) {
         hover.emptyCell = true;
@@ -6637,6 +6653,15 @@
               : PACK.live
                 ? "Loading this level from the cube"
                 : "Not recorded at this level");
+      else if (refusal || activityRefusal) {
+        const waiting = refusal ?? activityRefusal;
+        const result = readout?.typed ?? E.result.make(waiting.state, { reason: waiting.reason });
+        const time = readout?.support.time ?? [Math.max(c * ts, last.b[0]), Math.min((c + 1) * ts, last.b[1], last.cut)];
+        const band = (readout?.support.price ?? [Math.max(r * ps, last.b[2]), Math.min((r + 1) * ps, last.b[3])]).map(v => v * PR);
+        tipRows(tip, head, priceRow(r), [], refusal?.reason ?? "Trade activity unavailable: " + activityRefusal.reason);
+        coreCardPresentation(tip, { primary: { label: MODE_NAMES[S.mode] ?? S.mode, result, unit: readout?.measure.unit, field: "value" },
+          observation: cardObservation(result, readout?.measure.formula ?? "cells.volume.amount@1", readout?.measure.unit ?? "usdt", time, band, refusal ? { completeness: refusal.state } : {}), detailed: Boolean(p.inspect) });
+      }
       else if (!z)
         tipRows(
           tip,
@@ -6674,7 +6699,7 @@
           ],
           [cas?.note, note],
         );
-      if (!unavailable) cellPresentation(tip, { c, r, ts, ps, z, readout, detailed: Boolean(p.inspect) });
+      if (!unavailable && !refusal && !activityRefusal) cellPresentation(tip, { c, r, ts, ps, z, readout, detailed: Boolean(p.inspect) });
       syncRowHover(z ? cellKey(c, r) : null);
     }
     // After a tap, the row section's control for the level line.
@@ -16311,9 +16336,14 @@
   // A bridge that serves the strip declares it in the page (tools/strip_contract.py); a page without the declaration never asks.
   const STRIP_SERVED = Boolean(document.querySelector('meta[name="explorer-strip"]')),
     STRIP_HINT = el("strip").dataset.hint;
-  const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
-    attentionParts: null, snapshot: null, cutoff: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", coverage: "", coverageStats: null, busy: null, timer: 0,
-    failed: { key: "", at: -Infinity }, horizon: null, hits: [], tipStamp: "" };
+  const STRIP_UNCAPTURED = "Forces data was not captured in this investigation";
+  function stripRuntime(status = STRIP_SERVED ? "idle" : "unconfigured") {
+    return { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
+      attentionParts: null, snapshot: null, cutoff: null, status, detail: status === "uncaptured" ? STRIP_UNCAPTURED : "", model: "", coverage: "", coverageStats: null, busy: null, timer: 0,
+      failed: { key: "", at: -Infinity }, horizon: null, hits: [], tipStamp: "" };
+  }
+  // Every Strip consumer reads this investigation's runtime; live tab data is held separately.
+  let stripLive = stripRuntime(), stripRt = stripLive;
   const stripReadoutStamp = () => [stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at].join("|");
   const stripChoices = () => (PACK.live ? STRIP_CHOICES : ["off"]),
     stripForce = () => (S.strip.startsWith("forces.") ? S.strip.slice(7) : null),
@@ -16370,14 +16400,14 @@
   const stripCovers = (held, want) => Boolean(held) && held.step === want.step && held.from <= want.need[0] && held.to > want.need[1];
   function scheduleStrip() {
     clearTimeout(stripRt.timer);
-    if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED) return;
+    if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED || activeAnalysis?.mode === "captured") return;
     stripRt.timer = setTimeout(pumpStrip, 200);
   }
   // One read at a time, in no slot of the cube's: the view's grid first, then the history. A grid that failed is asked for again only
   // after a minute, and a held one again once it is five minutes old (the view at the live edge) or half an hour (the history).
   async function pumpStrip() {
     // A bridge that answers that the strip is not configured is believed until the page is loaded again.
-    if (S.strip === "off" || !PACK.live || !STRIP_SERVED || stripRt.busy || stripRt.status === "unconfigured") return;
+    if (S.strip === "off" || !PACK.live || !STRIP_SERVED || stripRt.busy || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured") return;
     const view = stripViewWant(), history = stripHistoryWant(), now = performance.now(),
       liveEdge = (held) => held.to > msAt(Math.ceil(CUT)),
       want = !stripCovers(stripRt.view, view) || (liveEdge(stripRt.view) && now - stripRt.view.at > 300000) ? view
@@ -16385,7 +16415,8 @@
     if (!want) return;
     const key = `${want.kind}|${want.from}|${want.to}|${want.step}`;
     if (key === stripRt.failed.key && now - stripRt.failed.at < 60000) return;
-    const controller = new AbortController();
+    const controller = new AbortController(), owner = stripRt, revision = analysisRevision;
+    const owned = () => stripRt === owner && analysisRevision === revision && activeAnalysis?.mode !== "captured";
     stripRt.busy = { key, controller };
     if (!stripRt.view) stripRt.status = "loading";
     try {
@@ -16393,6 +16424,7 @@
       target.username = target.password = "";
       const response = await fetch(target, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]) }),
         body = await response.json().catch(() => null);
+      if (!owned() || controller.signal.aborted) return;
       offerReload(body);
       if (response.ok && body?.schema === "cube-strip@2") stripApply(want, body);
       else {
@@ -16405,6 +16437,7 @@
         }
       }
     } catch (error) {
+      if (!owned()) return;
       if (!controller.signal.aborted) {
         stripRt.failed = { key, at: now };
         if (!stripRt.view) {
@@ -16413,10 +16446,8 @@
         }
       } else if (!stripRt.view) stripRt.status = "idle";
     } finally {
-      stripRt.busy = null;
-      renderStrip();
-      requestDraw();
-      scheduleStrip();
+      owner.busy = null;
+      if (stripRt === owner) { renderStrip(); requestDraw(); scheduleStrip(); }
     }
   }
   function stripApply(want, body) {
@@ -16745,6 +16776,7 @@
   function stripStatusText() {
     return {
       unconfigured: "Strip data is not served here yet",
+      uncaptured: STRIP_UNCAPTURED,
       failed: `Strip unavailable: ${stripRt.detail}`,
       loading: "Reading the strip…",
       idle: "Reading the strip…",
@@ -24953,7 +24985,7 @@
       if (!node || node.hidden || !node.dataset.observation) continue;
       try {
         const candidate = JSON.parse(node.dataset.observation), time = candidate.time, price = candidate.price;
-        if (candidate.level.n !== target.n || candidate.level.m !== target.m || Math.floor(time[0] / 2 ** target.n) !== target.c || !price || price[0] !== target.r * 2 ** target.m * PR || candidate.pack !== last.token) continue;
+        if (candidate.level.n !== target.n || candidate.level.m !== target.m || Math.floor(time[0] / 2 ** target.n) !== target.c || !price || Math.floor(price[0] / (2 ** target.m * PR)) !== target.r || candidate.pack !== last.token) continue;
         observation = candidate; displayed = JSON.parse(node.dataset.compactHistories ?? "[]"); break;
       } catch { /* An unmatched or unreadable card is not reconstructed. */ }
     }
@@ -25002,7 +25034,7 @@
       low=Math.max(r*ps,b[2]),high=Math.min((r+1)*ps,b[3]);
     if (!(t1>t0 && high>low)) return null;
     const q=lens?lp.q:last.shown, z=q.map.get(c+","+r) ?? {c,r,v:0,bv:0,ct:0,bt:0},
-      factsFromQuery=!lens && q === last.query && ["exact","cube"].includes(last.meas.state),
+      factsFromQuery=!lens && q === last.query && ["exact","cube","recorded"].includes(last.meas.state),
       // Source boundaries belong to the aggregate, independently of the displayed denominator.
       factEnd=factsFromQuery ? Math.min((c+1)*ts,last.meas.end??last.meas.b[1],last.dataCut) : Math.min((c+1)*ts,sourceEnd),
       factSupport=comparisonMs(factEnd),
@@ -25014,6 +25046,7 @@
       mz=frameMotionReady ? motionQuery?.map.get(cellKey(c,r)) ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0} : cachedMotion?.z ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0},
       motionEnd=frameMotionReady?Math.min((c+1)*ts,(!lens && motionQuery===motionFrame.rect?.query)?motionFrame.rect.end:motionFrame.src?.end??motionFrame.msrc?.end):cachedMotion?.end??null,
       metrics={},detail=[], nominal={t0:comparisonMs(c*ts),t1:comparisonMs((c+1)*ts),low:r*ps*PR,high:(r+1)*ps*PR};
+    if (!lens && cellPartialRead(c, r, ts, ps)) return null;
     const shortExposure = E.measure.isShort({ timeFraction: (t1 - t0) / ts, priceFraction: (high - low) / ps }, { t: true, w: true });
     const measure=(key,mode,basis="amount",pathBasis="spans",movement=false) => {
       const readyValue=!movement||motionReady;
@@ -25588,7 +25621,7 @@
     const value = Agent.validate(document), checked = E.codec.validatePortable(value.scene, viewEnv());
     if (!checked.ok || checked.dropped.length) throw Error(checked.reasons.join("; ") || "Scene contains unavailable settings");
     if (value.snapshot && (value.snapshot.origin !== T0 || value.snapshot.baseSeconds !== BASE || value.snapshot.basePrice !== PR)) throw Error("Captured canvas uses a different cube lattice");
-    const prior = activeAnalysis, before = await agentDocument("view", null, false);
+    const prior = activeAnalysis, priorStrip = stripRt, before = await agentDocument("view", null, false);
     if (!analysisOrigin) analysisOrigin = agentSnapshot(false);
     try {
       if (drawingCollection().objects.length && JSON.stringify(drawingCollection()) !== JSON.stringify(value.scene.drawings)) {
@@ -25596,6 +25629,8 @@
         if (!preserved.ok) throw Error("Existing drawings could not be preserved: " + preserved.reason);
       }
       activeAnalysis = value; analysisRevision++;
+      clearTimeout(stripRt.timer); stripRt.busy?.controller.abort();
+      stripRt = value.mode === "captured" ? stripRuntime("uncaptured") : stripLive;
       clearTimeout(live.timer); clearTimeout(cube.timer); clearTimeout(motion.timer);
       cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
@@ -25617,7 +25652,7 @@
       if (value.mode === "live") scheduleLive(3);
       return { id: value.id, mode: value.mode };
     } catch (error) {
-      activeAnalysis = prior; analysisRevision++;
+      activeAnalysis = prior; analysisRevision++; stripRt = priorStrip;
       if (before.snapshot) agentInstallSnapshot(before.snapshot);
       applyView(portableView(E.codec.validatePortable(before.scene, viewEnv()).value, before.scene.id));
       throw error;
@@ -25628,42 +25663,41 @@
     if (!analysisOrigin?.live) throw Error("The recorded page has no live source to refresh");
     const owner = activeAnalysis, revision = analysisRevision, collectionRevision = comparisonRevision;
     const unchanged = () => { if (activeAnalysis !== owner || analysisRevision !== revision || comparisonRevision !== collectionRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
-    const before = await agentDocument("view", null, false), refreshed = [], grouped = new Map(); unchanged();
+    const before = await agentDocument("view", null, false), refreshed = []; unchanged();
     const packResponse = await fetch("/cube/pack?proto=2&since=", { cache: "no-store" }), packBody = await packResponse.json();
     if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
     unchanged();
     const token = packBody.pack.state_token;
+    // Each capture is at most one cell, so its own observed region respects
+    // both the column and returned-cell limits without reading between captures.
     for (const cell of before.comparison.captures) {
-      const whole = ["t0", "t1", "low", "high"].every((bound) => cell.observed[bound] === cell.nominal[bound]);
-      const key = cell.level.n + "," + cell.level.m + (whole ? "" : ":" + cell.id);
-      if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(cell);
-    }
-    for (const cells of grouped.values()) {
-      const n = cells[0].level.n, m = cells[0].level.m, isoMs = (x) => new Date(x).toISOString();
-      const end = Math.max(...cells.map((c) => c.observed.t1)), closingBase = Math.ceil((end - T0 * 1000) / (BASE * 1000));
-      const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m, pack: token };
+      const {n,m} = cell.level, isoMs = (x) => new Date(x).toISOString();
+      const closingBase = Math.ceil((cell.observed.t1 - T0 * 1000) / (BASE * 1000));
+      const query = { t1: isoMs(cell.observed.t0), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: cell.observed.low, p2: cell.observed.high, tR: BASE * 2 ** n, pR: PR * 2 ** m, pack: token };
       const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query));
-      const body = await response.json(); if (!response.ok) throw Error(body.detail || body.error || "Refresh failed");
       unchanged();
+      const body = await response.json();
+      unchanged();
+      if (!response.ok) throw Error("Refresh failed; captured evidence retained: " + (body.detail || body.error || response.status));
       if (body.frame.token !== token) throw Error("Source changed during refresh; captured evidence retained");
-      for (const cell of cells) if (!body.cells.some((z) => z.c === cell.c && z.r === cell.r)) {
+      if (!body.cells.some((z) => z.c === cell.c && z.r === cell.r)) {
         const q = body.query, cut = E.time.msToBase(body.frame.cutoffMs, T0, BASE);
         if (!(cell.c * 2 ** n < Math.min(q.b1, cut) && (cell.c + 1) * 2 ** n > q.b0 && cell.r * 2 ** m < q.r1 && (cell.r + 1) * 2 ** m > q.r0)) throw Error("A captured cell is outside current source support; prior evidence remains available");
         body.cells.push({ c: cell.c, r: cell.r, v: 0, bv: 0, ct: 0, bt: 0 });
       }
       body.cells.sort((a, b) => a.c - b.c || a.r - b.r);
       const fresh = Agent.fromQuery(body);
-      for (const cell of cells) {
-        const found = fresh.comparison.captures.find((c) => c.id === cell.id);
-        if (!found) throw Error("A captured cell is absent from the current query; prior evidence remains available");
-        refreshed.push(found);
-      }
+      const found = fresh.comparison.captures.find((c) => c.id === cell.id);
+      if (!found) throw Error("A captured cell is absent from the current query; prior evidence remains available");
+      refreshed.push(found);
     }
     let committingRevision;
     await applyLive(packBody.pack, true, () => {
       unchanged();
       analysisPrevious = before;
       activeAnalysis = null; analysisHash = null; committingRevision = ++analysisRevision;
+      clearTimeout(stripRt.timer); stripRt.busy?.controller.abort();
+      stripLive = stripRt = stripRuntime();
       agentInstallSnapshot(analysisOrigin);
     });
     const committed = () => { if (analysisRevision !== committingRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
@@ -25672,8 +25706,8 @@
     const after = await agentDocument(); committed();
     const difference = Agent.diff(Agent.forExport(before), after);
     activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null }); analysisRevision++;
-    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes.";
-    scheduleLive(3); return { document: after, ...difference };
+    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
+    scheduleStrip(); scheduleLive(3); return { document: after, ...difference };
   }
   function agentRestorePrevious() {
     if (!analysisPrevious) throw Error("No previous capture is available on this page");
