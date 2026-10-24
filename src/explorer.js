@@ -6584,7 +6584,7 @@
       th = tip.offsetHeight,
       right = p.x + 16,
       left = right + tw <= G.x + G.w - 4 || onProfile(p) ? right : p.x - 16 - tw;
-    tip.style.left = clamp(onProfile(p) ? p.x - 16 - tw : left, 4, G.width - tw - 4) + "px";
+    tip.style.left = clamp(tip.dataset.stripDetail === "compact" ? p.x - tw / 2 : onProfile(p) ? p.x - 16 - tw : left, 4, G.width - tw - 4) + "px";
     tip.style.top = tip.dataset.stripDetail === "compact"
       ? G.by + STRIP_LABELS - th - 8 + "px"
       : clamp(p.y - th / 2, G.y + 4, G.y + G.h - th - 4) + "px";
@@ -16670,12 +16670,13 @@
       h = rows.length * rowH + 2, nameW = 84, valW = 46, cx = nameW + (w - nameW - valW) / 2, half = (w - nameW - valW) / 2 - 8,
       ext = Math.max(0.6, ...rows.map((r) => (r.v === null ? 0 : Math.abs(r.v)))),
       svg = stripSvg("svg", { width: w, height: h, viewBox: `0 0 ${w} ${h}`, role: "img",
-        "aria-label": rows.map((r) => `${r.name}: ${r.v === null ? r.note : signed(r.v, (x) => x.toFixed(2))}`).join("; "), class: "ol-strip-tug" });
+        "aria-label": rows.map((r) => `${r.name}: ${r.v === null ? r.note : signed(r.v, (x) => x.toFixed(2))}${r.retrospective ? "; retrospective inputs" : ""}`).join("; "), class: "ol-strip-tug" });
     svg.append(stripSvg("line", { x1: cx, y1: 0, x2: cx, y2: h, stroke: colors.line }));
     rows.forEach((r, i) => {
       const y = 1 + i * rowH + rowH / 2;
       if (r.net) svg.append(stripSvg("line", { x1: 0, y1: y - rowH / 2, x2: w, y2: y - rowH / 2, stroke: colors.line }));
       svg.append(stripLabel(r.name, { x: 0, y: y + 4, fill: r.net || r.on ? colors.ink : colors.muted, "font-size": detailed ? TYPE.s : 13, "font-weight": r.net || r.on ? 600 : 400 }));
+      if (r.retrospective) svg.append(stripLabel("R", { x: nameW - 3, y: y + 4, fill: colors.muted, "text-anchor": "end", "data-force": r.force, "data-status": "retrospective", "aria-label": "Retrospective inputs" }));
       if (r.v === null) {
         svg.append(stripLabel(r.note, { x: cx + 6, y: y + 4, fill: colors.muted, "font-size": detailed ? TYPE.s : 13 }));
         return;
@@ -16835,15 +16836,26 @@
     }
     summary.append(stats);
     const trackPart = sections.find(({ group }) => group.name === "Track record · next 24 h");
-    for (const { section, group } of sections) {
-      if (group.name !== "Track record · next 24 h" && !["Support", "Observation", "Attention · inputs", "Provenance"].includes(group.name)) {
-        if (presentation === "strip-forces") continue;
-        if (presentation === "strip-sources" && group.name.startsWith("Current · ")) {
-          const row = section.querySelector(".ol-cell-stat");
-          row.querySelector("dt").textContent = group.name.slice("Current · ".length);
-          event.append(row);
-        } else event.append(section);
+    const contextFields = presentation === "strip-event" ? ["eventAt", "eventPrecision", "eventImportance", "eventCertainty"]
+      : presentation === "strip-sources" ? ["hueEncoding", "intensityEncoding", "lightEncoding", "seamEncoding"] : [];
+    for (const field of contextFields) {
+      const value = tip.querySelector(`dd[data-field="${field}"]`);
+      if (value) event.append(value.parentElement);
+    }
+    if (presentation === "strip-ahead") {
+      const ahead = sections.filter(({ group }) => group.kind === "ahead-event");
+      for (let i = 0; i < 3; i++) {
+        const item = ahead[i], row = item?.section.querySelector(".ol-cell-stat") ?? uiEl("div", "ol-cell-stat");
+        if (item) row.querySelector("dt").textContent = item.group.name;
+        else {
+          const value = document.createElement("dd"); value.dataset.field = `aheadEmpty${i}`; value.dataset.canonical = "unsupported"; value.textContent = "—";
+          row.append(Object.assign(document.createElement("dt"), { textContent: ["Next event", "Second event", "Third event"][i] }), value);
+        }
+        event.append(row);
       }
+      const remaining = uiEl("div", "ol-cell-stat"), value = document.createElement("dd"), count = Math.max(0, ahead.length - 3);
+      value.dataset.field = "aheadRemaining"; value.dataset.canonical = String(count); value.textContent = String(count);
+      remaining.append(Object.assign(document.createElement("dt"), { textContent: "More events" }), value); event.append(remaining);
     }
     const trackRows = new Map([...trackPart.section.querySelectorAll(".ol-cell-stat")].map((row) => [row.querySelector("dd").dataset.field, row])),
       take = (field, label) => {
@@ -16950,9 +16962,11 @@
       left = STRIP_FORCES.filter((f) => (force ? f === force : true) && !T.dims.includes(f)).map((f) => STRIP_NAMES[f]);
     metrics.push(stripNumber("Sample days", days, "trackDays"), stripNumber("Negative returns", share(T.near), "trackShare", "share"),
       stripNumber("All · negative returns", share(T.all), "trackBaseShare", "share"));
-    const fell = share(T.near) >= 0.5, outcome = fell ? "Fell" : "Rose";
-    metrics.push(stripNumber(`${outcome} in`, fell ? share(T.near) : 1 - share(T.near), "trackOutcomeShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })),
-      stripNumber(`All · ${outcome.toLowerCase()}`, fell ? share(T.all) : 1 - share(T.all), "trackOutcomeBaseShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })));
+    const outcomes = [{ name: "Fell", sign: -1 }, { name: "Rose", sign: 1 }, { name: "Flat", sign: 0 }],
+      outcomeShare = (list, sign) => list.filter((p) => Math.sign(p.r) === sign).length / list.length,
+      outcome = outcomes.reduce((best, next) => outcomeShare(T.near, next.sign) > outcomeShare(T.near, best.sign) ? next : best);
+    metrics.push(stripNumber(`${outcome.name} in`, outcomeShare(T.near, outcome.sign), "trackOutcomeShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })),
+      stripNumber(`All · ${outcome.name.toLowerCase()}`, outcomeShare(T.all, outcome.sign), "trackOutcomeBaseShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })));
     for (const q of [0.05, 0.5, 0.95]) {
       const name = `p${Math.round(q * 100)}`, field = `P${Math.round(q * 100)}`;
       metrics.push(stripNumber(name, stripQuantile(rs, q), `track${field}`, "%"), stripNumber(`All · ${name}`, stripQuantile(as, q), `trackAll${field}`, "%"));
@@ -16971,7 +16985,8 @@
     const force = stripForce(), held = stripHeld(ms), support = stripSupport(held, ms, force), available = support.inRange && ms < edge,
       values = STRIP_FORCES.map((f) => available ? stripAt(held, ms, f) : null), shown = force ? [force] : STRIP_FORCES,
       attention = available ? stripAt(held, ms, "attention") : null,
-      rows = STRIP_FORCES.map((f, j) => ({ name: STRIP_NAMES[f], v: values[j], on: f === force, note: "Unavailable" })),
+      rows = STRIP_FORCES.map((f, j) => ({ name: STRIP_NAMES[f], force: f, v: values[j], on: f === force, note: "Unavailable",
+        retrospective: available && Object.entries(stripRt.components ?? {}).some(([name, c]) => c.force === f && stripAt(held, ms, name) !== null && ms < stripRetroUntil(name)) })),
       lean = available ? stripLean(held, ms, force) : null,
       feeds = [...new Set([...shown.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention])],
       status = !available ? ms >= (held?.cutoff ?? stripRt.view?.cutoff ?? stripRt.cutoff ?? Infinity) ? "After field cutoff" : ms >= edge ? "After effective edge" : "Unavailable"

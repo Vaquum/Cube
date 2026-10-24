@@ -22,7 +22,7 @@ function rectangle(fake) {
     hash: `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&vis=2&rc=1&strip=forces` };
 }
 
-async function syntheticStates(page, view) {
+async function syntheticStates(page, view, outcomes = null) {
   let entered = false, first = true, release;
   const pending = new Promise((resolve) => { release = resolve; });
   const eventAt = view.from + 0.875 * (view.to - view.from), event = {
@@ -42,6 +42,7 @@ async function syntheticStates(page, view) {
     const part = (name, i) => state(i) === "missing" ? null : state(i) === "sparse" ? name === INPUTS[0] ? 0.95 : null
       : name.startsWith("macro.") ? 0.025 : name.startsWith("positioning.") ? -0.0125 : name === "news.tone" ? 0.02 : 0.03;
     body.grid.parts = Object.fromEntries(INPUTS.map((name) => [name, Array.from({ length: n }, (_, i) => part(name, i))]));
+    for (const component of Object.values(body.components)) component.retroUntil = view.from - DAY;
     body.components[INPUTS[0]].retroUntil = view.from + HOUR;
     for (const name of ATTENTION) body.grid.parts[name] = Array.from({ length: n }, (_, i) => state(i) === "missing" ? null : 0.3);
     body.grid.forces = Object.fromEntries(FORCES.map((force) => [force, Array.from({ length: n }, (_, i) => {
@@ -50,7 +51,7 @@ async function syntheticStates(page, view) {
     })]));
     body.grid.attention = Array.from({ length: n }, (_, i) => state(i) === "missing" ? null : 0.3);
     // Thirty-seven hours avoids aliasing the six-hour sample gap and provides nonempty negative and positive bins.
-    body.grid.next24h = Array.from({ length: n }, (_, i) => ((i % 37) - 18) / 10);
+    body.grid.next24h = Array.from({ length: n }, (_, i) => outcomes ? outcomes[Math.floor(i / 6) % outcomes.length] : ((i % 37) - 18) / 10);
     body.events = [event]; body.jumps = []; body.moves = { "layout-only": [[event.measured.at, 0.1]] };
     body.model = "synthetic-hover-layout-only@1";
     await route.fulfill({ response: original, json: body });
@@ -105,7 +106,7 @@ async function contained(card) {
     const within = (r, b) => r.left >= b.left - tolerance && r.top >= b.top - tolerance
       && r.right <= b.right + tolerance && r.bottom <= b.bottom + tolerance;
     const viewport = { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
-    const nodes = node.querySelectorAll('[data-strip-slot="summary"] dd, [data-strip-slot="track"] dd, .ol-strip-distribution, .ol-strip-hist, .ol-strip-hist > *');
+    const nodes = node.querySelectorAll('[data-strip-slot="summary"] dd, [data-strip-slot="track"] dd, [data-strip-slot="event"] dd, .ol-strip-distribution, .ol-strip-hist, .ol-strip-hist > *');
     for (const element of nodes) {
       const r = element.getBoundingClientRect(), name = element.dataset.field || `${element.tagName}:${element.textContent}`;
       if (!within(r, panel) || !within(r, viewport)) errors.push(`${name}: outside panel or viewport`);
@@ -143,7 +144,7 @@ async function quantitativeTrack(card) {
   await contained(card);
 }
 
-for (const height of [720, 839, 840, 841, 950]) test(`the complete distribution and fixed hover slots survive ${height}px viewport height`, async ({ page, fakeFor, probe }) => {
+for (const height of [500, 700, 701, 720, 839, 840, 841, 950]) test(`the complete distribution and fixed hover slots survive ${height}px viewport height`, async ({ page, fakeFor, probe }) => {
   await page.setViewportSize({ width: 1500, height });
   const fake = await fakeFor("mini"), view = rectangle(fake), states = await syntheticStates(page, view);
   await page.goto(`${fake.url}/${view.hash}`);
@@ -167,6 +168,7 @@ for (const height of [720, 839, 840, 841, 950]) test(`the complete distribution 
   await expect(card).toHaveAttribute("data-presentation", "strip-forces");
   await quantitativeTrack(card);
   const supported = await geometry(card);
+  await expect(card.locator('.ol-strip-tug [data-force="macro"][data-status="retrospective"]')).toBeVisible();
   stable(initial, supported, "loaded supported history");
   const grid = await layoutOf(page), canvas = await page.locator("#ol-canvas").boundingBox();
   expect(canvas.y + grid[14] + LABELS - supported.y - supported.height, "the card bottom sits eight pixels above the band").toBeCloseTo(8, 1);
@@ -177,17 +179,21 @@ for (const height of [720, 839, 840, 841, 950]) test(`the complete distribution 
   card = await hover(page, 0.32, "strip-forces");
   await quantitativeTrack(card);
   const moved = await geometry(card);
+  await expect(card.locator('.ol-strip-tug [data-force="macro"][data-status="retrospective"]')).toHaveCount(0);
   stable(supported, moved, "supported history at another cursor position");
-  expect(Math.abs(moved.x - supported.x), "the panel follows the cursor horizontally").toBeGreaterThan(10);
+  expect(moved.x - supported.x, "the panel follows a rightward cursor movement to the right").toBeGreaterThan(10);
   for (const field of ["net", "attention", "coverage"]) for (const key of ["x", "y", "width", "height"])
     expect(moved.fields[field][key], `${field} ${key} stays in its instrument position`).toBeCloseTo(supported.fields[field][key], 1);
 
+  let previousLeft = moved.x;
   for (const [name, fraction] of [["sparse history", 0.5], ["missing inputs", 0.7]]) {
     card = await hover(page, fraction, "strip-forces");
     await expect(card.locator('.ol-strip-distribution[data-state="unavailable"]')).toBeVisible();
     await expect(card.locator('.ol-strip-distribution[data-state="unavailable"]')).toContainText(/Insufficient history|Unavailable/);
     await expect(card.locator(".ol-strip-hist")).toHaveCount(0);
     const actual = await geometry(card);
+    expect(actual.x, "a continuing rightward sweep never sends the panel backwards").toBeGreaterThanOrEqual(previousLeft);
+    previousLeft = actual.x;
     stable(supported, actual, name);
     for (const field of ["net", "attention", "coverage"]) for (const key of ["x", "y", "width", "height"])
       expect(actual.fields[field][key], `${name}: ${field} ${key}`).toBeCloseTo(supported.fields[field][key], 1);
@@ -199,16 +205,19 @@ for (const height of [720, 839, 840, 841, 950]) test(`the complete distribution 
   await page.mouse.move(box.x + layout[0] - 20, y);
   await expect(card).toHaveAttribute("data-presentation", "strip-sources");
   stable(supported, await geometry(card), "source measurements");
+  expect(await card.locator('[data-strip-slot="event"]').evaluate((n) => n.scrollHeight <= n.clientHeight + 1), "source hover has no unreachable rows").toBe(true);
   await contained(card);
   await page.mouse.move(box.x + layout[7] + 31, y);
   await expect(card).toHaveAttribute("data-presentation", "strip-ahead");
   stable(supported, await geometry(card), "Ahead measurements");
+  expect(await card.locator('[data-strip-slot="event"]').evaluate((n) => n.scrollHeight <= n.clientHeight + 1), "Ahead hover has no unreachable rows").toBe(true);
   await contained(card);
 
   card = await hover(page, 0.875, "strip-event");
   await expect(card).toContainText(states.event.name);
   await expect(card.locator('[data-field="eventMove"]')).toBeVisible();
   stable(supported, await geometry(card), "measured event");
+  expect(await card.locator('[data-strip-slot="event"]').evaluate((n) => n.scrollHeight <= n.clientHeight + 1), "event hover has no unreachable rows").toBe(true);
   await contained(card);
   await expect(card.locator(".ol-tip-note")).toHaveCount(0);
 });
@@ -229,4 +238,48 @@ test("a failed first publication keeps the loading hover's fixed shell", async (
   stable(initial, await geometry(card), "failed first publication");
   await contained(card);
   await expect(card.locator(".ol-tip-note")).toHaveCount(0);
+});
+
+for (const sample of [
+  { name: "all flat", outcomes: [0], label: "Flat in", share: 1 },
+  { name: "half flat and half rising", outcomes: [0, 0, 0.1, 0.1], label: "Rose in", share: 0.5 },
+]) test(`${sample.name}: flat returns never count as rises in either comparison`, async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini"), view = rectangle(fake), states = await syntheticStates(page, view, sample.outcomes);
+  states.release();
+  await page.goto(`${fake.url}/${view.hash}`);
+  await probe.waitForReady();
+  await expect.poll(() => fake.log().filter((e) => e.path === "/cube/strip" && Number(e.query.to) - Number(e.query.from) > 60 * DAY && e.status === 200).length).toBeGreaterThan(0);
+  await probe.waitForQuiet();
+  const card = await hover(page, 0.18, "strip-forces"), outcome = card.locator('[data-field="trackOutcomeShare"]'), baseline = card.locator('[data-field="trackOutcomeBaseShare"]');
+  await expect(outcome.locator("..").locator("dt")).toHaveText(sample.label);
+  expect(Number(await outcome.getAttribute("data-canonical"))).toBe(sample.share);
+  expect(Number(await baseline.getAttribute("data-canonical"))).toBeCloseTo(sample.share, 2);
+  await expect(card.locator('[data-strip-slot="track"] .ol-strip-hist')).toBeVisible();
+});
+
+for (const context of [
+  { mode: "forces", kind: "strip-event", fraction: 0.875, field: "eventRegion" },
+  { mode: "sources", kind: "strip-sources", field: "source.fred_macro_daily.checkedAt" },
+  { mode: "ahead", kind: "strip-ahead", field: "range.30.p95" },
+]) test(`${context.kind}: bounded hover context retains complete measurements in Inspect`, async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini"), view = rectangle(fake), states = await syntheticStates(page, view);
+  states.release();
+  await page.goto(`${fake.url}/${view.hash}`);
+  await probe.waitForReady(); await probe.waitForQuiet();
+  if (context.fraction) await hover(page, context.fraction, context.kind);
+  else {
+    const g = await layoutOf(page), box = await page.locator("#ol-canvas").boundingBox();
+    await page.mouse.move(box.x + (context.mode === "sources" ? g[0] - 20 : g[7] + 31), box.y + g[14] + LABELS + BAND / 2);
+  }
+  const compact = page.locator('#ol-tip [data-strip-slot="event"]');
+  expect(await compact.locator(".ol-cell-stat").count()).toBeLessThanOrEqual(4);
+  expect(await compact.evaluate((n) => n.scrollHeight <= n.clientHeight + 1)).toBe(true);
+  await page.keyboard.press("e");
+  await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
+  await page.locator("#ol-inspect-strip-view").selectOption(context.mode);
+  const detail = page.locator("#ol-inspect-readout");
+  await expect(detail).toHaveAttribute("data-presentation", context.kind);
+  const extra = detail.locator(`[data-field="${context.field}"]`);
+  await extra.scrollIntoViewIfNeeded();
+  await expect(extra).toBeInViewport();
 });
