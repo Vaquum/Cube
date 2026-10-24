@@ -6339,8 +6339,8 @@
   }
   // Runs at the end of every draw: a mapping, theme or pack that changed under the tip makes its numbers
   // stale, so the tip is derived again (without scheduling a frame: it is inside one), and the marker on the
-  // legend follows the tip and the table row whatever hid them. Not for a null hover (tooltip(null) throws),
-  // and not for a hidden tip (tooltip always ends by showing it).
+  // legend follows the tip and the table row whatever hid them. An empty cell can gain data while the
+  // pointer rests on it; reconsider its hidden card only while the pointer still owns the canvas.
   function rowReadoutStamp() {
     const frames = [last?.reference, last?.under].map(frame => frame ?
       [frame.kind, frame.period, frame.res.state, frame.through, frame.stale, frame.bands?.m,
@@ -6352,8 +6352,9 @@
       plan?.state, plan?.m, plan?.window?.first, plan?.window?.last, plan?.denominators?.cur, plan?.denominators?.ref, ...axes].join("|");
   }
   function refreshTip() {
-    const tip = el("tip");
-    if (hover && !tip.hidden && last?.sc && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision)) tooltip(hover, { redraw: false });
+    const tip = el("tip"),
+      waitingCell = hover?.emptyCell && !inspect.on && !lensShown() && !drag && canvas.matches(":hover");
+    if (hover && last?.sc && (waitingCell || (!tip.hidden && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision)))) tooltip(hover, { redraw: false });
     // The readout key is named on the tip only while the tip shows (the pointer leaving, a pan or a tool hides
     // it without going through tooltip()); the attribute stays, empty, so a reader can always find it.
     if (tip.hidden && tip.dataset.readout) tip.dataset.readout = "";
@@ -6367,6 +6368,7 @@
     // again (refreshTip); a stamp stored only at the end would leave a pointer resting on the price axis,
     // where the tip is hidden at once, looking changed at every frame and drawing forever.
     hover = p;
+    hover.emptyCell = false;
     drawingTipRevision = drawingStore.revision;
     scaleRt.tipStamp = last?.sc?.stamp ?? "";
     scaleRt.tipRowsStamp = rowReadoutStamp();
@@ -6494,6 +6496,7 @@
         coarse = renderN() > S.n || renderM() > S.m ? ["Detail", "coarser than requested"] : null;
       // Pointer cards belong to drawn cells; Inspect can still explain an empty location.
       if (!p.inspect && (unavailable || (!z && !(movementMode() && last.mv?.shown?.map.has(cellKey(c, r)))))) {
+        hover.emptyCell = true;
         tip.hidden = true;
         syncRowHover(null);
         tipMarker(null);

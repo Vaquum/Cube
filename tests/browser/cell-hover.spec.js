@@ -13,6 +13,23 @@ async function atCell(page, c, r) {
   await page.mouse.move(canvas.x + (box.x0 + box.x1) / 2, canvas.y + (box.y0 + box.y1) / 2);
 }
 
+for (const mode of ["path", "dwell"]) {
+  test(`${mode}: a stationary pointer gets its card when motion data arrives`, async ({ page, fakeFor, probe }) => {
+    await addRecorder(page);
+    const fake = await fakeFor("micro:nonvalues");
+    const gate = fake.on({ route: "/cube/motion" }).gate();
+    await page.goto(fake.url + "/" + HASH + "&mode=" + mode);
+    await expect.poll(() => fake.log().some(x => x.path === "/cube/motion")).toBe(true);
+    await atCell(page, 2, 201); // Movement-only: absent until the held read arrives.
+    await expect(page.locator("#ol-tip")).toBeHidden();
+
+    gate.open();
+    await probe.waitForReady();
+    await expect(page.locator("#ol-tip")).toBeVisible();
+    await expect(page.locator("#ol-tip")).toHaveAttribute("data-readout", "0:0:2:201");
+  });
+}
+
 for (const mode of ["volume", "trades", "size", "delta", "flow", "flowtrades", "cascade", "geometry", "path", "dwell"]) {
   test(`${mode}: cards follow data-bearing cells and disappear over empty space`, async ({ page, fakeFor, probe }) => {
     await addRecorder(page);
