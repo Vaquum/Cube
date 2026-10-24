@@ -47954,11 +47954,15 @@
     return text.startsWith("cube-analysis:") ? Agent.decode(text, { inflate: inflateBounded }) : Agent.parse(text);
   }
   async function agentImport(document, hash = null) {
-    const value = Agent.validate(document), checked = E.codec.validatePortable(value.scene, viewEnv());
-    if (!checked.ok || checked.dropped.length) throw Error(checked.reasons.join("; ") || "Scene contains unavailable settings");
+    const value = Agent.validate(document);
     if (value.snapshot && (value.snapshot.origin !== T0 || value.snapshot.baseSeconds !== BASE || value.snapshot.basePrice !== PR)) throw Error("Captured canvas uses a different cube lattice");
-    const prior = activeAnalysis, priorStrip = stripRt, before = await agentDocument("view", null, false);
-    if (!analysisOrigin) analysisOrigin = agentSnapshot(false);
+    const env = viewEnv();
+    if (value.mode === "captured" && value.snapshot) env.CUT = E.time.msToBase(value.snapshot.sourceCutoffMs ?? value.snapshot.cutoffMs, T0, BASE);
+    const checked = E.codec.validatePortable(value.scene, env);
+    if (!checked.ok || checked.dropped.length) throw Error(checked.reasons.join("; ") || "Scene contains unavailable settings");
+    // Rollback is private runtime state; an empty/hidden selection need not form a portable query.
+    const prior = activeAnalysis, priorStrip = stripRt, before = { snapshot: agentSnapshot(false), view: { ...structuredClone(S), ...portableView(portablePayload(), analysisHash ?? viewHash()), appearance: appearanceId() }, drawings: drawingStore, activeDrawingId, drawingKeyContext, comparison: comparisonModel, undo: comparisonUndoState, comparisonMessage, comparisonUnsaved, comparisonRejected, hash: analysisHash, origin: analysisOrigin, history: structuredClone(hist), historyState: history.state, url: location.href };
+    if (!analysisOrigin) analysisOrigin = before.snapshot;
     try {
       if (drawingCollection().objects.length && JSON.stringify(drawingCollection()) !== JSON.stringify(value.scene.drawings)) {
         const preserved = window.explorerState.drawings.preserve(drawingCollection());
@@ -47971,8 +47975,9 @@
       cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
       applyView(portableView(checked.value, value.scene.id));
-      drawingCommit("Open investigation", value.scene.drawings);
-      comparisonCommit(value.comparison ?? comparisonEmpty(), true, true);
+      // Stage drawings in a private store so a later failure cannot consume Undo/Redo.
+      drawingStore = E.drawings.createStore(value.scene.drawings);
+      if (!comparisonCommit(value.comparison ?? comparisonEmpty(), true, true)) throw Error(comparisonMessage || "Comparison could not be installed");
       if (value.focus) {
         const cell = value.comparison.captures.find((item) => item.id === value.focus), ts = 2 ** cell.level.n, ps = 2 ** cell.level.m;
         S.selection = [cell.c * ts, (cell.c + 1) * ts, cell.r * ps, (cell.r + 1) * ps];
@@ -47985,12 +47990,24 @@
       if (hash) history.replaceState(null, "", location.pathname + location.search + hash);
       recordView("Investigation"); update(); save();
       el("analysis-status").textContent = value.mode === "captured" ? "Captured evidence · recorded selection retained. Refresh explicitly to compare the current source." : "Live query · the canvas follows the current source; comparison captures retain their original values.";
+      before.drawings.commit("Open investigation", drawingCollection());
+      drawingStore = before.drawings; drawingPersist();
       if (value.mode === "live") scheduleLive(3);
       return { id: value.id, mode: value.mode };
     } catch (error) {
       activeAnalysis = prior; analysisRevision++; stripRt = priorStrip;
+      analysisOrigin = before.origin; analysisHash = before.hash;
       if (before.snapshot) agentInstallSnapshot(before.snapshot);
-      applyView(portableView(E.codec.validatePortable(before.scene, viewEnv()).value, before.scene.id));
+      drawingStore = before.drawings;
+      Object.assign(S, before.view); applyView(before.view);
+      comparisonModel = before.comparison; comparisonUndoState = before.undo; comparisonRevision++;
+      comparisonMessage = before.comparisonMessage; comparisonUnsaved = before.comparisonUnsaved; comparisonRejected = before.comparisonRejected;
+      applyPanels();
+      activeDrawingId = before.activeDrawingId; drawingKeyContext = before.drawingKeyContext;
+      Object.assign(hist, before.history);
+      drawingPersist(); comparisonPersist(); update(); saveHistory();
+      history.replaceState(before.historyState, "", before.url);
+      if (PACK.live && prior?.mode !== "captured") { scheduleCube(); scheduleLive(3); }
       throw error;
     }
   }
