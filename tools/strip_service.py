@@ -28,8 +28,6 @@ HISTORY_DAYS = 730
 FINE_DAYS = 30
 CHUNK_COLUMNS = 2048
 PAUSE_SECONDS = 0.5
-# How many published versions a start-up reads back per source: a day of five-minute versions.
-BOOTSTRAP_VERSIONS = 300
 
 
 def base_of(t_ms: float) -> float:
@@ -126,6 +124,8 @@ class StripService:
         self.manifest_states: dict = {}
         self.calendar_state: dict | None = None
         self.last_error: str | None = None
+        self.history_errors: dict[str, str] = {}
+        self.history_retry_at = 0.0
         self.cache: dict = {}
         self.prices_at = 0.0
         self.thread: threading.Thread | None = None
@@ -165,6 +165,12 @@ class StripService:
             moved = True
         if moved or self.state is None:
             self.rebuild()
+        if self.history_errors and now >= self.history_retry_at:
+            previous = self.store.version
+            self.bootstrap(tuple(self.history_errors))
+            if self.store.version != previous:
+                self.rebuild()
+                moved = True
         return moved
 
     def update(self, as_of: str | None = None, manifest: dict | None = None) -> bool:
@@ -187,56 +193,57 @@ class StripService:
         self.last_error = None
         return True
 
-    def bootstrap(self) -> None:
-        """At start, every source's published versions since the store last saw it, at most a day of five-minute
-        versions back, read oldest first so that each observation is known at the publication that first carried it."""
-        for source in model.SOURCES:
+    def bootstrap(self, sources=None) -> None:
+        """Read version metadata, then complete pinned datasets oldest first.
+
+        The first full scan repairs older caches whose bootstrap stopped at 300
+        versions. Subsequent scans stop at acknowledged history. Failed sources
+        retry independently; a response-size limit never becomes empty history.
+        """
+        self.history_retry_at = self.clock() + 300
+        for source in sources if sources is not None else (*model.SOURCES, "calendar"):
             versions, before, before_id = [], None, None
-            while len(versions) < BOOTSTRAP_VERSIONS:
+            complete, error = self.store.history_complete(source), None
+            while True:
                 try:
-                    page = self.reader.history(source, before=before, before_id=before_id, limit=12)
-                except FieldDataError:
+                    page = self.reader.history(source, before=before, before_id=before_id, limit=100)
+                except FieldDataError as failed:
+                    error = str(failed)
                     break
                 batch = page.get("versions") or []
                 done = False
                 for v in batch:
                     if self.store.has_dataset(source, v.get("dataset_id", "")):
-                        done = True
-                        break
+                        if complete:
+                            done = True
+                            break
+                        continue
                     versions.append(v)
-                before, before_id = page.get("next_before"), page.get("next_before_id")
-                if done or not batch or before is None:
+                next_before, next_id = page.get("next_before"), page.get("next_before_id")
+                if done or not batch or next_before is None:
                     break
+                if before is not None and (next_before, next_id or "") >= (before, before_id or ""):
+                    error = "history_cursor_did_not_advance"
+                    break
+                before, before_id = next_before, next_id
             for v in reversed(versions):
-                data = v.get("data") or {}
+                try:
+                    data = self.reader.version(source, v)
+                except FieldDataError as failed:
+                    error = str(failed)
+                    continue
+                published = ms(v.get("first_published_at")) or int(self.clock() * 1000)
+                if source == "calendar":
+                    self.model.ingest_calendar(data.dataset_id, data.records, published)
+                    continue
                 interval = 300_000 if source in ("deribit_options", "deribit_dvol", "deribit_futures_basis", "gdelt_gkg", "bluesky_live",
                                                  "mempool_retarget") else 3_600_000 if source.endswith("_funding") or source == "wikimedia_hourly" else 21_600_000
-                self.model.ingest(source, v["dataset_id"], data.get("records") or [], data.get("meta") or {}, data.get("received_at"),
-                                  ms(v.get("first_published_at")) or int(self.clock() * 1000), interval)
-        # The calendar's history lists index descriptors: each version's events are read through a publication pin.
-        versions, before, before_id = [], None, None
-        while len(versions) < 50:
-            try:
-                page = self.reader.history("calendar", before=before, before_id=before_id, limit=20)
-            except FieldDataError:
-                break
-            batch = page.get("versions") or []
-            done = False
-            for v in batch:
-                if self.store.has_dataset("calendar", v.get("dataset_id", "")):
-                    done = True
-                    break
-                versions.append(v)
-            before, before_id = page.get("next_before"), page.get("next_before_id")
-            if done or not batch or before is None:
-                break
-        for v in reversed(versions):
-            try:
-                pub = self.reader.publication((), as_of=v["first_published_at"])
-            except FieldDataError:
-                continue
-            if pub.calendar is not None and pub.calendar.dataset_id == v["dataset_id"]:
-                self.model.ingest_calendar(pub.calendar.dataset_id, pub.calendar.records, ms(v["first_published_at"]) or ms(pub.published_at))
+                self.model.ingest(source, data.dataset_id, data.records, data.meta, data.received_at, published, interval)
+            if error:
+                self.history_errors[source] = error
+            else:
+                self.store.mark_history_complete(source)
+                self.history_errors.pop(source, None)
 
     def measure_reactions(self, now_ms: int) -> None:
         """Each timed event whose window has closed in the cube's data, once: BTC's move over its window from the cube's
@@ -290,7 +297,8 @@ class StripService:
                 newest = observed if newest is None or (observed is not None and observed > newest) else newest
             first, _ = self.store.seen(source)
             out[source] = {"state": status, "checkedAt": checked, "receivedAt": ms(s.get("received_at")), "intervalSeconds": interval,
-                           "observedAt": newest, "recordedFrom": first, "detail": s.get("reason") or s.get("error")}
+                           "observedAt": newest, "recordedFrom": first, "detail": s.get("reason") or s.get("error") or
+                           ("Historical replay pending: " + self.history_errors[source] if source in self.history_errors else None)}
         return out
 
     def answer(self, args: dict) -> tuple[int, dict | bytes]:

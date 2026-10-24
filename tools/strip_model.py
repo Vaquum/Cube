@@ -281,6 +281,7 @@ class Store:
                                             value REAL, extra TEXT, PRIMARY KEY (series, obs_id));
             CREATE TABLE IF NOT EXISTS seen (source TEXT PRIMARY KEY, first_ms INTEGER, last_ms INTEGER, last_dataset TEXT);
             CREATE TABLE IF NOT EXISTS datasets (source TEXT, dataset_id TEXT, published_ms INTEGER, PRIMARY KEY (source, dataset_id));
+            CREATE TABLE IF NOT EXISTS history_sync (source TEXT PRIMARY KEY);
             CREATE TABLE IF NOT EXISTS calendar (id TEXT, revision TEXT, known_ms INTEGER, entry TEXT, PRIMARY KEY (id, revision));
             CREATE TABLE IF NOT EXISTS reactions (id TEXT PRIMARY KEY, entry TEXT);
             CREATE INDEX IF NOT EXISTS obs_time ON obs (series, observed_ms, known_ms);
@@ -295,6 +296,12 @@ class Store:
 
     def has_dataset(self, source: str, dataset_id: str) -> bool:
         return self.db.execute("SELECT 1 FROM datasets WHERE source = ? AND dataset_id = ?", (source, dataset_id)).fetchone() is not None
+
+    def history_complete(self, source: str) -> bool:
+        return self.db.execute("SELECT 1 FROM history_sync WHERE source=?", (source,)).fetchone() is not None
+
+    def mark_history_complete(self, source: str) -> None:
+        self.db.execute("INSERT OR IGNORE INTO history_sync VALUES (?)", (source,))
 
     def rows(self, series: str, since: int | None = None) -> list[tuple]:
         """(observed, known, retro, value, extra) of a series, in time order; those observed from ``since`` on, when given."""
