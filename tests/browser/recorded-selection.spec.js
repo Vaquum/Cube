@@ -44,7 +44,32 @@ test("a selection refresh refusal retains the recorded investigation before any 
   const original=await page.evaluate(()=>window.cubeAgent.export());await page.evaluate(d=>window.cubeAgent.apply(d),original);await probe.waitForReady();
   await page.evaluate(()=>window.cubeAgent.configure({viewport:[0,1,200,201],readMode:"captured"}));await probe.waitForReady();
   const before=await page.evaluate(()=>window.cubeAgent.export());allowConsole(/Failed to load resource/);
-  fake.on({route:"/cube/agent/query",times:1}).fail({status:409,body:{error:"source_changed",detail:"selection source revised"}});
+  fake.on({route:"/cube/query",times:1}).fail({status:409,body:{error:"source_changed",detail:"selection source revised"}});
   const error=await page.evaluate(()=>window.cubeAgent.refresh().then(()=>null,e=>e.message));expect(error).toContain("selection source revised");
   const after=await page.evaluate(()=>window.cubeAgent.export());expect(after.selection).toEqual(before.selection);expect(after.scene.query).toEqual(before.scene.query);expect(after.snapshot.token).toBe(before.snapshot.token);
+});
+test("a copied cell clipped in price retains its observed selection bounds and unchanged totals",async({page,fakeFor,probe})=>{
+  const sample=require("../fixtures/regressions/clipped-capture-support/cases.json"),BASE=56250,EPOCH=1609459200000,iso=c=>new Date(EPOCH+c*BASE).toISOString();
+  const fake=await fakeFor({cutoffIso:iso(sample.cutoffBase),trades:sample.trades.map(({base,offsetMs,...t})=>({...t,t_ms:base*BASE+offsetMs}))});
+  await page.goto(fake.url+`/#t=${iso(0)}~${iso(8192)}&p=24000~27000&r=12,3&auto=0&vis=2&lines=&sel=${iso(1600)}~${iso(1601)},25000~25125`);await probe.waitForReady();
+  const doc=await page.evaluate(()=>window.cubeAgent.export("cell"));expect(doc.selection.metrics.volume).toBe(250);
+  expect(doc.selection.query).toMatchObject({t1:1600,t2:1601,p1:200,p2:201,tR:12,pR:3});
+  await page.evaluate(d=>window.cubeAgent.apply(d),doc);await expect.poll(async()=>(await page.evaluate(()=>window.cubeAgent.export())).selection.metrics.volume).toBe(250);
+  const result=await page.evaluate(()=>window.cubeAgent.refresh());expect(result.document.selection.metrics.volume).toBe(250);expect(result.changes.filter(c=>c.selection)).toEqual([]);
+  await probe.waitForReady();
+  // Old portable cell copies carried nominal selection prices. Both refresh
+  // adapters can recover the observed band from the matching retained cell.
+  const legacy=await page.evaluate(d=>{d.selection.query.p2=208;d.scene.query.p2=208;d.scene=window.explorerAgent.seal(d.scene);return window.explorerAgent.seal(d);},doc);
+  await page.evaluate(d=>window.cubeAgent.apply(d),legacy);await expect.poll(async()=>(await page.evaluate(()=>window.cubeAgent.export())).selection.metrics.volume).toBe(250);
+  const repaired=await page.evaluate(()=>window.cubeAgent.refresh());expect(repaired.document.selection.query.p2).toBe(201);expect(repaired.document.selection.metrics.volume).toBe(250);
+  const {dispatch}=await import("../../tools/cube-agent.mjs"),prior=process.env.CUBE_URL;process.env.CUBE_URL=fake.url;
+  try{const mcp=await dispatch("cube_refresh",{document:legacy});expect(mcp.document.selection.query.p2).toBe(201);expect(mcp.document.selection.metrics.volume).toBe(250);expect(mcp.changes.filter(c=>c.selection)).toEqual([]);}finally{if(prior===undefined)delete process.env.CUBE_URL;else process.env.CUBE_URL=prior;}
+});
+test("a dense 24,000-cell browser selection remains refreshable without comparison captures",async({page,fakeFor,probe})=>{
+  const {columns,rows,firstRow}=require("../fixtures/regressions/scattered-refresh/cases.json").dense,BASE=56250,EPOCH=1609459200000,iso=c=>new Date(EPOCH+c*BASE).toISOString();
+  const trades=Array.from({length:columns},(_,c)=>Array.from({length:rows},(_,r)=>({t_ms:c*BASE+1000+r,price:(firstRow+r)*12500,qty:1000000,takerBuy:true}))).flat();
+  const fake=await fakeFor({cutoffIso:iso(columns+1),trades});await page.goto(fake.url+`/#t=${iso(0)}~${iso(columns)}&p=25000~26000&r=0,0&auto=0&vis=2&lines=`);await probe.waitForReady();
+  const doc=await page.evaluate(()=>window.cubeAgent.export());expect(doc.comparison.captures).toEqual([]);expect(doc.selection.metrics.volume).toBe(6105000);
+  await page.evaluate(d=>window.cubeAgent.apply(d),doc);await probe.waitForReady();
+  const result=await page.evaluate(()=>window.cubeAgent.refresh());expect(result.document.selection.query).toEqual(doc.selection.query);expect(result.document.selection.metrics.volume).toBe(6105000);expect(result.changes).toEqual([]);
 });

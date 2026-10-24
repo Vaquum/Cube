@@ -149,6 +149,15 @@
     put("visibleVwaps", entries("visibleVwaps").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
     return output;
   }
+  function selectionQuery(d) {
+    const q = d.selection ? { ...d.selection.query } : null, f = d.snapshot;
+    if (!q || !f || d.selection.state !== "captured-cell") return q;
+    // Older cell copies used nominal prices despite retaining observed-only totals.
+    // Match the complete recorded address before recovering its observed prices.
+    const cell = d.comparison?.captures.find((c) => c.level.n === q.tR && c.level.m === q.pR && q.t1 === Math.floor((c.observed.t0 / 1000 - f.origin) / f.baseSeconds) && q.t2 === Math.ceil((c.observed.t1 / 1000 - f.origin) / f.baseSeconds) && q.p1 === c.nominal.low / f.basePrice && q.p2 === c.nominal.high / f.basePrice);
+    if (cell) Object.assign(q, { p1: cell.observed.low / f.basePrice, p2: cell.observed.high / f.basePrice });
+    return q;
+  }
   function diff(before, after) {
     const a = validate(before), b = validate(after), changes = [];
     const old = new Map((a.comparison?.captures || []).map((cell) => [cell.id, cell]));
@@ -238,5 +247,5 @@
     const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
     return validate(seal({ schema: SCHEMA, instrument: "BTC/USDT", createdAt: Date.now(), mode: "captured", scene, snapshot, comparison: { comparisonVersion: 2, instrument: "BTC/USDT", selectedMetric: "volume", captures, focus: captures[0]?.id ?? null, reference: null, basis: "auto", sort: { key: "time", direction: "asc" }, view: "grid", page: 0, poc: null, expanded: false, restoreLayout: null }, selection: { query: { ...scene.query }, metrics: summary, source: f.source, measuredThrough: f.cutoffMs, state: "exact" }, focus: null }));
   }
-  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, redact, configure, annotate, fromQuery, forExport });
+  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, selectionQuery, redact, configure, annotate, fromQuery, forExport });
 });

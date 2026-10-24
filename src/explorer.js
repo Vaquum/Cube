@@ -25387,7 +25387,7 @@
         const viewport = [cell.c * ts, (cell.c + 1) * ts, cell.r * ps, (cell.r + 1) * ps];
         scene.view.viewport = viewport; scene.view.window = ""; scene.view.auto = false;
         scene.view.selection = [start, stop, cell.observed.low / PR, cell.observed.high / PR];
-        Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: viewport[2], p2: viewport[3], tR: n, pR: m });
+        Object.assign(scene.query, { t1: Math.floor(start), t2: Math.ceil(stop), p1: cell.observed.low / PR, p2: cell.observed.high / PR, tR: n, pR: m });
         Object.assign(scene, Agent.seal(scene));
       }
     }
@@ -25399,7 +25399,10 @@
     }
     // Camera/drawing edits do not replace the investigation's recorded selection.
     // Explicit selection/cell copies still capture the current requested region.
-    if (activeAnalysis && (scope === "view" || scope === "comparison")) selection = structuredClone(activeAnalysis.selection);
+    if (activeAnalysis && (scope === "view" || scope === "comparison")) {
+      selection = structuredClone(activeAnalysis.selection);
+      if (selection) selection.query = Agent.selectionQuery(activeAnalysis);
+    }
     const document = Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null });
     return causal ? Agent.forExport(document) : Agent.validate(document);
   }
@@ -25483,12 +25486,16 @@
     const token = packBody.pack.state_token;
     let selection = null;
     if (before.selection) {
-      const q = before.selection.query, iso = (b) => new Date((T0 + b * BASE) * 1000).toISOString();
-      const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams({ t1: iso(q.t1), t2: iso(q.t2), p1: q.p1 * PR, p2: q.p2 * PR, tR: BASE * 2 ** q.tR, pR: PR * 2 ** q.pR, pack: token }));
+      const q = Agent.selectionQuery(before), cutoff = E.time.msToBase(Date.parse(packBody.pack.cutoff), T0, BASE);
+      const b1 = Math.min(q.t2, Math.ceil(cutoff)); let n = q.tR;
+      while (n < N_MAX && Math.ceil(b1 / 2 ** n) - Math.floor(q.t1 / 2 ** n) > TILE_COLUMNS) n++;
+      // The ordinary browser summary supports the full captured canvas. The
+      // JSON agent-cell endpoint has a separate, lower 20,000-cell limit.
+      const response = await fetch("/cube/query?proto=2&" + new URLSearchParams({ n, m: q.pR, b0: q.t1, b1, r0: q.p1, r1: q.p2, pack: token }));
       unchanged(); const body = await response.json(); unchanged();
       if (!response.ok) throw Error("Refresh failed; captured evidence retained: " + (body.detail || body.error || response.status));
-      if (body.frame.token !== token) throw Error("Source changed during refresh; captured evidence retained");
-      selection = Agent.fromQuery(body).selection;
+      if (body.summary.state_token !== token) throw Error("Source changed during refresh; captured evidence retained");
+      selection = { query: q, metrics: body.summary, source: String(packBody.pack.source ?? "Current source"), measuredThrough: wholeMs(comparisonMs(body.block.b1)), state: "cube" };
     }
     // Each capture is at most one cell, so its own observed region respects
     // both the column and returned-cell limits without reading between captures.
