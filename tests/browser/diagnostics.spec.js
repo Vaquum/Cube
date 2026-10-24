@@ -76,6 +76,9 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
   });
   await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", "waiting");
   await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive()), { timeout: 3000 }).toBe(false);
+  const canvasBox = await page.locator("#ol-canvas").boundingBox();
+  await page.mouse.move(canvasBox.x + canvasBox.width * .5, canvasBox.y + canvasBox.height * .4);
+  await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", "waiting");
   // The real 500 ms help timer and its disclosure animation run while this
   // chart request is still held; they are independent of chart readiness.
   await page.locator("#ol-tab-query").hover();
