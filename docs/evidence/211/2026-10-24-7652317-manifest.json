@@ -1,0 +1,84 @@
+{
+  "runtimeCommit": "765231780c11e1a86272aacfce92b32c0eed12ed",
+  "runtimeCommittedAt": "2026-10-24T18:28:56+03:00",
+  "sourceIndexSHA256": "3b300e655b75e71c83747fa0fe6fe1c389c43736da1e154756dc1bf35024540e",
+  "servedIndexSHA256": "7e96bced5afda115497a316f84349ff56cd26cdbdffc64f84febed3471611a92",
+  "modification": "deployment-style commit/time/PR metadata only",
+  "environment": "standard synthetic fixture in existing authorized IAB tab 1; not production latency evidence",
+  "sourceHashes": {
+    "src/agent.js": "56ab0b052e450e68db07ad38089b5d7620b02be1005bec8320d0e86da8be2fb5",
+    "src/comparison-ui.js": "f8f120e479d3de9832c731665a549f576f4734cea2253a905c16b23763b3f653",
+    "src/comparison.js": "1f30ad1e8f69c85e658258b46403916b61bcbdb1745c111f3fa1698424aceb43",
+    "src/diagnostics.js": "3394a8ca447fbfaa3348abdeff03ce077065ecdfcdc5549f3b4915355bd405c1",
+    "src/document.html": "dec1315ea839a30e653b2e68a71a30d641ed791e8c00126c7293e2a79f8abbb8",
+    "src/encoding.js": "0262e7727c217d785ac32a1a954ed8fbe9e153517913a7080a9fcd583762ce2a",
+    "src/evidence.js": "0495f45bb3ab0dc8e1f261b2595781aea4201dd6883932934182e8b1e202b038",
+    "src/explorer.css": "c84e69d1c2d5da4b8187cc39a6d56cf82cfb9d477b53256db7dcb5a15c7f70fb",
+    "src/explorer.js": "afa952742cc4a6b0a6a1c96b49d774778dc57c04390d11ed4afffba0598dcb6c",
+    "src/features.js": "d1876f2811de33e3ffbec9cd4c760df1c47981fd178c0b65ab14a49323178634",
+    "src/help.js": "b32034466c7d46b06c2a0442208589dbdfd59a4fee962aa4dc18110269398987",
+    "src/motion.js": "fd3551b389588dd145e9a328393470cba197d08bef5b9f4f992a00d5340b6500",
+    "src/rallies.js": "119722dbda82d14ff39ef6b26d57f5bac6b861bbb077fec52cb453d7385a06d0",
+    "src/reference.js": "2d48e19b6e22096525c0941023d6f614ef3e49a7f288a0f56b7102468df5f90b",
+    "src/state.js": "e23cb0856ce76cb5025c37624f263637f51e6dc15d13fe40614c7061ac3abbd8",
+    "src/view.html": "dd14c660b2c1d7fe98de6c266877f7d95b5ab52ffc5551da4851b95cf56a28b1"
+  },
+  "artifacts": {
+    "2026-10-24-7652317-side-panel.png": {
+      "bytes": 38580,
+      "sha256": "e0aa93d477868bb8d3caf2bbc522918a3229353e9544774d2cf659834b91a559"
+    },
+    "2026-10-24-7652317-side-panel.json": {
+      "bytes": 345162,
+      "sha256": "57f1fbd7ceb5922e3a1e820ceeabb33da954cb72c3894e17807dd27931205951"
+    }
+  },
+  "recording": {
+    "schema": "cube-performance@2",
+    "events": 2748,
+    "durationMs": 41294.69999998808,
+    "stopReason": "export",
+    "identity": {
+      "commit": "765231780c11e1a86272aacfce92b32c0eed12ed",
+      "committedAt": "2026-10-24T18:28:56+03:00",
+      "pullRequest": "https://github.com/Vaquum/Market-State-Cube-Explorer/pull/218",
+      "timeOrigin": 1792855899420.1,
+      "live": true,
+      "page": "fake-page-1",
+      "pack": "f60aae4c3e8c6cfd6e7f8af528024e963edd9ca96d8c6c96cc635300caab278a",
+      "provenance": {
+        "packKey": null,
+        "revision": null
+      },
+      "browser": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "viewport": [
+          351,
+          575
+        ],
+        "dpr": 3.859999895095825,
+        "supportedEntryTypes": [
+          "element",
+          "event",
+          "first-input",
+          "interaction-contentful-paint",
+          "largest-contentful-paint",
+          "layout-shift",
+          "long-animation-frame",
+          "longtask",
+          "mark",
+          "measure",
+          "navigation",
+          "paint",
+          "resource",
+          "soft-navigation",
+          "visibility-state"
+        ],
+        "interactivityInert": true
+      }
+    }
+  },
+  "capture": "Native screenshot and exact page export field read through authorized IAB tab 1; same compact JSON supplied to its download action",
+  "consoleWarningsErrors": [],
+  "restoration": "Viewport override reset and original production URL opened; application may canonicalize its active scale descriptor."
+}
