@@ -80,7 +80,7 @@ Each force is a sum of parts, each part a fixed formula over its source's stored
 | `cutoff` | The latest time any value in the answer became known. |
 | `snapshot` | The field-data-api publication the latest update pinned: `id`, `publishedAt`, `scheduledFor`. |
 | `sources.<source>` | For each source the strip reads and for `calendar`: `state` as the publication gave it (`ok`, `stale`, `disabled`, `error`, …), made `stale` once an `ok` source's last check is older than the service's own rule, `max(2 · interval, interval + 300 s)`; `checkedAt`, `receivedAt`, `intervalSeconds`; `observedAt`, its newest observation the strip holds; `recordedFrom`, the first publication the strip read it from; and `detail`, the service's reason or error. |
-| `components.<name>` | Each force's part: its `force`, its `label`, and `retroUntil`, where its values stop being retrospective (its first value known live), or null where it has none. |
+| `components.<name>` | Each force's part: its `force`, its `label`, and `retroUntil`, the first live observation after its latest reconstructed observation, or null until that boundary exists. |
 | `attentionParts.<name>` | Each part of attention: `label`, `weight`, `retroUntil`. |
 | `grid.t0`, `grid.step` | The first grid time and the spacing; `t0` is `from`. Every array in `grid` has one value per grid time. |
 | `grid.forces.<force>` | The sum of the force's parts known at each grid time, each the latest value known at or before it and not stale; null where none is. |
@@ -101,7 +101,7 @@ The page draws only what was known strictly before the **edge**: the data's cuto
 
 - A grid value at time `t` is the latest value known at or before `t`. Its formula uses only observations known by then: normalisations and trailing windows end at it.
 - An event is known from its first schedule entry's `knownAt`, at the time its latest entry known by then gives. An entry with no time cancels it, or withdraws it where the calendar stopped listing it, from its `knownAt`. Its measured reaction is known at `measured.at`, a series' move at the time it carries, a jump at `at + window`.
-- **Retrospective.** A part's values from before its `retroUntil` were computed from a native window the service had collected later, not recorded as they became known. The band draws a dashed line where they end and the cards say so. This is replay of what field-data-api published; it does not recover a provider's superseded values from before collection began.
+- **Retrospective.** A part's values before `retroUntil` may include a native window or backfill collected later, rather than observations recorded as they became known. The boundary is conservative: a reconstructed gap after collection started extends the marked prefix until the next live observation; intervening recorded values can share that label. With no subsequent live observation, all available values retain the retrospective marker. Funding uses the latest boundary of its contributing venues, and keeps the marker while any venue has no subsequent live observation. The band draws a dashed line where the prefix ends and the cards say so. This replay does not recover a provider's superseded historical vintages.
 
 ## What the page computes
 

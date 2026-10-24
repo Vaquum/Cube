@@ -177,6 +177,23 @@ print(json.dumps({'counts':[first,second,third,legacy],
   assert.equal(out.rows.bounded[1].creates,5);
 });
 
+test("a reconstructed gap after live collection keeps its retrospective label until the next live row", () => {
+  const out=python(String.raw`
+st=m.Store();model=m.Model(st);t=I['T']
+def row(identity,at):return {'id':identity,'observed_at':m.iso(at),'values':{'interest_1h':0.00001}}
+model.ingest('deribit_funding','initial',[row('first',t)],{},m.iso(t),t,m.HOUR)
+model.ingest('deribit_funding','gap',[row('recovered',t+m.DAY)],{},m.iso(t+3*m.DAY),t+3*m.DAY,m.HOUR,retrospective=True)
+before=[st.retro_until('funding:deribit'),m._retro_until(st.rows('funding:deribit'))]
+model.ingest('deribit_funding','new-live',[row('latest',t+4*m.DAY)],{},m.iso(t+4*m.DAY),t+4*m.DAY,m.HOUR)
+after=[st.retro_until('funding:deribit'),m._retro_until(st.rows('funding:deribit'))]
+other=[(t,t,1,0.1,None)]
+combined=m.funding_evidence(st.rows('funding:deribit'),other).retro_until
+print(json.dumps({'before':before,'after':after,'mixedVenueBoundary':combined}))`,{T});
+  assert.deepEqual(out.before,[null,null]);
+  assert.deepEqual(out.after,[T+4*DAY,T+4*DAY]);
+  assert.equal(out.mixedVenueBoundary,null);
+});
+
 test("the calendar's revisions become schedule entries; a date stays a date; a withdrawn event leaves no cancellation behind", () => {
   const out = python(String.raw`
 st = m.Store(); md = m.Model(st)
