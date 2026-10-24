@@ -38387,7 +38387,8 @@
     },
     STRIP_CERTAINTY = { confirmed: "confirmed", tentative: "tentative", rule_derived: "set by rule", unspecified: "certainty not given", estimate: "an estimate" };
   // A bridge that serves the strip declares it in the page (tools/strip_contract.py); a page without the declaration never asks.
-  const STRIP_SERVED = Boolean(document.querySelector('meta[name="explorer-strip"]'));
+  const STRIP_SERVED = Boolean(document.querySelector('meta[name="explorer-strip"]')),
+    STRIP_HINT = el("strip").dataset.hint;
   const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
     attentionParts: null, snapshot: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", coverage: "", busy: null, timer: 0,
     failed: { key: "", at: -Infinity }, horizon: null, hits: [] };
@@ -39070,9 +39071,9 @@
     if (button.dataset.state !== state) button.dataset.state = state;
     const coverage = S.strip === "off" ? "" : stripRt.coverage;
     if (button.dataset.coverage !== coverage) button.dataset.coverage = coverage;
-    if (coverage) {
-      if (button.getAttribute("aria-description") !== coverage) button.setAttribute("aria-description", coverage);
-    } else button.removeAttribute("aria-description");
+    // bindHints keeps this hint in the existing aria-describedby target, which takes precedence over aria-description.
+    const hint = [STRIP_HINT, coverage].filter(Boolean).join(". ");
+    if (button.dataset.hint !== hint) button.dataset.hint = hint;
   }
   // The Strip's menu: its dataset (Off, or Forces), then which force.
   function stripDatasetItems() {

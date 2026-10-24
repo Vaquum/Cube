@@ -404,7 +404,8 @@ test("recorded partial history is disclosed on the band, in its hatch and in the
   await open(page, fake, probe, view.hash);
   const button = page.locator("#ol-strip"), caption = "Partial history · 2 of 4 forces · attention unavailable";
   await expect(button).toHaveAttribute("data-coverage", caption);
-  await expect(button).toHaveAttribute("aria-description", caption);
+  await expect(button).toHaveAccessibleDescription(new RegExp(caption));
+  await expect(button).toHaveAccessibleDescription(/What the band under the prices shows/);
   const g = at(await layoutOf(page)), frame = await pane.last(), top = g.by + LABELS;
   expect(frame.texts.some((t) => t.text === caption && t.y >= g.by && t.y < top)).toBe(true);
   const partial = frame.rects.filter((r) => r.fill === "pattern" && r.y === top + 1 && r.h === FOOT);
@@ -429,7 +430,8 @@ test("recorded partial history is disclosed on the band, in its hatch and in the
   await button.click();
   await page.locator('#ol-strip-menu [data-strip="off"]').click();
   await expect(button).toHaveAttribute("data-coverage", "");
-  await expect(button).not.toHaveAttribute("aria-description");
+  await expect(button).not.toHaveAccessibleDescription(/Partial history/);
+  await expect(button).toHaveAccessibleDescription(/What the band under the prices shows/);
 });
 
 test("coverage reports changing support only before the visible replay edge", async ({ page, fakeFor, probe, pane }) => {
