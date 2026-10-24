@@ -203,3 +203,53 @@ print(json.dumps({'records':len(data.records),'requests':201}))
   assert.equal(run.status,0,run.stderr);
   assert.equal(JSON.parse(run.stdout).records,50000);
 });
+
+test("an older completed cache replays once under new ingestion rules and survives a failed upgrade", () => {
+  const script=String.raw`
+import json,sys,tempfile
+sys.path.insert(0,'tools')
+import strip_model as m
+from field_data import Dataset,FieldDataError
+from strip_service import StripService
+t=1792843200000
+def record(count,full):return {'id':'minute','observed_at':m.iso(t),
+    'values':{'creates':count,'bitcoin_creates':count,'bullish_word_matches':count,'bearish_word_matches':0},
+    'metadata':{'interval_end':m.iso(t+m.MINUTE),'full_minute_connection_coverage':full,'cursor_gap_overlap':False}}
+class Reader:
+    fail=True;reads=0
+    def history(self,source,**kw):return {'versions':[
+        {'dataset_id':str(i),'first_published_at':m.iso(t+i*m.MINUTE)} for i in (2,1)]}
+    def version(self,source,v):
+        self.reads+=1;i=int(v['dataset_id'])
+        if self.fail and i==2:raise FieldDataError('temporary',503)
+        return Dataset(source,str(i),m.iso(t+i*m.MINUTE),[record(1 if i==1 else 20,i==2)],
+                       {'mode':'continuous_checkpointed'},{},'ok')
+with tempfile.TemporaryDirectory() as root:
+    path=root+'/strip.sqlite';st=m.Store(path);model=m.Model(st)
+    # The previous decoder stored the first partial count and acknowledged both versions.
+    for i in (1,2):model.ingest('bluesky_live',str(i),[record(1 if i==1 else 20,i==2)],{},m.iso(t+i*m.MINUTE),t+i*m.MINUTE,300000)
+    st.mark_history_complete('bluesky_live')
+    assert json.loads(st.rows('bluesky')[0][4])['creates']==1
+    st.db.execute('DROP TABLE ingestion_replay');st.db.close()
+    reader=Reader();service=StripService(reader,path)
+    assert not service.store.history_complete('bluesky_live')
+    service.bootstrap(('bluesky_live',))
+    assert 'bluesky_live' in service.history_errors
+    assert json.loads(service.store.rows('bluesky')[0][4])['creates']==1
+    service.store.db.close()
+    reader.fail=False;service=StripService(reader,path)
+    service.bootstrap(('bluesky_live',))
+    row=service.store.rows('bluesky')[0]
+    assert row[1]==t+2*m.MINUTE and json.loads(row[4])['creates']==20,row
+    assert service.store.history_complete('bluesky_live')
+    service.store.db.close();reads=reader.reads
+    service=StripService(reader,path);service.bootstrap(('bluesky_live',))
+    assert reader.reads==reads,'completed upgrade must not replay bodies on every restart'
+    # The existing marker's shape remains compatible with the previous release.
+    assert [r[1] for r in service.store.db.execute('PRAGMA table_info(history_sync)')]==['source']
+    print(json.dumps({'oldCount':1,'repairedCount':20,'failedReplayPreservedPriorState':True,'repeatedBodyReads':reader.reads-reads}))
+`;
+  const run=spawnSync('python3',['-c',script],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8',timeout:25000});
+  assert.equal(run.status,0,run.stderr);
+  assert.equal(JSON.parse(run.stdout).repeatedBodyReads,0);
+});
