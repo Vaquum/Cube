@@ -13,7 +13,8 @@ async function exported(page) {
   return JSON.parse(await page.locator("#ol-diagnostics-output").inputValue());
 }
 async function settledFrames(page) {
-  await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive())).toBe(false);
+  await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive() || document.getAnimations().some(a =>
+    (a.playState === "running" || a.pending) && !a.effect?.target?.closest?.('#ol-help-tooltip,#ol-tip,[role="tooltip"]')))).toBe(false);
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)))));
 }
 test("side-panel controls export bounded reload, browser and application measurements", async ({ page, fakeFor, probe }) => {
@@ -77,8 +78,8 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
   await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive()), { timeout: 3000 }).toBe(false);
   // The real 500 ms help timer and its disclosure animation run while this
   // chart request is still held; they are independent of chart readiness.
-  await page.locator("#ol-diagnostics-export").hover();
-  await expect(page.locator("#ol-help-tooltip")).toContainText("download the local timings");
+  await page.locator("#ol-tab-query").hover();
+  await expect(page.locator("#ol-help-tooltip")).toContainText("Query, view code and provenance");
   // Release through a real resize, which advances the draw revision without new input.
   await page.evaluate(() => { window.__holdDiagnosticsCalibration = false; });
   const viewport = page.viewportSize(); await page.setViewportSize({ ...viewport, width: viewport.width - 1 });
@@ -133,7 +134,7 @@ test("applying Query bounds waits for requested chart data instead of quiet pane
     expect(input.scope).toBe("ol-canvas");
     expect(report.events.some(e => e.type === "presentation-proxy" && e.id === input.id)).toBe(false);
     expect(report.unfinishedInteractions).toContain(input.id);
-    expect(report.events.some(e => e.type === "draw" && ["pending-data", "pending-refinement"].includes(e.status))).toBe(true);
+    expect(report.events.some(e => e.type === "draw" && ["pending-data", "pending-refinement", "coarse-loaded"].includes(e.status))).toBe(true);
   } finally { gate.open(); }
 });
 test("malformed cube and movement JSON are failed body phases", async ({ page, fakeFor, probe }) => {
@@ -156,6 +157,7 @@ test("Apply view owns its asynchronous commit and cannot finish before its held 
   await controls(page); await page.locator("#ol-diagnostics-start").click();
   const gate = fake.on({ route:"/cube/tile" }).gate();
   try {
+    await page.locator("#ol-import-toggle").click();
     await page.locator("#ol-import-text").fill(JSON.stringify({ tR:28800, pR:125, t1:"2026-03-28T00:00Z", t2:"2026-03-29T00:00Z", p1:24500, p2:25500 }));
     await page.locator("#ol-import-apply").click(); await gate.arrived();
     await expect(page.locator("#ol-bounds-start")).toHaveValue("2026-03-28T00:00");
@@ -179,6 +181,9 @@ test("external A to B to A address replacement cannot complete the earlier bound
     await page.locator("#ol-bounds-start").fill("2026-03-28T00:00");
     await page.locator('#ol-bounds-form button[type="submit"]').click(); await gate.arrived();
     const original = new URL(page.url()).hash;
+    // Bounds fields intentionally retain edits while their form has focus.
+    // Move focus before using them as the address-application oracle.
+    await page.locator("#ol-canvas").focus();
     await page.evaluate(() => { location.hash = "#w=7d&r=9,0"; });
     await expect(page.locator("#ol-bounds-start")).not.toHaveValue("2026-03-28T00:00");
     await page.evaluate(hash => { location.hash = hash; }, original);
@@ -258,7 +263,8 @@ for (const kind of ["drawer", "inspector", "reference", "keys", "phone-controls"
   if (kind === "keys") await page.locator("#ol-help").click();
   if (kind === "phone-controls") await page.locator("#ol-sheet-toggle").click();
   await settledFrames(page); await page.locator("#" + close).click(); await settledFrames(page);
-  const report = await exported(page), input = report.events.filter(e => e.type === "input" && e.target === close && e.event === "click").at(-1);
+  const report = await exported(page), input = report.events.find(e => e.type === "input" && e.target === close && e.event === "click" &&
+    report.events.some(ack => ack.type === "acknowledgment" && ack.id === e.id && ack.presentation?.open === false));
   expect(input.scope).toBe(scope);
   const acknowledgment = report.events.find(e => e.type === "acknowledgment" && e.id === input.id), complete = report.events.find(e => e.type === "presentation-proxy" && e.id === input.id);
   expect(acknowledgment.presentation.open).toBe(false); expect(complete.status).toBe("scope-closed"); expect(complete.at).toBeGreaterThanOrEqual(acknowledgment.at);
@@ -300,4 +306,40 @@ test("recording controls have a reference Show route, help, names and native key
   await page.locator("#ol-diagnostics-start").focus(); await page.keyboard.press("Enter"); await expect(page.locator("#ol-diagnostics-status")).toContainText("Recording");
   await page.keyboard.press("Tab"); await page.keyboard.press("Space"); await expect(page.locator("#ol-diagnostics-status")).toContainText("Stopped");
   await exported(page); await expect(page.getByRole("textbox",{ name:"Performance recording JSON",exact:true })).toHaveAttribute("readonly", "");
+});
+test("the reported replay address cannot certify a coarse grid as completed target output", async ({ page, fakeFor }) => {
+  await page.setViewportSize({ width:1500,height:950 });
+  await page.addInitScript(() => sessionStorage.setItem("cube-performance-record-next-load","1"));
+  const fake = await fakeFor("standard", { next:300 });
+  await page.goto(fake.url + "/#t=2025-12-14T12:30Z~2025-12-20T12:30Z&p=22375~23750&r=4,0&vis=2&rc=1&replay=1&at=2025-12-15T11:30Z");
+  await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-startup", "");
+  await fake.idle({ quietMs:500 }); await settledFrames(page);
+  // The existing coarse glyph is independent of the recorder. This assertion
+  // remains valid if #195 later converges; no historical read sequence is pinned.
+  const coarse = await page.locator("#ol-res").getAttribute("data-coarse") === "true";
+  const report = await exported(page), draw = report.events.filter(e => e.type === "draw").at(-1);
+  expect(draw.requested.n).toBe(4); expect(draw.requested.replay).toBe(true);
+  if (coarse) expect(["pending-data","pending-refinement","coarse-loaded","stalled"]).toContain(draw.status);
+  else { expect(draw.rendered.n).toBe(draw.target.n); expect(draw.rendered.m).toBe(draw.target.m); }
+});
+for (const replacement of ["range","pack token"]) test(`obsolete candle ${replacement} answer is never marked applied`, async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("micro:bars", { next:3 });
+  await page.goto(fake.url + "/#t=2021-01-01T00:00Z~2021-01-01T00:03:45Z&p=24800~25400&r=2,0"); await probe.waitForReady();
+  await controls(page); await page.locator("#ol-diagnostics-start").click();
+  const gate = fake.on({ route:"/cube/bars", when:q => q.n === "2",times:1 }).gate();
+  try {
+    await page.locator("#ol-canvas").focus(); await page.keyboard.press("k"); await gate.arrived();
+    const old = fake.log().find(e => e.path === "/cube/bars" && e.query.n === "2");
+    if (replacement === "range") {
+      await page.evaluate(() => { location.hash = "#t=2021-01-01T00:15Z~2021-01-01T00:18:45Z&p=24800~25400&r=2,0&mode=candles"; });
+      await expect(page.locator("#ol-bounds-start")).toHaveValue("2021-01-01T00:15");
+    } else {
+      fake.advance({ minutes:2,trades:[{ t_ms:1250000,price:2625000,qty:400000,takerBuy:true }] });
+      await expect.poll(() => fake.log().some(e => e.path === "/cube/pack" && ["delta","pack"].includes(e.answer)),{ timeout:10000 }).toBe(true);
+    }
+    gate.open(); await fake.idle({ quietMs:500 }); await settledFrames(page);
+    const report = await exported(page), suffix = `|2|${old.query.b0}|${old.query.b1}|${old.query.pack}`;
+    const discarded = report.events.find(e => e.type === "data-discarded" && e.key.startsWith("candles|") && e.key.endsWith(suffix));
+    expect(discarded).toBeTruthy(); expect(report.events.some(e => e.type === "data-applied" && e.key === discarded.key)).toBe(false);
+  } finally { gate.open(); }
 });
