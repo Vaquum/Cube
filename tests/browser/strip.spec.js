@@ -1,5 +1,5 @@
 "use strict";
-// B69 strip.spec.js (#193): the Strip under the price pane, on the fake cube's synthetic strip (tests/support/strip.js).
+// B69 strip.spec.js (#193): the Strip under the price pane, on the fake cube's synthetic strip and recorded production regressions.
 // Oracles: the fake's own /cube/strip answers, asked for again over HTTP (test support, never the page); the formulas and known-at
 // rules of docs/strip.md computed here, with the vendored d3 for the Lab mixing and the page's role colours read from its stylesheet;
 // the canvas operations pane-canvas.js records; the fake's request log; and the address grammar and the menu's catalogue written as
@@ -359,9 +359,9 @@ test("a range of dates with no hour is labelled at its middle over a bracket of 
   expect(bracket, "a bracket spans it").toBeTruthy();
   expect(Math.abs(bracket.path[0][0] - X(start))).toBeLessThan(1);
   expect(Math.abs(bracket.path[1][0] - X(end))).toBeLessThan(1);
-  // Its light holds through its dates at its full weight: the beam through the band's middle at its strongest.
+  // Its light holds through its dates at its full weight, confined to the two-pixel rail through the band's middle.
   const top = g.by + LABELS, mid = Math.floor(X((start + end) / 2));
-  expect(frame.rects.some((r) => r.w === 1 && r.x === mid && r.fill !== "pattern" && Math.abs(r.h - (BAND - 2) * 0.7) < 0.01 && Math.abs(r.y - (top + (BAND - (BAND - 2) * 0.7) / 2)) < 0.01)).toBe(true);
+  expect(frame.rects.some((r) => r.w === 1 && r.x === mid && r.fill !== "pattern" && r.h === 2 && r.y === top + BAND / 2 - 1)).toBe(true);
 });
 
 test("the band's own card names each source's freshness, a stale one as stale", async ({ page, fakeFor, probe }) => {
@@ -432,6 +432,65 @@ test("recorded partial history is disclosed on the band, in its hatch and in the
   await expect(button).toHaveAttribute("data-coverage", "");
   await expect(button).not.toHaveAccessibleDescription(/Partial history/);
   await expect(button).toHaveAccessibleDescription(/What the band under the prices shows/);
+});
+
+test("a saturated real calendar leaves the force colours visible outside its two-pixel rail", async ({ page, fakeFor, probe, pane }) => {
+  const recorded = require("../fixtures/regressions/forces-calendar-mask/strip.json"), grid = recorded.grid;
+  const fake = await fakeFor("mini", { cutoff: new Date(recorded.cutoff).toISOString() }), view = await rectangle(fake, 4 / 24, "&strip=forces");
+  await page.route("**/cube/strip?*", async (route) => {
+    const q = new URL(route.request().url()).searchParams, from = Number(q.get("from")), to = Number(q.get("to")), step = Number(q.get("step"));
+    const read = (series) => Array.from({ length: Math.ceil((to - from) / step) }, (_, i) => {
+      const at = Math.floor((from + i * step - grid.t0) / grid.step);
+      return at >= 0 && at < series.length ? series[at] : null;
+    });
+    await route.fulfill({ json: { ...recorded, grid: { t0: from, step,
+      forces: Object.fromEntries(Object.entries(grid.forces).map(([k, v]) => [k, read(v)])),
+      ...Object.fromEntries(["attention", "close", "next24h", "dvol"].map((k) => [k, read(grid[k])])),
+      parts: Object.fromEntries(Object.entries(grid.parts).map(([k, v]) => [k, read(v)])),
+    } } });
+  });
+  await open(page, fake, probe, view.hash);
+  const g = at(await layoutOf(page)), top = g.by + LABELS, frame = await pane.last(), palette = await pane.colours();
+  const columns = frame.rects.filter((r) => r.w === 1 && r.y === top + 1 && r.h === BAND - 2 && r.fill !== "pattern" && r.x >= g.x && r.x < g.x + g.w);
+  expect(columns.length).toBeGreaterThan(100);
+  const samples = columns.filter((_, i) => i % 97 === 43).map((r) => {
+    const ms = Math.round(view.from + ((r.x + 0.5 - g.x) / g.w) * (view.to - view.from));
+    return { x: r.x, ms, lean: lean(recorded, ms), attention: value(recorded, grid.attention, ms) };
+  });
+  expect(samples.length).toBeGreaterThan(5);
+  expect(samples.every((s) => s.lean !== null && s.attention !== null)).toBe(true);
+  // Independent calendar oracle: every contribution known at the sample, with the documented reach and decay.
+  for (const sample of samples) {
+    const light = recorded.events.reduce((sum, e) => {
+      const s = entryAt(e, sample.ms);
+      if (!s || s.at === null || !s.weight) return sum;
+      return sum + (sample.ms < s.at ? s.at - sample.ms > 14 * DAY ? 0 : s.weight * Math.exp(-(s.at - sample.ms) / (2 * DAY))
+        : s.end !== null && sample.ms < s.end ? s.weight : 0);
+    }, 0);
+    expect(light, `calendar light saturates at ${new Date(sample.ms).toISOString()}`).toBeGreaterThan(1);
+  }
+  const want = await colours(page, samples), surface = rgb(palette.surface), ink = rgb(palette.ink),
+    blend = (under, over, alpha) => under.map((v, i) => v * (1 - alpha) + over[i] * alpha),
+    grounds = want.map((s) => blend(surface, rgb(s.hue), s.alpha)),
+    rail = frame.rects.filter((r) => r.w === 1 && r.fill === palette.ink && r.x >= g.x && r.x < g.x + g.w && r.y >= top + 1 && r.y + r.h <= top + BAND - 1);
+  expect(rail.length).toBe(columns.length);
+  for (const r of rail) {
+    expect(r.h).toBe(2);
+    expect(r.y).toBe(top + BAND / 2 - 1);
+    expect(r.alpha).toBeCloseTo(0.85, 6);
+  }
+  // y+7 and y+14 were inside the old 14 px beam. Reading the composed canvas catches an overlay that draw-call-only colour tests miss.
+  const pixels = await page.locator("#ol-canvas").evaluate((canvas, { samples, top }) => {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    return samples.map(({ x }) => [7, 14, 11].map((y) => Array.from(ctx.getImageData(x, top + y, 1, 1).data.slice(0, 3))));
+  }, { samples, top });
+  pixels.forEach((points, k) => {
+    for (const point of points.slice(0, 2)) point.forEach((v, i) => expect(Math.abs(v - grounds[k][i]), `force colour outside the rail at ${samples[k].x}`).toBeLessThanOrEqual(2));
+    const lit = blend(grounds[k], ink, 0.85);
+    points[2].forEach((v, i) => expect(Math.abs(v - lit[i]), `calendar rail at ${samples[k].x}`).toBeLessThanOrEqual(2));
+  });
+  const first = pixels[0][0], last = pixels[pixels.length - 1][0];
+  expect(Math.max(...first.map((v, i) => Math.abs(v - last[i]))), "the real force/attention change remains visible").toBeGreaterThan(20);
 });
 
 test("coverage reports changing support only before the visible replay edge", async ({ page, fakeFor, probe, pane }) => {

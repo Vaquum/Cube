@@ -38583,9 +38583,9 @@
     lights.forEach((light, k) => {
       light = Math.min(1, light);
       if (light < 0.02) return;
-      const beam = (h - 2) * (0.2 + 0.5 * light);
       ctx.globalAlpha = 0.85 * light;
-      ctx.fillRect(x0 + k, top + (h - beam) / 2, 1, beam);
+      // Dense calendars can saturate the light across a whole view; its rail must leave the force colours readable.
+      ctx.fillRect(x0 + k, top + h / 2 - 1, 1, 2);
     });
     ctx.globalAlpha = 1;
   }
