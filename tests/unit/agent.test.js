@@ -134,6 +134,13 @@ test("replay packet JSON and comparison ordering cannot leak future captured amo
   assert.equal((await A.decode(await A.encode(d, codecs), codecs)).snapshot.cutoffMs, epoch + 56250);
   assert.equal(d.comparison.captures[1].metrics["volume.amount"].value, 100);
 });
+test("replay retains only completed developing POC session reads", () => {
+  const d = document(), block = d.snapshot.sources[0];
+  d.snapshot.cache.developingPocReads = { cubeMap: [["before", { ...block, b1: 1, cells: block.cells.slice(0, 1) }], ["after", block]] };
+  const original = A.validate(A.seal(d)), replay = A.forExport(A.configure(original, { replay: true, anchor: 1 }));
+  assert.deepEqual(replay.snapshot.cache.developingPocReads.cubeMap.map(([key]) => key), ["before"]);
+  assert.equal(original.snapshot.cache.developingPocReads.cubeMap.length, 2);
+});
 test("a fenced snippet in source text cannot replace the final analysis JSON block", () => {
   const d = document(); d.comparison.captures[0].source += '\n```json\n{"unrelated":true}\n```';
   const sealed = A.seal(d); assert.deepEqual(A.parse(A.text(sealed)), sealed);

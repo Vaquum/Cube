@@ -146,6 +146,7 @@
     }).filter(([, r]) => r.b > r.a));
     for (const name of ["lineResults", "lineLatest"]) put(name, entries(name).filter(([, r]) => Array.isArray(r.span) && r.span[1] <= cut));
     put("visibleVwaps", entries("visibleVwaps").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
+    put("developingPocReads", entries("developingPocReads").filter(([, r]) => Number.isFinite(r.b1) && r.b1 <= cut));
     return output;
   }
   function diff(before, after) {
