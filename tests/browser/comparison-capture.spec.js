@@ -264,6 +264,7 @@ test("a pending rectangle keeps loaded cell facts, independently summed from its
   }
   expect(found, "a loaded occupied cell is visible while the query is held").toBeTruthy();
   await addMenu(page, found); const capture = (await saved(page)).captures[0];
+  expect(capture.observed).toMatchObject(capture.nominal);
   expect(capture.metrics["volume.amount"].tag).toBe("finite"); expect(capture.metrics["volume.amount"].value).toBe(Number(found.volume));
   const { store } = resolveProfile("standard"), trades = [], from = capture.nominal.t0 - EPOCH, to = capture.nominal.t1 - EPOCH;
   for (let i = 0; i < store.length; i++) if (store.t[i] >= from && store.t[i] < to && store.price[i] / 100 >= capture.nominal.low && store.price[i] / 100 < capture.nominal.high)

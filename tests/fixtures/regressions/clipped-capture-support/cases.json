@@ -9,6 +9,8 @@
   "cases": [
     {"name":"time","bounds":[1600,1601,200,208],"volume":752.5,"delta":-252.5,"trades":2},
     {"name":"price","bounds":[0,4096,200,201],"volume":2500,"delta":-2000,"trades":2},
-    {"name":"time and price","bounds":[1600,1601,200,201],"volume":250,"delta":250,"trades":1}
+    {"name":"time and price","bounds":[1600,1601,200,201],"volume":250,"delta":250,"trades":1},
+    {"name":"view edge","bounds":[1601,1616,200,208],"volume":2250,"delta":-2250,"trades":1,"selection":false},
+    {"name":"coarser than source","bounds":[1600,1601,200,201],"volume":250,"delta":250,"trades":1,"cutoffBase":30720,"resolution":[6,0],"extraTrades":[{"base":1620,"offsetMs":1000,"price":2500000,"qty":10000000,"takerBuy":true}]}
   ]
 }

@@ -8,10 +8,14 @@ const metric = (capture, name) => capture.metrics[name + ".amount"].value;
 
 for (const phase of ["pending", "failed"]) for (const sample of fixture.cases) {
   test(`${phase} ${sample.name} boundary never exports whole-cell counters as a partial capture`, async ({ page, fakeFor, probe, allowConsole, freshContext }) => {
-    const fake = await fakeFor({ cutoffIso: iso(fixture.cutoffBase), trades: fixture.trades.map(({base, offsetMs, ...trade}) => ({...trade, t_ms:base * BASE + offsetMs})) });
+    const cutoff = sample.cutoffBase ?? fixture.cutoffBase;
+    const trades = [...fixture.trades.filter(t=>t.base<cutoff),...(sample.extraTrades??[])].map(({base, offsetMs, ...trade}) => ({...trade, t_ms:base * BASE + offsetMs}));
+    const fake = await fakeFor({ cutoffIso: iso(cutoff), trades: trades.sort((a,b)=>a.t_ms-b.t_ms) });
     const gate = fake.on({route:"/cube/query", times:1}).gate();
     const [a,b,low,high] = sample.bounds;
-    const view = `#t=${iso(0)}~${iso(8192)}&p=24000~27000&r=12,3&auto=0&vis=2&lines=&sel=${iso(a)}~${iso(b)},${low*125}~${high*125}`;
+    const view = sample.selection === false
+      ? `#t=${iso(a)}~${iso(b)}&p=${low*125}~${high*125}&r=12,3&auto=0&vis=2&lines=`
+      : `#t=${iso(0)}~${iso(8192)}&p=24000~27000&r=${(sample.resolution??[12,3]).join(",")}&auto=0&vis=2&lines=&sel=${iso(a)}~${iso(b)},${low*125}~${high*125}`;
     await page.goto(fake.url + "/" + view);
     await gate.arrived();
     await expect(page.locator("#ol-focus-title")).toHaveText("Measuring…");
