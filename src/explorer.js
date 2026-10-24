@@ -17650,9 +17650,11 @@
     if (!lineAvailable(key)) return { text: "Live cube only" };
     if (!S.lines.includes(key) || CLOCK[key]) return { text: "" };
     if (key === "devpoc") {
-      const days = developingPocDays(), r = days.length ? developingPocDay(days[0]) : { state: "none", points: [] }, point = developingPocPoint({ r }, Math.min(S.tB, activeCutoff()));
-      return { text: r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "unsupported" ? "not captured" : r.state === "none" ? "no completed sample" : "…",
-        title: r.error || `Cumulative since 00:00 UTC${point ? "; as of " + when(point[0]) + " UTC" : ""}; 15-minute samples and live so far. Wide views show the latest visible day; zoom in for earlier daily trails.` };
+      const days = developingPocDays(), readings = days.map(developingPocDay), r = readings[0] ?? { state: "none", points: [] }, point = developingPocPoint({ r }, Math.min(S.tB, activeCutoff()));
+      const missing = readings.filter((read) => read.state === "unsupported").length, coverage = missing && days.length > 1 ? `${missing} of ${days.length} sessions not captured` : "";
+      const text = r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "unsupported" ? "not captured" : r.state === "none" ? "no completed sample" : "…";
+      return { text: coverage ? r.state === "ready" ? `${text} · ${coverage}` : coverage : text,
+        title: (r.error || `Cumulative since 00:00 UTC${point ? "; as of " + when(point[0]) + " UTC" : ""}; 15-minute samples and live so far. Wide views show the latest visible day; zoom in for earlier daily trails.`) + (coverage ? ` ${coverage}.` : "") };
     }
     if (key === "vvwap") {
       const r = visibleVwapResult();
