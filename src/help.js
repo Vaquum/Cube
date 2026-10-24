@@ -92,6 +92,11 @@
   terms("seasonal activity all price usdt|seasonal", "All-price traded USDT relative to eligible earlier comparison windows with matching seasonal timing.");
   const valueLabels = { "window-text": "Time window", "res-text": "Cell size", tr: "Time cell duration", pr: "Price row width", "legend-text": "Cell colour scale", "rows-legend-text": "Background colour scale", "rows-text": "Rows measure and period", "background-text": "Background measure and period", "profile-chip-text": "Profile comparison", "axis-chip-text": "Column and profile axes", "data-through": "Data through" };
   const fields = {
+    "diagnostics-start": "Start local performance recording; replaces the previous recording and stops at two minutes, 10,000 events or 2 MiB.",
+    "diagnostics-stop": "Stop collecting measurements and retain the recording in this page for export.",
+    "diagnostics-export": "Stop collection and download the local timings, requested target and submitted output as JSON.",
+    "diagnostics-reload": "Arm one recording before reloading this tab; the arm is consumed on the next load and stores no measurements.",
+    "diagnostics-output": "Read-only JSON from the last exported performance recording.",
     "window-text": "Time span currently covered by the chart; calendar windows follow their UTC dates.",
     "res-text": "Duration of one time column and width of one price row; Auto chooses the level from screen cell size.",
     "legend-text": "Cell measure, basis, transform and fitted colour domain; equal values need the same mapping for equal colours.",

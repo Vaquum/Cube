@@ -1632,6 +1632,18 @@
               </button>
             </div>
             <div id="ol-query-ready" class="ol-muted"></div><dl id="ol-query-provenance" class="ol-query-provenance" aria-label="Effective measurement scope and frozen comparison provenance"></dl>
+            <details id="ol-diagnostics" class="ol-diag">
+              <summary>Performance recording</summary>
+              <p class="ol-muted">Optional measurements stay in this page. Record an interaction, then export its timings and requested/drawn grid identity. Frame and draw signals do not certify compositor presentation or INP.</p>
+              <div class="ol-query-actions">
+                <button type="button" id="ol-diagnostics-start" class="ol-action cursor-interaction">Start recording</button>
+                <button type="button" id="ol-diagnostics-stop" class="ol-action cursor-interaction">Stop recording</button>
+                <button type="button" id="ol-diagnostics-export" class="ol-action cursor-interaction">Export recording</button>
+                <button type="button" id="ol-diagnostics-reload" class="ol-action cursor-interaction">Record next reload</button>
+              </div>
+              <p id="ol-diagnostics-status" class="ol-muted" role="status"></p>
+              <textarea id="ol-diagnostics-output" rows="5" readonly hidden aria-label="Performance recording JSON"></textarea>
+            </details>
             <section class="ol-summary" id="ol-summary" aria-labelledby="ol-summary-title">
               <div class="ol-summary-head">
                 <h3 id="ol-summary-title">View summary</h3

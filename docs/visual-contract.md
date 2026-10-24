@@ -728,7 +728,7 @@ Unit tests run with `npm test`; browser specs with `npm run test:browser`. `U46`
 | U96 | `tests/unit/comparison-storage.test.js` | Dedicated tab record, validation, whole-record UTF-8 cap including empty metadata, faults, retained rejection, duplicate-tab and layout restoration | #71 |
 | U97 | `tests/unit/comparison-benchmark.test.js` | v4 preserves pinned navigation inputs, smoke candidate/capability checks, independent near-cap fixture bytes, DOM event/frame timing and declared action budgets | #71 |
 | U64 | `tests/unit/view-summary.test.js` | the summary's contract with its sources: every field the PRD names is produced from a record the popovers read, the strings are `E.text`'s, and nothing leaves the page unless copied | #48 |
-| B01 | `tests/browser/boot.spec.js` | boot in recorded and live mode, the 29 module keys, production globals | H7b |
+| B01 | `tests/browser/boot.spec.js` | boot in recorded and live mode, declared module keys and production globals; `explorerDiagnostics` is the opt-in recorder factory, with no private application controller or test/control endpoint (S1-003) | H7b |
 | B02 | `tests/browser/recorded-snapshot.spec.js` | real recorded blocks through the page | K |
 | B03 | `tests/browser/readout-agreement.spec.js` | tooltip, table row, legend marker and pixel agree for every measure | T |
 | B04 | `tests/browser/cells-edge.spec.js` | a theme flip at run time recolours the marks from the other LUT with no refit and no request (formatting invariance is U41) | S1 |

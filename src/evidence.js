@@ -28,7 +28,10 @@
     return () => { value ^= value << 13; value >>>= 0; value ^= value >>> 17; value >>>= 0; value ^= value << 5; return value >>>= 0; };
   }
   const bucket = (value, pair) => value < pair[0] ? 0 : value < pair[1] ? 1 : 2;
-  const yieldTask = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const yieldTask = (control, stage) => new Promise((resolve) => {
+    const started = control.now?.();
+    setTimeout(() => { if (started !== undefined) control.yield?.(stage, control.now() - started); resolve(); }, 0);
+  });
   function summary(cases, field) {
     const values = cases.map((c) => c.delta).sort((a, b) => a - b);
     let overlapping = 0;
@@ -54,12 +57,17 @@
     return {result:reason ? unavailable(reason,reason==="Degenerate resampling interval" ? "undefined" : "unsupported") : finite(pair),validDraws:values.length};
   }
   async function bootstrap(input, result, kind, horizon, control = {}) {
+    const phaseEnd = control.phase?.("bootstrap");
+    let stageEnd = control.phase?.("bootstrap.summaries");
+    let phaseOutcome = "interrupted";
+    try {
     const alive = () => !control.cancelled?.();
     const field = kind === "poc-barrier" ? "first" : "direction", sample = summary(result.matched[horizon], field), base = summary(result.cases[horizon], field);
+    stageEnd?.(); stageEnd = control.phase?.("bootstrap.scan");
     const length = result.blockLength, step = 2 ** result.n, start = input.b0 / step, stop = (result.a + 1), first = Math.floor(start / length), last = Math.ceil(stop / length);
     const blocks = Array.from({ length: Math.max(0, last - first) }, (_, i) => ({ id: first + i, sample: [0, 0, 0, 0], base: [0, 0, 0, 0], full: (first + i) * length >= start && (first + i + 1) * length <= stop }));
     for (let i = 0; i < result.cases[horizon].length; i++) {
-      if (i % 1024 === 0) { await yieldTask(); if (!alive()) return null; }
+      if (i % 1024 === 0) { await yieldTask(control, "bootstrap.scan"); if (!alive()) return null; }
       const c = result.cases[horizon][i], block = blocks[Math.floor(c.c / length) - first], category = c[field] + 1;
       block.base[category]++; block.base[3]++;
       if (c.matched) { block.sample[category]++; block.sample[3]++; }
@@ -67,10 +75,11 @@
     const fullMatched = blocks.filter((b) => b.full && b.sample[3] > 0).length;
     const key = canonicalKey(input, result, kind, horizon), seed = fnv(JSON.stringify(key) + BOOTSTRAP), rng = random(seed);
     const draws = Object.fromEntries(["down", "flat", "up"].map((k) => [k, { conditional: [], baseline: [], difference: [] }]));
+    stageEnd?.(); stageEnd = control.phase?.("bootstrap.draws");
     // A floor failure remains explicit; do not spend 2000 draws on a known unusable study.
     if (result.state && fullMatched >= 20 && blocks.length) {
       for (let r = 0; r < 2000; r++) {
-        if (r % 16 === 0) { await yieldTask(); if (!alive()) return null; }
+        if (r % 16 === 0) { await yieldTask(control, "bootstrap.draws"); if (!alive()) return null; }
         const s = [0, 0, 0, 0], b = [0, 0, 0, 0];
         for (let j = 0; j < blocks.length; j++) {
           const chosen = blocks[Math.floor(rng() / 4294967296 * blocks.length)];
@@ -83,6 +92,7 @@
         }
       }
     }
+    stageEnd?.(); stageEnd = control.phase?.("bootstrap.intervals");
     const intervals = {};
     for (const name of ["down", "flat", "up"]) {
       intervals[name] = {};
@@ -91,40 +101,52 @@
         intervals[name][component]=intervalResult({values,ownN,fullMatched,anchorReason:result.state ? null : result.anchorReason || "Anchor seasonal support unavailable"});
       }
     }
+    control.sample?.({ calendarBlocks: blocks.length, fullMatched, drawsRan: Boolean(result.state && fullMatched >= 20 && blocks.length),
+      validDraws: Object.fromEntries(Object.entries(intervals).map(([name, components]) => [name,Object.fromEntries(Object.entries(components).map(([component, value]) => [component,value.validDraws]))])) });
+    stageEnd?.(); stageEnd = null; phaseOutcome = "completed";
     return { version: BOOTSTRAP, key, seed, fullMatched, calendarBlocks: blocks.length, blockLength: length, resamples: 2000, intervals,
       qualification: "Approximate pointwise 95% intervals; fixed anchor thresholds. Longer dependence and nonstationarity may invalidate coverage." };
+    } finally { stageEnd?.("interrupted"); phaseEnd?.(phaseOutcome); }
   }
   async function compute(input, control = {}) {
+    let phaseEnd = control.phase?.("index");
+    const phase = name => { phaseEnd?.(); phaseEnd = control.phase?.(name); };
+    try {
     const alive = () => !control.cancelled?.(), step = 2 ** input.n;
     if (!Number.isInteger(input.a) || input.b1 <= input.b0 || (input.b1 - input.b0) / step > 100000) throw new RangeError("Invalid bounded evidence support");
     const by = new Map(), rows = [], shares = [], seasonalValues = [];
     for (let i = 0; i < input.cols.length; i++) {
-      if (i % 1024 === 0) { await yieldTask(); if (!alive()) return null; }
+      if (i % 1024 === 0) { await yieldTask(control, "index"); if (!alive()) return null; }
       by.set(input.cols[i].c, input.cols[i]);
     }
+    phase("ledger-seasonal");
     const stop = input.a + 1, first = Math.ceil(input.b0 / step);
     for (let c = first; c < stop; c++) {
-      if ((c - first) % 512 === 0) { await yieldTask(); if (!alive()) return null; }
+      if ((c - first) % 512 === 0) { await yieldTask(control, "ledger-seasonal"); if (!alive()) return null; }
       const col = by.get(c), previous = by.get(c - 1), row = { c, source: col?.source ?? null, time: [c * step, (c + 1) * step], volume: col?.v ?? null, buyShare: col?.v > 0 ? col.bv / col.v : null, poc: col?.poc ?? null, state: null, matched: false, reason: null, outcomes: {} };
+      const seasonalStart = control.now?.();
       row.seasonal = input.seasonal({ numerator: col?.v ?? null, start: c * step, end: (c + 1) * step, cutoff: stop * step });
+      if (seasonalStart !== undefined) control.cost?.("seasonal", control.now() - seasonalStart);
       row.reason = !col || col.covered === false ? REASONS[0] : col.v === 0 ? REASONS[1] : !Number.isFinite(col.poc) ? REASONS[2] : !previous || previous.covered === false || !(previous.v > 0) || !Number.isFinite(previous.poc) ? REASONS[3] : row.seasonal.result.tag !== "finite" ? REASONS[4] : null;
       row.result = row.reason ? unavailable(row.reason, row.reason === REASONS[1] ? "empty-population" : "unsupported") : finite(row.seasonal.result.value);
       if (c < input.a && col?.v > 0 && Number.isFinite(row.buyShare)) shares.push(row.buyShare);
       if (c < input.a && row.seasonal.result.tag === "finite") seasonalValues.push(row.seasonal.result.value);
       rows.push(row);
     }
+    phase("thresholds-state");
     shares.sort((a, b) => a - b); seasonalValues.sort((a, b) => a - b);
     const st = [quantile(shares, 1 / 3), quantile(shares, 2 / 3)], vt = [quantile(seasonalValues, 1 / 3), quantile(seasonalValues, 2 / 3)], fitted = st.every(Number.isFinite) && vt.every(Number.isFinite);
     for (let i = 0; i < rows.length; i++) {
-      if (i % 512 === 0) { await yieldTask(); if (!alive()) return null; }
+      if (i % 512 === 0) { await yieldTask(control, "thresholds-state"); if (!alive()) return null; }
       const row = rows[i];
       if (!row.reason && !fitted) { row.reason = REASONS[5]; row.result = unavailable(row.reason); }
       if (!row.reason) row.state = [Math.sign(row.poc - by.get(row.c - 1).poc) + 1, bucket(row.buyShare, st), bucket(row.seasonal.result.value, vt)];
     }
     const anchor = rows.find((r) => r.c === input.a), state = anchor?.state ?? null;
+    phase("cases");
     const cases = Array.from({ length: 9 }, () => []), matched = Array.from({ length: 9 }, () => []);
     for (let i = 0; i < rows.length; i++) {
-      if (i % 512 === 0) { await yieldTask(); if (!alive()) return null; }
+      if (i % 512 === 0) { await yieldTask(control, "cases"); if (!alive()) return null; }
       const row = rows[i];
       row.matched = Boolean(state && row.state && row.state.every((v, j) => v === state[j]));
       if (!row.state) continue;
@@ -142,13 +164,16 @@
         cases[h].push(c); if (row.matched) matched[h].push(c);
       }
     }
+    phase("summaries");
     const blockLength = Math.ceil((6 * 10752 + 9 * step) / step);
     const out = { version: MODEL, a: input.a, n: input.n, m: input.m, barrier: input.barrier, from: first, poc: anchor?.poc ?? null, anchor, state,
       thresholds: { share: st, seasonal: vt }, cases, matched, match: matched.map((c) => summary(c, "direction")), all: cases.map((c) => summary(c, "direction")),
       barrierMatch: matched.map((c) => summary(c, "first")), barrierAll: cases.map((c) => summary(c, "first")), ledger: rows, blockLength, provenance: input.provenance,
       anchorReason: state ? null : anchor?.reason === REASONS[3] ? REASONS[3] : "Anchor seasonal support unavailable", fitReason: fitted ? null : REASONS[5] };
+    phaseEnd?.(); phaseEnd = null;
     out.uncertainty = await bootstrap(input, out, input.kind, input.horizon, control);
     return alive() ? out : null;
+    } finally { phaseEnd?.("interrupted"); }
   }
   return Object.freeze({ MODEL, BOOTSTRAP, REASONS: Object.freeze(REASONS), quantile, fnv, random, summary, canonicalKey, intervalResult, bootstrap, compute });
 });
