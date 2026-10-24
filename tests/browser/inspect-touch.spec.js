@@ -51,6 +51,8 @@ test.describe("B47 Inspect and touch", () => {
     // 2. Inspect: a tap moves the cursor and changes nothing the page keeps
     await page.keyboard.press("e");
     await expect(page.locator("#ol-inspect")).toBeVisible();
+    await expect(page.locator("#ol-evidence")).toHaveAttribute("aria-busy", "false", { timeout: 60000 });
+    await expect.poll(async () => (await state(page)).cases, { timeout: 60000 }).toMatch(/^\d[\d,]*$/);
     const before = await state(page),
       start = await where(page);
     ({ layout, box } = await plot(page));
