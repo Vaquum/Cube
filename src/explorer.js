@@ -16155,7 +16155,7 @@
   // A bridge that serves the strip declares it in the page (tools/strip_contract.py); a page without the declaration never asks.
   const STRIP_SERVED = Boolean(document.querySelector('meta[name="explorer-strip"]'));
   const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
-    attentionParts: null, snapshot: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", busy: null, timer: 0,
+    attentionParts: null, snapshot: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", coverage: "", busy: null, timer: 0,
     failed: { key: "", at: -Infinity }, horizon: null, hits: [] };
   const stripChoices = () => (PACK.live ? STRIP_CHOICES : ["off"]),
     stripForce = () => (S.strip.startsWith("forces.") ? S.strip.slice(7) : null),
@@ -16360,6 +16360,7 @@
   function paintStrip(cut) {
     stripRt.hits = [];
     stripRt.horizon = null;
+    stripRt.coverage = "";
     if (!G.bh) return;
     const edge = stripEdge(cut), force = stripForce(), top = G.by + STRIP_LABELS, h = STRIP_BAND, x0 = G.x, x1 = G.x + G.w,
       xe = Math.min(x1, Math.max(x0, G.X(cut)));
@@ -16373,6 +16374,7 @@
       // TEXT(S1): why the band is empty
       text(stripStatusText(), x0 + 6, top + h / 2, colors.muted, "left");
       ctx.restore();
+      renderStrip();
       paintStripHorizon(edge);
       return;
     }
@@ -16380,8 +16382,8 @@
     ctx.rect(x0, top, G.w, h);
     ctx.clip();
     const events = stripEvents(force), jumps = stripJumps(force), lut = lutFor(scaleRt.appearance, scaleRt.theme), first = Math.floor(x0),
-      runs = { lean: [], attention: [] };
-    let drawn = 0;
+      runs = { lean: [], partial: [], attention: [] }, shown = force ? [force] : STRIP_FORCES;
+    let drawn = 0, samples = 0, least = shown.length, most = 0, attentionMissing = 0;
     const mark = (list, x) => {
       const run = list[list.length - 1];
       if (run && run[1] === x) run[1] = x + 1;
@@ -16392,6 +16394,12 @@
     // A column's centre time, never at or past the edge: the last column may straddle it.
     for (let x = first; x < xe; x++) {
       const ms = Math.min(msAt(G.X.invert(x + 0.5)), edge - 1), held = stripHeld(ms), lean = stripLean(held, ms, force), attention = stripAt(held, ms, "attention");
+      let count = 0;
+      for (const f of shown) if (stripAt(held, ms, f) !== null) count++;
+      samples++;
+      least = Math.min(least, count);
+      most = Math.max(most, count);
+      if (attention === null) attentionMissing++;
       if (lean === null) {
         mark(runs.lean, x);
         continue;
@@ -16401,12 +16409,14 @@
       if (c !== fill) ctx.fillStyle = fill = c;
       ctx.fillRect(x, top + 1, 1, h - 2);
       drawn++;
+      if (count < shown.length) mark(runs.partial, x);
       if (attention === null) mark(runs.attention, x);
     }
     ctx.globalAlpha = 1;
     // Not known is never a value: no force known is the hatch of an undefined value; unknown attention, a strip of it along the foot.
     ctx.fillStyle = patternFor("undefined");
     for (const [a, b] of runs.lean) ctx.fillRect(a, top + 1, b - a, h - 2);
+    for (const [a, b] of runs.partial) ctx.fillRect(a, top + 1, b - a, STRIP_FOOT);
     for (const [a, b] of runs.attention) ctx.fillRect(a, top + h - 1 - STRIP_FOOT, b - a, STRIP_FOOT);
     // TEXT(S1): a ready band with nothing known in view
     if (!drawn && xe - x0 >= 1) text("No force known here", x0 + 6, top + h / 2, colors.muted, "left");
@@ -16444,9 +16454,28 @@
       if (x >= x0 && x <= xe) line(x, top + 1, x, top + h - 1, colors.ink, 2, stripSeamStrength(k.measured));
     }
     ctx.restore();
+    // Coverage describes only the columns painted before the edge, never the prefetched grid beyond the view.
+    if (samples && (least < shown.length || attentionMissing)) {
+      const notes = [];
+      if (!force) notes.push(`${least === most ? least : `${least}–${most}`} of 4 forces`);
+      else if (!most) notes.push(`${STRIP_NAMES[force]} unavailable`);
+      else if (!least) notes.push(`${STRIP_NAMES[force]} unavailable in part`);
+      if (attentionMissing) notes.push(`attention unavailable${attentionMissing < samples ? " in part" : ""}`);
+      stripRt.coverage = `Partial history · ${notes.join(" · ")}`;
+    }
+    renderStrip();
     // The labels of the lit events in view, each at its time as the edge knew it, none over another. An event dated without an hour is
     // labelled at its middle, over a bracket that spans its dates, once its first date has begun.
     let right = -Infinity;
+    if (stripRt.coverage) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x0, G.by, G.w, STRIP_LABELS);
+      ctx.clip();
+      text(stripRt.coverage, x0 + 6, G.by + STRIP_LABELS / 2, colors.muted);
+      right = x0 + 6 + ctx.measureText(stripRt.coverage).width;
+      ctx.restore();
+    }
     const middle = (k) => (k.precision !== "instant" && k.end !== null ? (k.at + k.end) / 2 : k.at);
     // Only an event dated between the view's start and the edge, as the band holds it, can be labelled; a minute either side for rounding.
     const near = (e) => stripNear(e, tA - 60000, Math.min(tB, Math.max(tA, edge)) + 60000),
@@ -16620,6 +16649,14 @@
     const through = s.observedAt === null ? "" : ` · through ${when(stripBase(s.observedAt))}`;
     return s.state === "ok" ? `ok${through}` : `${s.state.replace(/_/g, " ")}${through}${s.detail ? ` · ${s.detail}` : ""}`;
   }
+  // A publication archive and native provider history are different sources of historical coverage.
+  function stripArchiveNote(ms, shown) {
+    const feeds = [...new Set([...shown.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention, "calendar"])],
+      starts = feeds.map((s) => stripRt.sources?.[s]?.recordedFrom).filter((at) => Number.isFinite(at) && ms < at);
+    if (!starts.length) return "";
+    const first = Math.min(...starts), calendar = stripRt.sources?.calendar?.recordedFrom;
+    return `This time precedes source archives beginning ${when(stripBase(first))} UTC. Earlier coverage is limited to available native provider history.${Number.isFinite(calendar) && ms < calendar ? ` Calendar archive begins ${when(stripBase(calendar))} UTC.` : ""}`;
+  }
   // The track record (docs/strip.md): BTC over the next 24 hours after the past moments whose forces lay nearest these, at least six
   // hours apart, against all past moments six hours apart, from the hourly history whatever the view's step. Only moments whose next 24
   // hours had passed by both this moment and the edge count, so none overlaps this moment's own outcome or is unknown at the edge.
@@ -16706,6 +16743,7 @@
         return named.length ? `${STRIP_NAMES[f]}: ${named.map(([label, v]) => `${label} ${signed(v, (x) => x.toFixed(2))}`).join(" · ")}` : "";
       }).filter(Boolean),
       late = stripRetroNames(stripComponentsOf(force).filter((n) => stripAt(stripRt.view, ms, n) !== null), ms),
+      archive = stripArchiveNote(ms, shown),
       behind = [...new Set([...shown.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention])]
         .filter((s) => stripRt.sources?.[s] && stripRt.sources[s].state !== "ok").map((s) => `${STRIP_SOURCE_NAMES[s]} ${stripRt.sources[s].state.replace(/_/g, " ")}`);
     rows.push({ name: "Net", v: known.length ? known.reduce((s, v) => s + v, 0) : null, net: true, note: "no force known" });
@@ -16716,7 +16754,8 @@
       uiEl("div", "ol-tip-note", `Left pulls down, right pulls up. Attention ${attention === null ? "not known" : `${Math.round(attention * 100)} of 100`}.`),
       ...parts.map((note) => uiEl("div", "ol-tip-note", note)),
       ...(late ? [uiEl("div", "ol-tip-note", `Retrospective: ${late} here ${late.includes(" and ") ? "were" : "was"} computed later from the source's history, not recorded as known then.`)] : []),
-      ...(behind.length ? [uiEl("div", "ol-tip-note", `Not current: ${behind.join(", ")}.`)] : []),
+      ...(archive ? [uiEl("div", "ol-tip-note", archive)] : []),
+      ...(behind.length ? [uiEl("div", "ol-tip-note", `Current source status: ${behind.join(", ")}.`)] : []),
       ...stripTrackPart(ms, edge, force));
   }
   // An event as the edge knew it: when it is (a time, or dates whose hour is not given), how much the calendar says it matters and how sure
@@ -16795,6 +16834,11 @@
     if (button.dataset.strip !== S.strip) button.dataset.strip = S.strip;
     const state = S.strip === "off" ? "off" : stripRt.status;
     if (button.dataset.state !== state) button.dataset.state = state;
+    const coverage = S.strip === "off" ? "" : stripRt.coverage;
+    if (button.dataset.coverage !== coverage) button.dataset.coverage = coverage;
+    if (coverage) {
+      if (button.getAttribute("aria-description") !== coverage) button.setAttribute("aria-description", coverage);
+    } else button.removeAttribute("aria-description");
   }
   // The Strip's menu: its dataset (Off, or Forces), then which force.
   function stripDatasetItems() {
