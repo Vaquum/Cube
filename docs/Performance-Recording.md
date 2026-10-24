@@ -97,6 +97,8 @@ heap/GC certificate or cache-cold certificate is inferred.
 ## Attribution and benchmark boundaries
 
 History want→dispatch spans list work served ahead in the unchanged serial queue.
+A needed history already in flight is marked `history-already-dispatched`, without
+inventing a new queue span after its dispatch or inferring a pre-observation wait.
 Cube/movement phases split fetch-to-headers, body JSON, decode and consumer apply;
 ResourceTiming supplies permitted transport detail. Startup decode is separate.
 Continuations splits column preparation, seasonal index, digest, compute index,

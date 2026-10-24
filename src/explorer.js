@@ -19217,10 +19217,14 @@
       if (diagnostics?.active) {
         const keys = [...new Set([historyKey(renderN(),renderM()), historyKey(Math.min(renderN(),9),0)])].filter(id => PACK.live && !histories.has(id) && !cube.failed.has(id));
         for (const [id, wait] of diagnosticHistoryQueue) if (!keys.includes(id)) { wait.end?.("obsolete"); diagnosticHistoryQueue.delete(id); }
-        for (const id of keys) if (!diagnosticHistoryQueue.has(id)) diagnosticHistoryQueue.set(id, {
-          end: diagnosticPhase("history.want-to-dispatch", { key:id, pack:PACK.state_token, anchor:evidenceAnchor() }),
-          served: cube.busy ? [{ kind:cube.busy.kind, key:cube.busy.key, alreadyInFlight:true }] : [], omitted:0,
-        });
+        for (const id of keys) if (!diagnosticHistoryQueue.has(id)) {
+          if (cube.busy?.key === id) diagnostics.mark("history-already-dispatched", { key:id,
+            note:"Dispatch predates this observed want; use an existing fetch record when present, not a new queue span" });
+          else diagnosticHistoryQueue.set(id, {
+            end: diagnosticPhase("history.want-to-dispatch", { key:id, pack:PACK.state_token, anchor:evidenceAnchor() }),
+            served: cube.busy ? [{ kind:cube.busy.kind, key:cube.busy.key, alreadyInFlight:true }] : [], omitted:0,
+          });
+        }
       }
       clearTimeout(evidence.timer);
       evidence.timer = setTimeout(async () => {

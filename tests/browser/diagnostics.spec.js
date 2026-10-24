@@ -106,12 +106,15 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
   expect(report.events.some(e => e.type === "presentation-proxy" && e.scope === "ol-drawer-body")).toBe(true);
 });
 test("opening Continuations waits for its own history/computation rather than chart submission", async ({ page, fakeFor, probe }) => {
-  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&vis=2&r=9,0"); await probe.waitForReady();
+  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&vis=2&r=6,1"); await probe.waitForReady();
   await controls(page); await page.locator("#ol-diagnostics-start").click();
-  const gate = fake.on({ route: "/cube/columns" }).gate();
+  const gate = fake.on({ route: "/cube/columns", when:q => q.m === "0" }).gate();
   try {
     await page.locator("#ol-canvas").focus(); await page.keyboard.press("c");
     await gate.arrived(); await expect(page.locator("#ol-evidence")).toHaveAttribute("aria-busy", "true");
+    // First history is committed and the seasonal history is already in flight
+    // when the changed dependency identity re-enters settledEvidence().
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)))));
     gate.open(); await expect(page.locator("#ol-evidence")).toHaveAttribute("aria-busy", "false");
     await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive())).toBe(false);
     const report = await exported(page), input = report.events.find(e => e.type === "input" && e.scope === "ol-evidence");
@@ -120,6 +123,10 @@ test("opening Continuations waits for its own history/computation rather than ch
     expect(complete).toBeTruthy();
     const phases = report.events.filter(e => e.type === "phase-end" && e.name === "continuations" && e.outcome === "completed");
     expect(phases.length).toBeGreaterThan(0); expect(complete.at).toBeGreaterThanOrEqual(phases.at(-1).at);
+    expect(report.events.some(e => e.type === "history-already-dispatched")).toBe(true);
+    for (const wait of report.events.filter(e => e.type === "phase-start" && e.name === "history.want-to-dispatch")) {
+      expect(report.events.find(e => e.type === "phase-end" && e.id === wait.id)?.outcome).toBe("completed");
+    }
   } finally { gate.open(); }
 });
 test("applying Query bounds waits for requested chart data instead of quiet panel frames", async ({ page, fakeFor, probe }) => {
