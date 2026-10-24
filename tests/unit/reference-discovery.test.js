@@ -41,4 +41,6 @@ test('new field explanations specify denominators and workflow limits', () => {
   assert.match(text('window'), /UTC midnight/);
   assert.match(text('query'), /requires an opened captured investigation and a live source/);
   assert.match(text('columns'), /Comparison lock freezes axes/);
+  assert.match(text('comparison-math'), /POC distance is the nonnegative gap/);
+  assert.match(text('comparison-math'), /separate context reading/);
 });

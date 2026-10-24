@@ -51,7 +51,7 @@
   terms("direction", "The direction of the observed change or fitted feature relationship.");
   terms("rank", "This value's position among comparable captured cells, using the selected comparison basis.");
   terms("difference", "Difference from the chosen comparison reference; share differences are percentage points.");
-  terms("poc distance", "Signed price distance from the selected POC reference, in USDT.");
+  terms("poc distance", "Nonnegative distance from the captured price band to the selected POC, in USDT; zero means it contains or touches the POC.");
   terms("rsi|rsi 14", "Wilder's 14-bar relative strength index, with 70 and 30 guides; it describes past closes.");
   terms("macd", "Difference between fast and slow exponential moving averages, with its signal and histogram.");
   terms("cascade", "Log2 of four times child volume divided by parent volume; zero is an even quarter share.");
