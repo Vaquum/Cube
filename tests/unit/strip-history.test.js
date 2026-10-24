@@ -175,3 +175,31 @@ with tempfile.TemporaryDirectory() as root:
   assert.equal(run.status,0,run.stderr);
   assert.equal(JSON.parse(run.stdout).calendarRevisions,2);
 });
+
+test("adaptive pages retain the complete API offset budget", () => {
+  const script=String.raw`
+import json,sys
+sys.path.insert(0,'tools')
+from field_data import FieldDataReader,FieldDataError
+class Reader(FieldDataReader):
+    def __init__(self):super().__init__('http://127.0.0.1');self.calls=0;self.invalid=False
+    def get(self,path,query=None):
+        self.calls+=1
+        if query['limit']>250:raise FieldDataError('response_too_large',413)
+        offset=query['offset'];stop=min(50000,offset+query['limit'])
+        return {'source':'source','snapshot_id':'a'*64,'dataset_id':'dataset',
+                'data':{'records':[{'id':str(i)} for i in range(offset,stop)]},
+                'page':{'total':50000,'next_offset':100001 if self.invalid else stop if stop<50000 else None}}
+r=Reader();data=r.pages('/v1/data/source','a'*64,'source')
+assert len(data.records)==50000 and len({x['id'] for x in data.records})==50000
+assert r.calls==201,r.calls
+r.invalid=True
+try:r.pages('/v1/data/source','a'*64,'source')
+except FieldDataError as e:assert e.code=='too_many_pages'
+else:raise AssertionError('out-of-range cursor accepted')
+print(json.dumps({'records':len(data.records),'requests':201}))
+`;
+  const run=spawnSync('python3',['-c',script],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8',timeout:25000});
+  assert.equal(run.status,0,run.stderr);
+  assert.equal(JSON.parse(run.stdout).records,50000);
+});

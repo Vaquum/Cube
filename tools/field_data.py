@@ -20,8 +20,8 @@ from dataclasses import dataclass, field
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 PAGE_LIMIT = 500
-# Complete native captures can span many pages; the service bounds offsets at 100,000.
-MAX_PAGES = 200
+# Bound progress by the API's offset range, independent of adaptive page size.
+MAX_OFFSET = 100_000
 SNAPSHOT_ID = re.compile(r"[0-9a-f]{64}\Z")
 SOURCE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z")
 
@@ -140,7 +140,7 @@ class FieldDataReader:
     def pages(self, path: str, pin: str, source: str, query: dict | None = None) -> Dataset:
         """Every page of one pinned dataset, keeping the pin and filters on each, checked to be that publication's."""
         records, offset, first, limit = [], 0, None, PAGE_LIMIT
-        for _ in range(MAX_PAGES):
+        while True:
             try:
                 page = self.get(path, {"snapshot_id": pin, **(query or {}), "limit": limit, "offset": offset})
             except FieldDataError as error:
@@ -166,9 +166,9 @@ class FieldDataReader:
                 break
             if type(next_offset) is not int or next_offset <= offset:
                 raise FieldDataError("page_cursor_did_not_advance")
+            if next_offset > MAX_OFFSET:
+                raise FieldDataError("too_many_pages")
             offset = next_offset
-        else:
-            raise FieldDataError("too_many_pages")
         data = first["data"]
         return Dataset(source=source, dataset_id=str(first.get("dataset_id")), received_at=data.get("received_at"),
                        records=records, meta=data.get("meta") or {}, state=first.get("state") or {},
