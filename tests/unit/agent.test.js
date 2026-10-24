@@ -278,8 +278,10 @@ test("price-valued POC changes require compatible measured rows and preserve rea
   const incompatible=A.diff(coarse,after);
   assert.deepEqual(incompatible.changes,[]);
   assert.deepEqual(incompatible.unavailableSelectionMetrics.map(c=>c.metric),["poc","taker_buy_poc"]);
-  const legacy=packet({volume:400,pocRow:200});
+  const legacy=packet({volume:400,takerBuyVolume:100,pocRow:200});
   assert.equal(A.diff(legacy,after).unavailableSelectionMetrics.length,2);
+  const legacyShift=packet({volume:400,takerBuyVolume:100,pocRow:201});
+  assert.equal(A.diff(legacy,legacyShift).unavailableSelectionMetrics.length,2);
 });
 test("typed selection availability remains explicit and never becomes a measured zero", () => {
   const before=document();before.selection.metrics={tag:"hidden",value:null,reason:"Unavailable in replay"};
