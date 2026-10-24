@@ -24812,7 +24812,7 @@
       low=Math.max(r*ps,b[2]),high=Math.min((r+1)*ps,b[3]);
     if (!(t1>t0 && high>low)) return null;
     const q=lens?lp.q:last.shown, z=q.map.get(c+","+r) ?? {c,r,v:0,bv:0,ct:0,bt:0},
-      factsFromQuery=!lens && q === last.query && ["exact","cube"].includes(last.meas.state),
+      factsFromQuery=!lens && q === last.query && ["exact","cube","recorded"].includes(last.meas.state),
       // Source boundaries belong to the aggregate, independently of the displayed denominator.
       factEnd=factsFromQuery ? Math.min((c+1)*ts,last.meas.end??last.meas.b[1],last.dataCut) : Math.min((c+1)*ts,sourceEnd),
       factSupport=comparisonMs(factEnd),
@@ -24824,8 +24824,8 @@
       mz=frameMotionReady ? motionQuery?.map.get(cellKey(c,r)) ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0} : cachedMotion?.z ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0},
       motionEnd=frameMotionReady?Math.min((c+1)*ts,(!lens && motionQuery===motionFrame.rect?.query)?motionFrame.rect.end:motionFrame.src?.end??motionFrame.msrc?.end):cachedMotion?.end??null,
       metrics={},detail=[], nominal={t0:comparisonMs(c*ts),t1:comparisonMs((c+1)*ts),low:r*ps*PR,high:(r+1)*ps*PR};
-    // A fallback cell contains whole-cell counters. Until the exact rectangle
-    // arrives, those counters cannot describe a clipped time or price exposure.
+    // Fallback counters cover outward-rounded source cells. Until the rectangle
+    // is measured, they cannot describe a clipped time or price exposure.
     if (!lens && !factsFromQuery &&
       (t0 > c*ts || t1 < factEnd || low > r*ps || high < (r+1)*ps)) return null;
     const shortExposure = E.measure.isShort({ timeFraction: (t1 - t0) / ts, priceFraction: (high - low) / ps }, { t: true, w: true });

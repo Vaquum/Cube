@@ -297,6 +297,34 @@ test("recorded capture agrees with the embedded wire cell sums and never request
 });
 
 
+test("recorded partial captures keep the measured inward portion of an overview cell", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("recorded"), iso = b => new Date(EPOCH + b * 56250).toISOString();
+  await ready(page, fake, probe, `#t=${iso(1)}~${iso(8192)}&p=20000~60000&r=13,3&auto=0&vis=2&marks=none&lines=`);
+  const doc = await page.evaluate(() => window.cubeAgent.export("selection"));
+  expect(doc.selection.state).toBe("recorded");
+  expect(doc.comparison.captures.length).toBeGreaterThan(0);
+  const capture = doc.comparison.captures.find(c => c.metrics["volume.amount"].value > 0);
+  expect(capture).toBeTruthy();
+  expect(capture.observed.t0).toBe(EPOCH + 4096 * 56250);
+  expect(capture.observed.t1).toBe(EPOCH + 8192 * 56250);
+  const pack = await page.locator("#origo-lens-data").evaluate(node => JSON.parse(node.textContent));
+  const bytes = wire.gunzipBase64(pack.blocks.overview.gzip_base64), cells = bytes.readUInt32LE(16);
+  const n = bytes.readUInt8(4), m = bytes.readUInt8(5); let volume = 0, count = 0;
+  // Independent wire sum: only complete source cells within [4096,8192] contribute.
+  for (let i = 0; i < cells; i++) {
+    const c = bytes.readUInt32LE(32 + 16 * cells + 4 * i), r = bytes.readUInt32LE(32 + 20 * cells + 4 * i);
+    if (c * 2 ** n >= 4096 && (c + 1) * 2 ** n <= 8192 && r * 2 ** m === capture.r * 2 ** capture.level.m) {
+      volume += bytes.readDoubleLE(32 + 8 * i); count += bytes.readUInt32LE(32 + 24 * cells + 4 * i);
+    }
+  }
+  expect(capture.metrics["volume.amount"].value).toBeCloseTo(volume, 6);
+  expect(capture.metrics["trades.amount"].value).toBe(count);
+  expect(capture.metrics["volume.amount"].supportEnd).toBe(capture.observed.t1);
+  await addTable(page, capture.c, capture.r, 1);
+  expect((await saved(page)).captures[0].observed).toEqual(capture.observed);
+  expect(cubeReads(fake)).toHaveLength(0);
+});
+
 test("price-only clipping retains the full temporal known-at boundary", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("micro:mixed");
   await ready(page, fake, probe, VIEW.replace("p=24800~25500", "p=25125~25500").replace("r=0,0", "r=0,2"));
