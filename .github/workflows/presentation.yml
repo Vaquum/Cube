@@ -1,0 +1,69 @@
+name: Presentation evidence
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/presentation.yml'
+      - 'tools/benchmark_presentation.mjs'
+      - 'tools/benchmark/presentation*'
+      - 'tests/unit/presentation-metrics.test.js'
+      - 'docs/evidence/212/**'
+permissions:
+  contents: read
+jobs:
+  poses:
+    name: Independent presentation baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          if test -f docs/evidence/212/baseline/summary.json; then
+            node tools/benchmark_presentation.mjs --candidate
+          else
+            node tools/benchmark_presentation.mjs
+          fi
+        env:
+          PRESENTATION_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: presentation-evidence
+          path: reports/presentation/
+          retention-days: 14
+          if-no-files-found: error
+  motion:
+    name: Unmodified motion guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node tools/benchmark_motion.mjs d8449f3acab8af9fd2d0dd46bd2a95f148a189c6
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: presentation-motion-guard
+          path: reports/motion/
+          retention-days: 14
+          if-no-files-found: error
