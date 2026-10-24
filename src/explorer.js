@@ -25582,11 +25582,11 @@
         Object.assign(scene, Agent.seal(scene));
       }
     }
-    let selection = { query: { ...scene.query }, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut))), state: last.meas.state };
+    let selection = { query: { ...scene.query }, metrics: { volume: last.query.v, takerBuyVolume: last.query.bv, trades: last.query.ct, takerBuyTrades: last.query.bt, pocRow: last.query.poc ?? null, poc: last.query.poc === null ? null : (last.query.poc + .5) * PR * 2 ** last.query.m, taker_buy_poc: last.query.bpoc === null ? null : (last.query.bpoc + .5) * PR * 2 ** last.query.m, pocRowWidth: PR * 2 ** last.query.m }, source: String(PACK.source ?? "Recorded snapshot"), measuredThrough: wholeMs(comparisonMs(Math.min(last.meas.end ?? last.cut, last.cut))), state: last.meas.state };
     if (["pending", "failed"].includes(last.meas.state)) selection.metrics = { tag: last.meas.state, value: null, reason: last.meas.error ?? "Selection measurement is not ready" };
     if (scope === "cell" && captures.length === 1) {
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
-      selection = { query: { ...scene.query }, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
+      selection = { query: { ...scene.query }, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null, poc: numeric("volume.amount") > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, taker_buy_poc: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value > 0 ? (cell.r + .5) * PR * 2 ** cell.level.m : null, pocRowWidth: PR * 2 ** cell.level.m }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
     }
     const document = Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null });
     return causal ? Agent.forExport(document) : Agent.validate(document);
@@ -25707,7 +25707,7 @@
     const after = await agentDocument(); committed();
     const difference = Agent.diff(Agent.forExport(before), after);
     activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null }); analysisRevision++;
-    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
+    el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (difference.unavailableSelectionMetrics?.length ? " POC changes cannot be compared across these captured price rows." : "") + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
     scheduleStrip(); scheduleLive(3); return { document: after, ...difference };
   }
   function agentRestorePrevious() {
