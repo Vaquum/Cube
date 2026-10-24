@@ -45,3 +45,7 @@ test("empty recorded support remains unavailable instead of becoming a false sou
   const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.metrics.tag).toBe("unsupported");expect(d.selection.metrics.value).toBeNull();
   const result=await refresh(fake,d);expect(result.changes).toEqual([]);expect(result.selectionState.before.state).toBe("unsupported");expect(result.selectionState.after.values.volume).toBe(327.375);
 });
+test("real MCP refresh reports pending/failed availability once without numeric revisions",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();const original=await page.evaluate(()=>window.cubeAgent.export());
+  for(const tag of ["pending","failed"]){const d=await page.evaluate(([d,tag])=>{d.selection.metrics={tag,value:null,reason:tag};d.selection.state=tag;return window.explorerAgent.seal(d);},[original,tag]);const result=await refresh(fake,d);expect(result.changes).toEqual([]);expect(result.selectionState.before.state).toBe(tag);expect(result.selectionState.after.values.volume).toBe(953.375);}
+});
