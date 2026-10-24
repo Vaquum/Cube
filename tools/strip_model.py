@@ -366,7 +366,8 @@ class Model:
         An observation is known at the publication that first carried it. The first dataset of a source also carries
         older observations of its native window: those that its source made public more than one collection interval
         before the dataset was received are retrospective, known at the time their source rule gives. Explicit
-        historical backfills use that same rule even after the source has begun live collection."""
+        historical backfills and newly exposed native history from before collection began use that same rule
+        even after the source has begun live collection."""
         db = self.store.db
         with self.store.lock:
             if self.store.has_dataset(source, dataset_id):
@@ -376,7 +377,7 @@ class Model:
             fresh = 0
             for o in observations(source, records, meta, received_ms):
                 rule = o.rule_known_ms if o.rule_known_ms is not None else o.observed_ms
-                retro = (first is None or retrospective) and rule < received_ms - interval_ms
+                retro = (first is None or retrospective or rule < first - interval_ms) and rule < received_ms - interval_ms
                 known = min(rule, published_ms) if retro else published_ms
                 cursor = db.execute("INSERT OR IGNORE INTO obs VALUES (?, ?, ?, ?, ?, ?, ?)",
                                     (o.series, o.obs_id, o.observed_ms, known, int(retro), o.value,

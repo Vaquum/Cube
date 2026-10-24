@@ -36,8 +36,14 @@ def main():
         assert store.db.execute("SELECT * FROM obs WHERE obs_id=?", (before[1],)).fetchone() == before
         added = [r for r in rows if r[1] != before[1]]
         assert all(r[3] == r[2] and r[4] == 1 for r in added)
+        expanded_store = Store()
+        expanded = Model(expanded_store)
+        expanded.ingest("deribit_funding", "initial", [latest], raw["meta"], stamp(now), int(now * 1000), HOUR)
+        expanded.ingest("deribit_funding", "expanded-native", raw["records"], raw["meta"], stamp(now + 1), int((now + 1) * 1000), HOUR)
+        assert expanded_store.rows("funding:deribit") == store.rows("funding:deribit")
         result = {"funding": {"provider_observations": len(raw["records"]), "retained_observations": len(rows),
-            "later_backfill_observations": len(added), "backfilled_times_retrospective": True, "first_observation_unchanged": True}}
+            "later_backfill_observations": len(added), "backfilled_times_retrospective": True,
+            "expanded_native_live_window_retrospective": True, "first_observation_unchanged": True}}
 
         capture = ContinuousCapture(directory)
         capture.start()

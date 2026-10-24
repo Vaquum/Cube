@@ -142,11 +142,11 @@ An **R** beside a force marks known contributions reconstructed retrospectively;
 
 ## Continuous-minute and backfill ingestion
 
-Explicit backfill publications carry `publication_kind: backfill` through the pinned reader. New historical observations in these publications use the existing source timing rules and retrospective labels, even after live collection has started. Ordinary delayed live publications retain their actual first-publication time. Previously stored observations remain unchanged. Retrospective provider data does not recreate original provider release vintages.
+Explicit backfill publications carry `publication_kind: backfill` through the pinned reader. New historical observations in these publications use the existing source timing rules and retrospective labels, even after live collection has started. Newly exposed native-window observations whose timing rule predates the start of collection by more than a collection interval receive the same retrospective treatment, even in a live publication. Delayed live observations within the recorded period retain their actual first-publication time. Previously stored observations remain unchanged. Retrospective provider data does not recreate original provider release vintages.
 
 For `continuous_checkpointed` Bluesky captures, a minute enters the model only once it has full connection coverage and no overlap with an unrecoverable cursor gap. Partial minutes remain available in field-data-api and are reconsidered under later dataset versions; their interim counts cannot occupy the model's permanent first-seen slot. Bounded legacy sessions retain their existing behavior.
 
-The local live proof retained all 71 funding observations, including 70 later backfill observations under retrospective timing, and waited for a social minute to close before admitting its complete 2,418 observed creates. No raw posts were retained. Reproduce with `python3 tools/prove_source_ingestion.py --field-data-root /path/to/field-data-api --live`; counts will vary. Evidence: [source-ingestion-proof-2026-10-24.json](source-ingestion-proof-2026-10-24.json).
+The local live proof retained all 71 funding observations, including 70 later observations under identical retrospective timing through explicit backfill and native-window expansion, and waited for a social minute to close before admitting its complete 2,516 observed creates. No raw posts were retained. Reproduce with `python3 tools/prove_source_ingestion.py --field-data-root /path/to/field-data-api --live`; counts will vary. Evidence: [source-ingestion-proof-2026-10-24.json](source-ingestion-proof-2026-10-24.json).
 
 ## Readiness proof, 24 October 2026
 

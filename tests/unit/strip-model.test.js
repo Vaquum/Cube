@@ -169,13 +169,15 @@ def row(identity,at,value):return {'id':identity,'observed_at':m.iso(at),'values
 model.ingest('deribit_funding','live',[row('live',t,0.00001)],{},m.iso(t),t,m.HOUR)
 model.ingest('deribit_funding','backfill',[row('past',t-30*m.DAY,0.00002),row('live',t,0.00099)],{},
              m.iso(t+m.HOUR),t+m.HOUR,m.HOUR,retrospective=True)
-model.ingest('deribit_funding','delayed-live',[row('late',t-20*m.DAY,0.00003)],{},m.iso(t+2*m.HOUR),t+2*m.HOUR,m.HOUR)
+model.ingest('deribit_funding','delayed-live',[row('late',t+30*m.MINUTE,0.00003)],{},m.iso(t+2*m.HOUR),t+2*m.HOUR,m.HOUR)
+model.ingest('deribit_funding','expanded-native',[row('expanded',t-60*m.DAY,0.00004)],{},m.iso(t+3*m.HOUR),t+3*m.HOUR,m.HOUR)
 print(json.dumps({identity:[at,known,retro,value] for identity,at,known,retro,value in
     st.db.execute('SELECT obs_id,observed_ms,known_ms,retro,value FROM obs')}))`,{T});
   assert.deepEqual(out.past.slice(0,3),[T-30*DAY,T-30*DAY,1]);
   assert.deepEqual(out.live.slice(0,3),[T,T,0]);
   assert.ok(close(out.live[3],8.76));
-  assert.deepEqual(out.late.slice(0,3),[T-20*DAY,T+2*HOUR,0]);
+  assert.deepEqual(out.late.slice(0,3),[T+1800000,T+2*HOUR,0]);
+  assert.deepEqual(out.expanded.slice(0,3),[T-60*DAY,T-60*DAY,1]);
 });
 
 test("continuous social minutes wait for completion and exclude cursor gaps before their counts become first-seen", () => {
