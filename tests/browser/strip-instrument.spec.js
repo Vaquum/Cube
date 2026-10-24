@@ -229,7 +229,7 @@ test("real unavailable inputs stay concise and their Inspect labels and values f
   await page.keyboard.press("e");
   await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
   const card = page.locator("#ol-inspect-readout");
-  expect((await page.locator("#ol-inspect").boundingBox()).width).toBe(312);
+  expect((await page.locator("#ol-side").boundingBox()).width).toBe(312);
   for (const name of ["positioning.basis", "positioning.skew", "news.tone"]) {
     const value = card.locator(`[data-field="${name}"]`);
     await expect(value).toBeVisible();
