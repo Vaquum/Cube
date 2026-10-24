@@ -332,3 +332,12 @@ test("MCP selection refresh rejects a source revision after the camera read", as
   await gate.arrived();fake.revise({day:"2021-01-01",factor:2});gate.open();
   assert.match(await result,/differ.*pack/);assert.deepEqual(d,before);
 });
+test("legacy copied-cell refresh recovers observed prices only for the matching recorded address", () => {
+  const a=answer();a.query={n:1,m:1,b0:1,b1:2,r0:201,r1:202};a.cells=[{c:0,r:100,v:300,bv:100,ct:2,bt:1}];
+  const d=A.fromQuery(a);d.selection.state="captured-cell";d.selection.query.p1=200;d.selection.query.p2=202;
+  const before=structuredClone(d);assert.deepEqual(A.selectionQuery(d),{t1:1,t2:2,p1:201,p2:202,tR:1,pR:1});assert.deepEqual(d,before);
+  const exported=A.forExport(A.seal(d));assert.equal(exported.selection.query.p1,201);assert.deepEqual(d,before);
+  const ambiguous=structuredClone(d);ambiguous.comparison.captures.push(structuredClone(ambiguous.comparison.captures[0]));assert.deepEqual(A.selectionQuery(ambiguous),d.selection.query);
+  d.selection.query.t1=0;assert.deepEqual(A.selectionQuery(d),d.selection.query);
+  assert.equal(A.selectionQuery({...d,selection:null}),null);
+});
