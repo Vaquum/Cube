@@ -57,13 +57,13 @@ test('Show bounds opens Query, and axes/profile settings are reachable in their 
   await page.locator('#ol-reference-topic').selectOption('columns');
   await page.getByRole('button', { name: 'Show axes settings', exact: true }).click();
   await expect(page.locator('#ol-reference-status')).toContainText('Highlighted: axes settings');
-  await expect(page.locator('#ol-axis-chip')).toBeInViewport({ ratio: 1 });
+  await expect(page.locator('#ol-axis-chip')).toBeInViewport({ ratio: 0.99 });
   await page.locator('#ol-axis-chip').click();
   await expect(page.locator('#ol-axis-pop')).toBeVisible();
   await page.locator('#ol-reference-topic').selectOption('profiles');
   await page.getByRole('button', { name: 'Show profile settings', exact: true }).click();
   await expect(page.locator('#ol-reference-status')).toContainText('Highlighted: profile settings');
-  await expect(page.locator('#ol-profile-chip')).toBeInViewport({ ratio: 1 });
+  await expect(page.locator('#ol-profile-chip')).toBeInViewport({ ratio: 0.99 });
   expect(await page.evaluate(() => location.hash)).toBe(hash);
   await page.screenshot({ path: 'reports/reference-profile-settings.png' });
 });

@@ -20601,7 +20601,13 @@
           if (active === target) { clearSpotlight(); return; }
           clearSpotlight(); reveal?.(target); active = target;
           if (innerWidth <= 760 && !root.querySelector(target.selector || "#ol-canvas")?.closest("#ol-reference") && bounds(target)) { main.dataset.referenceReveal = "true"; window.explorerMotion.scrollAxis(main, 0, "x"); }
-          event.currentTarget.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760; schedule();
+          event.currentTarget.setAttribute("aria-pressed", "true"); back.hidden = innerWidth > 760;
+          const setting = target.selector && pane.querySelector(target.selector);
+          if (setting) {
+            // Status text changes the body's height; scroll after it has its final space.
+            paint(); window.explorerMotion.scrollToActor(setting, "nearest");
+          }
+          schedule();
         };
         actions.append(button);
       }
