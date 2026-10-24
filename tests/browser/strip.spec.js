@@ -140,6 +140,9 @@ test("each column of the band is its documented colour at its attention's alpha,
     rgb(s.fill).forEach((c, i) => expect(Math.abs(c - rgb(want[k].hue)[i]), `column ${s.x}: ${s.fill} for ${want[k].hue}`).toBeLessThanOrEqual(2));
     expect(s.alpha, `column ${s.x}'s alpha`).toBeCloseTo(want[k].alpha, 4);
   });
+  // All four forces and attention are known: no partial-history caption or hatch above the band.
+  await expect(page.locator("#ol-strip")).toHaveAttribute("data-coverage", "");
+  expect(frame.rects.filter((r) => r.fill === "pattern" && r.y === top + 1 && r.h === FOOT)).toEqual([]);
   // Attention is known throughout: no foot of the undefined hatch.
   expect(frame.rects.filter((r) => r.fill === "pattern" && r.y === top + BAND - 1 - FOOT)).toEqual([]);
 });
@@ -373,4 +376,80 @@ test("the band's own card names each source's freshness, a stale one as stale", 
   expect(of["FRED macro, daily"]).toMatch(/^ok · through /);
   expect(Object.keys(of)).toEqual(expect.arrayContaining(["Deribit funding", "Hyperliquid funding", "GDELT news", "Bluesky sample", "Deribit DVOL", "Calendar"]));
   await expect(tip.locator(".ol-tip-note").first()).toContainText("Field data published");
+});
+
+// Recorded production coverage, translated to the fake's clock without changing a value. The real view predates the
+// field archive: daily Macro/stablecoins alone lean down; News, Social and every attention part are unavailable.
+test("recorded partial history is disclosed on the band, in its hatch and in the archive card", async ({ page, fakeFor, probe, pane }) => {
+  const recorded = require("../fixtures/regressions/forces-partial-history/strip.json"), grid = recorded.grid;
+  expect(grid.attention.every((v) => v === null)).toBe(true);
+  expect(grid.forces.news.every((v) => v === null) && grid.forces.social.every((v) => v === null)).toBe(true);
+  const fake = await fakeFor("standard"), view = await rectangle(fake, grid.attention.length / 96, "&strip=forces"), shift = view.from - grid.t0;
+  await page.route("**/cube/strip?*", async (route) => {
+    const original = await route.fetch(), body = await original.json(), q = new URL(route.request().url()).searchParams;
+    const from = Number(q.get("from")), to = Number(q.get("to")), step = Number(q.get("step"));
+    const read = (series) => Array.from({ length: Math.ceil((to - from) / step) }, (_, i) => {
+      const at = Math.floor((from + i * step - shift - grid.t0) / grid.step);
+      return at >= 0 && at < series.length ? series[at] : null;
+    });
+    body.grid.forces = Object.fromEntries(Object.entries(grid.forces).map(([k, v]) => [k, read(v)]));
+    body.grid.attention = read(grid.attention);
+    body.grid.parts = Object.fromEntries(Object.entries(grid.parts).map(([k, v]) => [k, read(v)]));
+    body.events = []; body.jumps = [];
+    body.sources = Object.fromEntries(Object.entries(recorded.sources).map(([name, source]) => [name, {
+      ...source, recordedFrom: source.recordedFrom === null ? null : source.recordedFrom + shift,
+    }]));
+    await route.fulfill({ response: original, json: body });
+  });
+  await open(page, fake, probe, view.hash);
+  const button = page.locator("#ol-strip"), caption = "Partial history · 2 of 4 forces · attention unavailable";
+  await expect(button).toHaveAttribute("data-coverage", caption);
+  await expect(button).toHaveAccessibleDescription(new RegExp(caption));
+  await expect(button).toHaveAccessibleDescription(/What the band under the prices shows/);
+  const g = at(await layoutOf(page)), frame = await pane.last(), top = g.by + LABELS;
+  expect(frame.texts.some((t) => t.text === caption && t.y >= g.by && t.y < top)).toBe(true);
+  const partial = frame.rects.filter((r) => r.fill === "pattern" && r.y === top + 1 && r.h === FOOT);
+  const feet = frame.rects.filter((r) => r.fill === "pattern" && r.y === top + BAND - 1 - FOOT && r.h === FOOT);
+  for (let x = Math.ceil(g.x); x < g.x + g.w - 1; x += 29) {
+    expect(partial.some((r) => r.x <= x && x < r.x + r.w), `partial force hatch at ${x}`).toBe(true);
+    expect(feet.some((r) => r.x <= x && x < r.x + r.w), `missing attention hatch at ${x}`).toBe(true);
+  }
+  const box = await page.locator("#ol-canvas").boundingBox();
+  await page.mouse.move(box.x + g.x + g.w / 2, box.y + top + BAND / 2);
+  const tip = page.locator("#ol-tip");
+  await expect(tip).toHaveAttribute("data-presentation", "strip-forces");
+  await expect(tip).toContainText("This time precedes source archives beginning");
+  await expect(tip).toContainText("Earlier coverage is limited to available native provider history.");
+  await expect(tip).toContainText("Calendar archive begins");
+  await button.click();
+  await page.locator('#ol-strip-menu [data-strip="forces"]').click();
+  await page.locator('#ol-strip-menu [data-force="macro"]').click();
+  await expect(button).toHaveAttribute("data-coverage", "Partial history · attention unavailable");
+  await probe.waitForQuiet();
+  expect((await pane.last()).rects.filter((r) => r.fill === "pattern" && r.y === top + 1 && r.h === FOOT)).toEqual([]);
+  await button.click();
+  await page.locator('#ol-strip-menu [data-strip="off"]').click();
+  await expect(button).toHaveAttribute("data-coverage", "");
+  await expect(button).not.toHaveAccessibleDescription(/Partial history/);
+  await expect(button).toHaveAccessibleDescription(/What the band under the prices shows/);
+});
+
+test("coverage reports changing support only before the visible replay edge", async ({ page, fakeFor, probe, pane }) => {
+  const fake = await fakeFor("standard"), view = await rectangle(fake, 1, "&strip=forces"), middle = (view.from + view.to) / 2;
+  await page.route("**/cube/strip?*", async (route) => {
+    const original = await route.fetch(), body = await original.json(), { t0, step } = body.grid;
+    body.grid.forces.news = body.grid.forces.news.map((v, i) => t0 + i * step < middle ? null : v);
+    body.grid.attention = body.grid.attention.map((v, i) => t0 + i * step >= middle ? null : v);
+    await route.fulfill({ response: original, json: body });
+  });
+  await open(page, fake, probe, view.hash);
+  const button = page.locator("#ol-strip"), g = at(await layoutOf(page)), top = g.by + LABELS, frame = await pane.last();
+  await expect(button).toHaveAttribute("data-coverage", "Partial history · 3–4 of 4 forces · attention unavailable in part");
+  const hatchAt = (x, y) => frame.rects.some((r) => r.fill === "pattern" && r.y === y && r.h === FOOT && r.x <= x && x < r.x + r.w);
+  expect(hatchAt(g.x + g.w / 4, top + 1)).toBe(true);
+  expect(hatchAt(g.x + 3 * g.w / 4, top + 1)).toBe(false);
+  expect(hatchAt(g.x + g.w / 4, top + BAND - 1 - FOOT)).toBe(false);
+  expect(hatchAt(g.x + 3 * g.w / 4, top + BAND - 1 - FOOT)).toBe(true);
+  await open(page, fake, probe, `${view.hash}&${REPLAY}&at=${iso(view.from + 0.4 * DAY)}`);
+  await expect(button).toHaveAttribute("data-coverage", "Partial history · 3 of 4 forces");
 });
