@@ -277,14 +277,20 @@ function trackRecord(history, ms, edge) {
   // Moments whose next 24 hours had passed strictly before both this moment and the edge.
   const last = Math.min(history.grid.next24h.length, Math.ceil((Math.min(ms, edge) - DAY - t0) / step)) - 1;
   const now = Object.fromEntries(FORCES.map((f) => [f, value(history, history.grid.forces[f], ms)]));
-  const dims = FORCES.filter((f) => now[f] !== null && history.grid.forces[f].slice(0, last + 1).filter((v) => v !== null).length > 0.5 * (last + 1));
+  const at=Math.floor((ms-t0)/step), masks=history.grid.forceInputs,
+    dims = FORCES.filter((f) => {
+      if(now[f]===null || !masks[f].masks[at])return false;
+      let count=0,previous=-gap;
+      for(let i=0;i<=last;i++)if(history.grid.next24h[i]!==null && masks[f].masks[i]===masks[f].masks[at] && i-previous>=gap){count++;previous=i;}
+      return count>=SUPPORT;
+    });
   const pool = [], all = [];
   for (let i = 0; i <= last; i++) {
     const r = history.grid.next24h[i];
     if (r === null) continue;
     expect(t0 + i * step + DAY, "no moment's outcome reaches this moment or the edge").toBeLessThan(Math.min(ms, edge));
     if (i % gap === 0) all.push(r);
-    if (dims.some((f) => history.grid.forces[f][i] === null)) continue;
+    if (!dims.length || dims.some((f) => history.grid.forces[f][i] === null || masks[f].masks[i]!==masks[f].masks[at])) continue;
     pool.push({ i, r, d: Math.sqrt(dims.reduce((s, f) => s + (history.grid.forces[f][i] - now[f]) ** 2, 0)) });
   }
   pool.sort((a, b) => a.d - b.d || a.i - b.i);
@@ -319,7 +325,7 @@ test("the card on the band gives the forces and their track record; on an event,
     // Below the support floor, only support counts are available: no finite share or quantile.
     const estimates = await tip.locator('[data-field="trackShare"], [data-field^="trackP"]').evaluateAll((nodes) => nodes.map((n) => n.dataset.canonical));
     expect(estimates.every((v) => !Number.isFinite(Number(v)))).toBe(true);
-    await expect(tip.locator(".ol-strip-hist")).toHaveCount(0);
+    await expect(tip.locator('.ol-strip-distribution[data-state="baseline"] .ol-strip-hist')).toBeVisible();
   }
   expect(Number(await tip.locator('[data-field="trackNear"]').getAttribute("data-canonical"))).toBe(T.near.length);
   expect(Number(await tip.locator('[data-field="trackAll"]').getAttribute("data-canonical"))).toBe(T.all.length);
