@@ -25406,7 +25406,7 @@
     if (!checked.ok || checked.dropped.length) throw Error(checked.reasons.join("; ") || "Scene contains unavailable settings");
     if (value.snapshot && (value.snapshot.origin !== T0 || value.snapshot.baseSeconds !== BASE || value.snapshot.basePrice !== PR)) throw Error("Captured canvas uses a different cube lattice");
     // Rollback is private runtime state; an empty/hidden selection need not form a portable query.
-    const prior = activeAnalysis, priorStrip = stripRt, before = { snapshot: agentSnapshot(false), view: { ...structuredClone(S), ...portableView(portablePayload(), analysisHash ?? viewHash()) } };
+    const prior = activeAnalysis, priorStrip = stripRt, before = { snapshot: agentSnapshot(false), view: { ...structuredClone(S), ...portableView(portablePayload(), analysisHash ?? viewHash()), appearance: appearanceId() } };
     if (!analysisOrigin) analysisOrigin = before.snapshot;
     try {
       if (drawingCollection().objects.length && JSON.stringify(drawingCollection()) !== JSON.stringify(value.scene.drawings)) {

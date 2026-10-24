@@ -32,3 +32,19 @@ for(const kind of ["replay","rounded"]) test(`a runtime import failure preserves
   await page.evaluate(d=>window.cubeAgent.apply(d),original);await probe.waitForReady();
   expect((await page.evaluate(()=>window.cubeAgent.export())).scene.view).toEqual(original.scene.view);
 });
+
+test("a failure after the imported view applies restores the original palette",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
+  const original=await page.evaluate(()=>window.cubeAgent.export());
+  const failure=await page.evaluate(async d=>{
+    const lut=window.explorerEncoding.lut,other=Object.keys(lut.APPEARANCES).find(name=>lut.appearanceId(name)!==d.scene.appearance.id);
+    d.scene.appearance.id=lut.appearanceId(other);d.scene=window.explorerAgent.seal(d.scene);d=window.explorerAgent.seal(d);
+    const comparison=window.explorerState.comparison;
+    window.explorerState.comparison={...comparison,measure(){window.explorerState.comparison=comparison;throw Error("late comparison failure");}};
+    try {await window.cubeAgent.apply(d);return "unexpected success";}catch(error){return error.message;}finally{window.explorerState.comparison=comparison;}
+  },original);
+  expect(failure).toBe("late comparison failure");
+  const after=await page.evaluate(()=>window.cubeAgent.export());
+  expect(after.scene.appearance.id).toBe(original.scene.appearance.id);
+  expect(after.scene.view).toEqual(original.scene.view);
+});
