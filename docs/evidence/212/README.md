@@ -64,7 +64,7 @@ cp docs/evidence/212/candidate/producer-manifest.json reports/212-reproduce/pres
 node tools/benchmark/presentation-assessment.mjs docs/evidence/212/baseline/summary.json reports/212-reproduce/presentation reports/212-reproduce/assessment.json
 ```
 
-`guards/history.json` and its hashed archive retain all nine original motion
+`guards/history.json` and its hashed archive retain all fourteen original motion
 comparisons, including failures and both application-identical controls. The
 candidate's #211-reference guard passed. Its additional implementation-parent
 comparison flagged Compare frame time (16.8→33.3 ms); that flag is retained and
@@ -72,3 +72,21 @@ is not declared a proven false positive or waived. Compare input exceeded the
 existing absolute 50 ms budget in both arms. Relative guards and these styled-DOM
 measurements do not close #96's absolute/cumulative acceptance. Final-head CI
 and review remain independently required on PR #251.
+
+## Inspector attribution
+
+The current-head #211-reference guard flagged Inspector frame p95; its single
+unchanged confirmation instead flagged slow-frame share (8.63→10.37%), with
+unchanged median draw p95 and lower total task time. Both failures and every
+intermediate comparison are retained above. The current implementation-parent
+comparison passes. None of these observations waives a failed guard.
+
+`tools/diagnose_inspector.mjs` selects the existing Inspector case in the frozen
+guard's existing one-pair CPU-profile mode and retains its full frame, draw,
+callback and input vectors. It verifies the original guard's bytes against the
+#211 merge, adapts an untracked temporary copy, and removes that copy afterward.
+Its manifest identifies both adaptations and hashes every resulting JSON file.
+CPU profiling changes execution cost: this is attribution data, and its
+profile-mode success means collection completed. Budget acceptance continues to
+use the original unmodified guard. No further confirmation rerun is authorized
+by this diagnostic; attribution must precede a product change.

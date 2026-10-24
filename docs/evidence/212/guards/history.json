@@ -4363,38 +4363,2518 @@
           "relativeGuardPass": true
         }
       ]
+    },
+    {
+      "label": "candidate-140-211",
+      "run": 40136979627,
+      "attempt": 1,
+      "job": 121000461177,
+      "artifact": 12578031662,
+      "artifactZipSha256": "3f8f34890fcc77fa730d2e4608d9c23cfe9d73da0fd1440a9539cc6385e27d23",
+      "link": "https://github.com/Vaquum/Market-State-Cube-Explorer/actions/runs/40136979627/job/121000461177",
+      "kind": "paired-local-motion-guard",
+      "sameProductBytes": false,
+      "baseline": {
+        "sha": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+        "indexSha256": "0c17185509ecfc633c21c644887e4097cffc0230b801767a33ff13783ffb1abc"
+      },
+      "candidate": {
+        "sha": "2d533fce45f5af178c94fbaf94ef173c03c0c8bd",
+        "indexSha256": "a5c4c478f1377d19138d43669f97df0660238d0176e741aa99975ffe6d6612d7"
+      },
+      "environment": {
+        "os": "linux",
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "browser": "153.0.8010.12",
+        "node": "v22.23.3"
+      },
+      "relativeGuardPass": true,
+      "absoluteOutcomes": [
+        {
+          "case": "comparison-128",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 12.199999999982538,
+                "totalObservations": 197,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.29999999999927,
+                "totalObservations": 1541,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 130.79999999998836,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 11.800000000017462,
+                "totalObservations": 192,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1533,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 129.29999999998836,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "cells-sort",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.800000000017462,
+                "totalObservations": 15,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 1562,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 53.5,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.7000000000116415,
+                "totalObservations": 15,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999955,
+                "totalObservations": 1560,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 55.19999999998254,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-24h",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.7999999999883585,
+                "totalObservations": 603,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999955,
+                "totalObservations": 965,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.699999999953434,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.599999999976717,
+                "totalObservations": 604,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 965,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.70000000001164,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-all",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.5,
+                "totalObservations": 633,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 944,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.70000000001164,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.5,
+                "totalObservations": 633,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 946,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.5,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "rows-lines",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.7999999999883585,
+                "totalObservations": 641,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999272,
+                "totalObservations": 969,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 37,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.900000000023283,
+                "totalObservations": 642,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 969,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 40.29999999998836,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "candles",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 6,
+                "totalObservations": 254,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999955,
+                "totalObservations": 966,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 47.29999999998836,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.7999999999883585,
+                "totalObservations": 247,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 969,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 47,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "level-reversal",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 9.799999999988358,
+                "totalObservations": 427,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 502,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 35.79999999998836,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 8.899999999965075,
+                "totalObservations": 425,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 500,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.600000000034925,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "inspector",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 11.700000000011642,
+                "totalObservations": 1262,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1545,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.300000000046566,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 12,
+                "totalObservations": 1225,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1476,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.29999999998836,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "disclosure",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 2.800000000046566,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999272,
+                "totalObservations": 976,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 2.800000000046566,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 976,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "phone-sheet",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 988,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.599999999976717,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 968,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.300000000046566,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        }
+      ]
+    },
+    {
+      "label": "candidate-140-parent",
+      "run": 40136979627,
+      "attempt": 1,
+      "job": 121000461501,
+      "artifact": 12578180215,
+      "artifactZipSha256": "a93319cc163089737c06832102d5fe76ad3a3118bacc5037b9aa8e4d84823749",
+      "link": "https://github.com/Vaquum/Market-State-Cube-Explorer/actions/runs/40136979627/job/121000461501",
+      "kind": "paired-local-motion-guard",
+      "sameProductBytes": false,
+      "baseline": {
+        "sha": "86032217dd848006c3ffe241e50a0a52e91f3129",
+        "indexSha256": "3a2384e5a2c8b9667bc22e7b2b4b7ea3560328805e128a91d6fd9970ccfbeca1"
+      },
+      "candidate": {
+        "sha": "2d533fce45f5af178c94fbaf94ef173c03c0c8bd",
+        "indexSha256": "a5c4c478f1377d19138d43669f97df0660238d0176e741aa99975ffe6d6612d7"
+      },
+      "environment": {
+        "os": "linux",
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "browser": "153.0.8010.12",
+        "node": "v22.23.3"
+      },
+      "relativeGuardPass": false,
+      "absoluteOutcomes": [
+        {
+          "case": "comparison-128",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 12.5,
+                "totalObservations": 191,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.29999999999927,
+                "totalObservations": 1535,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 129.89999999999418,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 13.30000000000291,
+                "totalObservations": 189,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1532,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 125.80000000000291,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            }
+          },
+          "relativeGuardPass": false
+        },
+        {
+          "case": "cells-sort",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.7000000000116415,
+                "totalObservations": 15,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 1561,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 58.79999999998836,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.800000000017462,
+                "totalObservations": 15,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999955,
+                "totalObservations": 1567,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 57.39999999999418,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-24h",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 8,
+                "totalObservations": 599,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999272,
+                "totalObservations": 965,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.39999999999418,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 8,
+                "totalObservations": 607,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 974,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 35.19999999998254,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-all",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.900000000023283,
+                "totalObservations": 640,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 948,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.60000000000582,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.7000000000116415,
+                "totalObservations": 634,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 944,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.099999999976717,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "rows-lines",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 8.099999999976717,
+                "totalObservations": 644,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 979,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 37.29999999998836,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 8,
+                "totalObservations": 649,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 983,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 45.20000000001164,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "candles",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.7000000000116415,
+                "totalObservations": 252,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 968,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 46.90000000002328,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.2000000000116415,
+                "totalObservations": 254,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 966,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 46.79999999998836,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "level-reversal",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 9.299999999988358,
+                "totalObservations": 424,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 500,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.29999999998836,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 9.299999999988358,
+                "totalObservations": 424,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 501,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.29999999998836,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "inspector",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 11.799999999988358,
+                "totalObservations": 1294,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1586,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.29999999998836,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 12.299999999988358,
+                "totalObservations": 1286,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1558,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.20000000001164,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "disclosure",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 2.800000000046566,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 975,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31.099999999976717,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 2.900000000023283,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 978,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31.099999999976717,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "phone-sheet",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999272,
+                "totalObservations": 987,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.20000000006985,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 965,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.300000000046566,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        }
+      ]
+    },
+    {
+      "label": "candidate-006-211",
+      "run": 40138036293,
+      "attempt": 1,
+      "job": 121003645147,
+      "artifact": 12577163313,
+      "artifactZipSha256": "7de8b78f25e9fab2c1cc3275c5fb4755b489fbb1f1d21ab4025896f4c89a6f82",
+      "link": "https://github.com/Vaquum/Market-State-Cube-Explorer/actions/runs/40138036293/job/121003645147",
+      "kind": "paired-local-motion-guard",
+      "sameProductBytes": false,
+      "baseline": {
+        "sha": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+        "indexSha256": "0c17185509ecfc633c21c644887e4097cffc0230b801767a33ff13783ffb1abc"
+      },
+      "candidate": {
+        "sha": "7b7870d0923e107fe223570c198b173517e8ecc7",
+        "indexSha256": "a5c4c478f1377d19138d43669f97df0660238d0176e741aa99975ffe6d6612d7"
+      },
+      "environment": {
+        "os": "linux",
+        "cpu": "AMD EPYC 9V74 80-Core Processor",
+        "browser": "153.0.8010.12",
+        "node": "v22.23.3"
+      },
+      "relativeGuardPass": false,
+      "absoluteOutcomes": [
+        {
+          "case": "comparison-128",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.599999999976717,
+                "totalObservations": 215,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.800000000000182,
+                "totalObservations": 1552,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 104.10000000003492,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.7999999999883585,
+                "totalObservations": 210,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.800000000000182,
+                "totalObservations": 1545,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 101.20000000001164,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "cells-sort",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 4.900000000023283,
+                "totalObservations": 15,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 1546,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 45.59999999997672,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 4.900000000023283,
+                "totalObservations": 15,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999272,
+                "totalObservations": 1544,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 45.899999999965075,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-24h",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.200000000069849,
+                "totalObservations": 596,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 952,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 33.29999999993015,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.200000000069849,
+                "totalObservations": 595,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 950,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.09999999997672,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-all",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.3999999999068677,
+                "totalObservations": 637,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 943,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 29.5,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.300000000046566,
+                "totalObservations": 637,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 940,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 29.5,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "rows-lines",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.200000000069849,
+                "totalObservations": 641,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 956,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 33.20000000006985,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.399999999906868,
+                "totalObservations": 639,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999955,
+                "totalObservations": 957,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 32.699999999953434,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "candles",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 4.700000000069849,
+                "totalObservations": 255,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 956,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 46.09999999997672,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 4.599999999976717,
+                "totalObservations": 255,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 958,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 46,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "level-reversal",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.400000000023283,
+                "totalObservations": 426,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 492,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.5,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.300000000046566,
+                "totalObservations": 420,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 492,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.40000000002328,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "inspector",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 10.599999999976717,
+                "totalObservations": 1329,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.800000000000182,
+                "totalObservations": 1660,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.699999999953434,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 10.20000000006985,
+                "totalObservations": 1325,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.19999999999982,
+                "totalObservations": 1603,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 35.79999999993015,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": false
+        },
+        {
+          "case": "disclosure",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 2.400000000023283,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 965,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31.5,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 2.5,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 965,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31.5,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "phone-sheet",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 981,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31.099999999976717,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 964,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.900000000023283,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        }
+      ]
+    },
+    {
+      "label": "candidate-006-parent",
+      "run": 40138036293,
+      "attempt": 1,
+      "job": 121003645349,
+      "artifact": 12577359417,
+      "artifactZipSha256": "ba4a8f888ddc297efa44637805f1c2fcbe20a160619b43af64fbb926149d2ea8",
+      "link": "https://github.com/Vaquum/Market-State-Cube-Explorer/actions/runs/40138036293/job/121003645349",
+      "kind": "paired-local-motion-guard",
+      "sameProductBytes": false,
+      "baseline": {
+        "sha": "86032217dd848006c3ffe241e50a0a52e91f3129",
+        "indexSha256": "3a2384e5a2c8b9667bc22e7b2b4b7ea3560328805e128a91d6fd9970ccfbeca1"
+      },
+      "candidate": {
+        "sha": "7b7870d0923e107fe223570c198b173517e8ecc7",
+        "indexSha256": "a5c4c478f1377d19138d43669f97df0660238d0176e741aa99975ffe6d6612d7"
+      },
+      "environment": {
+        "os": "linux",
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "browser": "153.0.8010.12",
+        "node": "v22.23.3"
+      },
+      "relativeGuardPass": true,
+      "absoluteOutcomes": [
+        {
+          "case": "comparison-128",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.100000000005821,
+                "totalObservations": 239,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.800000000000182,
+                "totalObservations": 1569,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 105.5,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.2000000000116415,
+                "totalObservations": 243,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.800000000000182,
+                "totalObservations": 1573,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 104.39999999999418,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "cells-sort",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 4.599999999976717,
+                "totalObservations": 15,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 1542,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 40.899999999965075,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 4.599999999976717,
+                "totalObservations": 15,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 1544,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 38.90000000002328,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-24h",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 6,
+                "totalObservations": 594,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 945,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.90000000002328,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.900000000023283,
+                "totalObservations": 596,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 946,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.5,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-all",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.2999999999883585,
+                "totalObservations": 640,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 941,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 29.79999999998836,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.2000000000116415,
+                "totalObservations": 638,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 940,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "rows-lines",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.400000000023283,
+                "totalObservations": 638,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 949,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 32.40000000002328,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.2999999999883585,
+                "totalObservations": 637,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 951,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 32.70000000001164,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "candles",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 4.2999999999883585,
+                "totalObservations": 252,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 952,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 46.09999999997672,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 4.2999999999883585,
+                "totalObservations": 249,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 948,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31.70000000001164,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "level-reversal",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.7000000000116415,
+                "totalObservations": 417,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 483,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 35.5,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.800000000046566,
+                "totalObservations": 425,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 488,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 35.09999999997672,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "inspector",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 9.900000000023283,
+                "totalObservations": 1384,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 1819,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 33.09999999997672,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 10.400000000023283,
+                "totalObservations": 1388,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999272,
+                "totalObservations": 1824,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 33.59999999997672,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "disclosure",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 2.299999999930151,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 965,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31.400000000023283,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 2.199999999953434,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 965,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 31.5,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "phone-sheet",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 985,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.900000000023283,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 964,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.79999999993015,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        }
+      ]
+    },
+    {
+      "label": "candidate-006-211-confirmation",
+      "run": 40138036293,
+      "attempt": 2,
+      "job": 121015184639,
+      "artifact": 12579935181,
+      "artifactZipSha256": "0501f1371c93e59b157b5b5a0f2d4ecef608814ccfb970a6563abba76125fe34",
+      "link": "https://github.com/Vaquum/Market-State-Cube-Explorer/actions/runs/40138036293/job/121015184639",
+      "kind": "paired-local-motion-guard",
+      "sameProductBytes": false,
+      "baseline": {
+        "sha": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+        "indexSha256": "0c17185509ecfc633c21c644887e4097cffc0230b801767a33ff13783ffb1abc"
+      },
+      "candidate": {
+        "sha": "7b7870d0923e107fe223570c198b173517e8ecc7",
+        "indexSha256": "a5c4c478f1377d19138d43669f97df0660238d0176e741aa99975ffe6d6612d7"
+      },
+      "environment": {
+        "os": "linux",
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "browser": "153.0.8010.12",
+        "node": "v22.23.3"
+      },
+      "relativeGuardPass": false,
+      "absoluteOutcomes": [
+        {
+          "case": "comparison-128",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 12.69999999999709,
+                "totalObservations": 189,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1517,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 132.90000000000873,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 12.599999999991269,
+                "totalObservations": 185,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1520,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 133.90000000000873,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "cells-sort",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.699999999982538,
+                "totalObservations": 14,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 1569,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 57.20000000001164,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 6,
+                "totalObservations": 14,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 1564,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 60.59999999997672,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": false
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-24h",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.800000000017462,
+                "totalObservations": 603,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 970,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 36.29999999998836,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 7.900000000023283,
+                "totalObservations": 609,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 976,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 46.699999999953434,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "zoom-all",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 4,
+                "totalObservations": 637,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 946,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.29999999998836,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.900000000023283,
+                "totalObservations": 638,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 946,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.100000000034925,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "rows-lines",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 8.400000000023283,
+                "totalObservations": 652,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 995,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 44,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 8.100000000034925,
+                "totalObservations": 647,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 989,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.29999999998836,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "candles",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 6.199999999953434,
+                "totalObservations": 251,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 970,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 47.199999999953434,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 5.900000000023283,
+                "totalObservations": 246,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 971,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 47.09999999997672,
+                "totalObservations": 225,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "level-reversal",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 9.300000000046566,
+                "totalObservations": 428,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 502,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 37.20000000001164,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 9.299999999988358,
+                "totalObservations": 430,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000273,
+                "totalObservations": 502,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 37.40000000002328,
+                "totalObservations": 60,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "inspector",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 12.299999999988358,
+                "totalObservations": 1171,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.30000000000018,
+                "totalObservations": 1427,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 34.40000000002328,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 12.299999999988358,
+                "totalObservations": 1134,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": false
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 33.399999999999636,
+                "totalObservations": 1393,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": false
+              },
+              "input": {
+                "medianOfTrialP95Ms": 38.300000000046566,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": false
+        },
+        {
+          "case": "disclosure",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": 3.1000000000931323,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 978,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.70000000006985,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": 3,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": true
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 978,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.70000000006985,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        },
+        {
+          "case": "phone-sheet",
+          "arms": {
+            "baseline": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.799999999999727,
+                "totalObservations": 988,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.199999999953434,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            },
+            "candidate": {
+              "draw": {
+                "medianOfTrialP95Ms": null,
+                "totalObservations": 0,
+                "absoluteBudgetMs": 10,
+                "withinAbsoluteBudget": null
+              },
+              "frame": {
+                "medianOfTrialP95Ms": 16.700000000000728,
+                "totalObservations": 967,
+                "absoluteBudgetMs": 20,
+                "withinAbsoluteBudget": true
+              },
+              "input": {
+                "medianOfTrialP95Ms": 30.199999999953434,
+                "totalObservations": 30,
+                "absoluteBudgetMs": 50,
+                "withinAbsoluteBudget": true
+              }
+            }
+          },
+          "relativeGuardPass": true
+        }
+      ]
     }
   ],
   "rawEntries": [
     {
-      "path": "pre-first/performance.json",
-      "bytes": 97494,
-      "sha256": "2dc25482cc6f40bac992283a5584a77413431f476df7554ae004c3e03ccd3a40"
+      "path": "candidate-006-211-confirmation/performance.json",
+      "bytes": 97670,
+      "sha256": "aa26e97c6912078f9bda4fdad735cade579460d36a933dfb1c4ab3440939ab71"
     },
     {
-      "path": "pre-first/raw-samples.json",
-      "bytes": 88872,
-      "sha256": "80c7ec7c7a704c64447015ace9e02d2815253af29de3a476a6e6bf59dcbb8747"
+      "path": "candidate-006-211-confirmation/raw-samples.json",
+      "bytes": 88968,
+      "sha256": "b42ade4eb905e566d6222332bf81f79c684ad72c8fc2dfeaa5d77e02953dd2b9"
     },
     {
-      "path": "pre-second/performance.json",
-      "bytes": 97628,
-      "sha256": "052c3aaf06788145e2d7b5d6aaeb290844feb3d2c94761c86e9b182476e5569e"
+      "path": "candidate-006-211/performance.json",
+      "bytes": 97567,
+      "sha256": "d1f5702632aadcfc3a5aabac69123ed7a9517727b75da457b303eca59f384399"
     },
     {
-      "path": "pre-second/raw-samples.json",
-      "bytes": 89065,
-      "sha256": "ab1738fadcc6c3ddc792fca8215143b2378594ab32b60c831ad6c2111aeae373"
+      "path": "candidate-006-211/raw-samples.json",
+      "bytes": 88915,
+      "sha256": "d499bedd4f5427299c0a2166245c3ea5c0653ae15114c341967090ce78278fdf"
     },
     {
-      "path": "pre-third/performance.json",
-      "bytes": 97213,
-      "sha256": "354d4617d29f9291149a695ad3532fbd8088d1e0dfa92f768aa78db9bfea922e"
+      "path": "candidate-006-parent/performance.json",
+      "bytes": 97554,
+      "sha256": "0ea176f49ea69e88cbe905175c23915d5bd1f4ea5129cdbba84332820454a516"
     },
     {
-      "path": "pre-third/raw-samples.json",
-      "bytes": 88662,
-      "sha256": "ea3c65deab2dc97ef95ada957a05163c9a08a9a846fca0c0772d57599af1d834"
+      "path": "candidate-006-parent/raw-samples.json",
+      "bytes": 88918,
+      "sha256": "55d801a86d7bb97978b93b2ded630e361c83d3f4a4c5a03f920c7b66296bb93e"
+    },
+    {
+      "path": "candidate-140-211/performance.json",
+      "bytes": 97754,
+      "sha256": "66c73cc750b51da17fa25081414e76ec2c7907d9aa1066b0b40482c6685a3e28"
+    },
+    {
+      "path": "candidate-140-211/raw-samples.json",
+      "bytes": 89092,
+      "sha256": "5e6b2e9071981e43cc0a0eca54e72fd022b8f643f9a0394fbcea3683645a77fa"
+    },
+    {
+      "path": "candidate-140-parent/performance.json",
+      "bytes": 97820,
+      "sha256": "08f6ff614361ff09f2c447b82f9383e919426322b944c1f6908a78c5cc4cd056"
+    },
+    {
+      "path": "candidate-140-parent/raw-samples.json",
+      "bytes": 89166,
+      "sha256": "eb2ff819381b55e4ba32514ece782983a08255065b689b23d4a62dcc847a7bc9"
+    },
+    {
+      "path": "candidate-559-211/performance.json",
+      "bytes": 97655,
+      "sha256": "09efc3bc3833fdd0a19d9e39c3985528a53f777a5e6488f0b92e8361a1b5a135"
+    },
+    {
+      "path": "candidate-559-211/raw-samples.json",
+      "bytes": 89035,
+      "sha256": "79c9ff93cd2b6c4f942f86f54016b570308274345d7cb4783f39603217d66042"
+    },
+    {
+      "path": "candidate-559-parent/performance.json",
+      "bytes": 97929,
+      "sha256": "1a7cf812c9f55c1016b0a3fd1b607d9d91550b412cfbc93b12e1d27ed44fc93e"
+    },
+    {
+      "path": "candidate-559-parent/raw-samples.json",
+      "bytes": 89200,
+      "sha256": "ae2afb6281b05b59853e3feface80600cbcf36dced32da24cfa4d7bb3b9c7708"
     },
     {
       "path": "pre-712-211/performance.json",
@@ -4437,29 +6917,39 @@
       "sha256": "4e2e9bc1811ddc6bc70b8dbe0f1463d29d7424cd956416aa654f49e4415d4deb"
     },
     {
-      "path": "candidate-559-211/performance.json",
-      "bytes": 97655,
-      "sha256": "09efc3bc3833fdd0a19d9e39c3985528a53f777a5e6488f0b92e8361a1b5a135"
+      "path": "pre-first/performance.json",
+      "bytes": 97494,
+      "sha256": "2dc25482cc6f40bac992283a5584a77413431f476df7554ae004c3e03ccd3a40"
     },
     {
-      "path": "candidate-559-211/raw-samples.json",
-      "bytes": 89035,
-      "sha256": "79c9ff93cd2b6c4f942f86f54016b570308274345d7cb4783f39603217d66042"
+      "path": "pre-first/raw-samples.json",
+      "bytes": 88872,
+      "sha256": "80c7ec7c7a704c64447015ace9e02d2815253af29de3a476a6e6bf59dcbb8747"
     },
     {
-      "path": "candidate-559-parent/performance.json",
-      "bytes": 97929,
-      "sha256": "1a7cf812c9f55c1016b0a3fd1b607d9d91550b412cfbc93b12e1d27ed44fc93e"
+      "path": "pre-second/performance.json",
+      "bytes": 97628,
+      "sha256": "052c3aaf06788145e2d7b5d6aaeb290844feb3d2c94761c86e9b182476e5569e"
     },
     {
-      "path": "candidate-559-parent/raw-samples.json",
-      "bytes": 89200,
-      "sha256": "ae2afb6281b05b59853e3feface80600cbcf36dced32da24cfa4d7bb3b9c7708"
+      "path": "pre-second/raw-samples.json",
+      "bytes": 89065,
+      "sha256": "ab1738fadcc6c3ddc792fca8215143b2378594ab32b60c831ad6c2111aeae373"
+    },
+    {
+      "path": "pre-third/performance.json",
+      "bytes": 97213,
+      "sha256": "354d4617d29f9291149a695ad3532fbd8088d1e0dfa92f768aa78db9bfea922e"
+    },
+    {
+      "path": "pre-third/raw-samples.json",
+      "bytes": 88662,
+      "sha256": "ea3c65deab2dc97ef95ada957a05163c9a08a9a846fca0c0772d57599af1d834"
     }
   ],
   "rawArchive": {
     "path": "raw.zip",
-    "bytes": 140874,
-    "sha256": "69e31971d398018732922298b24b824e82c152a3b2a86b6f921f1528e2f34eb2"
+    "bytes": 203856,
+    "sha256": "53456949d9083ecf9260058fd2977c67118329e70c2954f2cd55382e99fa0a73"
   }
 }
