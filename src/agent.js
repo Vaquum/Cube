@@ -166,7 +166,7 @@
     return validate(seal(d));
   }
   function replayCache(cache, cut) {
-    const output = {}, entries = (name) => cache[name]?.cubeMap || [], put = (name, values) => { output[name] = { cubeMap: values }; };
+    const output = {}, entries = (name) => cache[name] instanceof Map ? [...cache[name]] : cache[name]?.cubeMap || [], put = (name, values) => { output[name] = { cubeMap: values }; };
     put("barChunks", entries("barChunks").filter(([, r]) => r.a < cut).map(([key, r]) => [key, { ...r, end: Math.min(r.end, cut), bars: r.bars.filter((bar) => (bar.c + 1) * 2 ** r.n <= cut) }]));
     put("barEdges", entries("barEdges").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
     put("candleRanges", entries("candleRanges").map(([key, r]) => {
@@ -276,5 +276,5 @@
     const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
     return validate(seal({ schema: SCHEMA, instrument: "BTC/USDT", createdAt: Date.now(), mode: "captured", scene, snapshot, comparison: { comparisonVersion: 2, instrument: "BTC/USDT", selectedMetric: "volume", captures, focus: captures[0]?.id ?? null, reference: null, basis: "auto", sort: { key: "time", direction: "asc" }, view: "grid", page: 0, poc: null, expanded: false, restoreLayout: null }, selection: { query: { ...scene.query }, metrics: summary, source: f.source, measuredThrough: f.cutoffMs, state: "exact" }, focus: null }));
   }
-  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, selectionQuery, redact, configure, annotate, fromQuery, forExport });
+  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, selectionQuery, redact, configure, annotate, fromQuery, forExport, replayCache });
 });

@@ -47,3 +47,13 @@ test("invalid dedicated support is rejected before the outgoing investigation mu
   const error=await page.evaluate(async d=>{const block=d.snapshot.cache.developingPocReads.cubeMap[0][1];block.b1=16;block.col1=1;try{await window.cubeAgent.apply(window.explorerAgent.seal(d));return "unexpected success";}catch(e){return e.message;}},before);
   expect(error).toMatch(/developing POC coverage/);await value(page,"25,187.5");expect(page.url()).toBe(url);expect((await page.evaluate(()=>window.cubeAgent.export())).snapshot.cache.developingPocReads).toEqual(before.snapshot.cache.developingPocReads);
 });
+test("replay exports prune full-session cache reads before validating the causal snapshot",async({page,fakeFor,probe,freshContext})=>{
+  const data=input();data.trades.splice(2,0,{t_ms:3600000,price:2487500,qty:300000000,takerBuy:true});
+  const fake=await fakeFor(data);await open(page,fake,probe,"24,937.5");
+  await page.evaluate(()=>window.cubeAgent.configure({resolution:[4,0]}));await probe.waitForReady();
+  await expect.poll(async()=>(await page.evaluate(()=>window.cubeAgent.export("selection"))).comparison.captures[0]?.level.n,{timeout:15000}).toBe(4);
+  await page.evaluate(()=>window.cubeAgent.replay(48,true));await probe.waitForReady();await value(page,"25,187.5");
+  const d=await page.evaluate(()=>window.cubeAgent.export());expect(d.snapshot.cache.developingPocReads.cubeMap.every(([,b])=>b.b1<=48)).toBe(true);
+  for(const source of d.snapshot.sources){expect(source.cells.every(c=>c.c*2**source.n<48)).toBe(true);expect(source.cells.reduce((sum,c)=>sum+c.v,0)).toBeLessThanOrEqual(75250);}
+  const other=await (await freshContext()).newPage();await other.goto(fake.url+"/#w=24h&lines=");await expect.poll(()=>other.evaluate(()=>typeof window.cubeAgent?.apply)).toBe("function");await other.evaluate(d=>window.cubeAgent.apply(d),d);await value(other,"25,187.5");
+});
