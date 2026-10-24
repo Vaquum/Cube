@@ -42282,13 +42282,22 @@
       const group = groups[name] ??= { count:0, total:0, max:0 };
       group.count++; group.total += elapsed; group.max = Math.max(group.max, elapsed);
     };
+    const control = { cancelled: () => job.cancelled || evidenceKey() !== job.key };
+    if (diagnosticCompute) {
+      const callbacks = { phase: name => diagnosticCurrent() ? diagnosticPhase("continuations." + name, { a,n,m }) : null, now: () => performance.now(),
+        yield: (stage, elapsed) => accumulate(diagnosticYields,stage,elapsed), cost: (stage,elapsed) => accumulate(diagnosticCosts,stage,elapsed),
+        sample: sample => diagnosticCurrent() && diagnostics.mark("continuations-bootstrap", { a,n,m,...sample }) }, names = Object.keys(callbacks);
+      for (const name of names) Object.defineProperty(control, name, { configurable:true, get: () => {
+        if (diagnosticCurrent()) return callbacks[name];
+        // First resumed access after Stop/restart detaches all measurement
+        // callbacks. The calculation and its existing task yields continue.
+        for (const key of names) delete control[key];
+      } });
+    }
     let out;
     try {
       out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
-        seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, { cancelled: () => job.cancelled || evidenceKey() !== job.key,
-        ...(diagnosticCompute ? { phase: name => diagnosticCurrent() ? diagnosticPhase("continuations." + name, { a,n,m }) : null, now: () => performance.now(),
-          yield: (stage, elapsed) => accumulate(diagnosticYields,stage,elapsed), cost: (stage,elapsed) => accumulate(diagnosticCosts,stage,elapsed),
-          sample: sample => diagnosticCurrent() && diagnostics.mark("continuations-bootstrap", { a,n,m,...sample }) } : {}) });
+        seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, control);
     } finally {
       if (diagnosticCurrent()) diagnostics.mark("continuations-work", { a,n,m, yields:diagnosticYields, synchronousSamples:diagnosticCosts,
         note:"Yield schedule-to-resume waits and per-seasonal-call elapsed samples include instrumentation overhead; phase walls overlap these samples" });

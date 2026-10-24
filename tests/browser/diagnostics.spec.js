@@ -346,6 +346,39 @@ test("a replacement intent cannot inherit the preceding draw's failure before it
     expect(report.events.some(e => e.type === "draw" && e.requested.intent === replacement && e.status === "terminal-fallback" && e.error?.some(message => message.includes("replacement tile failure")))).toBe(true);
   } finally { gate.open(); }
 });
+for (const restart of [false, true]) test(`in-flight Continuations detaches measurement callbacks after ${restart ? "recording restart" : "Stop"}`, async ({ page, fakeFor, probe }) => {
+  await page.addInitScript(restart => {
+    let api; window.__stoppedEvidence = null;
+    Object.defineProperty(window, "explorerEvidence", { get: () => api, set: value => {
+      api = { ...value, compute: async (input, control) => {
+        if (window.__stoppedEvidence || typeof control.now !== "function") return value.compute(input, control);
+        const observed = window.__stoppedEvidence = { stopped: false, complete: false }; let rows = 0;
+        const output = await value.compute({ ...input, seasonal: args => {
+          if (++rows === 2) {
+            document.querySelector("#ol-diagnostics-stop").click();
+            if (restart) document.querySelector("#ol-diagnostics-start").click();
+            observed.stopped = true;
+          } else if (rows === 3) {
+            // The engine must detach at the preceding row's cost boundary;
+            // inspecting the property names does not invoke a getter.
+            observed.remaining = Object.getOwnPropertyNames(control);
+            observed.clock = typeof control.now;
+          }
+          return input.seasonal(args);
+        } }, control);
+        observed.complete = Boolean(output?.ledger.length); return output;
+      } };
+    } });
+  }, restart);
+  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&r=5,1"); await probe.waitForReady();
+  await controls(page); await page.locator("#ol-diagnostics-start").click();
+  await page.locator("#ol-canvas").focus(); await page.keyboard.press("c");
+  await expect.poll(() => page.evaluate(() => window.__stoppedEvidence?.complete)).toBe(true);
+  expect(await page.evaluate(() => window.__stoppedEvidence)).toEqual({ stopped: true, complete: true, clock: "undefined", remaining: ["cancelled"] });
+  await expect(page.locator("#ol-evidence")).toHaveAttribute("aria-busy", "false");
+  await expect(page.locator("#ol-evidence-intervals")).toHaveAttribute("data-bootstrap", /.+/);
+  await expect(page.locator("#ol-diagnostics-status")).toContainText(restart ? "Recording" : "Stopped");
+});
 test("recording controls have a reference Show route, help, names and native keyboard order", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("mini"); await page.goto(fake.url + "/#w=24h&r=4,0"); await probe.waitForReady();
   await page.locator("#ol-reference-toggle").click(); await page.locator("#ol-reference-search").fill("Performance recording");
