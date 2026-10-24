@@ -421,6 +421,7 @@ test("recorded partial history is disclosed on the band, in its hatch and in the
   await expect(tip).toContainText("Earlier coverage is limited to available native provider history.");
   await expect(tip).toContainText("Calendar archive begins");
   await button.click();
+  await page.locator('#ol-strip-menu [data-strip="forces"]').click();
   await page.locator('#ol-strip-menu [data-force="macro"]').click();
   await expect(button).toHaveAttribute("data-coverage", "Partial history · attention unavailable");
   await probe.waitForQuiet();
@@ -429,4 +430,24 @@ test("recorded partial history is disclosed on the band, in its hatch and in the
   await page.locator('#ol-strip-menu [data-strip="off"]').click();
   await expect(button).toHaveAttribute("data-coverage", "");
   await expect(button).not.toHaveAttribute("aria-description");
+});
+
+test("coverage reports changing support only before the visible replay edge", async ({ page, fakeFor, probe, pane }) => {
+  const fake = await fakeFor("standard"), view = await rectangle(fake, 1, "&strip=forces"), middle = (view.from + view.to) / 2;
+  await page.route("**/cube/strip?*", async (route) => {
+    const original = await route.fetch(), body = await original.json(), { t0, step } = body.grid;
+    body.grid.forces.news = body.grid.forces.news.map((v, i) => t0 + i * step < middle ? null : v);
+    body.grid.attention = body.grid.attention.map((v, i) => t0 + i * step >= middle ? null : v);
+    await route.fulfill({ response: original, json: body });
+  });
+  await open(page, fake, probe, view.hash);
+  const button = page.locator("#ol-strip"), g = at(await layoutOf(page)), top = g.by + LABELS, frame = await pane.last();
+  await expect(button).toHaveAttribute("data-coverage", "Partial history · 3–4 of 4 forces · attention unavailable in part");
+  const hatchAt = (x, y) => frame.rects.some((r) => r.fill === "pattern" && r.y === y && r.h === FOOT && r.x <= x && x < r.x + r.w);
+  expect(hatchAt(g.x + g.w / 4, top + 1)).toBe(true);
+  expect(hatchAt(g.x + 3 * g.w / 4, top + 1)).toBe(false);
+  expect(hatchAt(g.x + g.w / 4, top + BAND - 1 - FOOT)).toBe(false);
+  expect(hatchAt(g.x + 3 * g.w / 4, top + BAND - 1 - FOOT)).toBe(true);
+  await open(page, fake, probe, `${view.hash}&${REPLAY}&at=${iso(view.from + 0.4 * DAY)}`);
+  await expect(button).toHaveAttribute("data-coverage", "Partial history · 3 of 4 forces");
 });
