@@ -162,6 +162,65 @@ print(json.dumps({'rows': st.rows('wiki_day'), 'again': again, 'seen': st.seen('
   assert.deepEqual(out.seen, [P1, P2]);
 });
 
+test("an explicit later backfill adds retrospective history without rewriting the first live observation", () => {
+  const out=python(String.raw`
+st=m.Store();model=m.Model(st);t=I['T']
+def row(identity,at,value):return {'id':identity,'observed_at':m.iso(at),'values':{'interest_1h':value}}
+model.ingest('deribit_funding','live',[row('live',t,0.00001)],{},m.iso(t),t,m.HOUR)
+model.ingest('deribit_funding','backfill',[row('past',t-30*m.DAY,0.00002),row('live',t,0.00099)],{},
+             m.iso(t+m.HOUR),t+m.HOUR,m.HOUR,retrospective=True)
+model.ingest('deribit_funding','delayed-live',[row('late',t+30*m.MINUTE,0.00003)],{},m.iso(t+2*m.HOUR),t+2*m.HOUR,m.HOUR)
+model.ingest('deribit_funding','expanded-native',[row('expanded',t-60*m.DAY,0.00004)],{},m.iso(t+3*m.HOUR),t+3*m.HOUR,m.HOUR)
+print(json.dumps({identity:[at,known,retro,value] for identity,at,known,retro,value in
+    st.db.execute('SELECT obs_id,observed_ms,known_ms,retro,value FROM obs')}))`,{T});
+  assert.deepEqual(out.past.slice(0,3),[T-30*DAY,T-30*DAY,1]);
+  assert.deepEqual(out.live.slice(0,3),[T,T,0]);
+  assert.ok(close(out.live[3],8.76));
+  assert.deepEqual(out.late.slice(0,3),[T+1800000,T+2*HOUR,0]);
+  assert.deepEqual(out.expanded.slice(0,3),[T-60*DAY,T-60*DAY,1]);
+});
+
+test("continuous social minutes wait for completion and exclude cursor gaps before their counts become first-seen", () => {
+  const out=python(String.raw`
+st=m.Store();model=m.Model(st);t=I['T'];meta={'source_metadata':{'mode':'continuous_checkpointed'}}
+def row(identity,at,count,full=False,gap=False):
+    return {'id':identity,'observed_at':m.iso(at),'values':{'creates':count,'bitcoin_creates':count,
+        'bullish_word_matches':count,'bearish_word_matches':0},'metadata':{'interval_end':m.iso(at+m.MINUTE),
+        'full_minute_connection_coverage':full,'cursor_gap_overlap':gap,'connected_seconds':60 if full else 10}}
+first=model.ingest('bluesky_live','partial',[row('one',t,1)],meta,m.iso(t+10000),t+10000,300000)
+second=model.ingest('bluesky_live','complete',[row('one',t,20,True),row('two',t+m.MINUTE,2),
+    row('gap',t-2*m.MINUTE,1000,True,True)],meta,m.iso(t+2*m.MINUTE),t+2*m.MINUTE,300000)
+third=model.ingest('bluesky_live','next',[row('one',t,999,True),row('two',t+m.MINUTE,30,True)],meta,
+                   m.iso(t+3*m.MINUTE),t+3*m.MINUTE,300000)
+legacy=model.ingest('bluesky_live','legacy',[row('bounded',t-10*m.MINUTE,5)],{},m.iso(t),t,300000)
+print(json.dumps({'counts':[first,second,third,legacy],
+                 'rows':{identity:[known,json.loads(extra)] for identity,known,extra in st.db.execute('SELECT obs_id,known_ms,extra FROM obs')}}))`,{T});
+  assert.deepEqual(out.counts,[0,1,1,1]);
+  assert.equal(out.rows.one[0],T+120000);
+  assert.equal(out.rows.one[1].creates,20);
+  assert.equal(out.rows.two[1].creates,30);
+  assert.equal(out.rows.one[1].full_minute_connection_coverage,true);
+  assert.equal(out.rows.gap,undefined);
+  assert.equal(out.rows.bounded[1].creates,5);
+});
+
+test("a reconstructed gap after live collection keeps its retrospective label until the next live row", () => {
+  const out=python(String.raw`
+st=m.Store();model=m.Model(st);t=I['T']
+def row(identity,at):return {'id':identity,'observed_at':m.iso(at),'values':{'interest_1h':0.00001}}
+model.ingest('deribit_funding','initial',[row('first',t)],{},m.iso(t),t,m.HOUR)
+model.ingest('deribit_funding','gap',[row('recovered',t+m.DAY)],{},m.iso(t+3*m.DAY),t+3*m.DAY,m.HOUR,retrospective=True)
+before=[st.retro_until('funding:deribit'),m._retro_until(st.rows('funding:deribit'))]
+model.ingest('deribit_funding','new-live',[row('latest',t+4*m.DAY)],{},m.iso(t+4*m.DAY),t+4*m.DAY,m.HOUR)
+after=[st.retro_until('funding:deribit'),m._retro_until(st.rows('funding:deribit'))]
+other=[(t,t,1,0.1,None)]
+combined=m.funding_evidence(st.rows('funding:deribit'),other).retro_until
+print(json.dumps({'before':before,'after':after,'mixedVenueBoundary':combined}))`,{T});
+  assert.deepEqual(out.before,[null,null]);
+  assert.deepEqual(out.after,[T+4*DAY,T+4*DAY]);
+  assert.equal(out.mixedVenueBoundary,null);
+});
+
 test("the calendar's revisions become schedule entries; a date stays a date; a withdrawn event leaves no cancellation behind", () => {
   const out = python(String.raw`
 st = m.Store(); md = m.Model(st)
