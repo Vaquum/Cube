@@ -17,7 +17,11 @@ test("side-panel controls export bounded reload, browser and application measure
   await page.goto(fake.url + "/#w=24h&vis=2"); await probe.waitForReady();
   await controls(page);
   await Promise.all([page.waitForEvent("load"), page.locator("#ol-diagnostics-reload").click()]);
-  await probe.waitForReady();
+  // Recording deliberately samples rAF. The global-idle probe must not wait
+  // for that observer loop; assert application readiness instead.
+  await expect(page.locator("#ol-loading")).toBeHidden();
+  await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-startup", "");
+  await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive())).toBe(false);
   await expect(page.locator("#ol-diagnostics-status")).toContainText("Recording");
   await page.locator("#ol-canvas").focus(); await page.keyboard.press("]");
   await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-subdivision", /.+/);
@@ -43,7 +47,9 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
       api = { ...value, lifecycle: { ...value.lifecycle, coherent: (...args) => window.__holdDiagnosticsCalibration ? { ok: false, reason: "pending" } : value.lifecycle.coherent(...args) } };
     } });
   });
-  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&vis=2"); await probe.waitForReady();
+  // A fixed price level prevents opening Query from auto-selecting/fitting the
+  // destination grid before the calibration hold is installed.
+  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&vis=2&r=5,1"); await probe.waitForReady();
   await controls(page); await page.locator("#ol-diagnostics-start").click();
   await page.evaluate(() => { window.__holdDiagnosticsCalibration = true; });
   await page.locator("#ol-canvas").focus(); await page.keyboard.press("]");
@@ -58,6 +64,10 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
     const tooltip = document.createElement("span"); tooltip.setAttribute("role", "tooltip"); tooltip.setAttribute("data-motion-running", "");
     document.querySelector("#ol-drawer-body").append(tooltip);
   });
+  await page.locator("#ol-tab-query").click();
+  await expect(page.locator("#ol-tab-query")).toHaveAttribute("aria-expanded", "false");
+  await page.locator("#ol-tab-query").click();
+  await expect(page.locator("#ol-tab-query")).toHaveAttribute("aria-expanded", "true");
   await controls(page);
   // Completion belongs to the drawer scope despite its unrelated tooltip marker.
   await expect.poll(async () => page.locator("#ol-drawer-body").getAttribute("data-motion-running")).toBe(null);

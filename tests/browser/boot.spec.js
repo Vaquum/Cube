@@ -125,7 +125,7 @@ test.describe("B01 no production test hook (DD-T04, S1-003)", () => {
         test: Object.getOwnPropertyNames(window).filter((name) => /^__|test|hook|debug|probe/i.test(name) && !blank.has(name)),
       };
     });
-    expect(seen.added).toEqual(["cubeAgent", "d3", "explorerAgent", "explorerComparison", "explorerComparisonUI", "explorerEncoding", "explorerEvidence", "explorerFeatures", "explorerHelp", "explorerMotion", "explorerRallies", "explorerReference", "explorerState"]);
+    expect(seen.added).toEqual(["cubeAgent", "d3", "explorerAgent", "explorerComparison", "explorerComparisonUI", "explorerDiagnostics", "explorerEncoding", "explorerEvidence", "explorerFeatures", "explorerHelp", "explorerMotion", "explorerRallies", "explorerReference", "explorerState"]);
     expect(seen.probe).toBe("undefined");
     expect(seen.fake).toBe("undefined");
     expect(seen.test).toEqual([]);
