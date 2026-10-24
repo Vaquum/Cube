@@ -47887,8 +47887,9 @@
     const value = Agent.validate(document), checked = E.codec.validatePortable(value.scene, viewEnv());
     if (!checked.ok || checked.dropped.length) throw Error(checked.reasons.join("; ") || "Scene contains unavailable settings");
     if (value.snapshot && (value.snapshot.origin !== T0 || value.snapshot.baseSeconds !== BASE || value.snapshot.basePrice !== PR)) throw Error("Captured canvas uses a different cube lattice");
-    const prior = activeAnalysis, before = await agentDocument("view", null, false);
-    if (!analysisOrigin) analysisOrigin = agentSnapshot(false);
+    // Rollback is private runtime state; an empty/hidden selection need not form a portable query.
+    const prior = activeAnalysis, before = { snapshot: agentSnapshot(false), view: { ...structuredClone(S), ...portableView(portablePayload(), analysisHash ?? viewHash()) } };
+    if (!analysisOrigin) analysisOrigin = before.snapshot;
     try {
       if (drawingCollection().objects.length && JSON.stringify(drawingCollection()) !== JSON.stringify(value.scene.drawings)) {
         const preserved = window.explorerState.drawings.preserve(drawingCollection());
@@ -47918,7 +47919,7 @@
     } catch (error) {
       activeAnalysis = prior; analysisRevision++;
       if (before.snapshot) agentInstallSnapshot(before.snapshot);
-      applyView(portableView(E.codec.validatePortable(before.scene, viewEnv()).value, before.scene.id));
+      applyView(before.view);
       throw error;
     }
   }
