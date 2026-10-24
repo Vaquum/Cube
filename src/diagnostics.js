@@ -9,7 +9,7 @@
   const LIMITS = Object.freeze({ events: 10000, milliseconds: 120000 });
   const DEFINITIONS = Object.freeze({
     clock: "performance.now() milliseconds relative to performance.timeOrigin; browser entries use the same origin",
-    acknowledgment: "Microtask after input dispatch; records post-handler requested state, not a verified paint",
+    acknowledgment: "Zero-delay task after input dispatch; records post-handler requested state including task-queue delay, not a verified paint",
     draw: "Application draw() entry to completed canvas/DOM submission; includes CPU work, excludes compositor presentation",
     presentation: "Two consecutive sampled animation frames with no relevant scope motion/busy state; chart scope additionally requires a completed requested draw or explicit terminal result",
     frames: "Native requestAnimationFrame intervals while recording, including the recorder's own overhead; hidden intervals are labelled",
@@ -166,7 +166,9 @@
       const container = target.closest("#ol-comparisonWorkspace,#ol-evidence,.ol-panel,#ol-controls,#ol-side-body");
       const scope = explicit ?? (container && container.id !== "ol-controls" ? container.id : "ol-canvas");
       const p = recorder.input(scope, { event: event.type, target: target.id || target.tagName.toLowerCase(), trusted: event.isTrusted, eventTime: event.timeStamp });
-      queueMicrotask(() => recorder.acknowledge(p, requested()));
+      // Native dispatch may checkpoint microtasks between capture and bubble
+      // listeners. A task observes the application handlers after dispatch.
+      setTimeout(() => recorder.acknowledge(p, requested()), 0);
     }
     // Listeners are inert until explicitly started. No input text, clipboard,
     // query strings or credentials are included in the export.

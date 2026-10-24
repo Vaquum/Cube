@@ -21,6 +21,7 @@ test("side-panel controls export bounded reload, browser and application measure
   await expect(page.locator("#ol-diagnostics-status")).toContainText("Recording");
   await page.locator("#ol-canvas").focus(); await page.keyboard.press("]");
   await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-subdivision", /.+/);
+  const requestedN = Number((await page.locator("#ol-n").textContent()).replace("n ", ""));
   const report = await exported(page);
   expect(report.schema).toBe("cube-performance@1"); expect(report.stopReason).toBe("export");
   expect(report.events.length).toBeLessThanOrEqual(report.limits.events);
@@ -28,6 +29,8 @@ test("side-panel controls export bounded reload, browser and application measure
   expect(report.events.some(e => e.type === "browser-timing" && e.entryType === "navigation")).toBe(true);
   expect(report.events.filter(e => e.type === "phase-start" && e.name === "startup.decode").map(e => e.identity.source).sort()).toEqual(["overview", "recent", "reference"]);
   expect(report.events.some(e => e.type === "draw" && e.status === "requested-output-submitted")).toBe(true);
+  const key = report.events.find(e => e.type === "input" && e.event === "keydown" && e.target === "ol-canvas");
+  expect(report.events.find(e => e.type === "acknowledgment" && e.id === key.id).requested.n).toBe(requestedN);
   expect(report.definitions.unavailable).toContain("INP");
   // The reload opt-in is consumed once. A second reload starts no recorder.
   await page.reload(); await probe.waitForReady();

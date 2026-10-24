@@ -13,8 +13,8 @@ means unknown, not current main. Pin the served build independently when testing
 an unlabelled local build. Resource names omit query strings and credentials; input
 records contain control IDs/event types rather than text, key values or clipboard data.
 
-Input acknowledgment is a microtask after dispatch and includes the post-handler
-requested state. It does not establish visible feedback. A draw is the completed
+Input acknowledgment is a zero-delay task after dispatch and includes the post-handler
+requested state and task-queue delay. It does not establish visible feedback. A draw is the completed
 application submission, not compositor presentation. Draw revisions may advance
 as dependencies arrive; only the latest interaction in a scope owns completion.
 The first subsequent draw, data-ready submission and presentation proxy are separate
