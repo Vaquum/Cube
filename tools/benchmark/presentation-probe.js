@@ -152,7 +152,7 @@
     get recording() { return recording; },
     begin(settings) {
       options = settings; ids = new WeakMap(); nodes = new Map(); ghosts = new WeakSet(); animations = new Map(); semanticIds = new WeakMap(); semanticSerial = 0; channelIds = new WeakMap(); channelSerial = 0; pendingInputs = new WeakMap(); started = performance.now(); deadline = 0;
-      trace = { schema: 'cube-presentation@1', case: settings.id, inputs: [], acks: [], frames: [], actors: [], channels: [], cssAnimations: [], actorSamples: 0, truncated: false, invalidReasons: [],
+      trace = { schema: 'cube-presentation@1', case: settings.id, clock: { timeOrigin: performance.timeOrigin, started }, inputs: [], acks: [], frames: [], actors: [], channels: [], cssAnimations: [], actorSamples: 0, truncated: false, invalidReasons: [],
         springDuration: window.explorerMotion.SPRING.duration, capabilities: { userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], dpr: devicePixelRatio,
           inert: CSS.supports('interactivity', 'inert'), reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches } };
       recording = true; trace.before = semantic(); this.done = new Promise(done => resolve = done);
