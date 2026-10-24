@@ -25397,6 +25397,9 @@
       const cell = captures[0], numeric = (key) => cell.metrics[key]?.tag === "finite" ? cell.metrics[key].value : null;
       selection = { query: { ...scene.query }, metrics: { volume: numeric("volume.amount"), trades: numeric("trades.amount"), takerBuyVolume: cell.detail.find((detail) => detail.label === "Buyer-initiated USDT")?.value ?? null, takerBuyTrades: cell.detail.find((detail) => detail.label === "Buyer-initiated trades")?.value ?? null, pocRow: numeric("volume.amount") > 0 ? cell.r : null }, source: cell.source, measuredThrough: cell.measuredThrough, state: "captured-cell" };
     }
+    // Camera/drawing edits do not replace the investigation's recorded selection.
+    // Explicit selection/cell copies still capture the current requested region.
+    if (activeAnalysis && (scope === "view" || scope === "comparison")) selection = structuredClone(activeAnalysis.selection);
     const document = Agent.seal({ schema: Agent.SCHEMA, instrument: INSTRUMENT, createdAt: Date.now(), mode: "captured", scene, comparison: model, snapshot, selection, focus: null });
     return causal ? Agent.forExport(document) : Agent.validate(document);
   }
@@ -25478,6 +25481,15 @@
     if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
     unchanged();
     const token = packBody.pack.state_token;
+    let selection = null;
+    if (before.selection) {
+      const q = before.selection.query, iso = (b) => new Date((T0 + b * BASE) * 1000).toISOString();
+      const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams({ t1: iso(q.t1), t2: iso(q.t2), p1: q.p1 * PR, p2: q.p2 * PR, tR: BASE * 2 ** q.tR, pR: PR * 2 ** q.pR, pack: token }));
+      unchanged(); const body = await response.json(); unchanged();
+      if (!response.ok) throw Error("Refresh failed; captured evidence retained: " + (body.detail || body.error || response.status));
+      if (body.frame.token !== token) throw Error("Source changed during refresh; captured evidence retained");
+      selection = Agent.fromQuery(body).selection;
+    }
     // Each capture is at most one cell, so its own observed region respects
     // both the column and returned-cell limits without reading between captures.
     for (const cell of before.comparison.captures) {
@@ -25513,9 +25525,9 @@
     const committed = () => { if (analysisRevision !== committingRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
     committed();
     comparisonCommit({ ...before.comparison, captures: refreshed }, true, true); update();
-    const after = await agentDocument(); committed();
+    const after = Agent.forExport(Agent.seal({ ...await agentDocument(), selection })); committed();
     const difference = Agent.diff(Agent.forExport(before), after);
-    activeAnalysis = Agent.seal({ ...after, mode: "live", snapshot: null }); analysisRevision++;
+    activeAnalysis = Agent.seal({ ...after, selection, mode: "live", snapshot: null }); analysisRevision++;
     el("analysis-status").textContent = "Refreshed current source · " + difference.changes.length + " changed measurements. Previous capture retained until this page closes." + (S.strip !== "off" ? " Forces refreshes separately and is excluded from this comparison." : "");
     scheduleStrip(); scheduleLive(3); return { document: after, ...difference };
   }
