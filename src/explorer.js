@@ -17769,9 +17769,11 @@
     if (!lineAvailable(key)) return { text: "Live cube only" };
     if (!S.lines.includes(key) || CLOCK[key]) return { text: "" };
     if (key === "devpoc") {
-      const days = developingPocDays(), r = days.length ? developingPocDay(days[0]) : { state: "none", points: [] }, point = developingPocPoint({ r }, Math.min(S.tB, activeCutoff()));
-      return { text: r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "unsupported" ? "not captured" : r.state === "none" ? "no completed sample" : "…",
-        title: r.error || `Cumulative since 00:00 UTC${point ? "; as of " + when(point[0]) + " UTC" : ""}; 15-minute samples and live so far. Wide views show the latest visible day; zoom in for earlier daily trails.` };
+      const days = developingPocDays(), readings = days.map(developingPocDay), r = readings[0] ?? { state: "none", points: [] }, point = developingPocPoint({ r }, Math.min(S.tB, activeCutoff()));
+      const missing = readings.filter((read) => read.state === "unsupported").length, coverage = missing && days.length > 1 ? `${missing} of ${days.length} sessions not captured` : "";
+      const text = r.state === "ready" ? point ? price(point[1]) : "no observed POC" : r.state === "failed" ? "unavailable" : r.state === "unsupported" ? "not captured" : r.state === "none" ? "no completed sample" : "…";
+      return { text: coverage ? r.state === "ready" ? `${text} · ${coverage}` : coverage : text,
+        title: (r.error || `Cumulative since 00:00 UTC${point ? "; as of " + when(point[0]) + " UTC" : ""}; 15-minute samples and live so far. Wide views show the latest visible day; zoom in for earlier daily trails.`) + (coverage ? ` ${coverage}.` : "") };
     }
     if (key === "vvwap") {
       const r = visibleVwapResult();
@@ -25542,7 +25544,7 @@
       captured = captured.filter((s) => s.id !== id && s.id !== "captured-frame");
       captured.push({ id, n: last.n, m: last.m, b0: b[0], b1: b[1], col0: Math.floor(b[0] / 2 ** last.n), col1: Math.ceil(b[1] / 2 ** last.n), cells: last.full?.cells ?? last.mv?.full?.cells ?? [] });
     }
-    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), sourceCutoffMs: wholeMs(comparisonMs(CUT)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(CANON)), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache });
+    return agentSerialize({ baseSeconds: BASE, basePrice: PR, origin: T0, cutoffMs: wholeMs(comparisonMs(edge)), sourceCutoffMs: wholeMs(comparisonMs(CUT)), canonicalThroughMs: CANON === null ? null : wholeMs(comparisonMs(CANON)), source: String(PACK.source || "Recorded snapshot"), token: PACK.state_token ?? null, live: Boolean(PACK.live), generation: live.generation, sources: captured, motion: Object.values(motion.sources).filter((s) => s.b0 < edge).map(source), cache: replay ? Agent.replayCache(cache, edge) : cache });
   }
   function agentInstallSnapshot(frame) {
     if (frame.baseSeconds !== BASE || frame.basePrice !== PR || frame.origin !== T0) throw Error("Captured canvas uses a different cube lattice");
