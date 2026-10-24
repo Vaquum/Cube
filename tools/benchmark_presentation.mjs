@@ -17,7 +17,8 @@ if (process.env.GITHUB_ACTIONS !== 'true') throw Error('This runner is restricte
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim();
 if (git('status', '--porcelain', '--untracked-files=no')) throw Error('Commit the protocol and harness before measurement.');
 const protocol = JSON.parse(fs.readFileSync('tools/benchmark/presentation.v1.json'));
-const head = git('rev-parse', 'HEAD'), out = 'reports/presentation';
+const preflight = process.argv.includes('--preflight');
+const head = git('rev-parse', 'HEAD'), out = preflight ? 'reports/presentation-preflight' : 'reports/presentation';
 fs.mkdirSync(out, { recursive: true });
 const instrumentation = ['tools/benchmark/presentation.v1.json', 'tools/benchmark/presentation-probe.js',
   'tools/benchmark/presentation-build.mjs', 'tools/benchmark/presentation-cases.mjs', 'tools/benchmark/presentation-metrics.cjs', 'tools/benchmark_presentation.mjs'];
@@ -88,7 +89,6 @@ async function trial(build, d, stage, pair, arm) {
       cssAnimations: trace.cssAnimations.length, ghostCount: trace.actors.filter(actor => actor.ghost).length,
       targetChanges: trace.channels.filter(event => event.type === 'target').length, callbackCount: trace.channels.filter(event => event.type === 'callback').length,
       raw: id + '.json.gz' };
-    samples.push(record);
     // Export after the independent observation. This can change the drawer,
     // and therefore must never be included in that action's measured window.
     const download = page.waitForEvent('download');
@@ -101,7 +101,7 @@ async function trial(build, d, stage, pair, arm) {
       await page.screenshot({ path: path.join(out, screenshot) });
       const bytes = fs.readFileSync(path.join(out, screenshot)); artifacts.push({ path: screenshot, bytes: bytes.length, sha256: hash(bytes) });
     }
-    return record;
+    samples.push(record); return record;
   } catch (error) {
     failure = String(error.stack ?? error);
     const record = { stage, case: d.id, group: d.group, pair, arm, build: build.sha, outcome: 'inconclusive', reason: failure, raw: id + '.json.gz' };
@@ -118,7 +118,7 @@ try {
   browser = await chromium.launch({ channel: 'chromium', headless: true });
   for (const stage of compare ? ['aa', 'ab'] : ['aa']) {
     for (const d of all) {
-      const pairs = d.group === 'primary' || d.id === 'phone-reduced' ? protocol.pairs : 1;
+      const pairs = !preflight && (d.group === 'primary' || d.id === 'phone-reduced') ? protocol.pairs : 1;
       for (let pair = 0; pair < pairs; pair++) {
         for (const arm of pair % 2 ? ['B', 'A'] : ['A', 'B']) {
           const build = stage === 'ab' && arm === 'B' ? sources[1] : sources[0];
@@ -138,12 +138,12 @@ try {
     // cannot automatically manufacture a claimed unnecessary-work reduction.
     return { case: d.id, ...improvement(paired('ab', d.id).map(pair => pair.map(value => value ?? { outcome: 'missing' })), floor, false) };
   }) : [];
-  const summary = { schema: protocol.schema, kind: compare ? 'paired-AA-then-AB' : 'pre-candidate-AA', protocol,
+  const summary = { schema: protocol.schema, kind: preflight ? 'harness-preflight-not-calibration' : compare ? 'paired-AA-then-AB' : 'pre-candidate-AA', protocol,
     runnerCommit: head, prHead: process.env.PRESENTATION_PR_HEAD ?? null, instrumentation: hashes, frozen,
     builds: sources.map(({ dir, ...build }) => build), floors, comparisons, samples,
     environment: { os: os.platform(), cpu: os.cpus()[0]?.model, node: process.version, browser: browser?.version(), actionsRun: process.env.GITHUB_RUN_ID },
     limitations: ['Styled-DOM submission is not physical display presentation.', 'Identical observers add DOM/style reads; per-sample observer cost is retained.', 'Shared CI worker does not certify designated-host or cumulative #96 budgets.', 'Compatibility observations are separate from latency gains.'],
-    complete: all.every(d => samples.filter(sample => sample.case === d.id).length === (d.group === 'primary' || d.id === 'phone-reduced' ? protocol.pairs : 1) * 2 * (compare ? 2 : 1)) && samples.every(sample => sample.outcome === 'complete' && !sample.diagnosticsTruncated) };
+    complete: all.every(d => samples.filter(sample => sample.case === d.id).length === (!preflight && (d.group === 'primary' || d.id === 'phone-reduced') ? protocol.pairs : 1) * 2 * (compare ? 2 : 1)) && samples.every(sample => sample.outcome === 'complete' && !sample.diagnosticsTruncated) };
   fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
   fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify({ runnerCommit: head, instrumentation: hashes, files: [...artifacts, { path: 'summary.json', sha256: hash(fs.readFileSync(path.join(out, 'summary.json'))) }] }, null, 2) + '\n');
   console.log(JSON.stringify({ complete: summary.complete, floors, comparisons }, null, 2));

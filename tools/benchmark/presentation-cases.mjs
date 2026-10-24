@@ -69,7 +69,9 @@ export async function prepare(page, d) {
   } else if (d.cells) {
     await expanded(page, '#ol-tab-cells', true);
     const heading = page.locator('th').filter({ has: page.locator(price) });
-    if (await heading.getAttribute('aria-sort') !== 'ascending') { await page.locator(price).click(); await settle(page); }
+    for (let attempt = 0; attempt < 2 && await heading.getAttribute('aria-sort') !== 'ascending'; attempt++) {
+      await page.locator(price).click(); await settle(page);
+    }
     assert.equal(await heading.getAttribute('aria-sort'), 'ascending');
     while (!(await page.locator('#ol-table-back').isDisabled())) { await page.locator('#ol-table-back').click(); await settle(page); }
     if (d.id === 'cells-previous') { await page.locator('#ol-table-next').click(); await settle(page); }

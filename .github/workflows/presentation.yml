@@ -27,6 +27,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
+      - run: node tools/benchmark_presentation.mjs --preflight
       - run: |
           if test -f docs/evidence/212/baseline/summary.json; then
             node tools/benchmark_presentation.mjs --candidate
@@ -40,7 +41,9 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: presentation-evidence
-          path: reports/presentation/
+          path: |
+            reports/presentation/
+            reports/presentation-preflight/
           retention-days: 14
           if-no-files-found: error
   motion:
