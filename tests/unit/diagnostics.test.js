@@ -21,6 +21,9 @@ test("draw submission distinguishes pending refinement, fallback and terminal ou
   assert.equal(D.readiness({ ...s, refinement: "waiting" }), "pending-refinement");
   assert.equal(D.readiness({ ...s, rendered: { ...s.rendered, revision: 0 } }), "pending-data");
   assert.equal(D.readiness({ ...s, rendered: { ...s.rendered, n: 8 } }), "loaded-fallback");
+  assert.equal(D.readiness({ ...s, movement: { state: "cube", updating: true } }), "pending-data");
+  assert.equal(D.readiness({ ...s, movement: { state: "pending", updating: false } }), "pending-data");
+  assert.equal(D.readiness({ ...s, movement: { state: "cube", updating: false } }), "requested-output-submitted");
   assert.equal(D.readiness({ ...s, error: ["Unavailable"] }), "terminal-fallback");
   assert.equal(D.readiness({ ...s, rendered: null, error: ["Unavailable"] }), "terminal-unavailable");
 });

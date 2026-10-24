@@ -51,6 +51,15 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
   // destination grid before the calibration hold is installed.
   const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&vis=2&r=5,1"); await probe.waitForReady();
   await controls(page); await page.locator("#ol-diagnostics-start").click();
+  await page.locator("#ol-canvas").focus(); await page.keyboard.press("]");
+  await expect(page.locator("#ol-canvas")).not.toHaveAttribute("data-subdivision", /.+/);
+  await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive())).toBe(false);
+  await exported(page);
+  // Change the actual retained raster while stopped, then restart. A previous
+  // session's n=6 identity must never label the now-current n=7 raster.
+  await page.locator("#ol-canvas").focus(); await page.keyboard.press("]"); await probe.waitForReady();
+  await expect(page.locator("#ol-n")).toHaveText("n 7");
+  await page.locator("#ol-diagnostics-start").click();
   await page.evaluate(() => { window.__holdDiagnosticsCalibration = true; });
   await page.locator("#ol-canvas").focus(); await page.keyboard.press("]");
   await expect(page.locator("#ol-canvas")).toHaveAttribute("data-subdivision", "waiting");
@@ -75,6 +84,8 @@ test("retained fine-grid requests stay pending until calibration arrives; unrela
   const report = await exported(page), draws = report.events.filter(e => e.type === "draw");
   expect(draws.some(e => e.status === "pending-refinement" && e.rendered.raster.kind === "retained-or-blended-preview")).toBe(true);
   expect(draws.filter(e => e.refinement).every(e => e.status !== "requested-output-submitted")).toBe(true);
+  const retained = draws.filter(e => e.refinement).map(e => e.rendered.raster.retained).filter(e => e && typeof e === "object");
+  expect(retained.every(e => e.n === null || e.n === 7)).toBe(true);
   expect(draws.some(e => !e.refinement && e.status === "requested-output-submitted")).toBe(true);
   expect(report.events.some(e => e.type === "presentation-proxy" && e.scope === "ol-drawer-body")).toBe(true);
 });
@@ -94,4 +105,33 @@ test("opening Continuations waits for its own history/computation rather than ch
     const phases = report.events.filter(e => e.type === "phase-end" && e.name === "continuations" && e.outcome === "completed");
     expect(phases.length).toBeGreaterThan(0); expect(complete.at).toBeGreaterThanOrEqual(phases.at(-1).at);
   } finally { gate.open(); }
+});
+test("applying Query bounds waits for requested chart data instead of quiet panel frames", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&vis=2&r=9,0"); await probe.waitForReady();
+  await controls(page); await page.locator("#ol-diagnostics-start").click();
+  const gate = fake.on({ route: "/cube/tile" }).gate();
+  try {
+    await page.locator("#ol-bounds-start").fill("2026-03-28T00:00");
+    await page.locator('#ol-bounds-form button[type="submit"]').click(); await gate.arrived();
+    await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive())).toBe(false);
+    const report = await exported(page), input = report.events.find(e => e.type === "input" && e.event === "submit");
+    expect(input.scope).toBe("ol-canvas");
+    expect(report.events.some(e => e.type === "presentation-proxy" && e.id === input.id)).toBe(false);
+    expect(report.unfinishedInteractions).toContain(input.id);
+    expect(report.events.some(e => e.type === "draw" && ["pending-data", "pending-refinement"].includes(e.status))).toBe(true);
+  } finally { gate.open(); }
+});
+test("malformed cube and movement JSON are failed body phases", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("standard"); await page.goto(fake.url + "/#w=24h&vis=2&r=9,0"); await probe.waitForReady();
+  await controls(page); await page.locator("#ol-diagnostics-start").click();
+  fake.on({ route: "/cube/columns" }).malformed("json");
+  await page.locator("#ol-canvas").focus(); await page.keyboard.press("c");
+  await expect(page.locator("#ol-evidence")).toContainText("History unavailable");
+  fake.on({ route: "/cube/motion" }).malformed("json");
+  await page.locator("#ol-mode").click(); await page.locator('[data-mode="path"]').click();
+  await fake.idle({ quietMs: 500 });
+  const report = await exported(page);
+  for (const name of ["cube.body-json", "movement.body-json"]) {
+    expect(report.events.some(e => e.type === "phase-end" && e.name === name && e.outcome === "failed")).toBe(true);
+  }
 });

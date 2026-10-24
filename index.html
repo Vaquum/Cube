@@ -22532,7 +22532,7 @@
     if (!state.rendered) return state.error ? "terminal-unavailable" : "pending-data";
     if (state.requested.revision !== state.rendered.revision) return "pending-data";
     if (state.refinement) return "pending-refinement";
-    if (state.pending) return "pending-data";
+    if (state.pending || state.movement?.updating || state.movement?.state === "pending") return "pending-data";
     if (state.error) return "terminal-fallback";
     if (state.requested.n !== state.rendered.n || state.requested.m !== state.rendered.m) return "loaded-fallback";
     return "requested-output-submitted";
@@ -22616,7 +22616,7 @@
     return Object.freeze({ start, stop, mark, phase, input, acknowledge, draw, frame,
       get active() { return active; }, export: () => report && JSON.parse(JSON.stringify(report)) });
   }
-  function mount({ root, requested, snapshot, identity, download }) {
+  function mount({ root, requested, snapshot, identity, download, reset = () => {} }) {
     const el = id => root.querySelector("#ol-diagnostics-" + id);
     const ignored = node => node.closest('#ol-diagnostics,#ol-help-tooltip,#ol-tip,[role="tooltip"]');
     let raf = 0, lastFrame = null, observers = [], generation = 0, crossedHidden = false;
@@ -22658,6 +22658,7 @@
     }
     function start() {
       const supported = globalThis.PerformanceObserver?.supportedEntryTypes ?? [];
+      reset();
       recorder.start({ ...identity(), browser: { userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], dpr: devicePixelRatio, supportedEntryTypes: supported } });
       const owned = ++generation;
       for (const entry of performance.getEntriesByType("navigation")) recorder.mark("browser-timing", timing(entry));
@@ -22678,9 +22679,11 @@
       const target = event.target.closest("button,input,select,summary,a,canvas") ?? event.target;
       const controlled = target.getAttribute("aria-controls"), drawer = target.hasAttribute("data-drawer");
       const key = event.type === "keydown" ? (event.key ?? "").toLowerCase() : "";
+      const bounds = target.closest("#ol-bounds-form"), appliesBounds = bounds &&
+        (event.type === "submit" || target.matches('button[type="submit"]') || key === "enter");
       const studyScope = target.id === "ol-evidence-tab" ? "ol-evidence" : target.id === "ol-context-tab" ? "ol-context" :
         target.id === "ol-canvas" && key === "c" ? root.querySelector("#ol-evidence-tab").getAttribute("aria-pressed") === "true" ? "ol-context" : "ol-evidence" : null;
-      const explicit = studyScope ?? (drawer || target.id === "ol-canvas" && key === "t" ? "ol-drawer-body" :
+      const explicit = appliesBounds ? "ol-canvas" : studyScope ?? (drawer || target.id === "ol-canvas" && key === "t" ? "ol-drawer-body" :
         target.id === "ol-canvas" && key === "i" ? "ol-side-body" : controlled && document.getElementById(controlled) ? controlled : null);
       const container = target.closest("#ol-comparisonWorkspace,#ol-evidence,.ol-panel,#ol-controls,#ol-side-body");
       const scope = explicit ?? (container && container.id !== "ol-controls" ? container.id : "ol-canvas");
@@ -22691,7 +22694,7 @@
     }
     // Listeners are inert until explicitly started. No input text, clipboard,
     // query strings or credentials are included in the export.
-    for (const type of ["click", "change", "keydown", "wheel", "pointerdown", "pointermove"]) root.addEventListener(type, capture, { capture: true, passive: true });
+    for (const type of ["click", "change", "submit", "keydown", "wheel", "pointerdown", "pointermove"]) root.addEventListener(type, capture, { capture: true, passive: true });
     document.addEventListener("visibilitychange", () => {
       if (!recorder.active) return;
       crossedHidden ||= document.hidden;
@@ -22739,6 +22742,13 @@
   function diagnosticRasterIdentity() {
     const frame = diagnostics?.active && diagnosticFrame?.rendered;
     return frame ? { n: frame.n, m: frame.m, source: frame.source, revision: frame.revision, camera: frame.camera } : null;
+  }
+  function diagnosticReset() {
+    diagnosticFrame = null;
+    const actor = subdivision.actor;
+    if (!actor) return;
+    actor.before.diagnostic = null; actor.diagnosticTarget = null;
+    if (actor.preview) actor.preview.diagnostic = null;
   }
   let referenceGuide = null;
   // The measurement module (src/encoding.js), inlined before this script. Everything the chart says about
@@ -23914,8 +23924,10 @@
         target: actor.target ? { n: actor.target.n, m: actor.target.m, cut: actor.target.cut, source: actor.diagnosticTarget ?? null } : null,
         progress: actor.detail, cameraProgress: actor.camera } : { kind: "native-grid-draw" } },
       refinement: actor ? canvas.dataset.subdivision : transition ? "level-morph" : null,
+      movement: movement ? { state: movement.state, updating: Boolean(movement.updating), end: movement.end,
+        source: last.mv?.src ? diagnosticSource(last.mv.src) : null } : null,
       pending: Boolean(loadingLine.startup || viewReadPending() || scaleAsked("cells") || last.meas.state === "pending" ||
-        movement?.state === "pending" || candles?.state === "pending"), error: errors.length ? errors : null };
+        candles?.state === "pending"), error: errors.length ? errors : null };
     diagnostics.draw(diagnosticFrame, performance.now() - start);
   }
   function requestDraw(presentationOnly = false) {
@@ -42881,7 +42893,7 @@
         });
       diagnosticEnd?.();
       diagnosticEnd = diagnosticPhase("cube.body-json", { key: want.key });
-      const body = await response.json().catch(() => null);
+      const body = await response.json().catch(() => { diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed"); return null; });
       diagnosticEnd?.();
       diagnosticEnd = null;
       offerReload(body);
@@ -43288,7 +43300,7 @@
         });
       diagnosticEnd?.();
       diagnosticEnd = diagnosticPhase("movement.body-json", { key: want.key });
-      const body = await response.json().catch(() => null);
+      const body = await response.json().catch(() => { diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed"); return null; });
       diagnosticEnd?.();
       diagnosticEnd = null;
       offerReload(body);
@@ -48365,7 +48377,7 @@
       committedAt: document.querySelector('meta[name="explorer-committed-at"]')?.content ?? "",
       pullRequest: document.querySelector('meta[name="explorer-pr"]')?.content ?? "",
       timeOrigin: performance.timeOrigin, live: Boolean(PACK.live), pack: PACK.state_token ?? PACK.packKey ?? null,
-      provenance: { packKey: PACK.provenance?.packKey ?? null, revision: PACK.provenance?.revision ?? null } }), download: guiDownloadText });
+      provenance: { packKey: PACK.provenance?.packKey ?? null, revision: PACK.provenance?.revision ?? null } }), download: guiDownloadText, reset: diagnosticReset });
   try {
     const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
       committedAt = new Date(document.querySelector('meta[name="explorer-committed-at"]')?.content ?? ""),

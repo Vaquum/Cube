@@ -22,7 +22,7 @@
     if (!state.rendered) return state.error ? "terminal-unavailable" : "pending-data";
     if (state.requested.revision !== state.rendered.revision) return "pending-data";
     if (state.refinement) return "pending-refinement";
-    if (state.pending) return "pending-data";
+    if (state.pending || state.movement?.updating || state.movement?.state === "pending") return "pending-data";
     if (state.error) return "terminal-fallback";
     if (state.requested.n !== state.rendered.n || state.requested.m !== state.rendered.m) return "loaded-fallback";
     return "requested-output-submitted";
@@ -106,7 +106,7 @@
     return Object.freeze({ start, stop, mark, phase, input, acknowledge, draw, frame,
       get active() { return active; }, export: () => report && JSON.parse(JSON.stringify(report)) });
   }
-  function mount({ root, requested, snapshot, identity, download }) {
+  function mount({ root, requested, snapshot, identity, download, reset = () => {} }) {
     const el = id => root.querySelector("#ol-diagnostics-" + id);
     const ignored = node => node.closest('#ol-diagnostics,#ol-help-tooltip,#ol-tip,[role="tooltip"]');
     let raf = 0, lastFrame = null, observers = [], generation = 0, crossedHidden = false;
@@ -148,6 +148,7 @@
     }
     function start() {
       const supported = globalThis.PerformanceObserver?.supportedEntryTypes ?? [];
+      reset();
       recorder.start({ ...identity(), browser: { userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], dpr: devicePixelRatio, supportedEntryTypes: supported } });
       const owned = ++generation;
       for (const entry of performance.getEntriesByType("navigation")) recorder.mark("browser-timing", timing(entry));
@@ -168,9 +169,11 @@
       const target = event.target.closest("button,input,select,summary,a,canvas") ?? event.target;
       const controlled = target.getAttribute("aria-controls"), drawer = target.hasAttribute("data-drawer");
       const key = event.type === "keydown" ? (event.key ?? "").toLowerCase() : "";
+      const bounds = target.closest("#ol-bounds-form"), appliesBounds = bounds &&
+        (event.type === "submit" || target.matches('button[type="submit"]') || key === "enter");
       const studyScope = target.id === "ol-evidence-tab" ? "ol-evidence" : target.id === "ol-context-tab" ? "ol-context" :
         target.id === "ol-canvas" && key === "c" ? root.querySelector("#ol-evidence-tab").getAttribute("aria-pressed") === "true" ? "ol-context" : "ol-evidence" : null;
-      const explicit = studyScope ?? (drawer || target.id === "ol-canvas" && key === "t" ? "ol-drawer-body" :
+      const explicit = appliesBounds ? "ol-canvas" : studyScope ?? (drawer || target.id === "ol-canvas" && key === "t" ? "ol-drawer-body" :
         target.id === "ol-canvas" && key === "i" ? "ol-side-body" : controlled && document.getElementById(controlled) ? controlled : null);
       const container = target.closest("#ol-comparisonWorkspace,#ol-evidence,.ol-panel,#ol-controls,#ol-side-body");
       const scope = explicit ?? (container && container.id !== "ol-controls" ? container.id : "ol-canvas");
@@ -181,7 +184,7 @@
     }
     // Listeners are inert until explicitly started. No input text, clipboard,
     // query strings or credentials are included in the export.
-    for (const type of ["click", "change", "keydown", "wheel", "pointerdown", "pointermove"]) root.addEventListener(type, capture, { capture: true, passive: true });
+    for (const type of ["click", "change", "submit", "keydown", "wheel", "pointerdown", "pointermove"]) root.addEventListener(type, capture, { capture: true, passive: true });
     document.addEventListener("visibilitychange", () => {
       if (!recorder.active) return;
       crossedHidden ||= document.hidden;

@@ -16,6 +16,13 @@
     const frame = diagnostics?.active && diagnosticFrame?.rendered;
     return frame ? { n: frame.n, m: frame.m, source: frame.source, revision: frame.revision, camera: frame.camera } : null;
   }
+  function diagnosticReset() {
+    diagnosticFrame = null;
+    const actor = subdivision.actor;
+    if (!actor) return;
+    actor.before.diagnostic = null; actor.diagnosticTarget = null;
+    if (actor.preview) actor.preview.diagnostic = null;
+  }
   let referenceGuide = null;
   // The measurement module (src/encoding.js), inlined before this script. Everything the chart says about
   // a value comes from it, so a page that lacks it says so in its own loading line and stops, where a
@@ -1190,8 +1197,10 @@
         target: actor.target ? { n: actor.target.n, m: actor.target.m, cut: actor.target.cut, source: actor.diagnosticTarget ?? null } : null,
         progress: actor.detail, cameraProgress: actor.camera } : { kind: "native-grid-draw" } },
       refinement: actor ? canvas.dataset.subdivision : transition ? "level-morph" : null,
+      movement: movement ? { state: movement.state, updating: Boolean(movement.updating), end: movement.end,
+        source: last.mv?.src ? diagnosticSource(last.mv.src) : null } : null,
       pending: Boolean(loadingLine.startup || viewReadPending() || scaleAsked("cells") || last.meas.state === "pending" ||
-        movement?.state === "pending" || candles?.state === "pending"), error: errors.length ? errors : null };
+        candles?.state === "pending"), error: errors.length ? errors : null };
     diagnostics.draw(diagnosticFrame, performance.now() - start);
   }
   function requestDraw(presentationOnly = false) {
@@ -20157,7 +20166,7 @@
         });
       diagnosticEnd?.();
       diagnosticEnd = diagnosticPhase("cube.body-json", { key: want.key });
-      const body = await response.json().catch(() => null);
+      const body = await response.json().catch(() => { diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed"); return null; });
       diagnosticEnd?.();
       diagnosticEnd = null;
       offerReload(body);
@@ -20564,7 +20573,7 @@
         });
       diagnosticEnd?.();
       diagnosticEnd = diagnosticPhase("movement.body-json", { key: want.key });
-      const body = await response.json().catch(() => null);
+      const body = await response.json().catch(() => { diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed"); return null; });
       diagnosticEnd?.();
       diagnosticEnd = null;
       offerReload(body);
@@ -25641,7 +25650,7 @@
       committedAt: document.querySelector('meta[name="explorer-committed-at"]')?.content ?? "",
       pullRequest: document.querySelector('meta[name="explorer-pr"]')?.content ?? "",
       timeOrigin: performance.timeOrigin, live: Boolean(PACK.live), pack: PACK.state_token ?? PACK.packKey ?? null,
-      provenance: { packKey: PACK.provenance?.packKey ?? null, revision: PACK.provenance?.revision ?? null } }), download: guiDownloadText });
+      provenance: { packKey: PACK.provenance?.packKey ?? null, revision: PACK.provenance?.revision ?? null } }), download: guiDownloadText, reset: diagnosticReset });
   try {
     const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
       committedAt = new Date(document.querySelector('meta[name="explorer-committed-at"]')?.content ?? ""),
