@@ -58,17 +58,18 @@ async function populated(page,fakeFor,probe) {
 }
 for(const expanded of [false,true])test(`a late import failure restores ${expanded?"expanded":"ordinary"} collections and address`,async({page,fakeFor,probe})=>{
   let {before}=await populated(page,fakeFor,probe);
-  if(expanded){await page.locator("#ol-tab-compare").click();await page.locator('[data-comparison-action="expand"]').focus();await page.keyboard.press("Enter");before=await page.evaluate(()=>window.cubeAgent.export());}
-  const url=page.url();
+  if(expanded){await page.locator("#ol-tab-compare").click();await page.locator('[data-comparison-action="expand"]').dispatchEvent("click");await expect(page.locator('[data-comparison-action="expand"]')).toHaveAttribute("aria-expanded","true");before=await page.evaluate(()=>window.cubeAgent.export());}
+  const url=page.url(),persisted=await page.evaluate(()=>window.explorerState.comparison.read("BTC/USDT").value);
   const error=await page.evaluate(async d=>{
     d.scene.view.lines=["1d"];d.scene.drawings=window.explorerEncoding.drawings.empty();d.scene=window.explorerAgent.seal(d.scene);d.comparison=null;d.focus=null;
     d.snapshot.cache.lineResults={cubeMap:[["bad",null]]};
     try{await window.cubeAgent.apply(window.explorerAgent.seal(d));return "unexpected success";}catch(e){return e.message;}
   },before);
-  expect(error).toMatch(/state/);await probe.waitForReady();const after=await page.evaluate(()=>window.cubeAgent.export());
+  expect(error).toMatch(/state/);if(!expanded)await probe.waitForReady();const after=await page.evaluate(()=>window.cubeAgent.export());
   expect(after.scene.drawings).toEqual(before.scene.drawings);expect(after.comparison).toEqual(before.comparison);expect(page.url()).toBe(url);
   const stored=await page.evaluate(()=>({drawings:window.explorerState.drawings.load().collection,comparison:window.explorerState.comparison.read("BTC/USDT").value}));
-  expect(stored.drawings).toEqual(before.scene.drawings);expect(stored.comparison).toEqual(before.comparison);
+  expect(stored.drawings).toEqual(before.scene.drawings);expect(stored.comparison).toEqual(persisted);
+  if(expanded)await expect(page.locator('[data-comparison-action="expand"]')).toHaveAttribute("aria-expanded","true");
 });
 for(const captured of [false,true])test(`failed import preserves ${captured?"captured freeze":"live polling"}`,async({page,fakeFor,probe,allowConsole})=>{
   const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();const original=await page.evaluate(()=>window.cubeAgent.export());
@@ -84,4 +85,10 @@ test("an earlier captured query does not block importing a later valid investiga
   await page.evaluate(async()=>window.cubeAgent.apply(await window.cubeAgent.query({t1:"2021-01-01T00:00:00Z",t2:"2021-01-01T00:01:52.500Z",p1:25000,p2:25250,tR:56.25,pR:125})));await probe.waitForReady();
   await page.evaluate(d=>window.cubeAgent.apply(d),original);await probe.waitForReady();
   const restored=await page.evaluate(()=>window.cubeAgent.export());expect(restored.scene.view).toEqual(original.scene.view);expect(restored.snapshot.cutoffMs).toBe(original.snapshot.cutoffMs);
+});
+
+test("a refused incoming comparison rejects the whole import and retains outgoing collections",async({page,fakeFor,probe})=>{
+  const {before}=await populated(page,fakeFor,probe);
+  const error=await page.evaluate(async d=>{d.scene.drawings=window.explorerEncoding.drawings.empty();d.scene=window.explorerAgent.seal(d.scene);d.comparison=null;d.focus=null;const original=window.explorerState.comparison;window.explorerState.comparison={...original,measure(){window.explorerState.comparison=original;return {ok:false,reason:"Comparison refused"};}};try{await window.cubeAgent.apply(window.explorerAgent.seal(d));return "unexpected success";}catch(e){return e.message;}finally{window.explorerState.comparison=original;}},before);
+  expect(error).toBe("Comparison refused");await probe.waitForReady();const after=await page.evaluate(()=>window.cubeAgent.export());expect(after.scene.drawings).toEqual(before.scene.drawings);expect(after.comparison).toEqual(before.comparison);
 });
