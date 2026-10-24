@@ -25467,7 +25467,7 @@
       analysisHash = hash;
       if (hash) history.replaceState(null, "", location.pathname + location.search + hash);
       recordView("Investigation"); update(); save();
-      el("analysis-status").textContent = value.mode === "captured" ? "Captured evidence · values stay fixed. Refresh explicitly to compare the current source." : "Live query · the canvas follows the current source; comparison captures retain their original values.";
+      el("analysis-status").textContent = value.mode === "captured" ? "Captured evidence · recorded selection retained. Refresh explicitly to compare the current source." : "Live query · the canvas follows the current source; comparison captures retain their original values.";
       if (value.mode === "live") scheduleLive(3);
       return { id: value.id, mode: value.mode };
     } catch (error) {

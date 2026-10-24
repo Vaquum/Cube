@@ -91,10 +91,10 @@
   function text(document, { link: href = null } = {}) {
     const d = forExport(document), cells = d.comparison?.captures || [];
     const edge = replayEdge(d), basis = C.analyze(cells, { edge, basis: d.comparison?.basis }).basis;
-    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Captured at: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
+    const sections = [`Cube analysis · ${d.instrument} · ${d.mode}`, `Document created: ${new Date(d.createdAt).toISOString()}`, ...cells.map((cell) => C.captureText(cell, { edge, selectedMetric: d.comparison.selectedMetric, basis, poc: d.comparison.poc }))];
     if (cells.some((cell) => !cell.context?.histories?.length)) sections.push("Frozen histories not captured for some cells; missing context is unavailable, not zero.");
     if (d.mode === "captured" && d.scene.view.strip && d.scene.view.strip !== "off") sections.push("Forces data was not captured in this investigation; missing evidence is unavailable, not zero.");
-    if (d.selection) sections.push("Selection: " + JSON.stringify(d.selection));
+    if (d.selection) sections.push("Recorded selection: " + JSON.stringify(d.selection));
     if (href) sections.push("Open canvas: " + href);
     sections.push("```json\n" + JSON.stringify(d) + "\n```");
     return sections.join("\n\n");
@@ -113,7 +113,8 @@
   }
   function forExport(document) {
     const d = validate(document), edge = replayEdge(d);
-    if (edge === null) return d;
+    if (d.selection) d.selection.query = selectionQuery(d);
+    if (edge === null) return seal(d);
     if (d.comparison) {
       d.comparison.captures = d.comparison.captures.map((cell) => redact(cell, edge));
       if (d.comparison.poc && Math.max(d.comparison.poc.supportEnd ?? Infinity, d.comparison.poc.knownThrough ?? Infinity) > edge) d.comparison.poc = null;
@@ -155,8 +156,8 @@
     if (!q || !f || d.selection.state !== "captured-cell") return q;
     // Older cell copies used nominal prices despite retaining observed-only totals.
     // Match the complete recorded address before recovering its observed prices.
-    const cell = d.comparison?.captures.find((c) => c.level.n === q.tR && c.level.m === q.pR && q.t1 === Math.floor((c.observed.t0 / 1000 - f.origin) / f.baseSeconds) && q.t2 === Math.ceil((c.observed.t1 / 1000 - f.origin) / f.baseSeconds) && q.p1 === c.nominal.low / f.basePrice && q.p2 === c.nominal.high / f.basePrice);
-    if (cell) Object.assign(q, { p1: cell.observed.low / f.basePrice, p2: cell.observed.high / f.basePrice });
+    const matches = d.comparison?.captures.filter((c) => c.level.n === q.tR && c.level.m === q.pR && q.t1 === Math.floor((c.observed.t0 / 1000 - f.origin) / f.baseSeconds) && q.t2 === Math.ceil((c.observed.t1 / 1000 - f.origin) / f.baseSeconds) && q.p1 === c.nominal.low / f.basePrice && q.p2 === c.nominal.high / f.basePrice) ?? [];
+    if (matches.length === 1) Object.assign(q, { p1: matches[0].observed.low / f.basePrice, p2: matches[0].observed.high / f.basePrice });
     return q;
   }
   function diff(before, after) {

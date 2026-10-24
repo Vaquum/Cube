@@ -54,6 +54,7 @@ test("a copied cell clipped in price retains its observed selection bounds and u
   await page.goto(fake.url+`/#t=${iso(0)}~${iso(8192)}&p=24000~27000&r=12,3&auto=0&vis=2&lines=&sel=${iso(1600)}~${iso(1601)},25000~25125`);await probe.waitForReady();
   const doc=await page.evaluate(()=>window.cubeAgent.export("cell"));expect(doc.selection.metrics.volume).toBe(250);
   expect(doc.selection.query).toMatchObject({t1:1600,t2:1601,p1:200,p2:201,tR:12,pR:3});
+  expect(doc.scene.view.viewport).toEqual([0,4096,200,208]);expect(doc.scene.view.selection).toEqual([1600,1601,200,201]);
   await page.evaluate(d=>window.cubeAgent.apply(d),doc);await expect.poll(async()=>(await page.evaluate(()=>window.cubeAgent.export())).selection.metrics.volume).toBe(250);
   const result=await page.evaluate(()=>window.cubeAgent.refresh());expect(result.document.selection.metrics.volume).toBe(250);expect(result.changes.filter(c=>c.selection)).toEqual([]);
   await probe.waitForReady();
