@@ -293,6 +293,10 @@ class Store:
             CREATE TABLE IF NOT EXISTS reactions (id TEXT PRIMARY KEY, entry TEXT);
             CREATE INDEX IF NOT EXISTS obs_time ON obs (series, observed_ms, known_ms);
             CREATE INDEX IF NOT EXISTS obs_retro ON obs (series, retro, known_ms);
+            -- Replay existing captures once under the closed-minute and retrospective ingestion rules.
+            CREATE TABLE IF NOT EXISTS ingestion_replay (revision INTEGER PRIMARY KEY);
+            DELETE FROM history_sync WHERE NOT EXISTS (SELECT 1 FROM ingestion_replay WHERE revision = 2);
+            INSERT OR IGNORE INTO ingestion_replay VALUES (2);
         """)
         self.lock = threading.Lock()
         self.version = 0  # moves on every write, so the worker knows what to compute again

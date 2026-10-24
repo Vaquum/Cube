@@ -146,6 +146,8 @@ Explicit backfill publications carry `publication_kind: backfill` through the pi
 
 For `continuous_checkpointed` Bluesky captures, a minute enters the model only once it has full connection coverage and no overlap with an unrecoverable cursor gap. Partial minutes remain available in field-data-api and are reconsidered under later dataset versions; their interim counts cannot occupy the model's permanent first-seen slot. Bounded legacy sessions retain their existing behavior.
 
+Ingestion replay revision 2 clears older completion markers once, so already acknowledged captures are reconstructed under these rules too. Observations and dataset acknowledgements remain intact until each source's replay commits atomically. Failed upgrades retain prior state and remain pending across restarts; completed upgrades resume metadata-only scans. The existing completion-marker schema remains compatible with the previous release.
+
 The local live proof retained all 71 funding observations, including 70 later observations under identical retrospective timing through explicit backfill and native-window expansion, and waited for a social minute to close before admitting its complete 2,516 observed creates. No raw posts were retained. Reproduce with `python3 tools/prove_source_ingestion.py --field-data-root /path/to/field-data-api --live`; counts will vary. Evidence: [source-ingestion-proof-2026-10-24.json](source-ingestion-proof-2026-10-24.json).
 
 ## Readiness proof, 24 October 2026
