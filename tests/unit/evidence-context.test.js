@@ -45,13 +45,19 @@ test("bounded calculation cancels before publishing an obsolete study", async ()
   let cancelled = false; const promise = H.compute(input(cols(5000)), { cancelled: () => cancelled,
     phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome]); } });
   setTimeout(() => { cancelled = true; }, 0); assert.equal(await promise, null);
-  assert.deepEqual(phases, [["seasonal-and-cases", "start"], ["seasonal-and-cases", "interrupted"]]);
+  assert.deepEqual(phases, [["index", "start"], ["index", "interrupted"]]);
 });
 test("optional phase recording preserves the complete study and ends each phase once", async () => {
-  const args = input(cols(40)), before = await H.compute(args), phases = [];
-  const after = await H.compute(args, { phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome ?? "completed"]); } });
+  const args = input(cols(40)), before = await H.compute(args), phases = [], yields = [], costs = [], samples = [];
+  let clock = 0;
+  const after = await H.compute(args, { now: () => ++clock, yield: (stage, duration) => yields.push({ stage,duration }), cost: (stage,duration) => costs.push({ stage,duration }), sample: value => samples.push(value),
+    phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome ?? "completed"]); } });
   assert.deepEqual(after, before);
-  assert.deepEqual(phases, [["seasonal-and-cases", "start"], ["seasonal-and-cases", "completed"], ["bootstrap", "start"], ["bootstrap", "completed"]]);
+  assert.deepEqual(phases, ["index","ledger-seasonal","thresholds-state","cases","summaries"].flatMap(name => [[name,"start"],[name,"completed"]]).concat(
+    [["bootstrap","start"]], ["bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,"completed"]]), [["bootstrap","completed"]]));
+  assert.deepEqual(yields.map(x => x.stage), ["index","ledger-seasonal","thresholds-state","cases","bootstrap.scan"]);
+  assert.equal(costs.length, 40); assert.ok(costs.every(x => x.stage === "seasonal" && x.duration === 1));
+  assert.equal(samples[0].drawsRan, false); assert.equal(samples[0].validDraws.up.baseline, 0);
 });
 test("shared block bootstrap keeps empty/partial calendar blocks and component degeneracy separate", async () => {
   const n = 9, length = 135, cases = [], matched = [];
@@ -69,7 +75,7 @@ test("shared block bootstrap keeps empty/partial calendar blocks and component d
   assert.equal(out.intervals.up.baseline.result.tag, "finite"); assert.equal(out.intervals.up.difference.result.tag, "finite");
   const phases = [];
   const again = await H.bootstrap(args, result, "next-poc", 1, { phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome]); } }); assert.deepEqual(out, again);
-  assert.deepEqual(phases, [["bootstrap", "start"], ["bootstrap", "completed"]]);
+  assert.deepEqual(phases, [["bootstrap", "start"]].concat(["bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,undefined]]), [["bootstrap","completed"]]));
 });
 
 test("each normative interval boundary is independent: 29/30 cases, 19/20 full matches, 1799/1800 draws", () => {

@@ -4,7 +4,8 @@
     el = (id) => root.querySelector("#ol-" + id),
     qsa = (s) => root.querySelectorAll(s),
     PACK = JSON.parse(document.getElementById("origo-lens-data").textContent);
-  let diagnostics = null, diagnosticFrame = null;
+  let diagnostics = null, diagnosticFrame = null, diagnosticIntent = 0, diagnosticIntentKey = null, diagnosticCommitting = null, diagnosticCandles = null;
+  const diagnosticHistoryQueue = new Map();
   function diagnosticPhase(name, identity) {
     return diagnostics?.active ? diagnostics.phase(name, identity) : null;
   }
@@ -17,7 +18,9 @@
     return frame ? { n: frame.n, m: frame.m, source: frame.source, revision: frame.revision, camera: frame.camera } : null;
   }
   function diagnosticReset() {
-    diagnosticFrame = null;
+    diagnosticFrame = null; diagnosticCandles = null;
+    diagnosticHistoryQueue.clear();
+    diagnosticIntent = 0; diagnosticIntentKey = null; diagnosticCommitting = null;
     const actor = subdivision.actor;
     if (!actor) return;
     actor.before.diagnostic = null; actor.diagnosticTarget = null;
@@ -1171,13 +1174,50 @@
     return MORPH_BOUNDS;
   }
   let drawRevision = 0, paintedRevision = -1;
-  function diagnosticRequested() {
-    return { revision: drawRevision, n: S.n, m: S.m, mode: S.mode,
+  function diagnosticRequested(fromDraw = false) {
+    const automaticWindow = S.auto && S.window,
+      key = JSON.stringify([S.auto,S.window,automaticWindow ? null : [S.tA,S.tB,S.pA,S.pB],S.auto ? null : [S.n,S.m],
+        S.mode,S.pane,S.rows,S.period,S.background,S.backgroundPeriod,S.profileOpen,S.strip,S.selection,S.replay,S.anchor,
+        S.tab,S.horizon,S.evidenceKind,S.barrier,S.cone,S.lines,
+        ["cells","rows","lens","basis","pathBasis","transform","curve","window","lock","local"].map(k => S.scale[k] ?? null),
+        live.generation,PACK.state_token,comparisonModel.expanded]),
+      action = diagnosticCommitting,
+      owned = action && action.intent === diagnosticIntent && diagnostics?.owns(action.owner),
+      cause = owned ? action.owner : diagnostics?.owner(),
+      changed = key !== diagnosticIntentKey || fromDraw && (cause && !cause.boundRequested || owned && !action.committed);
+    if (changed) {
+      const sameAction = owned && action.committed || cause?.boundRequested?.intent === diagnosticIntent;
+      if (!sameAction) diagnosticIntent++;
+      diagnosticIntentKey = key;
+      if (owned) { action.intent = diagnosticIntent; action.committed = true; }
+    }
+    const request = { intent: diagnosticIntent, revision: drawRevision, auto: S.auto, window: S.window,
+      n: S.n, m: S.m, mode: S.mode,
       camera: [S.tA,S.tB,S.pA,S.pB], replay: S.replay, anchor: S.anchor,
       pack: PACK.state_token ?? null, generation: live.generation };
+    if (changed && diagnostics?.active) diagnostics.request(request, cause);
+    return request;
+  }
+  function diagnosticBeginAction() {
+    if (!diagnostics?.active) return null;
+    diagnosticRequested();
+    return { owner: diagnostics.beginAction("apply-view"), intent: diagnosticIntent, committed: false };
+  }
+  function diagnosticCommit(action, change) {
+    const before = diagnosticCommitting;
+    diagnosticCommitting = action;
+    try { return change(); } finally { diagnosticCommitting = before; }
   }
   function diagnosticSnapshot() {
-    return { ...(diagnosticFrame ?? {}), requested: diagnosticRequested() };
+    return { ...(diagnosticFrame ?? {}), requested: diagnosticRequested(), target: diagnosticTarget(), applicable: !comparisonModel.expanded };
+  }
+  function diagnosticTarget() {
+    if (S.mode === "candles") {
+      const window = candleWindow(S.n,S.tA,S.tB,candleEdge());
+      return { n:S.n, m:null, support:[window.a,window.b], reason:(S.tB-S.tA)/2**S.n > TILE_COLUMNS ? "candle-window-cap" : null };
+    }
+    const [n,m] = viewLevel();
+    return { n,m, reason:n > S.n ? "tile-column-cap" : null };
   }
   function diagnosticDraw(start, revision) {
     if (start === null || !diagnostics?.active) return;
@@ -1187,9 +1227,13 @@
     if (movement?.state === "failed") errors.push(movement.error ?? "Movement unavailable");
     if (candles && ["failed", "unavailable", "after-cutoff"].includes(candles.state)) errors.push(candles.reason ?? candles.state);
     if (scaleRt.fault || scaleRt.cur.cells?.failed) errors.push("Colour calibration unavailable");
-    diagnosticFrame = { requested: diagnosticRequested(), rendered: { revision, n: actor ? null : last.n, m: actor ? null : last.m,
+    const requested = diagnosticRequested(), [targetN,targetM] = viewLevel(), candleSurface = diagnosticCandles?.find(frame => frame.main) ?? null;
+    diagnosticFrame = { requested, target: diagnosticTarget(),
+      fallbackReason: !PACK.live && !loadingLine.startup && resolutionReadiness(targetN,targetM).status === "unavailable" ? "recorded-snapshot-resolution-or-coverage" : null,
+      applicable: !comparisonModel.expanded, rendered: { intent: requested.intent, revision, n: actor ? null : candleSurface?.n ?? last.n, m: actor || candles ? null : last.m,
       camera: [...G.X.domain(), ...G.Y.domain()], cutoff: last.cut,
-      source: actor ? null : diagnosticSource(last.src),
+      source: actor ? null : candles ? candleSurface : diagnosticSource(last.src),
+      cellMeasurement: candles ? { n: last.n, m: last.m, source: diagnosticSource(last.src) } : null,
       submittedSource: diagnosticSource(last.src), sourceVersion: last.sourceVersion,
       mapping: last.sc.cells?.mappingId ?? null,
       raster: actor ? { kind: "retained-or-blended-preview", retained: actor.before.diagnostic ?? "not-recorded-or-composite",
@@ -1197,6 +1241,7 @@
         target: actor.target ? { n: actor.target.n, m: actor.target.m, cut: actor.target.cut, source: actor.diagnosticTarget ?? null } : null,
         progress: actor.detail, cameraProgress: actor.camera } : { kind: "native-grid-draw" } },
       refinement: actor ? canvas.dataset.subdivision : transition ? "level-morph" : null,
+      candleSurfaces: diagnosticCandles,
       movement: movement ? { state: movement.state, updating: Boolean(movement.updating), end: movement.end,
         source: last.mv?.src ? diagnosticSource(last.mv.src) : null } : null,
       pending: Boolean(loadingLine.startup || viewReadPending() || scaleAsked("cells") || last.meas.state === "pending" ||
@@ -1205,6 +1250,7 @@
   }
   function requestDraw(presentationOnly = false) {
     if (!presentationOnly) drawRevision++;
+    if (diagnostics?.active) diagnosticRequested(true);
     if (!raf)
       raf = requestAnimationFrame(() => {
         raf = 0;
@@ -2616,6 +2662,7 @@
 
   function draw() {
     const diagnosticStart = diagnostics?.active ? performance.now() : null, diagnosticRevision = drawRevision;
+    diagnosticCandles = diagnosticStart === null ? null : [];
     // Candidates, main paint and Lens share one label measurement per frame.
     drawingLabelLayouts = new WeakMap();
     if (!ready) return;
@@ -3764,6 +3811,7 @@
   // says why, here and in the banner; the page is left as it was.
   async function applyImportedView() {
     if (importing) return;
+    const diagnosticAction = diagnosticBeginAction();
     const field = el("import-text"),
       text = field.value.trim(),
       status = (words) => {
@@ -3773,7 +3821,7 @@
     el("import-apply").disabled = true;
     try {
       if (text.startsWith("cube-analysis:") || /"schema"\s*:\s*"cube-analysis@1"/.test(text) || /^https?:/.test(text)) {
-        try { await agentImport(await agentRead(text)); status("Analysis opened"); } catch (error) { status("Analysis was not applied: " + error.message); }
+        try { await agentImport(await agentRead(text), null, diagnosticAction); status("Analysis opened"); } catch (error) { status("Analysis was not applied: " + error.message); }
         return;
       }
       let decoded;
@@ -3802,22 +3850,23 @@
           postNotice({ code: "import-rejected", params: { reason: checked.reasons.join("; ") } });
           return;
         }
-        await applyPortable(checked.value, checked.dropped);
+        await applyPortable(checked.value, checked.dropped, diagnosticAction);
       } else {
-        applyLegacyImport(decoded.payload, decoded.kind === "legacy" ? text : null);
+        diagnosticCommit(diagnosticAction, () => applyLegacyImport(decoded.payload, decoded.kind === "legacy" ? text : null));
       }
     } finally {
       importing = false;
       el("import-apply").disabled = false;
+      if (diagnosticAction) diagnostics.endAction(diagnosticAction.owner, diagnosticAction.committed);
     }
   }
   // A version-2 code's validated pieces, in place at once: the view as the codec checked it (its own
   // window or rectangle, level, selection and replay), then the descriptors and the appearance.
-  async function applyPortable(value, dropped) {
+  async function applyPortable(value, dropped, diagnosticAction = null) {
     try {
       const view = portableView(value, value.id);
-      if (value.drawings) { if (!await drawingReplace(value.drawings, () => applyView(view))) return; }
-      else applyView(view);
+      if (value.drawings) { if (!await drawingReplace(value.drawings, () => diagnosticCommit(diagnosticAction, () => applyView(view)))) return; }
+      else diagnosticCommit(diagnosticAction, () => applyView(view));
     } catch (error) {
       el("copy-status").textContent = `The view code was not applied: ${error.reason || error.message}`;
       postNotice({ code: "import-rejected", params: { reason: error.reason || error.message } });
@@ -7832,6 +7881,8 @@
     if (comparisonModel.expanded && (tab !== "compare" || !open)) comparisonExpand(false);
     S.drawer = tab;
     S.drawerOpen = open;
+    // Query's read-only recorder stays reachable before data can be decoded.
+    if (!ready && tab === "query") { applyPanels(); return; }
     if (tab === "compare" && open) S.drawerHeight=Math.max(S.drawerHeight,Math.min(420,drawerMax()));
     // Find features' answer sits under its form: its drawer opens tall enough to show it, as Compare's does.
     if (tab === "features" && open) S.drawerHeight = Math.max(S.drawerHeight, Math.min(360, drawerMax()));
@@ -12232,9 +12283,9 @@
           return { body, bars, decodeMs: performance.now() - started };
         },
         apply: ({ body, bars, decodeMs }) => {
-          if (generation !== live.generation || token !== PACK.state_token || S.mode !== "candles") return;
+          if (generation !== live.generation || token !== PACK.state_token || S.mode !== "candles") return false;
           const needs = candleNeeds();
-          if (!needs.some((r) => r.n === n && r.b > a && r.a < b)) return;
+          if (!needs.some((r) => r.n === n && r.b > a && r.a < b)) return false;
           const reusable = [];
           for (const [oldKey, r] of candleCache.ranges) {
             if (r.generation !== generation || r.n !== n) continue;
@@ -12244,7 +12295,7 @@
           candleCache.merge(key, { n, a, b, end: body.end, bars, token, generation, canon }, reusable,
             (r) => r.generation === generation && needs.some((need) => need.n === r.n && need.b > r.a && need.a < candleStop(r)));
           candleMetrics.decodeMs += decodeMs; candleMetrics.encodedBytes += body.bars.gzip_base64.length; candleMetrics.decodedBytes += 32 + bars.length * 68;
-          candleVersion++; candleMemo.clear();
+          candleVersion++; candleMemo.clear(); return true;
         },
       };
     }
@@ -12282,6 +12333,19 @@
   function paintCandles(n, a, b) {
     const r = candleRange(n, a, b);
     for (const bar of r.bars) E.candles.paint(ctx, bar, G.X, G.Y, PR, colors, candleScratch);
+    if (diagnosticCandles) {
+      // Inspect the objects already painted; do not ask candleHeld() again,
+      // because that would change LRU ownership solely for diagnostics.
+      const painted = new Set(r.bars), ranges = [];
+      for (const [key, range] of candleCache.ranges) {
+        if (range.generation !== live.generation || range.n !== n) continue;
+        const used = range.bars.filter(bar => painted.has(bar));
+        if (used.length) ranges.push({ key, n, token: range.token, generation: range.generation, support: [range.a,range.b], measuredThrough: range.end,
+          paintedBars: used.length, paintedSupport: [used[0].start,used.at(-1).through], canonicalCutoff: range.canon });
+      }
+      diagnosticCandles.push({ kind: "painted-candles", main: n === renderN() && a === S.tA && b === S.tB, n, version: candleVersion,
+        state: r.state, requestedSupport: [a,b], measuredThrough: r.end, requestedEnd: r.requestedEnd ?? null, paintedBars: r.bars.length, ranges });
+    }
     if (n === renderN() && a === S.tA && b === S.tB) candleLegend();
     if (r.state !== "ready" || !r.bars.length) {
       ctx.font = `${TYPE.s}px ${FONT}`; ctx.fillStyle = colors.state;
@@ -19118,6 +19182,13 @@
       if (evidence.job) evidence.job.cancelled = true;
       evidence.ready = evidence.last = null;
       const job = { key, cancelled: false }; evidence.job = job;
+      if (diagnostics?.active) {
+        const keys = [...new Set([historyKey(renderN(),renderM()), historyKey(Math.min(renderN(),9),0)])].filter(id => PACK.live && !histories.has(id) && !cube.failed.has(id));
+        for (const [id, wait] of diagnosticHistoryQueue) if (!keys.includes(id)) { wait.end?.("obsolete"); diagnosticHistoryQueue.delete(id); }
+        for (const id of keys) if (!diagnosticHistoryQueue.has(id)) diagnosticHistoryQueue.set(id, {
+          end: diagnosticPhase("history.want-to-dispatch", { key:id, pack:PACK.state_token, anchor:evidenceAnchor() }), served: [], omitted:0,
+        });
+      }
       clearTimeout(evidence.timer);
       evidence.timer = setTimeout(async () => {
         if (job.cancelled || evidenceKey() !== key) return;
@@ -19147,10 +19218,13 @@
     const failed = keys.find((key) => cube.failed.has(key));
     if (failed) return { ...shared, error: `History unavailable: ${cube.failed.get(failed)}` };
     if (PACK.live && keys.some((key) => !histories.has(key))) return { ...shared, loading: true, error: "Reading this level's history from the cube…" };
-    const diagnosticPreparation = diagnosticPhase("continuations.prepare", { a, n, m, cutoff: CUT, canonicalCutoff: CANON, replay: S.replay });
-    const history = evidenceColumns(n, m, end), recordedSeasonal = PACK.live ? null : n===9 && m===0 ? history : evidenceColumns(Math.min(n,9),0,end), index = PACK.live ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
-    const seasonalHeld = PACK.live ? histories.get(historyKey(Math.min(n, 9), 0)) : null;
+    const diagnosticPreparation = diagnosticPhase("continuations.prepare-columns", { a, n, m, cutoff: CUT, canonicalCutoff: CANON, replay: S.replay });
+    const history = evidenceColumns(n, m, end), recordedSeasonal = PACK.live ? null : n===9 && m===0 ? history : evidenceColumns(Math.min(n,9),0,end);
     diagnosticPreparation?.();
+    const diagnosticIndex = diagnosticPhase("continuations.prepare-seasonal-index", { a,n,m });
+    const index = PACK.live ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
+    const seasonalHeld = PACK.live ? histories.get(historyKey(Math.min(n, 9), 0)) : null;
+    diagnosticIndex?.();
     const diagnosticDigest = diagnosticPhase("continuations.digest", { a, n, m, support: [history.b0, end], columns: history.cols.length });
     const tuples = history.cols.map((c) => [c.source, c.c, c.v, c.bv, c.poc, c.covered ? "covered" : "missing", (c.c + 1) * ts, "complete"]);
     // Denominator records are dependencies too. Tail beyond the fixed anchor is excluded.
@@ -19163,8 +19237,25 @@
     const provenance = { instrument: INSTRUMENT, sourceDigest, packKey, revision, sourceCutoff: CUT, canonicalCutoff: CANON, replayEdge: S.replay ? activeCutoff() : null, measuredThrough: end,
       priceLow: 0, priceHigh: null, precisionID: "observed-source-values+Float64-aggregation", reconstruction: "Current-source reconstruction; original vintages not guaranteed" };
     if (diagnostics?.active) diagnostics.mark("continuations-input", { a, n, m, horizon: S.horizon, kind: S.evidenceKind, barrier, support: [history.b0,end], covered: history.covered, sources: history.sources, provenance });
-    const out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
-      seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, { cancelled: () => job.cancelled || evidenceKey() !== job.key, phase: diagnostics?.active ? name => diagnosticPhase("continuations." + name, { a,n,m }) : undefined });
+    const diagnosticCompute = diagnostics?.active, diagnosticSession = diagnostics?.session, diagnosticYields = {}, diagnosticCosts = {},
+      diagnosticCurrent = () => diagnosticCompute && diagnostics?.active && diagnostics.session === diagnosticSession;
+    const accumulate = (groups, name, elapsed) => {
+      const group = groups[name] ??= { count:0, total:0, max:0 };
+      group.count++; group.total += elapsed; group.max = Math.max(group.max, elapsed);
+    };
+    let out;
+    try {
+      out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
+        seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, { cancelled: () => job.cancelled || evidenceKey() !== job.key,
+        ...(diagnosticCompute ? { phase: name => diagnosticCurrent() ? diagnosticPhase("continuations." + name, { a,n,m }) : null, now: () => performance.now(),
+          yield: (stage, elapsed) => accumulate(diagnosticYields,stage,elapsed), cost: (stage,elapsed) => accumulate(diagnosticCosts,stage,elapsed),
+          sample: sample => diagnosticCurrent() && diagnostics.mark("continuations-bootstrap", { a,n,m,...sample }) } : {}) });
+    } finally {
+      if (diagnosticCurrent()) diagnostics.mark("continuations-work", { a,n,m, yields:diagnosticYields, synchronousSamples:diagnosticCosts,
+        note:"Yield schedule-to-resume waits and per-seasonal-call elapsed samples include instrumentation overhead; phase walls overlap these samples" });
+    }
+    if (out && diagnosticCurrent()) diagnostics.mark("continuations-output", { a,n,m, ledger:out.ledger.length,
+      cases:out.cases.map(c => c.length), matched:out.matched.map(c => c.length), sourceDigest, model:out.version, bootstrap:out.uncertainty?.version ?? null });
     return out ? { ...out, sources: history.sources, covered: history.covered } : null;
   }
   function evidenceTotals(e) {
@@ -20143,6 +20234,12 @@
     const controller = new AbortController();
     want.controller = controller;
     cube.busy = want;
+    if (diagnostics?.active) for (const [key, wait] of diagnosticHistoryQueue) {
+      if (key === want.key) {
+        wait.end?.(); diagnostics.mark("history-queue", { key, servedAhead:wait.served, omitted:wait.omitted }); diagnosticHistoryQueue.delete(key);
+      } else if (wait.served.length < 16) wait.served.push({ kind:want.kind, key:want.key });
+      else wait.omitted++;
+    }
     want.start?.();
     if (want.loading) {
       loadingLine.reads.set(want.key, want.loading);
@@ -20187,7 +20284,13 @@
       diagnosticEnd = diagnosticPhase("cube.decode", { key: want.key });
       const decoded = await want.decode(body);
       diagnosticEnd?.(); diagnosticEnd = null;
-      if (generation === live.generation && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); if (diagnostics?.active) diagnostics.mark("data-applied", { key: want.key, generation }); }
+      if (generation === live.generation && !controller.signal.aborted && (!want.relevant || want.relevant())) {
+        comparisonSourceRevision++;
+        diagnosticEnd = diagnosticPhase("cube.apply", { key: want.key });
+        const applied = want.apply(decoded) !== false;
+        diagnosticEnd?.(applied ? "completed" : "obsolete"); diagnosticEnd = null;
+        if (diagnostics?.active) diagnostics.mark(applied ? "data-applied" : "data-discarded", { key: want.key, generation, consumerAccepted: applied });
+      }
       else { want.drop?.(); if (diagnostics?.active) diagnostics.mark("data-discarded", { key: want.key, generation }); }
     } catch (error) {
       diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed");
@@ -20589,7 +20692,13 @@
       diagnosticEnd = diagnosticPhase("movement.decode", { key: want.key });
       const decoded = await want.decode(body);
       diagnosticEnd?.(); diagnosticEnd = null;
-      if (generation === live.generation && epoch === motion.epoch && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); if (diagnostics?.active) diagnostics.mark("data-applied", { key: want.key, generation }); }
+      if (generation === live.generation && epoch === motion.epoch && !controller.signal.aborted && (!want.relevant || want.relevant())) {
+        comparisonSourceRevision++;
+        diagnosticEnd = diagnosticPhase("movement.apply", { key: want.key });
+        const applied = want.apply(decoded) !== false;
+        diagnosticEnd?.(applied ? "completed" : "obsolete"); diagnosticEnd = null;
+        if (diagnostics?.active) diagnostics.mark(applied ? "data-applied" : "data-discarded", { key: want.key, generation, consumerAccepted: applied });
+      }
       else if (diagnostics?.active) diagnostics.mark("data-discarded", { key: want.key, generation });
     } catch (error) {
       diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed");
@@ -25475,7 +25584,7 @@
     }
     return text.startsWith("cube-analysis:") ? Agent.decode(text, { inflate: inflateBounded }) : Agent.parse(text);
   }
-  async function agentImport(document, hash = null) {
+  async function agentImport(document, hash = null, diagnosticAction = null) {
     const value = Agent.validate(document), checked = E.codec.validatePortable(value.scene, viewEnv());
     if (!checked.ok || checked.dropped.length) throw Error(checked.reasons.join("; ") || "Scene contains unavailable settings");
     if (value.snapshot && (value.snapshot.origin !== T0 || value.snapshot.baseSeconds !== BASE || value.snapshot.basePrice !== PR)) throw Error("Captured canvas uses a different cube lattice");
@@ -25490,7 +25599,7 @@
       clearTimeout(live.timer); clearTimeout(cube.timer); clearTimeout(motion.timer);
       cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
-      applyView(portableView(checked.value, value.scene.id));
+      diagnosticCommit(diagnosticAction, () => applyView(portableView(checked.value, value.scene.id)));
       drawingCommit("Open investigation", value.scene.drawings);
       comparisonCommit(value.comparison ?? comparisonEmpty(), true, true);
       if (value.focus) {
@@ -25649,7 +25758,7 @@
     identity: () => ({ commit: document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
       committedAt: document.querySelector('meta[name="explorer-committed-at"]')?.content ?? "",
       pullRequest: document.querySelector('meta[name="explorer-pr"]')?.content ?? "",
-      timeOrigin: performance.timeOrigin, live: Boolean(PACK.live), pack: PACK.state_token ?? PACK.packKey ?? null,
+      timeOrigin: performance.timeOrigin, live: Boolean(PACK.live), page: PACK.page ?? null, pack: PACK.state_token ?? PACK.packKey ?? null,
       provenance: { packKey: PACK.provenance?.packKey ?? null, revision: PACK.provenance?.revision ?? null } }), download: guiDownloadText, reset: diagnosticReset });
   try {
     const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
@@ -25666,7 +25775,7 @@
       el("version-unknown").hidden = true;
     }
     renderLive();
-    qsa("button,input,select").forEach((control) => { if (!control.closest("#ol-diagnostics")) control.disabled = true; });
+    qsa("button,input,select").forEach((control) => { if (!control.closest("#ol-diagnostics") && control.id !== "ol-tab-query") control.disabled = true; });
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live;
     for (const kbd of qsa("[data-key]")) kbd.textContent = KEYS[kbd.dataset.key];
@@ -25786,6 +25895,11 @@
     loadingLine.startup = "";
     loadingLine.fatal = (PACK.live ? "Cube data unavailable: " : "Recorded data unavailable: ") + error.message;
     renderLoading();
+    if (diagnostics?.active) {
+      diagnosticFrame = { requested: diagnosticRequested(), rendered: null, pending: false, error: [loadingLine.fatal] };
+      diagnostics.availability(diagnosticSnapshot());
+      openDrawer("query", true); el("diagnostics").open = true;
+    }
     revealStartup(el("controls"));
     revealStartup(canvas);
   }
