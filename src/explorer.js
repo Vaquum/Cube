@@ -16525,9 +16525,9 @@
     stripRt.coverageStats = { state, inputsKnown: inputDetails ? interval(minInputs, maxInputs, "-") : "", inputsTotal: template.inputsTotal,
       attentionKnown: attentionDetails ? interval(minAttention, maxAttention, "-") : "", attentionTotal: template.attentionTotal,
       forcesKnown: interval(least, most, "-"), forcesTotal: shown.length, cutoff: field, effectiveCutoff: edge };
-    stripRt.coverage = state === "unknown"
-      ? `Input detail unavailable · Forces ${interval(least, most)}/${shown.length}`
-      : `${state === "none" ? "No data · " : state === "limited" ? "Limited data · " : ""}Inputs ${interval(minInputs, maxInputs)}/${template.inputsTotal} · Attention ${interval(minAttention, maxAttention)}/${template.attentionTotal}`;
+    const inputCoverage = inputDetails ? `Inputs ${interval(minInputs, maxInputs)}/${template.inputsTotal}` : `Input detail unavailable · Forces ${interval(least, most)}/${shown.length}`,
+      attentionCoverage = attentionDetails ? `Attention ${interval(minAttention, maxAttention)}/${template.attentionTotal}` : "Attention detail unavailable";
+    stripRt.coverage = `${state === "none" ? "No data · " : state === "limited" ? "Limited data · " : ""}${inputCoverage} · ${attentionCoverage}`;
     renderStrip();
     ctx.font = `${TYPE.s}px ${FONT}`;
     const fieldX = Number.isFinite(field) ? G.X(stripBase(field)) : NaN,
@@ -16929,14 +16929,14 @@
         : support.inputsKnown < support.inputsTotal || support.attentionKnown < support.attentionTotal || attention === null ? "Partial" : "Known",
       coverage = stripNumber("Known inputs", available ? support.inputsKnown : 0, "coverage", "", (v) => ({ text: `${v}/${support.inputsTotal}`, unit: "inputs" })),
       groups = shown.map((f) => ({ name: `${STRIP_NAMES[f]} · inputs`, metrics: Object.entries(stripRt.components ?? {}).filter(([, c]) => c.force === f).map(([name, c]) => {
-        const value = available ? stripAt(held, ms, name) : null, detail = Boolean(held?.parts && Object.hasOwn(held.parts, name));
+        const value = available ? stripAt(held, ms, name) : null, detail = Array.isArray(held?.parts?.[name]);
         const metric = stripScore(c.label, value, name);
         if (!detail) metric.text = "Detail unavailable";
         metric.status = !detail ? "Detail unavailable" : value === null ? "Unavailable" : ms < stripRetroUntil(name) ? "Retrospective" : "Known";
         return metric;
       }) }));
     groups.push({ name: "Attention · inputs", metrics: Object.entries(stripRt.attentionParts ?? {}).map(([name, c]) => {
-      const value = available ? stripAt(held, ms, name) : null, detail = Boolean(held?.parts && Object.hasOwn(held.parts, name)), metric = stripNumber(c.label, value, name, "share");
+      const value = available ? stripAt(held, ms, name) : null, detail = Array.isArray(held?.parts?.[name]), metric = stripNumber(c.label, value, name, "share");
       if (!detail) metric.text = "Detail unavailable";
       metric.status = !detail ? "Detail unavailable" : value === null ? "Unavailable" : ms < stripRetroUntil(name) ? "Retrospective" : "Known";
       return metric;

@@ -31,7 +31,7 @@ async function open(page, fake, probe, hash) {
   await expect(page.locator("#ol-strip")).toHaveAttribute("data-state", "ready");
   await probe.waitForQuiet();
 }
-async function coverageResponse(page, { inputs, attention, cutoff, detail = true, sources = {}, events = [] }) {
+async function coverageResponse(page, { inputs, attention, cutoff, detail = true, sources = {}, events = [], omittedParts = [], nullParts = [] }) {
   const available = new Set(INPUTS.slice(0, inputs)), attentionAvailable = new Set(ATTENTION.slice(0, attention));
   await page.route("**/cube/strip?*", async (route) => {
     const original = await route.fetch(), body = await original.json(), n = body.grid.attention.length;
@@ -46,6 +46,10 @@ async function coverageResponse(page, { inputs, attention, cutoff, detail = true
     if (detail === null) body.grid.parts = null;
     else if (detail) body.grid.parts = parts;
     else delete body.grid.parts;
+    if (body.grid.parts) {
+      for (const name of omittedParts) delete body.grid.parts[name];
+      for (const name of nullParts) body.grid.parts[name] = null;
+    }
     body.events = events; body.jumps = [];
     Object.assign(body.sources, sources);
     if (cutoff !== undefined) {
@@ -131,6 +135,72 @@ for (const detail of [false, null]) test(`${detail === null ? "null" : "omitted"
     await expect(full.locator(`[data-field="${name}"]`)).toHaveAttribute("data-status", "Detail unavailable");
     await expect(full.locator(`[data-field="${name}"]`)).toHaveAttribute("data-canonical", "unsupported");
   }
+});
+
+for (const detail of [false, null]) test(`no force outputs with ${detail === null ? "null" : "omitted"} attention detail never invents coverage counts`, async ({ page, fakeFor, probe, pane }) => {
+  const fake = await fakeFor("mini"), view = rectangle(fake);
+  await coverageResponse(page, { inputs: 0, attention: 4, detail });
+  await open(page, fake, probe, view.hash);
+  const button = page.locator("#ol-strip"), caption = "No data · Inputs 0/10 · Attention detail unavailable";
+  await expect(button).toHaveAttribute("data-coverage-state", "none");
+  await expect(button).toHaveAttribute("data-inputs-known", "0");
+  await expect(button).toHaveAttribute("data-attention-known", "");
+  await expect(button).toHaveAttribute("data-attention-total", "4");
+  await expect(button).toHaveAttribute("data-coverage", caption);
+  await expect(button).toHaveAccessibleDescription(new RegExp(caption));
+  const frame = await pane.last(), g = gOf(await layoutOf(page)), top = g.by + LABELS, middle = g.x + g.w / 2;
+  expect(frame.texts.some((t) => t.text === caption)).toBe(true);
+  expect(frame.texts.some((t) => t.text === "No data")).toBe(true);
+  expect(frame.texts.every((t) => !/Infinity|NaN/.test(t.text))).toBe(true);
+  expect(frame.rects.some((r) => r.fill === "pattern" && r.y === top + 1 && r.h === BAND - 2 && r.x <= middle && middle < r.x + r.w)).toBe(true);
+  const card = await hoverBand(page, g);
+  await expect(card.locator('[data-field="net"]')).toHaveAttribute("data-canonical", "unsupported");
+  expect(await canonical(card, "forceCoverage")).toBe(0);
+  expect(await canonical(card, "attention")).toBe(0.3);
+  await expect(card.locator('[data-field="attentionCoverage"]')).toHaveAttribute("data-canonical", "unsupported");
+  await expect(card).not.toContainText(/Infinity|NaN/);
+});
+
+for (const missing of ["omitted attention", "null attention", "omitted force", "null force"]) test(`partial detail with ${missing} keeps the known channel's coverage`, async ({ page, fakeFor, probe, pane }) => {
+  const fake = await fakeFor("mini"), view = rectangle(fake), forceMissing = missing.endsWith("force"),
+    absent = forceMissing ? INPUTS : ATTENTION, options = missing.startsWith("null") ? { nullParts: absent } : { omittedParts: absent },
+    caption = forceMissing ? "Input detail unavailable · Forces 4/4 · Attention 4/4" : "Inputs 10/10 · Attention detail unavailable";
+  await coverageResponse(page, { inputs: 10, attention: 4, ...options });
+  await open(page, fake, probe, view.hash);
+  const button = page.locator("#ol-strip");
+  await expect(button).toHaveAttribute("data-coverage-state", "unknown");
+  await expect(button).toHaveAttribute("data-inputs-known", forceMissing ? "" : "10");
+  await expect(button).toHaveAttribute("data-attention-known", forceMissing ? "4" : "");
+  await expect(button).toHaveAttribute("data-coverage", caption);
+  await expect(button).toHaveAccessibleDescription(new RegExp(caption));
+  const frame = await pane.last();
+  expect(frame.texts.some((t) => t.text === caption)).toBe(true);
+  expect(frame.texts.every((t) => !/Infinity|NaN/.test(t.text))).toBe(true);
+  const card = await hoverBand(page, gOf(await layoutOf(page)));
+  expect(await canonical(card, "forceCoverage")).toBe(4);
+  expect(await canonical(card, "net")).toBe(0);
+  expect(await canonical(card, "attention")).toBe(0.3);
+  await expect(card.locator('[data-field="supportStatus"]')).toHaveAttribute("data-fact", "Detail unavailable");
+  await expect(card.locator('[data-field="coverage"]')).toHaveAttribute("data-canonical", forceMissing ? "unsupported" : "10");
+  await expect(card.locator('[data-field="attentionCoverage"]')).toHaveAttribute("data-canonical", forceMissing ? "4" : "unsupported");
+  for (const name of absent) await expect(card.locator(`[data-field="${name}"]`)).toHaveAttribute("data-status", "Detail unavailable");
+});
+
+test("a view entirely after the field cutoff has finite empty coverage ranges", async ({ page, fakeFor, probe, pane }) => {
+  const fake = await fakeFor("mini"), view = rectangle(fake), cutoff = view.from - HOUR;
+  await coverageResponse(page, { inputs: 10, attention: 4, cutoff, detail: null });
+  await open(page, fake, probe, view.hash);
+  const button = page.locator("#ol-strip");
+  await expect(button).toHaveAttribute("data-coverage-state", "none");
+  await expect(button).toHaveAttribute("data-inputs-known", "0");
+  await expect(button).toHaveAttribute("data-attention-known", "0");
+  await expect(button).toHaveAttribute("data-coverage", "No data · Inputs 0/10 · Attention 0/4");
+  await expect(button).toHaveAttribute("data-effective-cutoff", String(cutoff));
+  expect((await pane.last()).texts.every((t) => !/Infinity|NaN/.test(t.text))).toBe(true);
+  const card = await hoverBand(page, gOf(await layoutOf(page)));
+  await expect(card.locator('[data-field="net"]')).toHaveAttribute("data-canonical", "unsupported");
+  await expect(card.locator('[data-field="attention"]')).toHaveAttribute("data-canonical", "unsupported");
+  await expect(card.locator('[data-field="supportStatus"]')).toHaveAttribute("data-fact", "After field cutoff");
 });
 
 test("a production source error object renders as named source facts alongside explicit support counts", async ({ page, fakeFor, probe }) => {
