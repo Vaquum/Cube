@@ -5516,6 +5516,18 @@
               </button>
             </div>
             <div id="ol-query-ready" class="ol-muted"></div><dl id="ol-query-provenance" class="ol-query-provenance" aria-label="Effective measurement scope and frozen comparison provenance"></dl>
+            <details id="ol-diagnostics" class="ol-diag">
+              <summary>Performance recording</summary>
+              <p class="ol-muted">Optional measurements stay in this page. Record an interaction, then export its timings and requested/drawn grid identity. Frame and draw signals do not certify compositor presentation or INP.</p>
+              <div class="ol-query-actions">
+                <button type="button" id="ol-diagnostics-start" class="ol-action cursor-interaction">Start recording</button>
+                <button type="button" id="ol-diagnostics-stop" class="ol-action cursor-interaction">Stop recording</button>
+                <button type="button" id="ol-diagnostics-export" class="ol-action cursor-interaction">Export recording</button>
+                <button type="button" id="ol-diagnostics-reload" class="ol-action cursor-interaction">Record next reload</button>
+              </div>
+              <p id="ol-diagnostics-status" class="ol-muted" role="status"></p>
+              <textarea id="ol-diagnostics-output" rows="5" readonly hidden aria-label="Performance recording JSON"></textarea>
+            </details>
             <section class="ol-summary" id="ol-summary" aria-labelledby="ol-summary-title">
               <div class="ol-summary-head">
                 <h3 id="ol-summary-title">View summary</h3
@@ -19253,7 +19265,10 @@
     return () => { value ^= value << 13; value >>>= 0; value ^= value >>> 17; value >>>= 0; value ^= value << 5; return value >>>= 0; };
   }
   const bucket = (value, pair) => value < pair[0] ? 0 : value < pair[1] ? 1 : 2;
-  const yieldTask = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const yieldTask = (control, stage) => new Promise((resolve) => {
+    const started = control.now?.();
+    setTimeout(() => { if (started !== undefined) control.yield?.(stage, control.now() - started); resolve(); }, 0);
+  });
   function summary(cases, field) {
     const values = cases.map((c) => c.delta).sort((a, b) => a - b);
     let overlapping = 0;
@@ -19279,12 +19294,17 @@
     return {result:reason ? unavailable(reason,reason==="Degenerate resampling interval" ? "undefined" : "unsupported") : finite(pair),validDraws:values.length};
   }
   async function bootstrap(input, result, kind, horizon, control = {}) {
+    const phaseEnd = control.phase?.("bootstrap");
+    let stageEnd = control.phase?.("bootstrap.summaries");
+    let phaseOutcome = "interrupted";
+    try {
     const alive = () => !control.cancelled?.();
     const field = kind === "poc-barrier" ? "first" : "direction", sample = summary(result.matched[horizon], field), base = summary(result.cases[horizon], field);
+    stageEnd?.(); stageEnd = control.phase?.("bootstrap.scan");
     const length = result.blockLength, step = 2 ** result.n, start = input.b0 / step, stop = (result.a + 1), first = Math.floor(start / length), last = Math.ceil(stop / length);
     const blocks = Array.from({ length: Math.max(0, last - first) }, (_, i) => ({ id: first + i, sample: [0, 0, 0, 0], base: [0, 0, 0, 0], full: (first + i) * length >= start && (first + i + 1) * length <= stop }));
     for (let i = 0; i < result.cases[horizon].length; i++) {
-      if (i % 1024 === 0) { await yieldTask(); if (!alive()) return null; }
+      if (i % 1024 === 0) { await yieldTask(control, "bootstrap.scan"); if (!alive()) return null; }
       const c = result.cases[horizon][i], block = blocks[Math.floor(c.c / length) - first], category = c[field] + 1;
       block.base[category]++; block.base[3]++;
       if (c.matched) { block.sample[category]++; block.sample[3]++; }
@@ -19292,10 +19312,11 @@
     const fullMatched = blocks.filter((b) => b.full && b.sample[3] > 0).length;
     const key = canonicalKey(input, result, kind, horizon), seed = fnv(JSON.stringify(key) + BOOTSTRAP), rng = random(seed);
     const draws = Object.fromEntries(["down", "flat", "up"].map((k) => [k, { conditional: [], baseline: [], difference: [] }]));
+    stageEnd?.(); stageEnd = control.phase?.("bootstrap.draws");
     // A floor failure remains explicit; do not spend 2000 draws on a known unusable study.
     if (result.state && fullMatched >= 20 && blocks.length) {
       for (let r = 0; r < 2000; r++) {
-        if (r % 16 === 0) { await yieldTask(); if (!alive()) return null; }
+        if (r % 16 === 0) { await yieldTask(control, "bootstrap.draws"); if (!alive()) return null; }
         const s = [0, 0, 0, 0], b = [0, 0, 0, 0];
         for (let j = 0; j < blocks.length; j++) {
           const chosen = blocks[Math.floor(rng() / 4294967296 * blocks.length)];
@@ -19308,6 +19329,7 @@
         }
       }
     }
+    stageEnd?.(); stageEnd = control.phase?.("bootstrap.intervals");
     const intervals = {};
     for (const name of ["down", "flat", "up"]) {
       intervals[name] = {};
@@ -19316,40 +19338,52 @@
         intervals[name][component]=intervalResult({values,ownN,fullMatched,anchorReason:result.state ? null : result.anchorReason || "Anchor seasonal support unavailable"});
       }
     }
+    control.sample?.({ calendarBlocks: blocks.length, fullMatched, drawsRan: Boolean(result.state && fullMatched >= 20 && blocks.length),
+      validDraws: Object.fromEntries(Object.entries(intervals).map(([name, components]) => [name,Object.fromEntries(Object.entries(components).map(([component, value]) => [component,value.validDraws]))])) });
+    stageEnd?.(); stageEnd = null; phaseOutcome = "completed";
     return { version: BOOTSTRAP, key, seed, fullMatched, calendarBlocks: blocks.length, blockLength: length, resamples: 2000, intervals,
       qualification: "Approximate pointwise 95% intervals; fixed anchor thresholds. Longer dependence and nonstationarity may invalidate coverage." };
+    } finally { stageEnd?.("interrupted"); phaseEnd?.(phaseOutcome); }
   }
   async function compute(input, control = {}) {
+    let phaseEnd = control.phase?.("index");
+    const phase = name => { phaseEnd?.(); phaseEnd = control.phase?.(name); };
+    try {
     const alive = () => !control.cancelled?.(), step = 2 ** input.n;
     if (!Number.isInteger(input.a) || input.b1 <= input.b0 || (input.b1 - input.b0) / step > 100000) throw new RangeError("Invalid bounded evidence support");
     const by = new Map(), rows = [], shares = [], seasonalValues = [];
     for (let i = 0; i < input.cols.length; i++) {
-      if (i % 1024 === 0) { await yieldTask(); if (!alive()) return null; }
+      if (i % 1024 === 0) { await yieldTask(control, "index"); if (!alive()) return null; }
       by.set(input.cols[i].c, input.cols[i]);
     }
+    phase("ledger-seasonal");
     const stop = input.a + 1, first = Math.ceil(input.b0 / step);
     for (let c = first; c < stop; c++) {
-      if ((c - first) % 512 === 0) { await yieldTask(); if (!alive()) return null; }
+      if ((c - first) % 512 === 0) { await yieldTask(control, "ledger-seasonal"); if (!alive()) return null; }
       const col = by.get(c), previous = by.get(c - 1), row = { c, source: col?.source ?? null, time: [c * step, (c + 1) * step], volume: col?.v ?? null, buyShare: col?.v > 0 ? col.bv / col.v : null, poc: col?.poc ?? null, state: null, matched: false, reason: null, outcomes: {} };
+      const seasonalStart = control.now?.();
       row.seasonal = input.seasonal({ numerator: col?.v ?? null, start: c * step, end: (c + 1) * step, cutoff: stop * step });
+      if (seasonalStart !== undefined) control.cost?.("seasonal", control.now() - seasonalStart);
       row.reason = !col || col.covered === false ? REASONS[0] : col.v === 0 ? REASONS[1] : !Number.isFinite(col.poc) ? REASONS[2] : !previous || previous.covered === false || !(previous.v > 0) || !Number.isFinite(previous.poc) ? REASONS[3] : row.seasonal.result.tag !== "finite" ? REASONS[4] : null;
       row.result = row.reason ? unavailable(row.reason, row.reason === REASONS[1] ? "empty-population" : "unsupported") : finite(row.seasonal.result.value);
       if (c < input.a && col?.v > 0 && Number.isFinite(row.buyShare)) shares.push(row.buyShare);
       if (c < input.a && row.seasonal.result.tag === "finite") seasonalValues.push(row.seasonal.result.value);
       rows.push(row);
     }
+    phase("thresholds-state");
     shares.sort((a, b) => a - b); seasonalValues.sort((a, b) => a - b);
     const st = [quantile(shares, 1 / 3), quantile(shares, 2 / 3)], vt = [quantile(seasonalValues, 1 / 3), quantile(seasonalValues, 2 / 3)], fitted = st.every(Number.isFinite) && vt.every(Number.isFinite);
     for (let i = 0; i < rows.length; i++) {
-      if (i % 512 === 0) { await yieldTask(); if (!alive()) return null; }
+      if (i % 512 === 0) { await yieldTask(control, "thresholds-state"); if (!alive()) return null; }
       const row = rows[i];
       if (!row.reason && !fitted) { row.reason = REASONS[5]; row.result = unavailable(row.reason); }
       if (!row.reason) row.state = [Math.sign(row.poc - by.get(row.c - 1).poc) + 1, bucket(row.buyShare, st), bucket(row.seasonal.result.value, vt)];
     }
     const anchor = rows.find((r) => r.c === input.a), state = anchor?.state ?? null;
+    phase("cases");
     const cases = Array.from({ length: 9 }, () => []), matched = Array.from({ length: 9 }, () => []);
     for (let i = 0; i < rows.length; i++) {
-      if (i % 512 === 0) { await yieldTask(); if (!alive()) return null; }
+      if (i % 512 === 0) { await yieldTask(control, "cases"); if (!alive()) return null; }
       const row = rows[i];
       row.matched = Boolean(state && row.state && row.state.every((v, j) => v === state[j]));
       if (!row.state) continue;
@@ -19367,13 +19401,16 @@
         cases[h].push(c); if (row.matched) matched[h].push(c);
       }
     }
+    phase("summaries");
     const blockLength = Math.ceil((6 * 10752 + 9 * step) / step);
     const out = { version: MODEL, a: input.a, n: input.n, m: input.m, barrier: input.barrier, from: first, poc: anchor?.poc ?? null, anchor, state,
       thresholds: { share: st, seasonal: vt }, cases, matched, match: matched.map((c) => summary(c, "direction")), all: cases.map((c) => summary(c, "direction")),
       barrierMatch: matched.map((c) => summary(c, "first")), barrierAll: cases.map((c) => summary(c, "first")), ledger: rows, blockLength, provenance: input.provenance,
       anchorReason: state ? null : anchor?.reason === REASONS[3] ? REASONS[3] : "Anchor seasonal support unavailable", fitReason: fitted ? null : REASONS[5] };
+    phaseEnd?.(); phaseEnd = null;
     out.uncertainty = await bootstrap(input, out, input.kind, input.horizon, control);
     return alive() ? out : null;
+    } finally { phaseEnd?.("interrupted"); }
   }
   return Object.freeze({ MODEL, BOOTSTRAP, REASONS: Object.freeze(REASONS), quantile, fnv, random, summary, canonicalKey, intervalResult, bootstrap, compute });
 });
@@ -20605,12 +20642,12 @@
       targets: [{"label":"Show Views","selector":"#ol-hist"},{"label":"Show Query","selector":"#ol-tab-query"},{"label":"Show Compare","selector":"#ol-tab-compare"}], colour: "none" },
 
     { id: "query", group: "Evaluate & retain", title: "Query, bounds & agent exchange",
-      terms: ["Query", "Apply bounds", "Copy query", "Copy view code", "Restore view", "Apply view", "Copy summary", "Copy selection", "Copy comparison", "Share investigation", "Refresh current source", "Restore previous capture", "Six parameters", "View summary", "Effective measurement scope", "Frozen comparison provenance", "Copyable cube query", "End · UTC", "High · USDT", "Low · USDT", "Start · UTC"],
-      matrix: {"headers":["Control / read","Interpretation and use"],"rows":[["Source / pack; Source cutoff; Canonical cutoff; Requested bounds; Actual measured bounds; Shown level","Pack identifies source and revision. Source cutoff is the available data edge; Canonical cutoff separates archived and provisional data. Requested bounds are the intended rectangle; Actual measured bounds and Shown level disclose the delivered support and rendering fallback."],["Historical evidence study; Frozen comparison","Historical evidence study names continuation method/uncertainty versions, source digest, fit anchor and reconstruction. Frozen comparison names the captured set, chosen metric/basis and retained source/measured-through boundaries; refreshing market data does not silently update those captures."]]},
+      terms: ["Performance recording", "Start recording", "Stop recording", "Export recording", "Record next reload", "Query", "Apply bounds", "Copy query", "Copy view code", "Restore view", "Apply view", "Copy summary", "Copy selection", "Copy comparison", "Share investigation", "Refresh current source", "Restore previous capture", "Six parameters", "View summary", "Effective measurement scope", "Frozen comparison provenance", "Copyable cube query", "End · UTC", "High · USDT", "Low · USDT", "Start · UTC"],
+      matrix: {"headers":["Control / read","Interpretation and use"],"rows":[["Performance recording; Start recording; Stop recording; Export recording; Record next reload","Opt in to a bounded local timing recording. Export stops collection and downloads JSON; Record next reload arms one load in this tab. Requested/drawn grid and phase signals distinguish pending refinement from completed submission. Frame/draw proxies do not certify compositor presentation or INP. Stopped collection adds no idle frame loop or diagnostic requests."],["Source / pack; Source cutoff; Canonical cutoff; Requested bounds; Actual measured bounds; Shown level","Pack identifies source and revision. Source cutoff is the available data edge; Canonical cutoff separates archived and provisional data. Requested bounds are the intended rectangle; Actual measured bounds and Shown level disclose the delivered support and rendering fallback."],["Historical evidence study; Frozen comparison","Historical evidence study names continuation method/uncertainty versions, source digest, fit anchor and reconstruction. Frozen comparison names the captured set, chosen metric/basis and retained source/measured-through boundaries; refreshing market data does not silently update those captures."]]},
       purpose: "Recover the exact requested geometry and exchange a reproducible analysis.",
       read: "Start / End · UTC and Low / High · USDT set the requested rectangle. The six-parameter query gives UTC time bounds, USDT price bounds and time/price levels aligned to base cells; Cell size shows their duration and width. Effective measurement scope and frozen comparison provenance qualify what was actually measured. View summary describes settings, scales, axes, source and retained objects; it does not freeze market history.",
       use: "Apply bounds validates increasing time and price intervals before navigation. Copy query retains six parameters; Copy view code includes settings/calibration. Restore view accepts query JSON, an origo-cube: view code, or a cube-analysis: investigation as JSON, a text packet, a code or a same-host link. Apply view validates required content before replacement and preserves existing drawings through recovery. Copy summary, Copy selection and Copy comparison supply text for a human or agent. Share investigation copies a link containing the analysis or a durable live-host reference when it is too large. Refresh current source requires an opened captured investigation and a live source; it refreshes captured values and keeps Restore previous capture for rollback. Read validation/copy/share status; failed clipboard actions provide selectable text.",
-      targets: [{"label":"Show bounds form","selector":"#ol-bounds-form","open":"#ol-tab-query"},{"label":"Show Query","selector":"#ol-tab-query"}],
+      targets: [{"label":"Show bounds form","selector":"#ol-bounds-form","open":"#ol-tab-query"},{"label":"Show performance recording","selector":"#ol-diagnostics-start","open":"#ol-tab-query"},{"label":"Show Query","selector":"#ol-tab-query"}],
       colour: "none" },
     { id: "feature-rules", group: "Evaluate & retain", title: "Feature rules & diagnostics",
       purpose: "Read an in-sample rule without confusing its classification metrics with numeric precision.",
@@ -22313,6 +22350,11 @@
   terms("seasonal activity all price usdt|seasonal", "All-price traded USDT relative to eligible earlier comparison windows with matching seasonal timing.");
   const valueLabels = { "window-text": "Time window", "res-text": "Cell size", tr: "Time cell duration", pr: "Price row width", "legend-text": "Cell colour scale", "rows-legend-text": "Background colour scale", "rows-text": "Rows measure and period", "background-text": "Background measure and period", "profile-chip-text": "Profile comparison", "axis-chip-text": "Column and profile axes", "data-through": "Data through" };
   const fields = {
+    "diagnostics-start": "Start local performance recording; replaces the previous recording and stops at two minutes, 10,000 events or 2 MiB.",
+    "diagnostics-stop": "Stop collecting measurements and retain the recording in this page for export.",
+    "diagnostics-export": "Stop collection and download the local timings, requested target and submitted output as JSON.",
+    "diagnostics-reload": "Arm one recording before reloading this tab; the arm is consumed on the next load and stores no measurements.",
+    "diagnostics-output": "Read-only JSON from the last exported performance recording.",
     "window-text": "Time span currently covered by the chart; calendar windows follow their UTC dates.",
     "res-text": "Duration of one time column and width of one price row; Auto chooses the level from screen cell size.",
     "legend-text": "Cell measure, basis, transform and fitted colour domain; equal values need the same mapping for equal colours.",
@@ -22582,12 +22624,392 @@
   return Object.freeze({ controls, values, selector, target, name, meaning, describe, choices });
 });
 </script>
+    <script>/* Optional page-owned measurements. No prototype patches, requests, or work while stopped. */
+(function (root, factory) {
+  "use strict";
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.explorerDiagnostics = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+  const LIMITS = Object.freeze({ events: 10000, milliseconds: 120000, bytes: 2097152 });
+  const DEFINITIONS = Object.freeze({
+    clock: "performance.now() milliseconds relative to performance.timeOrigin; browser entries use the same origin",
+    acknowledgment: "Zero-delay task after input dispatch; records post-handler requested state including task-queue delay, not a verified paint",
+    draw: "Application draw() entry to completed canvas/DOM submission; includes CPU work, excludes compositor presentation. Attribution deferred until acknowledgment retains its original at timestamp",
+    presentation: "Two consecutive sampled animation frames with no relevant scope motion/busy state; chart scope additionally requires a completed requested draw or explicit terminal result",
+    frames: "Native requestAnimationFrame intervals while recording, including the recorder's own overhead; hidden intervals are labelled",
+    resources: "Browser ResourceTiming/NavigationTiming; cross-origin fields can be zero without Timing-Allow-Origin",
+    eventTiming: "Raw EventTiming entries: threshold 16ms, durations rounded to 8ms, no wheel/pointermove coverage. Missing entries do not establish fast input; not INP or async completion",
+    nativePaint: "Feature-detected paintTime/presentationTime on native paint/long-animation-frame entries; engine-reported frame data, not a physical-display certificate or requested-grid completion",
+    phases: "Async wall-clock spans include yields/waits and can overlap; do not sum them as CPU time",
+    relatedBudgets: "See navigation.v4.json draw/frame/input keys; these differently scoped side-panel diagnostics do not score that benchmark's environment or acceptance",
+    unavailable: ["physical presentation certificate", "INP", "LCP", "CPU/GPU profile", "retained heap/GC certificate", "cache-cold certificate"],
+    overhead: "Opt-in observer, frame sampling and export overhead are included. No acceptance budgets are changed."
+  });
+  function readiness(state) {
+    if (state.applicable === false) return "not-applicable";
+    if (!state.rendered) return state.error ? "terminal-unavailable" : "pending-data";
+    if (state.error) return "terminal-fallback";
+    if (state.requested.intent !== state.rendered.intent) return "pending-data";
+    if (state.refinement) return "pending-refinement";
+    const target = state.target ?? state.requested,
+      gap = target.n !== state.rendered.n || target.m !== state.rendered.m;
+    if (gap && state.fallbackReason) return "terminal-fallback";
+    if (state.pending || state.requested.pendingAction || state.movement?.updating || state.movement?.state === "pending") return gap ? "coarse-loaded" : "pending-data";
+    return gap ? "stalled" : "target-output-submitted";
+  }
+  function create({ now, setTimer, clearTimer, changed = () => {}, limits = LIMITS }) {
+    limits = { ...LIMITS, ...limits };
+    let active = false, session = 0, serial = 0, timer, report = null, dispatching = null, lastReadiness = null, bytes = 0;
+    const size = value => new TextEncoder().encode(JSON.stringify(value)).byteLength;
+    const pending = new Map();
+    function stop(reason = "user") {
+      if (!active) return;
+      active = false; clearTimer(timer);
+      report.ended = now(); report.stopReason = reason;
+      report.truncated = ["event-limit", "time-limit", "byte-limit"].includes(reason);
+      report.unfinishedInteractions = [...pending.values()].map(p => p.id);
+      report.unfinishedState = "ended-incomplete";
+      pending.clear(); dispatching = null; changed();
+    }
+    function mark(type, detail = {}) {
+      if (!active) return;
+      if (now() - report.started >= limits.milliseconds) { stop("time-limit"); return; }
+      if (report.events.length >= limits.events) { stop("event-limit"); return; }
+      const event = { type, at: now(), ...detail }, length = size(event) + 1,
+        reserve = 1024 + (pending.size + 1) * (String(limits.events).length + 1);
+      if (bytes + length + reserve > limits.bytes) { stop("byte-limit"); return; }
+      report.events.push(event); bytes += length;
+    }
+    function start(identity) {
+      stop("restarted"); pending.clear(); session++; serial = 0; active = true;
+      lastReadiness = null;
+      report = { schema: "cube-performance@2", identity, limits: { ...limits }, definitions: DEFINITIONS, started: now(), truncated: false, events: [] };
+      bytes = size(report);
+      if (bytes + 1024 > limits.bytes) {
+        report.identity = { omitted: "identity exceeded recording byte limit" };
+        stop("byte-limit"); return;
+      }
+      timer = setTimer(() => stop("time-limit"), limits.milliseconds);
+      mark("recording-start"); changed();
+    }
+    function phase(name, identity = {}) {
+      if (!active) return () => {};
+      const owned = session, id = ++serial, start = now();
+      mark("phase-start", { id, name, identity });
+      let ended = false;
+      return (outcome = "completed") => {
+        if (ended || !active || session !== owned) return;
+        ended = true; mark("phase-end", { id, name, outcome, duration: now() - start });
+      };
+    }
+    function input(scope, detail) {
+      if (!active) return null;
+      const owner = detail.owner ?? scope, previous = pending.get(owner);
+      if (previous) mark("interaction-superseded", { id: previous.id });
+      if (!active) return null;
+      const p = { id: ++serial, session, scope, owner, expectsRequest: Boolean(detail.expectsRequest), inputAt: now(), quiet: 0 };
+      mark("input", { id: p.id, scope, ...detail });
+      if (!active) return null;
+      pending.set(owner, p); return p;
+    }
+    const owns = p => active && p && p.session === session && pending.get(p.owner) === p;
+    const chartScope = p => ["ol-canvas", "ol-evidence", "ol-context"].includes(p.scope);
+    function owner() {
+      return dispatching?.event.eventPhase && owns(dispatching.p) && chartScope(dispatching.p) ? dispatching.p : null;
+    }
+    function dispatch(p, event) { if (owns(p)) dispatching = { p, event }; }
+    function beginAction(name) {
+      const p = owner();
+      if (!p) return null;
+      p.pendingAction = true; mark("action-start", { id: p.id, name }); return p;
+    }
+    function endAction(p, applied) {
+      if (!owns(p)) return;
+      p.pendingAction = false;
+      mark("action-end", { id: p.id, applied });
+      if (!applied) { mark("interaction-rejected", { id: p.id }); pending.delete(p.owner); }
+    }
+    function supersede(p, reason) {
+      if (!owns(p)) return;
+      mark("interaction-superseded", { id: p.id, reason }); pending.delete(p.owner);
+    }
+    function request(requested, cause = owner()) {
+      if (!active) return;
+      if (!owns(cause) || !chartScope(cause)) cause = null;
+      mark("request", { id: cause?.id ?? null, requested });
+      for (const p of pending.values()) {
+        if (!chartScope(p)) continue;
+        if (p === cause) {
+          p.boundRequested = requested;
+          if (p.requested) p.requested = requested;
+        } else {
+          const expected = p.requested ?? p.boundRequested;
+          if (expected && expected.intent !== requested.intent) supersede(p, "requested intent replaced");
+        }
+      }
+    }
+    function acknowledge(p, requested, presentation = null) {
+      if (!owns(p)) return;
+      p.presentation = presentation;
+      p.requested = p.boundRequested ?? requested;
+      mark("acknowledgment", { id: p.id, duration: now() - p.inputAt, requested: p.requested, presentation });
+      if (p.expectsRequest && !p.boundRequested && !p.pendingAction) {
+        mark("interaction-no-request", { id: p.id }); pending.delete(p.owner); return;
+      }
+      const early = p.earlyDraws ?? []; delete p.earlyDraws;
+      for (const draw of early) attributeDraw(p, draw);
+    }
+    function attributeDraw(p, { state, status, at }) {
+      if (!owns(p) || !p.requested || p.requested.intent !== state.requested.intent) return;
+      if (!p.drawn) { p.drawn = true; mark("interaction-draw", { at, id: p.id, duration: at - p.inputAt, status }); }
+      if (!p.ready && !p.pendingAction && ["target-output-submitted", "terminal-fallback", "terminal-unavailable"].includes(status)) {
+        p.ready = true; mark("interaction-data-ready", { at, id: p.id, duration: at - p.inputAt, status });
+      }
+    }
+    function draw(state, duration) {
+      if (!active) return;
+      const status = readiness(state);
+      mark("draw", { duration, status, ...state });
+      for (const p of pending.values()) {
+        if (p.scope !== "ol-canvas") continue;
+        const draw = { state, status, at: now() };
+        // Only the current canvas owner retains references, bounded by the
+        // recording's event limit. A frame may precede the acknowledgment task.
+        if (!p.requested) (p.earlyDraws ??= []).push(draw);
+        else attributeDraw(p, draw);
+      }
+    }
+    function frame({ interval, hidden, scopes, chart }) {
+      if (!active) return;
+      mark("frame", { interval, hidden });
+      const readinessKey = chart && chart.requested.intent + ":" + readiness(chart);
+      if (readinessKey && readinessKey !== lastReadiness) { availability(chart); lastReadiness = readinessKey; }
+      for (const p of pending.values()) {
+        if (!p.requested) continue;
+        const state = scopes(p.scope, p.presentation), relevantChart = p.scope === "ol-canvas";
+        if (state.unavailable) {
+          mark("interaction-unavailable", { id: p.id, scope: p.scope, reason: "scope closed or removed before completion" });
+          pending.delete(p.owner); continue;
+        }
+        const current = !relevantChart || chart && chart.requested.intent === p.requested.intent;
+        if (!current) { supersede(p, "requested intent replaced"); continue; }
+        const status = relevantChart && chart ? readiness(chart) : p.presentation?.open === false && state.closed ? "scope-closed" : "scope-submitted";
+        if (status === "not-applicable") { mark("interaction-not-applicable", { id: p.id }); pending.delete(p.owner); continue; }
+        const terminal = ["target-output-submitted", "terminal-fallback", "terminal-unavailable"].includes(status),
+          failed = ["terminal-fallback", "terminal-unavailable"].includes(status);
+        if (relevantChart && terminal && p.drawn && !p.ready) attributeDraw(p, { state: chart, status, at: now() });
+        const matches = !p.presentation || (p.presentation.open ? !state.closed : state.closed);
+        const quiet = !hidden && matches && !p.pendingAction && !state.moving && (!state.busy || failed) && (!relevantChart || terminal);
+        p.quiet = quiet ? p.quiet + 1 : 0;
+        if (p.quiet < 2) continue;
+        mark("presentation-proxy", { id: p.id, scope: p.scope, duration: now() - p.inputAt, status });
+        pending.delete(p.owner);
+      }
+    }
+    function availability(state) { if (active) mark("readiness", { status: readiness(state), ...state }); }
+    return Object.freeze({ start, stop, mark, phase, input, acknowledge, draw, frame, owner, owns, dispatch, request, beginAction, endAction, availability,
+      get active() { return active; }, get session() { return session; }, export: () => report && JSON.parse(JSON.stringify(report)) });
+  }
+  function timing(entry) {
+    const out = { entryType: entry.entryType, name: entry.name, startTime: entry.startTime, duration: entry.duration };
+    const path = value => { try { return new URL(value).pathname; } catch { return "inline-or-unknown"; } };
+    if (["resource", "navigation"].includes(entry.entryType)) {
+      out.name = path(entry.name);
+      for (const key of ["initiatorType", "fetchStart", "domainLookupStart", "domainLookupEnd", "connectStart", "connectEnd", "requestStart", "responseStart", "responseEnd", "transferSize", "encodedBodySize", "decodedBodySize"]) out[key] = entry[key];
+    }
+    if (entry.entryType === "event") for (const key of ["processingStart", "processingEnd", "interactionId", "cancelable"]) out[key] = entry[key];
+    if (["paint", "long-animation-frame"].includes(entry.entryType)) {
+      out.fieldSupport = {};
+      for (const key of ["paintTime", "presentationTime", "blockingDuration", "renderStart", "styleAndLayoutStart", "firstUIEventTimestamp"]) {
+        out.fieldSupport[key] = key in entry;
+        out[key] = key in entry ? entry[key] ?? null : null;
+      }
+    }
+    if (entry.entryType === "long-animation-frame") {
+      out.scripts = [...(entry.scripts ?? [])].slice(0, 16).map(script => {
+        const item = { sourcePath: path(script.sourceURL) };
+        for (const key of ["startTime", "duration", "executionStart", "forcedStyleAndLayoutDuration", "pauseDuration", "sourceFunctionName", "sourceCharPosition", "invokerType", "windowAttribution"]) {
+          if (key in script) item[key] = typeof script[key] === "string" ? script[key].slice(0, 128) : script[key];
+        }
+        return item;
+      });
+      out.omittedScripts = Math.max(0, (entry.scripts?.length ?? 0) - 16);
+    }
+    return out;
+  }
+  function mount({ root, requested, snapshot, identity, download, reset = () => {} }) {
+    const el = id => root.querySelector("#ol-diagnostics-" + id);
+    const ignored = node => Boolean(node?.closest?.('#ol-diagnostics,#ol-help-tooltip,#ol-tip,[role="tooltip"]'));
+    const inputs = ["click", "change", "submit", "keydown", "wheel", "pointerdown", "pointermove"], acknowledgments = new Set();
+    let raf = 0, lastFrame = null, observers = [], generation = 0, crossedHidden = false, listening = false;
+    const recorder = create({ now: () => performance.now(), setTimer: setTimeout, clearTimer: clearTimeout, changed: refresh });
+    function refresh() {
+      if (!recorder.active) {
+        generation++;
+        cancelAnimationFrame(raf); raf = 0;
+        for (const observer of observers) observer.disconnect();
+        observers = [];
+        for (const timer of acknowledgments) clearTimeout(timer);
+        acknowledgments.clear();
+        if (listening) {
+          for (const type of inputs) root.removeEventListener(type, capture, true);
+          root.removeEventListener("comparison-render", comparison);
+          document.removeEventListener("visibilitychange", visibility);
+          listening = false;
+        }
+      }
+      el("status").textContent = recorder.active ? "Recording · stops after two minutes, 10,000 events or 2 MiB" : "Stopped · recording stays in this page until replaced or reloaded";
+    }
+    function scopeState(id, presentation) {
+      const node = document.getElementById(id);
+      const closed = !node || !node.getClientRects().length || Boolean(node.closest("[hidden],[inert]") && !node.closest("[data-flow-retained]"));
+      if (closed && presentation?.open !== false) return { unavailable: true, closed };
+      const ancestors = id === "ol-side-body" ? [document.getElementById("ol-main")] : id === "ol-drawer-body" ? [document.getElementById("ol-drawer")] : [],
+        controller = presentation?.controller && document.getElementById(presentation.controller),
+        nodes = node ? [node, ...node.querySelectorAll("[data-motion-running]")] : [],
+        moving = [...nodes, ...ancestors].some(n => n?.hasAttribute("data-motion-running") && !ignored(n)) ||
+          [node, controller].some(n => n?.getAnimations?.({ subtree: true }).some(a => (a.playState === "running" || a.pending) && !ignored(a.effect?.target ?? n)));
+      // Opening a panel is independent of optional work inside it. Study/table
+      // controls use their own scope and retain their own busy contract.
+      const busy = !["ol-controls", "ol-drawer-body", "ol-side-body", "ol-reference"].includes(id) &&
+        (node ? [node, ...node.querySelectorAll('[aria-busy="true"]')] : []).some(n => n.getAttribute("aria-busy") === "true" && !ignored(n));
+      return { moving, busy, closed };
+    }
+    function presentation(scope, target) {
+      const node = document.getElementById(scope);
+      if (scope === "ol-drawer-body") return { open: document.getElementById("ol-drawer").dataset.open === "true", controller: target.id };
+      if (scope === "ol-side-body") return { open: document.getElementById("ol-main").dataset.side === "open", controller: "ol-side-toggle" };
+      if (scope === "ol-controls") return { open: !matchMedia("(max-width:760px)").matches || root.dataset.sheet === "open", controller: "ol-sheet-toggle" };
+      if (scope === "ol-reference") return { open: !node.hidden, controller: target.id };
+      if (node?.tagName === "DIALOG") return { open: node.open, controller: target.id };
+      if (node?.classList.contains("ol-pop")) return { open: !node.hidden && !node.inert, controller: target.id };
+      return null;
+    }
+    function tick(time, owned) {
+      if (!recorder.active || generation !== owned) return;
+      recorder.frame({ interval: lastFrame === null ? null : time - lastFrame, hidden: document.hidden || crossedHidden, scopes: scopeState, chart: snapshot() });
+      crossedHidden = document.hidden;
+      lastFrame = time;
+      if (recorder.active) raf = requestAnimationFrame(time => tick(time, owned));
+    }
+    function drain() {
+      for (const observer of [...observers]) for (const entry of observer.takeRecords?.() ?? []) recorder.mark("browser-timing", timing(entry));
+    }
+    function start() {
+      const supported = globalThis.PerformanceObserver?.supportedEntryTypes ?? [];
+      reset();
+      recorder.start({ ...identity(), browser: { userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], dpr: devicePixelRatio, supportedEntryTypes: supported,
+        interactivityInert: globalThis.CSS?.supports?.("interactivity", "inert") ?? false } });
+      recorder.availability(snapshot());
+      if (!recorder.active) return;
+      for (const type of inputs) root.addEventListener(type, capture, { capture: true, passive: true });
+      root.addEventListener("comparison-render", comparison); document.addEventListener("visibilitychange", visibility); listening = true;
+      const owned = ++generation;
+      for (const entry of performance.getEntriesByType("navigation")) recorder.mark("browser-timing", timing(entry));
+      for (const type of ["resource", "longtask", "long-animation-frame", "event", "paint"]) {
+        if (!recorder.active) break;
+        if (!supported.includes(type)) { recorder.mark("metric-unavailable", { metric: type, reason: "entry type unsupported" }); continue; }
+        try {
+          const observer = new PerformanceObserver(list => {
+            if (generation === owned && recorder.active) for (const entry of list.getEntries()) recorder.mark("browser-timing", timing(entry));
+          });
+          observer.observe({ type, buffered: true, ...(type === "event" ? { durationThreshold: 16 } : {}) }); observers.push(observer);
+        } catch { recorder.mark("metric-unavailable", { metric: type, reason: "observer registration failed" }); }
+      }
+      lastFrame = null; crossedHidden = document.hidden;
+      if (recorder.active) raf = requestAnimationFrame(time => tick(time, owned));
+    }
+    function capture(event) {
+      if (!recorder.active || !(event.target instanceof Element) || ignored(event.target)) return;
+      if (event.type === "pointermove" && !event.buttons) return;
+      const target = event.target.closest("button,input,select,summary,a,canvas") ?? event.target;
+      const controlled = target.getAttribute("aria-controls"), drawer = target.hasAttribute("data-drawer");
+      const key = event.type === "keydown" ? (event.key ?? "").toLowerCase() : "";
+      const escapeScope = key === "escape" ? target.closest("dialog[open],.ol-pop") ?? root.querySelector("dialog[open]") ?? [...root.querySelectorAll(".ol-pop")].find(n => !n.hidden && !n.inert && !ignored(n)) : null;
+      const bounds = target.closest("#ol-bounds-form"), appliesBounds = bounds &&
+        (event.type === "submit" || target.matches('button[type="submit"]') || key === "enter");
+      const studyScope = target.id === "ol-evidence-tab" ? "ol-evidence" : target.id === "ol-context-tab" ? "ol-context" :
+        target.id === "ol-canvas" && key === "c" ? root.querySelector("#ol-evidence-tab").getAttribute("aria-pressed") === "true" ? "ol-context" : "ol-evidence" : null;
+      const closeScope = target.id === "ol-sheet-close" ? "ol-controls" : target.id === "ol-reference-close" ? "ol-reference" :
+        target.id === "ol-keys-close" ? "ol-keys" : null;
+      const explicit = closeScope ?? escapeScope?.id ?? (key === "escape" && root.dataset.sheet === "open" ? "ol-controls" : null) ??
+        (appliesBounds || target.id === "ol-import-apply" ? "ol-canvas" : studyScope ?? (drawer || target.id === "ol-canvas" && key === "t" ? "ol-drawer-body" :
+        target.id === "ol-canvas" && key === "i" ? "ol-side-body" : controlled && document.getElementById(controlled) ? controlled : null));
+      const container = target.closest("#ol-comparisonWorkspace,#ol-evidence,.ol-panel,#ol-controls,#ol-side-body");
+      const scope = explicit ?? (container && container.id !== "ol-controls" ? container.id : "ol-canvas");
+      const p = recorder.input(scope, { owner: ["ol-evidence", "ol-context"].includes(scope) ? "inspector-content" : scope,
+        expectsRequest: scope === "ol-canvas", event: event.type, target: target.id || target.tagName.toLowerCase(), trusted: event.isTrusted, eventTime: event.timeStamp });
+      recorder.dispatch(p, event);
+      // Native dispatch may checkpoint microtasks between capture and bubble
+      // listeners. A task observes the application handlers after dispatch.
+      if (p) {
+        const timer = setTimeout(() => {
+          acknowledgments.delete(timer);
+          if (recorder.active) recorder.acknowledge(p, requested(), presentation(scope, target));
+        }, 0);
+        acknowledgments.add(timer);
+      }
+    }
+    function visibility() {
+      if (!recorder.active) return;
+      crossedHidden ||= document.hidden;
+      recorder.mark("visibility", { hidden: document.hidden });
+    }
+    function comparison(event) {
+      if (recorder.active) recorder.mark("comparison-render", { revision: event.detail.revision });
+    }
+    el("start").addEventListener("click", start);
+    el("stop").addEventListener("click", () => { drain(); recorder.stop(); });
+    el("export").addEventListener("click", () => {
+      drain(); recorder.stop("export");
+      const data = recorder.export();
+      if (!data) { el("status").textContent = "Start a recording first"; return; }
+      const text = JSON.stringify(data);
+      el("output").value = text; el("output").hidden = false;
+      download("cube-performance.json", text, "application/json");
+    });
+    const armKey = "cube-performance-record-next-load";
+    el("reload").addEventListener("click", () => {
+      try { sessionStorage.setItem(armKey, "1"); location.reload(); }
+      catch { el("status").textContent = "Reload recording unavailable: session storage is disabled"; }
+    });
+    refresh();
+    try { if (sessionStorage.getItem(armKey) === "1") { sessionStorage.removeItem(armKey); start(); } } catch { /* Optional one-shot reload recording. */ }
+    return recorder;
+  }
+  return Object.freeze({ LIMITS, DEFINITIONS, readiness, timing, create, mount });
+});
+</script>
     <script>(async () => {
   "use strict";
   const root = document.getElementById("origo-lens"),
     el = (id) => root.querySelector("#ol-" + id),
     qsa = (s) => root.querySelectorAll(s),
     PACK = JSON.parse(document.getElementById("origo-lens-data").textContent);
+  let diagnostics = null, diagnosticFrame = null, diagnosticIntent = 0, diagnosticIntentKey = null, diagnosticCommitting = null, diagnosticCandles = null;
+  const diagnosticHistoryQueue = new Map();
+  function diagnosticPhase(name, identity) {
+    return diagnostics?.active ? diagnostics.phase(name, identity) : null;
+  }
+  function diagnosticSource(src) {
+    return { id: src.id, n: src.n, m: src.m, support: sourceRange(src),
+      pack: PACK.state_token ?? null, generation: live.generation, revision: comparisonSourceRevision };
+  }
+  function diagnosticRasterIdentity() {
+    const frame = diagnostics?.active && diagnosticFrame?.rendered;
+    return frame ? { n: frame.n, m: frame.m, source: frame.source, revision: frame.revision, camera: frame.camera } : null;
+  }
+  function diagnosticReset() {
+    diagnosticFrame = null; diagnosticCandles = null;
+    diagnosticHistoryQueue.clear();
+    diagnosticIntent = 0; diagnosticIntentKey = null; diagnosticCommitting = null;
+    const actor = subdivision.actor;
+    if (!actor) return;
+    actor.before.diagnostic = null; actor.diagnosticTarget = null;
+    if (actor.preview) actor.preview.diagnostic = null;
+  }
   let referenceGuide = null;
   // The measurement module (src/encoding.js), inlined before this script. Everything the chart says about
   // a value comes from it, so a page that lacks it says so in its own loading line and stops, where a
@@ -23516,10 +23938,10 @@
     if (previous) {
       if (!previous.hasPaint) return previous.before;
       subdivisionCopy(subdivision.retained, subdivision.presented);
-      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null };
+      return { camera: [...G.X.domain(), ...G.Y.domain()], field: null, diagnostic: diagnosticRasterIdentity() };
     }
     const scene = subdivision.scene;
-    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null };
+    return { camera: scene.camera, field: scene.frame ? subdivisionField(scene.frame) : null, diagnostic: diagnosticRasterIdentity() };
   }
   function subdivisionStop() {
     if (subdivision.actor) { Flow.cancelMotion(canvas, "cells"); Flow.cancelMotion(canvas, "cells-camera"); }
@@ -23591,7 +24013,7 @@
       lut: lutFor(scaleRt.appearance, scaleRt.theme) }),
       field = subdivisionField({ camera, cut, n, m, shown, sc: { cells } });
     if (!field.cells.length) return;
-    actor.preview = { camera, field };
+    actor.preview = { camera, field, diagnostic: diagnostics?.active ? diagnosticSource(src) : null };
     subdivisionRaster(field, camera);
   }
   function subdivisionComplete(actor) {
@@ -23646,7 +24068,7 @@
     // arrive mid-camera: pixels outside that snapshot must already have colour.
     // Reuse the same three surfaces, including on a later calibration rebase.
     layer(subdivision.target, to); layer(subdivision.presented, from);
-    actor.before = { camera, field: null };
+    actor.before = { camera, field: null, diagnostic: null };
   }
   function subdivisionPaint(sc, shown, cut) {
     const actor = subdivision.actor;
@@ -23668,6 +24090,7 @@
       }
       actor.targetId = targetId;
       actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });
+      if (diagnostics?.active) actor.diagnosticTarget = diagnosticSource(displaySource());
       actor.plan = Flow.subdivisionPlan(actor.before.field, actor.target, colors.surface);
       actor.detail = 0; actor.detailDone = false;
       subdivisionRaster(actor.target, subdivisionCamera());
@@ -23735,8 +24158,88 @@
     return MORPH_BOUNDS;
   }
   let drawRevision = 0, paintedRevision = -1;
+  function diagnosticRequested(fromDraw = false) {
+    const automaticWindow = S.auto && S.window,
+      key = JSON.stringify([S.auto,S.window,automaticWindow ? null : [S.tA,S.tB,S.pA,S.pB],S.auto ? null : [S.n,S.m],
+        S.mode,S.pane,S.rows,S.period,S.background,S.backgroundPeriod,S.profileOpen,S.strip,S.selection,S.replay,S.anchor,
+        S.tab,S.horizon,S.evidenceKind,S.barrier,S.cone,S.lines,
+        ["cells","rows","lens","basis","pathBasis","transform","curve","window","lock","local"].map(k => S.scale[k] ?? null),
+        live.generation,PACK.state_token,comparisonModel.expanded]),
+      action = diagnosticCommitting,
+      owned = action && action.intent === diagnosticIntent && diagnostics?.owns(action.owner),
+      cause = owned ? action.owner : diagnostics?.owner(),
+      changed = key !== diagnosticIntentKey || fromDraw && (cause && !cause.boundRequested || owned && !action.committed);
+    if (changed) {
+      const sameAction = owned && action.committed || cause?.boundRequested?.intent === diagnosticIntent;
+      if (!sameAction) diagnosticIntent++;
+      diagnosticIntentKey = key;
+      if (owned) { action.intent = diagnosticIntent; action.committed = true; }
+    }
+    const request = { intent: diagnosticIntent, revision: drawRevision, auto: S.auto, window: S.window,
+      n: S.n, m: S.m, mode: S.mode,
+      camera: [S.tA,S.tB,S.pA,S.pB], replay: S.replay, anchor: S.anchor,
+      pack: PACK.state_token ?? null, generation: live.generation };
+    if (changed && diagnostics?.active) diagnostics.request(request, cause);
+    return request;
+  }
+  function diagnosticBeginAction() {
+    if (!diagnostics?.active) return null;
+    diagnosticRequested();
+    return { owner: diagnostics.beginAction("apply-view"), intent: diagnosticIntent, committed: false };
+  }
+  function diagnosticCommit(action, change) {
+    const before = diagnosticCommitting;
+    diagnosticCommitting = action;
+    try { return change(); } finally { diagnosticCommitting = before; }
+  }
+  function diagnosticSnapshot() {
+    const requested = diagnosticRequested(),
+      frame = loadingLine.fatal ? { rendered:null, pending:false, error:[loadingLine.fatal] } : diagnosticFrame;
+    // Draw errors belong to that intent. Startup failure remains global even
+    // before any draw; a replacement view must await its own failure/output.
+    return { ...frame, error: loadingLine.fatal || frame?.requested?.intent === requested.intent ? frame?.error ?? null : null,
+      requested, target: diagnosticTarget(), applicable: !comparisonModel.expanded };
+  }
+  function diagnosticTarget() {
+    if (S.mode === "candles") {
+      const window = candleWindow(S.n,S.tA,S.tB,candleEdge());
+      return { n:S.n, m:null, support:[window.a,window.b], reason:(S.tB-S.tA)/2**S.n > TILE_COLUMNS ? "candle-window-cap" : null };
+    }
+    const [n,m] = viewLevel();
+    return { n,m, reason:n > S.n ? "tile-column-cap" : null };
+  }
+  function diagnosticDraw(start, revision) {
+    if (start === null || !diagnostics?.active) return;
+    const actor = subdivision.actor, candles = S.mode === "candles" ? candleRange(renderN(), S.tA, S.tB) : null,
+      errors = activeFailures(), movement = last.mv?.rect;
+    if (last.meas.state === "failed") errors.push(last.meas.error ?? "Measurement failed");
+    if (movement?.state === "failed") errors.push(movement.error ?? "Movement unavailable");
+    if (candles && ["failed", "unavailable", "after-cutoff"].includes(candles.state)) errors.push(candles.reason ?? candles.state);
+    if (scaleRt.fault || scaleRt.cur.cells?.failed) errors.push("Colour calibration unavailable");
+    const requested = diagnosticRequested(), [targetN,targetM] = viewLevel(), candleSurface = diagnosticCandles?.find(frame => frame.main) ?? null;
+    diagnosticFrame = { requested, target: diagnosticTarget(),
+      fallbackReason: !PACK.live && !loadingLine.startup && resolutionReadiness(targetN,targetM).status === "unavailable" ? "recorded-snapshot-resolution-or-coverage" : null,
+      applicable: !comparisonModel.expanded, rendered: { intent: requested.intent, revision, n: actor ? null : candleSurface?.n ?? last.n, m: actor || candles ? null : last.m,
+      camera: [...G.X.domain(), ...G.Y.domain()], cutoff: last.cut,
+      source: actor ? null : candles ? candleSurface : diagnosticSource(last.src),
+      cellMeasurement: candles ? { n: last.n, m: last.m, source: diagnosticSource(last.src) } : null,
+      submittedSource: diagnosticSource(last.src), sourceVersion: last.sourceVersion,
+      mapping: last.sc.cells?.mappingId ?? null,
+      raster: actor ? { kind: "retained-or-blended-preview", retained: actor.before.diagnostic ?? "not-recorded-or-composite",
+        preview: actor.preview?.field ? { n: actor.preview.field.n, m: actor.preview.field.m, cut: actor.preview.field.cut, source: actor.preview.diagnostic } : null,
+        target: actor.target ? { n: actor.target.n, m: actor.target.m, cut: actor.target.cut, source: actor.diagnosticTarget ?? null } : null,
+        progress: actor.detail, cameraProgress: actor.camera } : { kind: "native-grid-draw" } },
+      refinement: actor ? canvas.dataset.subdivision : transition ? "level-morph" : null,
+      candleSurfaces: diagnosticCandles,
+      movement: movement ? { state: movement.state, updating: Boolean(movement.updating), end: movement.end,
+        source: last.mv?.src ? diagnosticSource(last.mv.src) : null } : null,
+      pending: Boolean(loadingLine.startup || viewReadPending() || scaleAsked("cells") || last.meas.state === "pending" ||
+        candles?.state === "pending"), error: errors.length ? errors : null };
+    diagnostics.draw(diagnosticFrame, performance.now() - start);
+  }
   function requestDraw(presentationOnly = false) {
     if (!presentationOnly) drawRevision++;
+    if (diagnostics?.active) diagnosticRequested(true);
     if (!raf)
       raf = requestAnimationFrame(() => {
         raf = 0;
@@ -25147,6 +25650,8 @@
   }
 
   function draw() {
+    const diagnosticStart = diagnostics?.active ? performance.now() : null, diagnosticRevision = drawRevision;
+    diagnosticCandles = diagnosticStart === null ? null : [];
     // Candidates, main paint and Lens share one label measurement per frame.
     drawingLabelLayouts = new WeakMap();
     if (!ready) return;
@@ -25467,6 +25972,7 @@
       scaleFault(error);
     }
     revealStartupChart();
+    diagnosticDraw(diagnosticStart, diagnosticRevision);
   }
   function revealStartupChart() {
     if (!canvas.hasAttribute("data-startup") || loadingLine.startup) return;
@@ -26294,6 +26800,7 @@
   // says why, here and in the banner; the page is left as it was.
   async function applyImportedView() {
     if (importing) return;
+    const diagnosticAction = diagnosticBeginAction();
     const field = el("import-text"),
       text = field.value.trim(),
       status = (words) => {
@@ -26303,7 +26810,7 @@
     el("import-apply").disabled = true;
     try {
       if (text.startsWith("cube-analysis:") || /"schema"\s*:\s*"cube-analysis@1"/.test(text) || /^https?:/.test(text)) {
-        try { await agentImport(await agentRead(text)); status("Analysis opened"); } catch (error) { status("Analysis was not applied: " + error.message); }
+        try { await agentImport(await agentRead(text), null, diagnosticAction); status("Analysis opened"); } catch (error) { status("Analysis was not applied: " + error.message); }
         return;
       }
       let decoded;
@@ -26332,22 +26839,23 @@
           postNotice({ code: "import-rejected", params: { reason: checked.reasons.join("; ") } });
           return;
         }
-        await applyPortable(checked.value, checked.dropped);
+        await applyPortable(checked.value, checked.dropped, diagnosticAction);
       } else {
-        applyLegacyImport(decoded.payload, decoded.kind === "legacy" ? text : null);
+        diagnosticCommit(diagnosticAction, () => applyLegacyImport(decoded.payload, decoded.kind === "legacy" ? text : null));
       }
     } finally {
       importing = false;
       el("import-apply").disabled = false;
+      if (diagnosticAction) diagnostics.endAction(diagnosticAction.owner, diagnosticAction.committed);
     }
   }
   // A version-2 code's validated pieces, in place at once: the view as the codec checked it (its own
   // window or rectangle, level, selection and replay), then the descriptors and the appearance.
-  async function applyPortable(value, dropped) {
+  async function applyPortable(value, dropped, diagnosticAction = null) {
     try {
       const view = portableView(value, value.id);
-      if (value.drawings) { if (!await drawingReplace(value.drawings, () => applyView(view))) return; }
-      else applyView(view);
+      if (value.drawings) { if (!await drawingReplace(value.drawings, () => diagnosticCommit(diagnosticAction, () => applyView(view)))) return; }
+      else diagnosticCommit(diagnosticAction, () => applyView(view));
     } catch (error) {
       el("copy-status").textContent = `The view code was not applied: ${error.reason || error.message}`;
       postNotice({ code: "import-rejected", params: { reason: error.reason || error.message } });
@@ -30387,6 +30895,8 @@
     if (comparisonModel.expanded && (tab !== "compare" || !open)) comparisonExpand(false);
     S.drawer = tab;
     S.drawerOpen = open;
+    // Query's read-only recorder stays reachable before data can be decoded.
+    if (!ready && tab === "query") { applyPanels(); return; }
     if (tab === "compare" && open) S.drawerHeight=Math.max(S.drawerHeight,Math.min(420,drawerMax()));
     // Find features' answer sits under its form: its drawer opens tall enough to show it, as Compare's does.
     if (tab === "features" && open) S.drawerHeight = Math.max(S.drawerHeight, Math.min(360, drawerMax()));
@@ -34787,9 +35297,9 @@
           return { body, bars, decodeMs: performance.now() - started };
         },
         apply: ({ body, bars, decodeMs }) => {
-          if (generation !== live.generation || token !== PACK.state_token || S.mode !== "candles") return;
+          if (generation !== live.generation || token !== PACK.state_token || S.mode !== "candles") return false;
           const needs = candleNeeds();
-          if (!needs.some((r) => r.n === n && r.b > a && r.a < b)) return;
+          if (!needs.some((r) => r.n === n && r.b > a && r.a < b)) return false;
           const reusable = [];
           for (const [oldKey, r] of candleCache.ranges) {
             if (r.generation !== generation || r.n !== n) continue;
@@ -34799,7 +35309,7 @@
           candleCache.merge(key, { n, a, b, end: body.end, bars, token, generation, canon }, reusable,
             (r) => r.generation === generation && needs.some((need) => need.n === r.n && need.b > r.a && need.a < candleStop(r)));
           candleMetrics.decodeMs += decodeMs; candleMetrics.encodedBytes += body.bars.gzip_base64.length; candleMetrics.decodedBytes += 32 + bars.length * 68;
-          candleVersion++; candleMemo.clear();
+          candleVersion++; candleMemo.clear(); return true;
         },
       };
     }
@@ -34837,6 +35347,19 @@
   function paintCandles(n, a, b) {
     const r = candleRange(n, a, b);
     for (const bar of r.bars) E.candles.paint(ctx, bar, G.X, G.Y, PR, colors, candleScratch);
+    if (diagnosticCandles) {
+      // Inspect the objects already painted; do not ask candleHeld() again,
+      // because that would change LRU ownership solely for diagnostics.
+      const painted = new Set(r.bars), ranges = [];
+      for (const [key, range] of candleCache.ranges) {
+        if (range.generation !== live.generation || range.n !== n) continue;
+        const used = range.bars.filter(bar => painted.has(bar));
+        if (used.length) ranges.push({ key, n, token: range.token, generation: range.generation, support: [range.a,range.b], measuredThrough: range.end,
+          paintedBars: used.length, paintedSupport: [used[0].start,used.at(-1).through], canonicalCutoff: range.canon });
+      }
+      diagnosticCandles.push({ kind: "painted-candles", main: n === renderN() && a === S.tA && b === S.tB, n, version: candleVersion,
+        state: r.state, requestedSupport: [a,b], measuredThrough: r.end, requestedEnd: r.requestedEnd ?? null, paintedBars: r.bars.length, ranges });
+    }
     if (n === renderN() && a === S.tA && b === S.tB) candleLegend();
     if (r.state !== "ready" || !r.bars.length) {
       ctx.font = `${TYPE.s}px ${FONT}`; ctx.fillStyle = colors.state;
@@ -41680,16 +42203,34 @@
   // No old study survives a changed requested edge, pack, fit, horizon or source.
   function settledEvidence() {
     const key = evidenceKey();
-    if (evidenceCache.has(key)) { if(evidence.job)evidence.job.cancelled=true; clearTimeout(evidence.timer); evidence.ready = evidence.last = evidenceCache.get(key); evidence.job={key,cancelled:false,output:evidence.ready}; return evidence.ready; }
+    if (evidenceCache.has(key)) { if (diagnostics?.active) diagnostics.mark("continuations-cache-hit", { key }); if(evidence.job){evidence.job.cancelled=true;evidence.job.diagnosticSchedule?.("obsolete");} clearTimeout(evidence.timer); evidence.ready = evidence.last = evidenceCache.get(key); evidence.job={key,cancelled:false,output:evidence.ready}; return evidence.ready; }
     if (evidence.job?.key !== key) {
-      if (evidence.job) evidence.job.cancelled = true;
+      if (evidence.job) { evidence.job.cancelled = true; evidence.job.diagnosticSchedule?.("obsolete"); }
       evidence.ready = evidence.last = null;
       const job = { key, cancelled: false }; evidence.job = job;
+      if (diagnostics?.active) {
+        const keys = [...new Set([historyKey(renderN(),renderM()), historyKey(Math.min(renderN(),9),0)])].filter(id => PACK.live && !histories.has(id) && !cube.failed.has(id));
+        for (const [id, wait] of diagnosticHistoryQueue) if (!keys.includes(id)) { wait.end?.("obsolete"); diagnosticHistoryQueue.delete(id); }
+        for (const id of keys) if (!diagnosticHistoryQueue.has(id)) {
+          if (cube.busy?.key === id) diagnostics.mark("history-already-dispatched", { key:id,
+            note:"Dispatch predates this observed want; use an existing fetch record when present, not a new queue span" });
+          else diagnosticHistoryQueue.set(id, {
+            end: diagnosticPhase("history.want-to-dispatch", { key:id, pack:PACK.state_token, anchor:evidenceAnchor() }),
+            served: cube.busy ? [{ kind:cube.busy.kind, key:cube.busy.key, alreadyInFlight:true }] : [], omitted:0,
+          });
+        }
+      }
       clearTimeout(evidence.timer);
+      const delay = gesturing() ? 220 : 0;
+      job.diagnosticSchedule = diagnosticPhase("continuations.schedule", { key, delay });
       evidence.timer = setTimeout(async () => {
+        job.diagnosticSchedule?.(job.cancelled || evidenceKey() !== key ? "obsolete" : "completed"); job.diagnosticSchedule = null;
         if (job.cancelled || evidenceKey() !== key) return;
+        const diagnosticStudy = diagnosticPhase("continuations", { key, a: evidenceAnchor(), n: renderN(), m: renderM(), horizon: S.horizon });
+        let diagnosticOutcome = "failed";
         try {
           const out = await calcEvidence(job);
+          diagnosticOutcome = out?.loading ? "waiting-data" : out?.error ? "unavailable" : out ? "completed" : "cancelled";
           if (!out || job.cancelled || evidenceKey() !== key) return;
           if (evidenceCache.size >= 6) evidenceCache.delete(evidenceCache.keys().next().value);
           if (!out.loading) evidenceCache.set(key, out);
@@ -41697,8 +42238,10 @@
         } catch (error) {
           if (job.cancelled || evidenceKey() !== key) return;
           job.output = { a: evidenceAnchor(), n: renderN(), m: renderM(), barrier: S.barrier || 1, error: `Evidence calculation unavailable: ${error.message}` }; evidence.ready=evidence.last=job.output; requestDraw();
+        } finally {
+          diagnosticStudy?.(job.cancelled || evidenceKey() !== key ? "obsolete" : diagnosticOutcome);
         }
-      }, gesturing() ? 220 : 0);
+      }, delay);
     }
     return evidence.job?.output ?? { a: evidenceAnchor(), n: renderN(), m: renderM(), barrier: S.barrier || 1, loading: true, error: "Preparing current-source evidence…" };
   }
@@ -41709,8 +42252,14 @@
     const failed = keys.find((key) => cube.failed.has(key));
     if (failed) return { ...shared, error: `History unavailable: ${cube.failed.get(failed)}` };
     if (PACK.live && keys.some((key) => !histories.has(key))) return { ...shared, loading: true, error: "Reading this level's history from the cube…" };
-    const history = evidenceColumns(n, m, end), recordedSeasonal = PACK.live ? null : n===9 && m===0 ? history : evidenceColumns(Math.min(n,9),0,end), index = PACK.live ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
+    const diagnosticPreparation = diagnosticPhase("continuations.prepare-columns", { a, n, m, cutoff: CUT, canonicalCutoff: CANON, replay: S.replay });
+    const history = evidenceColumns(n, m, end), recordedSeasonal = PACK.live ? null : n===9 && m===0 ? history : evidenceColumns(Math.min(n,9),0,end);
+    diagnosticPreparation?.();
+    const diagnosticIndex = diagnosticPhase("continuations.prepare-seasonal-index", { a,n,m });
+    const index = PACK.live ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
     const seasonalHeld = PACK.live ? histories.get(historyKey(Math.min(n, 9), 0)) : null;
+    diagnosticIndex?.();
+    const diagnosticDigest = diagnosticPhase("continuations.digest", { a, n, m, support: [history.b0, end], columns: history.cols.length });
     const tuples = history.cols.map((c) => [c.source, c.c, c.v, c.bv, c.poc, c.covered ? "covered" : "missing", (c.c + 1) * ts, "complete"]);
     // Denominator records are dependencies too. Tail beyond the fixed anchor is excluded.
     if (recordedSeasonal) for(const c of recordedSeasonal.cols) tuples.push(["recorded-seasonal",c.c,c.v,c.bv,c.poc,c.covered?"covered":"missing",(c.c+1)*2**Math.min(n,9),"complete"]);
@@ -41718,10 +42267,43 @@
     tuples.sort((x, y) => (String(x[0]) < String(y[0]) ? -1 : String(x[0]) > String(y[0]) ? 1 : 0) || x[1] - y[1]);
     const packKey = p.packKey ?? PACK.packKey ?? [PACK.source, T0, BASE, PR], revision = p.revision ?? null;
     const sourceDigest = E.hash.hex(E.hash.sha256(E.hash.utf8(JSON.stringify([packKey, revision, tuples]))));
+    diagnosticDigest?.();
     const provenance = { instrument: INSTRUMENT, sourceDigest, packKey, revision, sourceCutoff: CUT, canonicalCutoff: CANON, replayEdge: S.replay ? activeCutoff() : null, measuredThrough: end,
       priceLow: 0, priceHigh: null, precisionID: "observed-source-values+Float64-aggregation", reconstruction: "Current-source reconstruction; original vintages not guaranteed" };
-    const out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
-      seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, { cancelled: () => job.cancelled || evidenceKey() !== job.key });
+    if (diagnostics?.active) {
+      const held = histories.get(historyKey(n,m)), boundary = h => h ? { columns:h.cols.length, support:[h.b0,h.b1], sourcePack:h.sourcePack ?? null } : null;
+      diagnostics.mark("continuations-input", { a,n,m,horizon:S.horizon,kind:S.evidenceKind,barrier,support:[history.b0,end],
+        deliveredStateColumns:history.cols.length, heldState:boundary(held), heldSeasonal:boundary(seasonalHeld), recordedSeasonalColumns:recordedSeasonal?.cols.length ?? null,
+        covered:history.covered,sources:history.sources,provenance });
+    }
+    const diagnosticCompute = diagnostics?.active, diagnosticSession = diagnostics?.session, diagnosticYields = {}, diagnosticCosts = {},
+      diagnosticCurrent = () => diagnosticCompute && diagnostics?.active && diagnostics.session === diagnosticSession;
+    const accumulate = (groups, name, elapsed) => {
+      const group = groups[name] ??= { count:0, total:0, max:0 };
+      group.count++; group.total += elapsed; group.max = Math.max(group.max, elapsed);
+    };
+    const control = { cancelled: () => job.cancelled || evidenceKey() !== job.key };
+    if (diagnosticCompute) {
+      const callbacks = { phase: name => diagnosticCurrent() ? diagnosticPhase("continuations." + name, { a,n,m }) : null, now: () => performance.now(),
+        yield: (stage, elapsed) => accumulate(diagnosticYields,stage,elapsed), cost: (stage,elapsed) => accumulate(diagnosticCosts,stage,elapsed),
+        sample: sample => diagnosticCurrent() && diagnostics.mark("continuations-bootstrap", { a,n,m,...sample }) }, names = Object.keys(callbacks);
+      for (const name of names) Object.defineProperty(control, name, { configurable:true, get: () => {
+        if (diagnosticCurrent()) return callbacks[name];
+        // First resumed access after Stop/restart detaches all measurement
+        // callbacks. The calculation and its existing task yields continue.
+        for (const key of names) delete control[key];
+      } });
+    }
+    let out;
+    try {
+      out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
+        seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, control);
+    } finally {
+      if (diagnosticCurrent()) diagnostics.mark("continuations-work", { a,n,m, yields:diagnosticYields, synchronousSamples:diagnosticCosts,
+        note:"Yield schedule-to-resume waits and per-seasonal-call elapsed samples include instrumentation overhead; phase walls overlap these samples" });
+    }
+    if (out && diagnosticCurrent()) diagnostics.mark("continuations-output", { a,n,m, ledger:out.ledger.length,
+      cases:out.cases.map(c => c.length), matched:out.matched.map(c => c.length), sourceDigest, model:out.version, bootstrap:out.uncertainty?.version ?? null });
     return out ? { ...out, sources: history.sources, covered: history.covered } : null;
   }
   function evidenceTotals(e) {
@@ -42700,12 +43282,19 @@
     const controller = new AbortController();
     want.controller = controller;
     cube.busy = want;
+    if (diagnostics?.active) for (const [key, wait] of diagnosticHistoryQueue) {
+      if (key === want.key) {
+        wait.end?.(); diagnostics.mark("history-queue", { key, servedAhead:wait.served, omitted:wait.omitted }); diagnosticHistoryQueue.delete(key);
+      } else if (wait.served.length < 16) wait.served.push({ kind:want.kind, key:want.key });
+      else wait.omitted++;
+    }
     want.start?.();
     if (want.loading) {
       loadingLine.reads.set(want.key, want.loading);
       renderLoading();
     }
     requestDraw();
+    let diagnosticEnd = diagnosticPhase("cube.fetch", { kind: want.kind ?? "movement", key: want.key, generation, pack: PACK.state_token });
     try {
       // Resolved against the page but without any credentials the page's own URL
       // may carry; the portal login's cookie travels with the request.
@@ -42719,8 +43308,12 @@
       const response = await fetch(target, {
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]),
-        }),
-        body = await response.json().catch(() => null);
+        });
+      diagnosticEnd?.();
+      diagnosticEnd = diagnosticPhase("cube.body-json", { key: want.key });
+      const body = await response.json().catch(() => { diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed"); return null; });
+      diagnosticEnd?.();
+      diagnosticEnd = null;
       offerReload(body);
       if (body?.error === "cube_changed") {
         if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
@@ -42736,10 +43329,19 @@
       // Decoded first; then, with nothing awaited between the check and the
       // use, an answer for a pack the page replaced meanwhile is dropped and
       // asked for again, so no two cube states ever mix.
+      diagnosticEnd = diagnosticPhase("cube.decode", { key: want.key });
       const decoded = await want.decode(body);
-      if (generation === live.generation && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); }
-      else want.drop?.();
+      diagnosticEnd?.(); diagnosticEnd = null;
+      if (generation === live.generation && !controller.signal.aborted && (!want.relevant || want.relevant())) {
+        comparisonSourceRevision++;
+        diagnosticEnd = diagnosticPhase("cube.apply", { key: want.key });
+        const applied = want.apply(decoded) !== false;
+        diagnosticEnd?.(applied ? "completed" : "obsolete"); diagnosticEnd = null;
+        if (diagnostics?.active) diagnostics.mark(applied ? "data-applied" : "data-discarded", { key: want.key, generation, consumerAccepted: applied });
+      }
+      else { want.drop?.(); if (diagnostics?.active) diagnostics.mark("data-discarded", { key: want.key, generation }); }
     } catch (error) {
+      diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed");
       want.drop?.();
       // The server's own words end a sentence the page continues.
       const message = (
@@ -43108,6 +43710,7 @@
     want.controller = controller;
     motion.busy = want;
     requestDraw();
+    let diagnosticEnd = diagnosticPhase("movement.fetch", { kind: want.kind ?? "movement", key: want.key, generation, pack: PACK.state_token });
     try {
       const target = new URL(
         `${want.path}&pack=${encodeURIComponent(PACK.state_token)}&proto=${PROTOCOL}`,
@@ -43118,8 +43721,12 @@
       const response = await fetch(target, {
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120000)]),
-        }),
-        body = await response.json().catch(() => null);
+        });
+      diagnosticEnd?.();
+      diagnosticEnd = diagnosticPhase("movement.body-json", { key: want.key });
+      const body = await response.json().catch(() => { diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed"); return null; });
+      diagnosticEnd?.();
+      diagnosticEnd = null;
       offerReload(body);
       if (body?.error === "cube_changed") {
         if (generation !== live.generation || target.searchParams.get("pack") !== PACK.state_token) {
@@ -43130,9 +43737,19 @@
         throw Error("the cube changed; taking its new data first");
       }
       if (!response.ok) throw Error(body?.error || `the server answered ${response.status}`);
+      diagnosticEnd = diagnosticPhase("movement.decode", { key: want.key });
       const decoded = await want.decode(body);
-      if (generation === live.generation && epoch === motion.epoch && !controller.signal.aborted && (!want.relevant || want.relevant())) { comparisonSourceRevision++; want.apply(decoded); }
+      diagnosticEnd?.(); diagnosticEnd = null;
+      if (generation === live.generation && epoch === motion.epoch && !controller.signal.aborted && (!want.relevant || want.relevant())) {
+        comparisonSourceRevision++;
+        diagnosticEnd = diagnosticPhase("movement.apply", { key: want.key });
+        const applied = want.apply(decoded) !== false;
+        diagnosticEnd?.(applied ? "completed" : "obsolete"); diagnosticEnd = null;
+        if (diagnostics?.active) diagnostics.mark(applied ? "data-applied" : "data-discarded", { key: want.key, generation, consumerAccepted: applied });
+      }
+      else if (diagnostics?.active) diagnostics.mark("data-discarded", { key: want.key, generation });
     } catch (error) {
+      diagnosticEnd?.(controller.signal.aborted ? "cancelled" : "failed");
       const message = (
         error.name === "TimeoutError"
           ? "the server didn't answer within two minutes"
@@ -48028,7 +48645,7 @@
     }
     return text.startsWith("cube-analysis:") ? Agent.decode(text, { inflate: inflateBounded }) : Agent.parse(text);
   }
-  async function agentImport(document, hash = null) {
+  async function agentImport(document, hash = null, diagnosticAction = null) {
     const value = Agent.validate(document);
     if (value.snapshot && (value.snapshot.origin !== T0 || value.snapshot.baseSeconds !== BASE || value.snapshot.basePrice !== PR)) throw Error("Captured canvas uses a different cube lattice");
     const env = viewEnv();
@@ -48049,7 +48666,7 @@
       clearTimeout(live.timer); clearTimeout(cube.timer); clearTimeout(motion.timer);
       cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
-      applyView(portableView(checked.value, value.scene.id));
+      diagnosticCommit(diagnosticAction, () => applyView(portableView(checked.value, value.scene.id)));
       // Stage drawings in a private store so a later failure cannot consume Undo/Redo.
       drawingStore = E.drawings.createStore(value.scene.drawings);
       if (!comparisonCommit(value.comparison ?? comparisonEmpty(), true, true)) throw Error(comparisonMessage || "Comparison could not be installed");
@@ -48208,7 +48825,17 @@
       if (element?.closest("#ol-view-keys")) el("view-keys").hidden = false;
       if (PHONE.matches && element?.closest("#ol-controls")) setSheet(true);
       if (element?.closest("#ol-lines-pop") && el("lines-pop").hidden) el("lines").click();
-      if (target.selector && element?.getClientRects().length) Flow.scrollToActor(element,"nearest");
+      if (target.selector === "#ol-diagnostics-start") {
+        el("diagnostics").open = true;
+        // Size motion temporarily sets overflow:hidden; keep the known scroll
+        // owner instead of walking past it to the non-scrolling document.
+        const drawer = el("drawer-body");
+        requestAnimationFrame(() => Flow.scroll(drawer, () => {
+          const box = element.getBoundingClientRect(), top = drawer.getBoundingClientRect().top + drawer.clientTop,
+            bottom = top + drawer.clientHeight;
+          return drawer.scrollTop + (box.top < top ? box.top-top : box.bottom > bottom ? box.bottom-bottom : 0);
+        }, element));
+      } else if (target.selector && element?.getClientRects().length) Flow.scrollToActor(element,"nearest");
       else if (PHONE.matches && target.region && canvas.getClientRects().length) Flow.scrollToActor(canvas,"nearest");
     },
     closeTransient: () => closePop(true),
@@ -48241,6 +48868,12 @@
   bindNavigation();
   bindScaleUi();
   guiAuditInit();
+  diagnostics = window.explorerDiagnostics.mount({ root, requested: diagnosticRequested, snapshot: diagnosticSnapshot,
+    identity: () => ({ commit: document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
+      committedAt: document.querySelector('meta[name="explorer-committed-at"]')?.content ?? "",
+      pullRequest: document.querySelector('meta[name="explorer-pr"]')?.content ?? "",
+      timeOrigin: performance.timeOrigin, live: Boolean(PACK.live), page: PACK.page ?? null, pack: PACK.state_token ?? PACK.packKey ?? null,
+      provenance: { packKey: PACK.provenance?.packKey ?? null, revision: PACK.provenance?.revision ?? null } }), download: guiDownloadText, reset: diagnosticReset });
   try {
     const commit = document.querySelector('meta[name="explorer-commit"]')?.content ?? "",
       committedAt = new Date(document.querySelector('meta[name="explorer-committed-at"]')?.content ?? ""),
@@ -48256,13 +48889,15 @@
       el("version-unknown").hidden = true;
     }
     renderLive();
-    qsa("button,input,select").forEach((control) => (control.disabled = true));
+    qsa("button,input,select").forEach((control) => { if (!control.closest("#ol-diagnostics") && control.id !== "ol-tab-query") control.disabled = true; });
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live;
     for (const kbd of qsa("[data-key]")) kbd.textContent = KEYS[kbd.dataset.key];
     getColors();
     drawingLoad();
-    sources.recent = await unpack(PACK.blocks.recent, "recent");
+    const recentDecode = diagnosticPhase("startup.decode", { source: "recent" });
+    try { sources.recent = await unpack(PACK.blocks.recent, "recent"); recentDecode?.(); }
+    catch (error) { recentDecode?.("failed"); throw error; }
     // Decoded blocks keep their metadata only: a tab open all day holds no payloads.
     delete PACK.blocks.recent.gzip_base64;
     loadState.recent = "ready";
@@ -48337,7 +48972,9 @@
       loadingLine.startup = `Loading ${id === "overview" ? "the full history" : "the 30-day archive"}${PACK.live ? " from the cube" : ""}…`;
       renderLoading();
       try {
-        sources[id] = await unpack(PACK.blocks[id], id);
+        const blockDecode = diagnosticPhase("startup.decode", { source: id });
+        try { sources[id] = await unpack(PACK.blocks[id], id); blockDecode?.(); }
+        catch (error) { blockDecode?.("failed"); throw error; }
         delete PACK.blocks[id].gzip_base64;
         loadState[id] = "ready";
         loadingLine.blocks.delete(id);
@@ -48372,6 +49009,11 @@
     loadingLine.startup = "";
     loadingLine.fatal = (PACK.live ? "Cube data unavailable: " : "Recorded data unavailable: ") + error.message;
     renderLoading();
+    if (diagnostics?.active) {
+      diagnosticFrame = { requested: diagnosticRequested(), rendered: null, pending: false, error: [loadingLine.fatal] };
+      diagnostics.availability(diagnosticSnapshot());
+      openDrawer("query", true); el("diagnostics").open = true;
+    }
     revealStartup(el("controls"));
     revealStartup(canvas);
   }

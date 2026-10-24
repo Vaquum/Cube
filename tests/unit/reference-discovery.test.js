@@ -11,6 +11,7 @@ const cases = [
   ['90% interval', 'features'], ['TPR', 'feature-rules'], ['FPR', 'feature-rules'],
   ['Cell counts', 'context-reading'], ['Zero-trade cells', 'context-reading'],
   ['Data through', 'metadata'], ['Canonical through', 'metadata'],
+  ['Performance recording', 'query'], ['Record next reload', 'query'],
   ['Share investigation', 'query'], ['cube-analysis:', 'query'], ['Restore previous capture', 'query'],
   ['Retry save', 'compare'], ['Against', 'comparison-math'],
   ['Buyer-initiated count share', 'comparison-math'], ['Moves with it', 'features'],

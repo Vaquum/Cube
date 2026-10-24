@@ -47,10 +47,11 @@ def build() -> str:
     features = read_source('src/features.js')
     motion = read_source('src/motion.js')
     help_ui = read_source('src/help.js')
+    diagnostics = read_source('src/diagnostics.js')
     app = read_source('src/explorer.js')
     # The scripts are inlined verbatim, so each is checked for what would break the
     # page before it is checked for what would break the script.
-    for label, script in (('src/state.js', runtime), ('src/encoding.js', encoding), ('src/evidence.js', evidence), ('src/comparison.js', comparison), ('src/comparison-ui.js', comparison_ui), ('src/agent.js', agent), ('src/reference.js', reference), ('src/rallies.js', rallies), ('src/features.js', features), ('src/motion.js', motion), ('src/help.js', help_ui), ('src/explorer.js', app)):
+    for label, script in (('src/state.js', runtime), ('src/encoding.js', encoding), ('src/evidence.js', evidence), ('src/comparison.js', comparison), ('src/comparison-ui.js', comparison_ui), ('src/agent.js', agent), ('src/reference.js', reference), ('src/rallies.js', rallies), ('src/features.js', features), ('src/motion.js', motion), ('src/help.js', help_ui), ('src/diagnostics.js', diagnostics), ('src/explorer.js', app)):
         check_inline(label, script)
         check_names(label, script)
     snapshot = json.loads(read_source('data/snapshot.json'))
@@ -73,6 +74,7 @@ def build() -> str:
         '__EXPLORER_FEATURES__': features,
         '__EXPLORER_MOTION__': motion,
         '__EXPLORER_HELP__': help_ui,
+        '__EXPLORER_DIAGNOSTICS__': diagnostics,
         '__EXPLORER_SCRIPT__': app,
     }
     for marker in values:
@@ -85,7 +87,7 @@ def build() -> str:
     # inside one of them (a comment naming __EXPLORER_SCRIPT__, say) would otherwise be
     # replaced by whatever comes after it, or be left in the page. Refuse it instead.
     for source, value in (('src/explorer.css', style), ('src/view.html', view), ('data/snapshot.json', data),
-                          ('src/state.js', runtime), ('src/encoding.js', encoding), ('src/evidence.js', evidence), ('src/comparison.js', comparison), ('src/comparison-ui.js', comparison_ui), ('src/agent.js', agent), ('src/reference.js', reference), ('src/rallies.js', rallies), ('src/features.js', features), ('src/motion.js', motion), ('src/help.js', help_ui), ('src/explorer.js', app)):
+                          ('src/state.js', runtime), ('src/encoding.js', encoding), ('src/evidence.js', evidence), ('src/comparison.js', comparison), ('src/comparison-ui.js', comparison_ui), ('src/agent.js', agent), ('src/reference.js', reference), ('src/rallies.js', rallies), ('src/features.js', features), ('src/motion.js', motion), ('src/help.js', help_ui), ('src/diagnostics.js', diagnostics), ('src/explorer.js', app)):
         found = sorted({marker for marker in values if marker in value})
         if found:
             raise SystemExit(f"{source} contains {', '.join(found)}, which the build reserves for src/document.html.")
