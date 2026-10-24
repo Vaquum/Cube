@@ -1209,7 +1209,8 @@
     try { return change(); } finally { diagnosticCommitting = before; }
   }
   function diagnosticSnapshot() {
-    return { ...(diagnosticFrame ?? {}), requested: diagnosticRequested(), target: diagnosticTarget(), applicable: !comparisonModel.expanded };
+    return { ...(loadingLine.fatal ? { rendered:null, pending:false, error:[loadingLine.fatal] } : diagnosticFrame ?? {}),
+      requested: diagnosticRequested(), target: diagnosticTarget(), applicable: !comparisonModel.expanded };
   }
   function diagnosticTarget() {
     if (S.mode === "candles") {

@@ -22825,6 +22825,7 @@
       reset();
       recorder.start({ ...identity(), browser: { userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], dpr: devicePixelRatio, supportedEntryTypes: supported,
         interactivityInert: globalThis.CSS?.supports?.("interactivity", "inert") ?? false } });
+      recorder.availability(snapshot());
       if (!recorder.active) return;
       for (const type of inputs) root.addEventListener(type, capture, { capture: true, passive: true });
       root.addEventListener("comparison-render", comparison); document.addEventListener("visibilitychange", visibility); listening = true;
@@ -24115,7 +24116,8 @@
     try { return change(); } finally { diagnosticCommitting = before; }
   }
   function diagnosticSnapshot() {
-    return { ...(diagnosticFrame ?? {}), requested: diagnosticRequested(), target: diagnosticTarget(), applicable: !comparisonModel.expanded };
+    return { ...(loadingLine.fatal ? { rendered:null, pending:false, error:[loadingLine.fatal] } : diagnosticFrame ?? {}),
+      requested: diagnosticRequested(), target: diagnosticTarget(), applicable: !comparisonModel.expanded };
   }
   function diagnosticTarget() {
     if (S.mode === "candles") {

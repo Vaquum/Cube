@@ -276,6 +276,7 @@
       reset();
       recorder.start({ ...identity(), browser: { userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], dpr: devicePixelRatio, supportedEntryTypes: supported,
         interactivityInert: globalThis.CSS?.supports?.("interactivity", "inert") ?? false } });
+      recorder.availability(snapshot());
       if (!recorder.active) return;
       for (const type of inputs) root.addEventListener(type, capture, { capture: true, passive: true });
       root.addEventListener("comparison-render", comparison); document.addEventListener("visibilitychange", visibility); listening = true;

@@ -223,19 +223,25 @@ test("held startup keeps Stop and Export reachable before any chart was decoded"
     expect(report.events.some(e => e.type === "phase-start" && e.name === "startup.decode")).toBe(true);
   } finally { await page.evaluate(() => window.__releaseStartup?.()); }
 });
-test("fatal armed startup exports a terminal state without a successful draw", async ({ page, fakeFor }) => {
+for (const armed of [false,true]) test(`fatal ${armed ? "armed" : "initially unarmed"} startup and recording restarts retain the terminal failure`, async ({ page, fakeFor }) => {
   const fake = await fakeFor("recorded");
-  await page.addInitScript(() => sessionStorage.setItem("cube-performance-record-next-load","1"));
+  if (armed) await page.addInitScript(() => sessionStorage.setItem("cube-performance-record-next-load","1"));
   await page.route(fake.url + "/", async route => {
     const response = await route.fetch(), html = await response.text(), match = html.match(/(<script type="application\/json" id="origo-lens-data">)([\s\S]*?)(<\/script>)/);
     const pack = JSON.parse(match[2]); pack.blocks.recent.gzip_base64 = "AA=="; pack.page = "diagnostics-fatal-vector";
     await route.fulfill({ response, body:html.replace(match[0],match[1] + JSON.stringify(pack) + match[3]) });
   });
   await page.goto(fake.url + "/"); await expect(page.locator("#ol-loading")).toContainText("Recorded data unavailable");
+  if (!armed) { await controls(page); await page.locator("#ol-diagnostics-start").click(); }
   const report = await exported(page);
   expect(report.identity.page).toBe("diagnostics-fatal-vector");
   expect(report.events.some(e => e.type === "readiness" && e.status === "terminal-unavailable" && e.error.length)).toBe(true);
   expect(report.events.some(e => e.type === "draw")).toBe(false);
+  // Fatal state belongs to the page, even when collection is stopped/reset.
+  await page.locator("#ol-diagnostics-start").click(); await page.locator("#ol-diagnostics-start").click();
+  const restarted = await exported(page);
+  expect(restarted.events.some(e => e.type === "readiness" && e.status === "terminal-unavailable" && e.error.length)).toBe(true);
+  expect(restarted.events.some(e => e.type === "draw")).toBe(false);
 });
 test("painted candle identity names actual bar ranges and keeps cell measurement separate", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor("micro:bars");
