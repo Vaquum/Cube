@@ -25,7 +25,7 @@ test("explicit browser refresh rereads the recorded region after a camera edit a
   const fake=await fakeFor("micro:mixed");await page.goto(fake.url+"/"+VIEW);await probe.waitForReady();
   const original=await page.evaluate(()=>window.cubeAgent.export());await page.evaluate(d=>window.cubeAgent.apply(d),original);await probe.waitForReady();
   await page.evaluate(()=>window.cubeAgent.configure({viewport:[0,1,200,201],readMode:"captured"}));await probe.waitForReady();
-  const unchanged=await page.evaluate(()=>window.cubeAgent.refresh());expect(unchanged.document.selection.query).toEqual(original.selection.query);expect(unchanged.document.selection.metrics.volume).toBe(953.375);
+  const unchanged=await page.evaluate(()=>window.cubeAgent.refresh());expect(unchanged.changes).toEqual([]);expect(unchanged.document.selection.query).toEqual(original.selection.query);expect(unchanged.document.selection.metrics.volume).toBe(953.375);
   await probe.waitForReady();fake.revise({day:"2021-01-01",factor:2});
   const changed=await page.evaluate(()=>window.cubeAgent.refresh());expect(changed.document.selection.query).toEqual(original.selection.query);expect(changed.document.selection.metrics.volume).toBe(1906.75);
   expect(changed.changes.some(c=>c.selection&&c.metric==="volume"&&c.before===953.375&&c.after===1906.75)).toBe(true);
