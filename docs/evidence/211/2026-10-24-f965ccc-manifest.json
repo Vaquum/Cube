@@ -1,13 +1,13 @@
 {
-  "runtimeCommit": "30e5a87d76e9490118f57779c30c20b9f08a7217",
-  "runtimeCommittedAt": "2026-10-24T19:40:35+03:00",
-  "sourceIndexSHA256": "5894e0fbcbd3c5f981269ec5122fae868bc7ddcba70c4c9fa11fb034a955b8f9",
-  "servedTemplateSHA256": "67b657ff5cf5f0ba9d49e3bf1b6f654c93c536b9ad9e57560f6760b4f48b5a76",
-  "fatalServedDocumentSHA256": "068f1b6844870d922cd1b8b986362b0220492357ed6fa635f360f590ae5aaf0e",
+  "runtimeCommit": "f965cccfb82321e7e76f0af3f1237f741d0142cc",
+  "runtimeCommittedAt": "2026-10-24T19:58:16+03:00",
+  "sourceIndexSHA256": "82e5c08757639463065eb992be598dde825668285ceb288238c2fc7942a5470f",
+  "servedTemplateSHA256": "345053265823efdabcbffd45ee4a07a5c8f8ed0c063a1d2d6df384829b699f4d",
+  "fatalServedDocumentSHA256": "bfa4ed25adc772ddd4d024197ff2706337c13398a6b0dd4717600981d8d1f285",
   "modification": "Normal template changes deployment-style commit/time/PR metadata only; fake server injects its declared synthetic pack. Fatal recorded document additionally replaces recent gzip with AA== and names the controlled fixture in PACK.page. Source/CSS/vendor unchanged.",
   "environment": "Existing authorized IAB tab1 only; synthetic instrumentation/UI evidence, not production latency acceptance",
   "sourceHashes": {
-    "src/agent.js": "45b222d2b1a4fa2c99a7f5c92f98cd85e1bb44d2d5eb7bf2502b5028206eb1a1",
+    "src/agent.js": "0b464119cfc3d44e362ba35a3685790389b8ffc61f0be686a8618a3464c67f77",
     "src/comparison-ui.js": "f8f120e479d3de9832c731665a549f576f4734cea2253a905c16b23763b3f653",
     "src/comparison.js": "1f30ad1e8f69c85e658258b46403916b61bcbdb1745c111f3fa1698424aceb43",
     "src/diagnostics.js": "82cc6b9d3c495166330579f3b370fb67bc6fbf28964ca1e2a9ff3ca5c4175892",
@@ -15,7 +15,7 @@
     "src/encoding.js": "0262e7727c217d785ac32a1a954ed8fbe9e153517913a7080a9fcd583762ce2a",
     "src/evidence.js": "5c91cc2f22e0eb4cb7eb6f90d948d6fb3ff989bae88556dfe94d4d1519a01fd0",
     "src/explorer.css": "c84e69d1c2d5da4b8187cc39a6d56cf82cfb9d477b53256db7dcb5a15c7f70fb",
-    "src/explorer.js": "f93bb5dff2c3eb59c06cc329bf3f01d5462df1916efd3bf09234779b30b9c1ce",
+    "src/explorer.js": "598cbf197b90da2f15a96257972f4ec305cff6c396fa5d331f9c6ee67c854a7e",
     "src/features.js": "d1876f2811de33e3ffbec9cd4c760df1c47981fd178c0b65ab14a49323178634",
     "src/help.js": "b32034466c7d46b06c2a0442208589dbdfd59a4fee962aa4dc18110269398987",
     "src/motion.js": "fd3551b389588dd145e9a328393470cba197d08bef5b9f4f992a00d5340b6500",
@@ -25,33 +25,33 @@
     "src/view.html": "dd14c660b2c1d7fe98de6c266877f7d95b5ab52ffc5551da4851b95cf56a28b1"
   },
   "artifacts": {
-    "2026-10-24-30e5a87-fatal-restart.json": {
-      "bytes": 10467,
-      "sha256": "12f4cf860c81684e0aeddb780d9bdf54a79c18f27d88626189324161eef41998"
+    "2026-10-24-f965ccc-fatal-restart.json": {
+      "bytes": 10187,
+      "sha256": "4fbcd81c040421c04de10bfd58b693157b2d6ad278aa133131e25542f14d6b68"
     },
-    "2026-10-24-30e5a87-fatal-restart.png": {
-      "bytes": 37687,
-      "sha256": "40757e8b4d2e8e633b7c56c81e69c585bb9031f5a33d0c61f83918d68358ce56"
+    "2026-10-24-f965ccc-fatal-restart.png": {
+      "bytes": 37647,
+      "sha256": "f7a0b6d4339048183d2f90e70c6fa76bd0a1ddfe19d7e52dbab97777792895a0"
     },
-    "2026-10-24-30e5a87-side-panel.json": {
-      "bytes": 307302,
-      "sha256": "c5b0f817d262632fb84516fc03f4c18683c0b48752323f8bd0416d235d751aaf"
+    "2026-10-24-f965ccc-side-panel.json": {
+      "bytes": 286352,
+      "sha256": "2d7e328ba9711035487dd8f22e612f40579fb2098c0d0c711fb2e84248658c11"
     },
-    "2026-10-24-30e5a87-side-panel.png": {
-      "bytes": 38571,
-      "sha256": "3ef9222f5356eb70fa7b5c214d58800dc3b31096f0cffefb5cee6e3399050323"
+    "2026-10-24-f965ccc-side-panel.png": {
+      "bytes": 38568,
+      "sha256": "00c6c81da795dca24250a1a542347aaf385d9127f6e82d9fb5b0548fe743cdba"
     }
   },
   "recording": {
     "schema": "cube-performance@2",
-    "events": 2349,
-    "durationMs": 34633.90000003576,
+    "events": 2185,
+    "durationMs": 32230.399999976158,
     "stopReason": "export",
     "identity": {
-      "commit": "30e5a87d76e9490118f57779c30c20b9f08a7217",
-      "committedAt": "2026-10-24T19:40:35+03:00",
+      "commit": "f965cccfb82321e7e76f0af3f1237f741d0142cc",
+      "committedAt": "2026-10-24T19:58:16+03:00",
       "pullRequest": "https://github.com/Vaquum/Market-State-Cube-Explorer/pull/218",
-      "timeOrigin": 1792860145772.9,
+      "timeOrigin": 1792861303930.7,
       "live": true,
       "page": "fake-page-1",
       "pack": "f60aae4c3e8c6cfd6e7f8af528024e963edd9ca96d8c6c96cc635300caab278a",
