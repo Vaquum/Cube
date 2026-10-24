@@ -157,3 +157,6 @@ An unavailable reading retains its requested level because it has no observed gr
 The bridge preserves an absent source occupied-cell count as unavailable, without
 defaulting it to zero. Selection summaries can miss distribution changes that preserve their totals,
 POCs and occupied-cell count; per-cell captures retain that finer evidence.
+
+While a rolling window awaits a newer query, selection copies retain the bounds
+of the still-displayed measurement; the current camera does not relabel it.

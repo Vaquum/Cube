@@ -80,3 +80,10 @@ test("coarse exact readings with partial boundary columns retain occupied-cell c
   const d=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(d.selection.state).toBe("exact");expect(d.selection.query).toMatchObject({t1:1,t2:3,tR:2,pR:1});expect(d.selection.metrics.cell_count).toBeGreaterThan(0);
   const result=await refresh(fake,d);expect(result.changes.filter(c=>c.selection)).toEqual([]);expect(result.unavailableSelectionMetrics??[]).toEqual([]);
 });
+
+test("a rolling window exports retained measurements with their own bounds while the new query is held",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("mini",{cutoff:"2026-09-24T12:01:00Z"});await page.goto(fake.url+"/#w=30d&r=12,3&auto=0&vis=2&lines=");await probe.waitForReady();
+  const before=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(before.selection.state).toBe("cube");
+  const gate=fake.on({route:"/cube/query",times:1}).gate();fake.advance({minutes:1});await gate.arrived();
+  const during=await page.evaluate(()=>window.cubeAgent.export("selection"));expect(during.scene.query.t1).toBeGreaterThan(before.scene.query.t1);expect(during.selection.state).toBe("cube");expect(during.selection.query).toEqual(before.selection.query);expect(during.selection.metrics.volume).toBe(before.selection.metrics.volume);gate.open();
+});
