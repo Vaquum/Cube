@@ -31,6 +31,31 @@ test("macro: a FRED series' 5-observation change against its single-observation 
   assert.equal(out.stale, 6 * DAY);
 });
 
+test("long history carries exact contributing-input masks, including measured zero and stale components", () => {
+  const out=python(String.raw`
+import copy, strip_contract as c
+t=I['T'];end=t+4001*m.HOUR
+s=m.build_state(m.Store(),m.Prices([],None),{'id':None,'publishedAt':None},{},end)
+s.components={'macro.DGS2':m.Evidence.of('macro.DGS2',[(t,0,None)],3*m.HOUR),
+              'macro.DGS10':m.Evidence.of('macro.DGS10',[(t+2*m.HOUR,0.1,None)],3*m.HOUR)}
+a=json.loads(s.answer(t,end,m.HOUR));c.check(a,t,end,m.HOUR)
+failures=[]
+for bad in ['mask','availability','component']:
+    b=copy.deepcopy(a);part=b['grid']['forceInputs']['macro']
+    if bad=='mask':part['masks'][0]=4
+    elif bad=='availability':part['masks'][0]=0
+    else:part['components'][0]='social.words'
+    try:c.check(b,t,end,m.HOUR)
+    except ValueError:failures.append(bad)
+print(json.dumps({'names':a['grid']['forceInputs']['macro']['components'],
+                  'masks':a['grid']['forceInputs']['macro']['masks'][:7],
+                  'detail':'parts' in a['grid'],'failures':failures}))`,{T});
+  assert.deepEqual(out.names,['macro.DGS2','macro.DGS10']);
+  assert.deepEqual(out.masks,[1,1,3,3,2,2,0]);
+  assert.equal(out.detail,false);
+  assert.deepEqual(out.failures,['mask','availability','component']);
+});
+
 test("positioning: funding of both venues averaged by the hour against its trailing 30 days, longs paying a lean up", () => {
   const deribit = Array.from({length: 40}, (_, i) => [T + i * HOUR, T + i * HOUR + 60000, 0, 5 + Math.sin(i / 3), null]);
   const hyper = Array.from({length: 40}, (_, i) => [T + i * HOUR + 14, T + i * HOUR + 60000, 0, 6 + Math.cos(i / 4), null]);

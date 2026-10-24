@@ -22,7 +22,7 @@ function rectangle(fake) {
     hash: `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&vis=2&rc=1&strip=forces` };
 }
 
-async function syntheticStates(page, view, outcomes = null) {
+async function syntheticStates(page, view, outcomes = null, { recentDays = null, changedInputs = false } = {}) {
   let entered = false, first = true, release;
   const pending = new Promise((resolve) => { release = resolve; });
   const eventAt = view.from + 0.875 * (view.to - view.from), event = {
@@ -36,12 +36,20 @@ async function syntheticStates(page, view, outcomes = null) {
     if (first) { first = false; entered = true; await pending; }
     const original = await route.fetch(), body = await original.json(), { t0, step } = body.grid, n = body.grid.attention.length;
     const state = (i) => {
+      if (recentDays && t0 + i * step < view.from - recentDays * DAY) return "missing";
       const fraction = (t0 + i * step - view.from) / (view.to - view.from);
       return fraction >= 0.65 && fraction < 0.8 ? "missing" : fraction >= 0.45 && fraction < 0.6 ? "sparse" : "supported";
     };
-    const part = (name, i) => state(i) === "missing" ? null : state(i) === "sparse" ? name === INPUTS[0] ? 0.95 : null
-      : name.startsWith("macro.") ? 0.025 : name.startsWith("positioning.") ? -0.0125 : name === "news.tone" ? 0.02 : 0.03;
+    const part = (name, i) => {
+      if (state(i) === "missing") return null;
+      const at = t0 + i * step;
+      if (changedInputs && name.startsWith("macro.") && at < view.from)
+        return at < view.from - 10 * DAY ? 0.075 : name === INPUTS[0] ? 0.1 : null;
+      return state(i) === "sparse" ? name === INPUTS[0] ? 0.95 : null
+        : name.startsWith("macro.") ? 0.025 : name.startsWith("positioning.") ? -0.0125 : name === "news.tone" ? 0.02 : 0.03;
+    };
     body.grid.parts = Object.fromEntries(INPUTS.map((name) => [name, Array.from({ length: n }, (_, i) => part(name, i))]));
+    delete body.grid.forceInputs; // Exercise compatibility with a server that supplies full component arrays.
     for (const component of Object.values(body.components)) component.retroUntil = view.from - DAY;
     body.components[INPUTS[0]].retroUntil = view.from + HOUR;
     for (const name of ATTENTION) body.grid.parts[name] = Array.from({ length: n }, (_, i) => state(i) === "missing" ? null : 0.3);
@@ -51,13 +59,32 @@ async function syntheticStates(page, view, outcomes = null) {
     })]));
     body.grid.attention = Array.from({ length: n }, (_, i) => state(i) === "missing" ? null : 0.3);
     // Thirty-seven hours avoids aliasing the six-hour sample gap and provides nonempty negative and positive bins.
-    body.grid.next24h = Array.from({ length: n }, (_, i) => outcomes ? outcomes[Math.floor(i / 6) % outcomes.length] : ((i % 37) - 18) / 10);
+    body.grid.next24h = Array.from({ length: n }, (_, i) => changedInputs ? t0 + i * step < view.from - 10 * DAY ? -1 : 1
+      : outcomes ? outcomes[Math.floor(i / 6) % outcomes.length] : ((i % 37) - 18) / 10);
     body.events = [event]; body.jumps = []; body.moves = { "layout-only": [[event.measured.at, 0.1]] };
     body.model = "synthetic-hover-layout-only@1";
     await route.fulfill({ response: original, json: body });
   });
   return { entered: () => entered, release, event };
 }
+
+for (const changedInputs of [false, true]) test(`twenty days of comparable history work inside the two-year price grid${changedInputs ? ' with changed input coverage excluded' : ''}`, async ({ page, fakeFor, probe }) => {
+  const fake=await fakeFor('mini'), view=rectangle(fake), states=await syntheticStates(page,view,null,{recentDays:20,changedInputs});
+  states.release();
+  await page.goto(`${fake.url}/${view.hash.replace('strip=forces','strip=forces.macro')}`);
+  await probe.waitForReady();
+  await expect.poll(()=>fake.log().filter(e=>e.path==='/cube/strip' && Number(e.query.to)-Number(e.query.from)>60*DAY && e.status===200).length).toBeGreaterThan(0);
+  await probe.waitForQuiet();
+  const card=await hover(page,0.32,'strip-forces');
+  await expect(card.locator('.ol-strip-distribution[data-state="matched"]')).toBeVisible();
+  await expect(card.locator('[data-field="trackNear"]')).toHaveAttribute('data-canonical','40');
+  if(changedInputs) {
+    await expect(card.locator('[data-field="trackOutcomeShare"]').locator('..').locator('dt')).toHaveText('Fell in');
+    await expect(card.locator('[data-field="trackOutcomeShare"]')).toHaveAttribute('data-canonical','1');
+    await expect(card.locator('[data-field="trackP50"]')).toHaveAttribute('data-canonical','-1');
+  }
+  await contained(card);
+});
 
 async function hover(page, fraction, presentation, bandY = BAND / 2) {
   const g = await layoutOf(page), box = await page.locator("#ol-canvas").boundingBox();
@@ -188,9 +215,15 @@ for (const height of [500, 700, 701, 720, 839, 840, 841, 950]) test(`the complet
   let previousLeft = moved.x;
   for (const [name, fraction] of [["sparse history", 0.5], ["missing inputs", 0.7]]) {
     card = await hover(page, fraction, "strip-forces");
-    await expect(card.locator('.ol-strip-distribution[data-state="unavailable"]')).toBeVisible();
-    await expect(card.locator('.ol-strip-distribution[data-state="unavailable"]')).toContainText(/Insufficient history|Unavailable/);
-    await expect(card.locator(".ol-strip-hist")).toHaveCount(0);
+    await expect(card.locator('.ol-strip-distribution[data-state="baseline"]')).toBeVisible();
+    await expect(card.locator('[data-field="trackStatus"]')).toHaveText('Need 30 · have 0');
+    await expect(card.locator(".ol-strip-hist")).toBeVisible();
+    await expect(card.locator('.ol-strip-hist path[fill="none"]')).toBeVisible();
+    await expect(card.locator('.ol-strip-hist rect')).toHaveCount(0);
+    for (const p of [5,50,95]) {
+      await expect(card.locator(`[data-field="trackP${p}"]`)).toHaveText('—');
+      expect(Number.isFinite(Number(await card.locator(`[data-field="trackAllP${p}"]`).getAttribute('data-canonical')))).toBe(true);
+    }
     const actual = await geometry(card);
     expect(actual.x, "a continuing rightward sweep never sends the panel backwards").toBeGreaterThanOrEqual(previousLeft);
     previousLeft = actual.x;
