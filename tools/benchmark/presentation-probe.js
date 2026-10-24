@@ -120,7 +120,9 @@
       sheet: document.querySelector('#origo-lens')?.dataset.sheet, probeMs: Math.round((performance.now() - sampleStarted) * 100) / 100 });
     if (trace.actorSamples > options.caps.actorSamples) trace.truncated = 'sample-limit';
     if (trace.truncated) return finish('truncated');
-    if (deadline && now() >= deadline) return finish();
+    // End on the recorded observation, not a later clock read that could
+    // cross the deadline after the final pose timestamp was already saved.
+    if (deadline && Math.round(trace.frames.at(-1).at * 100) >= Math.round(deadline * 100)) return finish();
     if (!deadline && now() > 10000) return finish('missing-input');
     raf(() => timer(sample, 0));
   }

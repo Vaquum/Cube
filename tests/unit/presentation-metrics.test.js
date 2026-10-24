@@ -23,6 +23,14 @@ test("an unstable endpoint and an unchanged result cannot become successful zero
   data.semantic.changed = false;
   assert.equal(analyze(data, protocol).outcome, "no-change"); assert.equal(analyze(data, protocol).presentationMs, null);
 });
+test("window censorship uses declared clock precision without accepting an early final sample", () => {
+  const data = trace([[218.4, 0], [300, 10], [2100, 10], [2150, 10], [2200, 10], [2264.2, 10]]);
+  data.ack.at = 218.4;
+  const settings = { ...protocol, captureMs: 2045.8 };
+  assert.equal(analyze(data, settings).outcome, "complete");
+  data.frames.at(-1).at -= .1;
+  assert.equal(analyze(data, settings).reason, "Censored observation window");
+});
 test("paired gains must clear the A/A floor and have corresponding work evidence", () => {
   const sample = ms => ({ outcome: "complete", presentationMs: ms, medianFrameMs: 16 });
   const floor = noiseFloor([5, 7, 12, 0, 2].map(delta => [sample(100), sample(100 + delta)]));

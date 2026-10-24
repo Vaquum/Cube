@@ -30,7 +30,8 @@ function analyze(trace, protocol) {
   if (frames.length < protocol.minimumFinalFrames) return invalid("Insufficient frame samples");
   const last = frames.at(-1), final = new Map(last.poses.map(pose => [pose[0], pose]));
   const tail = frames.filter(frame => frame.at >= last.at - protocol.finalStabilityMs);
-  if (last.at - base < protocol.captureMs || tail.length < protocol.minimumFinalFrames) return invalid("Censored observation window");
+  const ticks = value => Math.round(value / protocol.samplingPrecision.timeMs);
+  if (ticks(last.at) - ticks(base) < ticks(protocol.captureMs) || tail.length < protocol.minimumFinalFrames) return invalid("Censored observation window");
   const actors = [...final.keys()].filter(id => frames.some(frame => visible(frame.poses.find(p => p[0] === id), t.positionCssPx, t.opacity)));
   if (!actors.length) return invalid("No presented relevant actors");
   const matches = (frame, px, alpha, angle) => {
