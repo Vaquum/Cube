@@ -8,7 +8,12 @@ async function open(page, fakeFor, probe, phone = true, hidden = false) {
   await page.clock.install({ time: Date.now() });
   if (hidden) await page.addInitScript(() => Object.defineProperty(document, "hidden", { configurable: true, get: () => Boolean(window.__lifecycleHidden) }));
   const fake = await fakeFor("mini");
-  await page.goto(fake.url + "/#w=24h&vis=2"); await probe.waitForReady();
+  await page.goto(fake.url + "/#w=24h&vis=2");
+  // As in read-priority's clock tests, wait for the fake and observed drawing.
+  // The timer-accounting readiness probe cannot certify an overridden clock.
+  await fake.idle({ quietMs: 500 }); await probe.waitForQuiet({ quietMs: 250 });
+  await expect(page.locator("#ol-loading")).toBeHidden();
+  await expect(page.locator("#ol-canvas")).toHaveAttribute("data-layout", /,/);
   await expect.poll(() => page.evaluate(() => window.explorerMotion.motionActive())).toBe(false);
 }
 async function pause(page) { await page.clock.pauseAt(Date.now() + 1000); }
