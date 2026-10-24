@@ -5348,6 +5348,7 @@
     const movementEnd = region ? region.motionTime[1] : partial ? last.mv?.end : moving.samples.at(-1)?.end;
     const activityTime = region?.time ?? [Math.max(c * ts, bounds[0]), Math.min((c + 1) * ts, bounds[1], last.cut)];
     const time = readout?.support?.time ?? activityTime;
+    const band = region?.band ?? readout?.support?.price ?? [r * ps, (r + 1) * ps];
     const column = region ? region.column : cellColumn(n, m, c, last.cut, activityTime, rowHistory);
     const composition = E.measure.cellComposition({ z: current, column, hidden, read: region?.refusal });
     const finite = (record) => record?.result.tag === "finite" ? record.result.value : null;
@@ -5468,9 +5469,9 @@
           value.dataset.canonical = String(selectedResult.tag === "finite" ? selectedResult.value : selectedResult.tag);
           if (selectedResult.tag !== "finite") value.textContent = E.result.describe(selectedResult).short;
         }
-        const observation = cardObservation(selectedResult, readout?.measure?.formula ?? "cells.volume.amount@1", readout?.measure?.unit ?? "usdt", time, region ? region.band.map(v => v * PR) : [r * ps * PR, (r + 1) * ps * PR], {
+        const observation = cardObservation(selectedResult, readout?.measure?.formula ?? "cells.volume.amount@1", readout?.measure?.unit ?? "usdt", time, band.map(v => v * PR), {
           level: { n, m }, denominators: [{ formula: "context.daily-atr@1", numerator: null, denominator: atr, time: [Math.max(0, (Math.floor(c * ts / DAYS) - 1) * DAYS), Math.floor(c * ts / DAYS) * DAYS], source: "Prior completed UTC day · Wilder ATR(14)" }, ...measurementDenominators(selected, time)],
-          history: values.map((value, i) => ({ time: region ? (metric.movement ? moving : rowHistory).samples[i]?.time ?? [0,0] : [Math.max(0, (c - 11 + i) * ts), Math.max(0, Math.min((c - 10 + i) * ts, last.cut))], price: region ? region.band.map(v => v * PR) : [r * ps * PR, (r + 1) * ps * PR], denominators: measurementDenominators(selected, [Math.max(0, (c - 11 + i) * ts), Math.max(0, Math.min((c - 10 + i) * ts, last.cut))]), result: typedHistory[i] })),
+          history: values.map((value, i) => ({ time: region ? (metric.movement ? moving : rowHistory).samples[i]?.time ?? [0,0] : [Math.max(0, (c - 11 + i) * ts), Math.max(0, Math.min((c - 10 + i) * ts, last.cut))], price: region ? region.band.map(v => v * PR) : i === 11 ? band.map(v => v * PR) : [r * ps * PR, (r + 1) * ps * PR], denominators: measurementDenominators(selected, [Math.max(0, (c - 11 + i) * ts), Math.max(0, Math.min((c - 10 + i) * ts, last.cut))]), result: typedHistory[i] })),
         });
         if (region) observation.denominators = [region.seasonal, { ...E.measure.normalized(region.response.result.tag === "finite" ? region.response.result.value : NaN, region.response.atr), time: region.response.time }];
         tip.dataset.observation = JSON.stringify(observation);
@@ -5539,7 +5540,7 @@
       }
     }
     const head = tip.querySelector(".ol-tip-head"), sub = tip.querySelector(".ol-tip-sub");
-    if (sub) sub.textContent = `${price((region?.band[0] ?? r * ps) * PR)}–${price((region?.band[1] ?? (r + 1) * ps) * PR)} USDT`;
+    if (sub) sub.textContent = `${price(band[0] * PR)}–${price(band[1] * PR)} USDT`;
     const originalNotes = [...tip.querySelectorAll(".ol-tip-note")];
     const state = document.createElement("div"); state.className = "ol-cell-state";
     state.textContent = [region?.refusal ? E.result.describe(E.result.make(region.refusal.state, { reason: region.refusal.reason })).short : region && ["pending", "failed"].includes(readout?.typed?.tag) ? E.result.describe(readout.typed).long : open ? "Still open" : "Complete", readout?.support?.portion ? region ? "Clipped support" : "Partial cell" : "", CANON !== null && (region ? region.time[1] : (c + 1) * ts) > CANON ? "Provisional" : "", region ? !region.refusal && current.ct === 0 ? `No trades in this ${region.scope}` : "" : !z ? "No trades in this cell" : "", readout?.exposure?.short ? "Short exposure" : ""].filter(Boolean).join(" · ");
@@ -6140,6 +6141,15 @@
     }
     return last.shown.map.get(c + "," + r) ?? null;
   }
+  // Outward-rounded fallback counters cannot describe a clipped cell. Whole cells
+  // and measured inward portions remain readable while other rectangles wait.
+  function cellPartialRead(c, r, ts, ps) {
+    if (!last || last.shown === last.query && ["exact", "cube", "recorded"].includes(last.meas.state)) return null;
+    const b = last.b, end = Math.min((c + 1) * ts, last.sourceEnd);
+    if (!(b[0] > c * ts || Math.min(b[1], last.cut) < end || b[2] > r * ps || b[3] < (r + 1) * ps)) return null;
+    const state = ["pending", "failed"].includes(last.meas.state) ? last.meas.state : "unsupported";
+    return { state, reason: state === "pending" ? "Measuring this partial cell" : state === "failed" ? "Partial cell not measured: " + last.meas.error : "Partial cell support unavailable at this level" };
+  }
   // The Readout of one cell from the frame of the draw, or null when there is none to give: no cell, no
   // frame, or a fault (which also turns the scale display off, and then the words fall back to the plain
   // facts). `interaction` names who is asking ("hover", or null for a table row).
@@ -6147,7 +6157,8 @@
     const frame = last?.sc?.cells;
     if (!z || !frame) return null;
     try {
-      return frame.readout(z, { interaction });
+      const read = cellPartialRead(z.c, z.r, 2 ** renderN(), 2 ** renderM());
+      return frame.readout(z, { interaction, ...(read ? { read } : {}) });
     } catch (error) {
       scaleFault(error);
       return null;
@@ -6494,7 +6505,8 @@
         unavailable = p.t < src.b0 || p.t >= Math.min(src.b1, last.cut) || !inside,
         open = !S.replay && c * ts < CUT && (c + 1) * ts > CUT,
         head = `${range(c * ts, (c + 1) * ts)} UTC · ${dur(ts * BASE)}`,
-        coarse = renderN() > S.n || renderM() > S.m ? ["Detail", "coarser than requested"] : null;
+        coarse = renderN() > S.n || renderM() > S.m ? ["Detail", "coarser than requested"] : null,
+        refusal = cellPartialRead(c, r, ts, ps);
       // Pointer cards belong to drawn cells; Inspect can still explain an empty location.
       if (!p.inspect && (unavailable || (!z && !(movementMode() && last.mv?.shown?.map.has(cellKey(c, r)))))) {
         hover.emptyCell = true;
@@ -6534,6 +6546,14 @@
               : PACK.live
                 ? "Loading this level from the cube"
                 : "Not recorded at this level");
+      else if (refusal) {
+        const result = readout?.typed ?? E.result.make(refusal.state, { reason: refusal.reason });
+        const time = [Math.max(c * ts, last.b[0]), Math.min((c + 1) * ts, last.b[1], last.cut)];
+        const band = [Math.max(r * ps, last.b[2]) * PR, Math.min((r + 1) * ps, last.b[3]) * PR];
+        tipRows(tip, head, priceRow(r), [], refusal.reason);
+        coreCardPresentation(tip, { primary: { label: MODE_NAMES[S.mode] ?? S.mode, result, unit: readout?.measure.unit, field: "value" },
+          observation: cardObservation(result, readout?.measure.formula ?? "cells.volume.amount@1", readout?.measure.unit ?? "usdt", time, band, { completeness: refusal.state }), detailed: Boolean(p.inspect) });
+      }
       else if (!z)
         tipRows(
           tip,
@@ -6571,7 +6591,7 @@
           ],
           [cas?.note, note],
         );
-      if (!unavailable) cellPresentation(tip, { c, r, ts, ps, z, readout, detailed: Boolean(p.inspect) });
+      if (!unavailable && !refusal) cellPresentation(tip, { c, r, ts, ps, z, readout, detailed: Boolean(p.inspect) });
       syncRowHover(z ? cellKey(c, r) : null);
     }
     // After a tap, the row section's control for the level line.
@@ -24824,10 +24844,7 @@
       mz=frameMotionReady ? motionQuery?.map.get(cellKey(c,r)) ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0} : cachedMotion?.z ?? {c,r,v:0,bv:0,ct:0,bt:0,p:0,w:0},
       motionEnd=frameMotionReady?Math.min((c+1)*ts,(!lens && motionQuery===motionFrame.rect?.query)?motionFrame.rect.end:motionFrame.src?.end??motionFrame.msrc?.end):cachedMotion?.end??null,
       metrics={},detail=[], nominal={t0:comparisonMs(c*ts),t1:comparisonMs((c+1)*ts),low:r*ps*PR,high:(r+1)*ps*PR};
-    // Fallback counters cover outward-rounded source cells. Until the rectangle
-    // is measured, they cannot describe a clipped time or price exposure.
-    if (!lens && !factsFromQuery &&
-      (t0 > c*ts || t1 < factEnd || low > r*ps || high < (r+1)*ps)) return null;
+    if (!lens && cellPartialRead(c, r, ts, ps)) return null;
     const shortExposure = E.measure.isShort({ timeFraction: (t1 - t0) / ts, priceFraction: (high - low) / ps }, { t: true, w: true });
     const measure=(key,mode,basis="amount",pathBasis="spans",movement=false) => {
       const readyValue=!movement||motionReady;
