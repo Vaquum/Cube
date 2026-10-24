@@ -47927,36 +47927,33 @@
     if (!analysisOrigin?.live) throw Error("The recorded page has no live source to refresh");
     const owner = activeAnalysis, revision = analysisRevision, collectionRevision = comparisonRevision;
     const unchanged = () => { if (activeAnalysis !== owner || analysisRevision !== revision || comparisonRevision !== collectionRevision) throw Error("Investigation changed during refresh; the newer investigation is preserved"); };
-    const before = await agentDocument("view", null, false), refreshed = [], grouped = new Map(); unchanged();
+    const before = await agentDocument("view", null, false), refreshed = []; unchanged();
     const packResponse = await fetch("/cube/pack?proto=2&since=", { cache: "no-store" }), packBody = await packResponse.json();
     if (!packResponse.ok || packBody.status !== "pack") throw Error(packBody.error || "Current pack unavailable; captured evidence retained");
     unchanged();
     const token = packBody.pack.state_token;
+    // Each capture is at most one cell, so its own observed region respects
+    // both the column and returned-cell limits without reading between captures.
     for (const cell of before.comparison.captures) {
-      const whole = ["t0", "t1", "low", "high"].every((bound) => cell.observed[bound] === cell.nominal[bound]);
-      const key = cell.level.n + "," + cell.level.m + (whole ? "" : ":" + cell.id);
-      if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(cell);
-    }
-    for (const cells of grouped.values()) {
-      const n = cells[0].level.n, m = cells[0].level.m, isoMs = (x) => new Date(x).toISOString();
-      const end = Math.max(...cells.map((c) => c.observed.t1)), closingBase = Math.ceil((end - T0 * 1000) / (BASE * 1000));
-      const query = { t1: isoMs(Math.min(...cells.map((c) => c.observed.t0))), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: Math.min(...cells.map((c) => c.observed.low)), p2: Math.max(...cells.map((c) => c.observed.high)), tR: BASE * 2 ** n, pR: PR * 2 ** m, pack: token };
+      const {n,m} = cell.level, isoMs = (x) => new Date(x).toISOString();
+      const closingBase = Math.ceil((cell.observed.t1 - T0 * 1000) / (BASE * 1000));
+      const query = { t1: isoMs(cell.observed.t0), t2: isoMs((T0 + closingBase * BASE) * 1000), p1: cell.observed.low, p2: cell.observed.high, tR: BASE * 2 ** n, pR: PR * 2 ** m, pack: token };
       const response = await fetch("/cube/agent/query?proto=2&" + new URLSearchParams(query));
-      const body = await response.json(); if (!response.ok) throw Error(body.detail || body.error || "Refresh failed");
       unchanged();
+      const body = await response.json();
+      unchanged();
+      if (!response.ok) throw Error("Refresh failed; captured evidence retained: " + (body.detail || body.error || response.status));
       if (body.frame.token !== token) throw Error("Source changed during refresh; captured evidence retained");
-      for (const cell of cells) if (!body.cells.some((z) => z.c === cell.c && z.r === cell.r)) {
+      if (!body.cells.some((z) => z.c === cell.c && z.r === cell.r)) {
         const q = body.query, cut = E.time.msToBase(body.frame.cutoffMs, T0, BASE);
         if (!(cell.c * 2 ** n < Math.min(q.b1, cut) && (cell.c + 1) * 2 ** n > q.b0 && cell.r * 2 ** m < q.r1 && (cell.r + 1) * 2 ** m > q.r0)) throw Error("A captured cell is outside current source support; prior evidence remains available");
         body.cells.push({ c: cell.c, r: cell.r, v: 0, bv: 0, ct: 0, bt: 0 });
       }
       body.cells.sort((a, b) => a.c - b.c || a.r - b.r);
       const fresh = Agent.fromQuery(body);
-      for (const cell of cells) {
-        const found = fresh.comparison.captures.find((c) => c.id === cell.id);
-        if (!found) throw Error("A captured cell is absent from the current query; prior evidence remains available");
-        refreshed.push(found);
-      }
+      const found = fresh.comparison.captures.find((c) => c.id === cell.id);
+      if (!found) throw Error("A captured cell is absent from the current query; prior evidence remains available");
+      refreshed.push(found);
     }
     let committingRevision;
     await applyLive(packBody.pack, true, () => {
