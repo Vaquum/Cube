@@ -101,8 +101,10 @@ A needed history already in flight is marked `history-already-dispatched`, witho
 inventing a new queue span after its dispatch or inferring a pre-observation wait.
 Cube/movement phases split fetch-to-headers, body JSON, decode and consumer apply;
 ResourceTiming supplies permitted transport detail. Startup decode is separate.
-Continuations splits column preparation, seasonal index, digest, compute index,
-ledger/seasonal, thresholds/state, cases, summaries, bootstrap scan/draws/intervals.
+Continuations splits scheduling/gesture delay, column preparation, seasonal index,
+digest, compute index, ledger/seasonal, thresholds/state, cases, summaries, bootstrap
+summaries/scan/draws/intervals. Input metadata distinguishes delivered columns and
+held state/seasonal support/source packs from the current pack and logical ledger.
 Aggregated seasonal-call durations and yield count/total/max schedule-to-resume waits
 expose costs without one event per case. Output records ledger/case counts, digest,
 calendar/full matched blocks, valid draws and whether draws ran. Async phases include

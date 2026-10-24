@@ -19209,9 +19209,9 @@
   // No old study survives a changed requested edge, pack, fit, horizon or source.
   function settledEvidence() {
     const key = evidenceKey();
-    if (evidenceCache.has(key)) { if (diagnostics?.active) diagnostics.mark("continuations-cache-hit", { key }); if(evidence.job)evidence.job.cancelled=true; clearTimeout(evidence.timer); evidence.ready = evidence.last = evidenceCache.get(key); evidence.job={key,cancelled:false,output:evidence.ready}; return evidence.ready; }
+    if (evidenceCache.has(key)) { if (diagnostics?.active) diagnostics.mark("continuations-cache-hit", { key }); if(evidence.job){evidence.job.cancelled=true;evidence.job.diagnosticSchedule?.("obsolete");} clearTimeout(evidence.timer); evidence.ready = evidence.last = evidenceCache.get(key); evidence.job={key,cancelled:false,output:evidence.ready}; return evidence.ready; }
     if (evidence.job?.key !== key) {
-      if (evidence.job) evidence.job.cancelled = true;
+      if (evidence.job) { evidence.job.cancelled = true; evidence.job.diagnosticSchedule?.("obsolete"); }
       evidence.ready = evidence.last = null;
       const job = { key, cancelled: false }; evidence.job = job;
       if (diagnostics?.active) {
@@ -19227,7 +19227,10 @@
         }
       }
       clearTimeout(evidence.timer);
+      const delay = gesturing() ? 220 : 0;
+      job.diagnosticSchedule = diagnosticPhase("continuations.schedule", { key, delay });
       evidence.timer = setTimeout(async () => {
+        job.diagnosticSchedule?.(job.cancelled || evidenceKey() !== key ? "obsolete" : "completed"); job.diagnosticSchedule = null;
         if (job.cancelled || evidenceKey() !== key) return;
         const diagnosticStudy = diagnosticPhase("continuations", { key, a: evidenceAnchor(), n: renderN(), m: renderM(), horizon: S.horizon });
         let diagnosticOutcome = "failed";
@@ -19244,7 +19247,7 @@
         } finally {
           diagnosticStudy?.(job.cancelled || evidenceKey() !== key ? "obsolete" : diagnosticOutcome);
         }
-      }, gesturing() ? 220 : 0);
+      }, delay);
     }
     return evidence.job?.output ?? { a: evidenceAnchor(), n: renderN(), m: renderM(), barrier: S.barrier || 1, loading: true, error: "Preparing current-source evidence…" };
   }
@@ -19273,7 +19276,12 @@
     diagnosticDigest?.();
     const provenance = { instrument: INSTRUMENT, sourceDigest, packKey, revision, sourceCutoff: CUT, canonicalCutoff: CANON, replayEdge: S.replay ? activeCutoff() : null, measuredThrough: end,
       priceLow: 0, priceHigh: null, precisionID: "observed-source-values+Float64-aggregation", reconstruction: "Current-source reconstruction; original vintages not guaranteed" };
-    if (diagnostics?.active) diagnostics.mark("continuations-input", { a, n, m, horizon: S.horizon, kind: S.evidenceKind, barrier, support: [history.b0,end], covered: history.covered, sources: history.sources, provenance });
+    if (diagnostics?.active) {
+      const held = histories.get(historyKey(n,m)), boundary = h => h ? { columns:h.cols.length, support:[h.b0,h.b1], sourcePack:h.sourcePack ?? null } : null;
+      diagnostics.mark("continuations-input", { a,n,m,horizon:S.horizon,kind:S.evidenceKind,barrier,support:[history.b0,end],
+        deliveredStateColumns:history.cols.length, heldState:boundary(held), heldSeasonal:boundary(seasonalHeld), recordedSeasonalColumns:recordedSeasonal?.cols.length ?? null,
+        covered:history.covered,sources:history.sources,provenance });
+    }
     const diagnosticCompute = diagnostics?.active, diagnosticSession = diagnostics?.session, diagnosticYields = {}, diagnosticCosts = {},
       diagnosticCurrent = () => diagnosticCompute && diagnostics?.active && diagnostics.session === diagnosticSession;
     const accumulate = (groups, name, elapsed) => {

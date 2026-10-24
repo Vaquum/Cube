@@ -54,7 +54,7 @@ test("optional phase recording preserves the complete study and ends each phase 
     phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome ?? "completed"]); } });
   assert.deepEqual(after, before);
   assert.deepEqual(phases, ["index","ledger-seasonal","thresholds-state","cases","summaries"].flatMap(name => [[name,"start"],[name,"completed"]]).concat(
-    [["bootstrap","start"]], ["bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,"completed"]]), [["bootstrap","completed"]]));
+    [["bootstrap","start"]], ["bootstrap.summaries","bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,"completed"]]), [["bootstrap","completed"]]));
   assert.deepEqual(yields.map(x => x.stage), ["index","ledger-seasonal","thresholds-state","cases","bootstrap.scan"]);
   assert.equal(costs.length, 40); assert.ok(costs.every(x => x.stage === "seasonal" && x.duration === 1));
   assert.equal(samples[0].drawsRan, false); assert.equal(samples[0].validDraws.up.baseline, 0);
@@ -75,7 +75,7 @@ test("shared block bootstrap keeps empty/partial calendar blocks and component d
   assert.equal(out.intervals.up.baseline.result.tag, "finite"); assert.equal(out.intervals.up.difference.result.tag, "finite");
   const phases = [];
   const again = await H.bootstrap(args, result, "next-poc", 1, { phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome]); } }); assert.deepEqual(out, again);
-  assert.deepEqual(phases, [["bootstrap", "start"]].concat(["bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,undefined]]), [["bootstrap","completed"]]));
+  assert.deepEqual(phases, [["bootstrap", "start"]].concat(["bootstrap.summaries","bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,undefined]]), [["bootstrap","completed"]]));
 });
 
 test("each normative interval boundary is independent: 29/30 cases, 19/20 full matches, 1799/1800 draws", () => {

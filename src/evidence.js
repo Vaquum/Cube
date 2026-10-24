@@ -58,11 +58,12 @@
   }
   async function bootstrap(input, result, kind, horizon, control = {}) {
     const phaseEnd = control.phase?.("bootstrap");
-    let stageEnd = control.phase?.("bootstrap.scan");
+    let stageEnd = control.phase?.("bootstrap.summaries");
     let phaseOutcome = "interrupted";
     try {
     const alive = () => !control.cancelled?.();
     const field = kind === "poc-barrier" ? "first" : "direction", sample = summary(result.matched[horizon], field), base = summary(result.cases[horizon], field);
+    stageEnd?.(); stageEnd = control.phase?.("bootstrap.scan");
     const length = result.blockLength, step = 2 ** result.n, start = input.b0 / step, stop = (result.a + 1), first = Math.floor(start / length), last = Math.ceil(stop / length);
     const blocks = Array.from({ length: Math.max(0, last - first) }, (_, i) => ({ id: first + i, sample: [0, 0, 0, 0], base: [0, 0, 0, 0], full: (first + i) * length >= start && (first + i + 1) * length <= stop }));
     for (let i = 0; i < result.cases[horizon].length; i++) {
