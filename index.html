@@ -29186,7 +29186,7 @@
         if (event) calendarReferencePresentation(tip, { events: [event] });
         tip.hidden = false;
       } else if (s === "strip" && inspect.stripPart === "sources") stripSourceCard(tip, stripFieldEdge(last.cut));
-      else if (s === "strip" && inspect.stripPart === "ahead") stripAheadCard(tip, stripRt.horizon?.events.map((hit) => hit.e) ?? [], stripFieldEdge(last.cut));
+      else if (s === "strip" && inspect.stripPart === "ahead") stripAheadCard(tip, stripAheadEvents(stripFieldEdge(last.cut)).map((hit) => hit.e), stripFieldEdge(last.cut));
       else tooltip(hover, { redraw: false });
       inspect.forced = was;
       inspect.readout = scaleRt.tipReadout;
@@ -38897,13 +38897,16 @@
   }
   // The horizon box right of the band, in the profile's column: the next 90 days from the edge on a log scale of time to go, the light
   // of each event ahead as the edge knew it.
+  function stripAheadEvents(edge) {
+    return stripEvents().filter((e) => stripNear(e, edge, edge + STRIP_HORIZON)).map((e) => ({ e, k: stripKnown(e, edge) }))
+      .filter(({ k }) => k && k.at > edge && k.at <= edge + STRIP_HORIZON).sort((a, b) => a.k.at - b.k.at);
+  }
   function paintStripHorizon(edge) {
     if (!G.profile || !stripRt.view) return;
     const x0 = G.sx + G.sw + PROFILE_PAD, x1 = G.sx + G.sw + G.profile - PROFILE_END, w = x1 - x0, top = G.by + STRIP_LABELS, h = STRIP_BAND;
     if (w < 40) return;
     const scale = Math.log1p(STRIP_HORIZON / STRIP_HOUR), X = (dt) => x0 + (w * Math.log1p(Math.max(0, dt) / STRIP_HOUR)) / scale,
-      ahead = stripEvents().filter((e) => stripNear(e, edge, edge + STRIP_HORIZON)).map((e) => ({ e, k: stripKnown(e, edge) }))
-        .filter(({ k }) => k && k.at > edge && k.at <= edge + STRIP_HORIZON).sort((a, b) => a.k.at - b.k.at);
+      ahead = stripAheadEvents(edge);
     ctx.save();
     ctx.fillStyle = colors.surface;
     ctx.fillRect(x0, top, w, h);

@@ -31,7 +31,7 @@ async function open(page, fake, probe, hash) {
   await expect(page.locator("#ol-strip")).toHaveAttribute("data-state", "ready");
   await probe.waitForQuiet();
 }
-async function coverageResponse(page, { inputs, attention, cutoff, detail = true, sources = {} }) {
+async function coverageResponse(page, { inputs, attention, cutoff, detail = true, sources = {}, events = [] }) {
   const available = new Set(INPUTS.slice(0, inputs)), attentionAvailable = new Set(ATTENTION.slice(0, attention));
   await page.route("**/cube/strip?*", async (route) => {
     const original = await route.fetch(), body = await original.json(), n = body.grid.attention.length;
@@ -46,7 +46,7 @@ async function coverageResponse(page, { inputs, attention, cutoff, detail = true
     if (detail === null) body.grid.parts = null;
     else if (detail) body.grid.parts = parts;
     else delete body.grid.parts;
-    body.events = []; body.jumps = [];
+    body.events = events; body.jumps = [];
     Object.assign(body.sources, sources);
     if (cutoff !== undefined) {
       body.cutoff = cutoff;
@@ -362,6 +362,49 @@ test("Inspect exposes source timing and the complete horizon without narrative o
   await mode.selectOption("forces");
   await expect(card).toHaveAttribute("data-presentation", "strip-forces");
   expect(await position()).toEqual(initial);
+});
+
+for (const force of ["forces", "forces.macro", "forces.social"]) test(`Ahead keeps the ${force} calendar when profiles fold at 590 px`, async ({ page, fakeFor, probe }) => {
+  await page.setViewportSize({ width: 590, height: 950 });
+  const fake = await fakeFor("mini"), view = rectangle(fake), edge = view.to - HOUR,
+    event = (id, family, at, changes = {}) => ({ id, family, name: `Synthetic ${id}`, short: id, series: id, region: "US", window: 60, link: null, measured: null,
+      schedule: [{ knownAt: edge - DAY, at, end: null, precision: "instant", status: "scheduled", certainty: "confirmed", importance: "high", weight: 1, ...changes }] }),
+    calendar = [event("macro-next", "macro", edge + HOUR), event("social-next", "social", edge + DAY),
+      event("macro-boundary", "macro", edge + 90 * DAY, { weight: 0.3 }),
+      event("low-importance", "macro", edge + 2 * HOUR, { weight: 0.2, importance: "low" }),
+      event("cancelled", "macro", null, { lastAt: edge + 3 * HOUR, status: "cancelled" }),
+      event("not-known-yet", "macro", edge + 4 * HOUR, { knownAt: edge }),
+      event("at-edge", "macro", edge), event("beyond-horizon", "macro", edge + 90 * DAY + 1), event("past", "macro", edge - HOUR)],
+    // This explicit oracle excludes nonimportant, cancelled, not-yet-known, current/past and beyond-horizon entries.
+    expected = (force === "forces.social" ? [["social-next", edge + DAY]] : force === "forces.macro"
+      ? [["macro-next", edge + HOUR], ["macro-boundary", edge + 90 * DAY]]
+      : [["macro-next", edge + HOUR], ["social-next", edge + DAY], ["macro-boundary", edge + 90 * DAY]]);
+  await coverageResponse(page, { inputs: 10, attention: 4, cutoff: edge, events: calendar });
+  await open(page, fake, probe, view.hash.replace("strip=forces", `strip=${force}`));
+  expect((await layoutOf(page))[6], "profile tracks have not painted a horizon on the initial narrow page").toBe(0);
+  await expect(page.locator("#ol-profile-chip")).toHaveAttribute("data-collapsed", "true");
+  await page.keyboard.press("e");
+  await expect(page.locator("#ol-inspect")).toBeVisible();
+  await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
+  await page.locator("#ol-inspect-strip-view").selectOption("ahead");
+  const card = page.locator("#ol-inspect-readout"), check = async () => {
+    await expect(card).toHaveAttribute("data-presentation", "strip-ahead");
+    expect(await canonical(card, "aheadEvents")).toBe(expected.length);
+    expect(await canonical(card, "horizonDays")).toBe(90);
+    expect(await card.locator('[data-field^="ahead."][data-field$=".at"]').evaluateAll((values) => values.map((n) =>
+      [n.dataset.field.slice("ahead.".length, -".at".length), Number(n.dataset.canonical)]))).toEqual(expected);
+    for (const [id] of expected) await expect(card.locator(`[data-field="ahead.${id}.at"]`)).toBeVisible();
+    await expect(card.locator(".ol-tip-note")).toHaveCount(0);
+  };
+  await check();
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await expect.poll(async () => (await layoutOf(page))[6]).toBeGreaterThan(0);
+  await probe.waitForQuiet();
+  await check();
+  await page.setViewportSize({ width: 590, height: 950 });
+  await expect.poll(async () => (await layoutOf(page))[6]).toBe(0);
+  await probe.waitForQuiet();
+  await check();
 });
 
 test("the Strip instrument uses Inspect rows, supports its time keys, and turns off as an Inspect surface", async ({ page, fakeFor, probe }) => {
