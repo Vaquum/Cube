@@ -302,6 +302,10 @@ test("recording controls have a reference Show route, help, names and native key
   await page.getByRole("button",{ name:"Show performance recording",exact:true }).click();
   await expect(page.locator("#ol-diagnostics summary")).toBeVisible();
   await expect(page.locator("#ol-reference-status")).toContainText("Highlighted: performance recording");
+  await expect.poll(() => page.locator("#ol-diagnostics-start").evaluate(node => {
+    const box = node.getBoundingClientRect(), parent = document.querySelector("#ol-drawer-body").getBoundingClientRect();
+    return box.top >= parent.top && box.bottom <= parent.bottom;
+  })).toBe(true);
   await page.keyboard.press("Escape"); await page.locator("#ol-reference-close").click();
   await controls(page); await page.locator("#ol-diagnostics summary").focus();
   const ids = ["start","stop","export","reload"];
@@ -336,7 +340,7 @@ for (const replacement of ["range","pack token"]) test(`obsolete candle ${replac
   const gate = fake.on({ route:"/cube/bars", when:q => q.n === "2",times:1 }).gate();
   try {
     await page.locator("#ol-canvas").focus(); await page.keyboard.press("k"); await gate.arrived();
-    const old = fake.log().find(e => e.path === "/cube/bars" && e.query.n === "2");
+    const old = fake.log().find(e => e.path === "/cube/bars" && e.query.n === "2"), oldToken = fake.info().packToken;
     if (replacement === "range") {
       await page.evaluate(() => { location.hash = "#t=2021-01-01T00:15Z~2021-01-01T00:18:45Z&p=24800~25400&r=2,0&mode=candles"; });
       await expect(page.locator("#ol-bounds-start")).toHaveValue("2021-01-01T00:15");
@@ -345,7 +349,7 @@ for (const replacement of ["range","pack token"]) test(`obsolete candle ${replac
       await expect.poll(() => fake.log().some(e => e.path === "/cube/pack" && ["delta","pack"].includes(e.answer)),{ timeout:10000 }).toBe(true);
     }
     gate.open(); await fake.idle({ quietMs:500 }); await settledFrames(page);
-    const report = await exported(page), suffix = `|2|${old.query.b0}|${old.query.b1}|${old.query.pack}`;
+    const report = await exported(page), suffix = `|2|${old.query.b0}|${old.query.b1}|${oldToken}`;
     const discarded = report.events.find(e => e.type === "data-discarded" && e.key.startsWith("candles|") && e.key.endsWith(suffix));
     expect(discarded).toBeTruthy(); expect(report.events.some(e => e.type === "data-applied" && e.key === discarded.key)).toBe(false);
   } finally { gate.open(); }

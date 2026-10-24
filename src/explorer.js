@@ -25770,8 +25770,14 @@
       if (element?.closest("#ol-lines-pop") && el("lines-pop").hidden) el("lines").click();
       if (target.selector === "#ol-diagnostics-start") {
         el("diagnostics").open = true;
-        // The drawer's disclosure is established after its mutation callbacks.
-        requestAnimationFrame(() => Flow.scrollToActor(element,"nearest"));
+        // Size motion temporarily sets overflow:hidden; keep the known scroll
+        // owner instead of walking past it to the non-scrolling document.
+        const drawer = el("drawer-body");
+        requestAnimationFrame(() => Flow.scroll(drawer, () => {
+          const box = element.getBoundingClientRect(), top = drawer.getBoundingClientRect().top + drawer.clientTop,
+            bottom = top + drawer.clientHeight;
+          return drawer.scrollTop + (box.top < top ? box.top-top : box.bottom > bottom ? box.bottom-bottom : 0);
+        }, element));
       } else if (target.selector && element?.getClientRects().length) Flow.scrollToActor(element,"nearest");
       else if (PHONE.matches && target.region && canvas.getClientRects().length) Flow.scrollToActor(canvas,"nearest");
     },

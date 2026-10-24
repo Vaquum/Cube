@@ -1,5 +1,9 @@
 # Side-panel diagnostics evidence — 24 October 2026
 
+**Historical capture pending refresh:** review subsequently corrected an in-flight
+history queue classification and the reference Show scroll owner. This capture is
+retained as evidence of the named runtime, not the final revision's acceptance.
+
 Runtime: `765231780c11e1a86272aacfce92b32c0eed12ed` (PR #218), including main
 `c3485234f812447471b57807957690690bd84f0b`. The publication commit changes evidence
 only; the manifest verifies the runtime source/index bytes against publication.
