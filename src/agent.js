@@ -58,7 +58,34 @@
         previous = cell.c; cells.add(cell.c + "," + cell.r); count++;
       }
     }
+    const countCache = (value) => {
+      if (!value || typeof value !== "object") return;
+      if (!Array.isArray(value) && Array.isArray(value.cells)) {
+        count += value.cells.length;
+        if (count > 250000) fail("Captured canvas exceeds 250,000 cells including caches");
+      }
+      for (const member of Object.values(value)) countCache(member);
+    };
+    countCache(frame.cache);
     if (count > 250000) fail("Captured canvas exceeds 250,000 cells");
+    const dedicated = frame.cache?.developingPocReads;
+    if (dedicated !== undefined) {
+      if (!keys(dedicated, ["cubeMap"]) || !Array.isArray(dedicated.cubeMap)) fail("Invalid captured developing POC cache map");
+      if (dedicated.cubeMap.length > 64) fail("Captured developing POC cache exceeds 64 entries");
+      const seen = new Set(), cut = (frame.cutoffMs / 1000 - frame.origin) / frame.baseSeconds, epsilon = 1 / (frame.baseSeconds * 1000);
+      for (const entry of dedicated.cubeMap) {
+        if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== "string" || seen.has(entry[0])) fail("Invalid captured developing POC cache entry");
+        const [key, block] = entry, parts = key.split("|"), [generation, day, end] = parts.slice(1).map(Number), start = day * 1536;
+        seen.add(key);
+        if (parts.length !== 4 || key !== ["developing-poc", generation, day, end].join("|") || !Number.isSafeInteger(generation) || generation !== frame.generation || !Number.isSafeInteger(day) || day < 0 || !Number.isFinite(end) || !(start < end && end <= start + 1536 && end <= cut + epsilon)) fail("Invalid captured developing POC cache key/support");
+        if (!block || block.n !== 4 || block.m !== 0 || block.b0 !== start || !Number.isFinite(block.b1) || block.b1 + epsilon < end || block.b1 > Math.min(start + 1536, cut) + epsilon || block.col0 !== start / 16 || block.col1 !== Math.ceil(block.b1 / 16) || !Array.isArray(block.cells)) fail("Invalid captured developing POC coverage");
+        let priorColumn = -1, priorRow = -1;
+        for (const z of block.cells) {
+          if (!z || !Number.isSafeInteger(z.c) || !Number.isSafeInteger(z.r) || z.r < 0 || z.r >= 2 ** 32 || z.c * 16 < start || z.c * 16 >= block.b1 || z.c < priorColumn || z.c === priorColumn && z.r <= priorRow || ![z.v, z.bv].every((v) => Number.isFinite(v) && v >= 0) || ![z.ct, z.bt].every((v) => Number.isSafeInteger(v) && v >= 0) || z.bv > z.v || z.bt > z.ct) fail("Invalid captured developing POC cell");
+          priorColumn = z.c; priorRow = z.r;
+        }
+      }
+    }
   }
   function parse(text) {
     if (typeof text !== "string" || E.hash.utf8(text).length > MAX_BYTES * 3) fail("Analysis input is too large");
@@ -143,7 +170,7 @@
     return validate(seal(d));
   }
   function replayCache(cache, cut) {
-    const output = {}, entries = (name) => cache[name]?.cubeMap || [], put = (name, values) => { output[name] = { cubeMap: values }; };
+    const output = {}, entries = (name) => cache[name] instanceof Map ? [...cache[name]] : cache[name]?.cubeMap || [], put = (name, values) => { output[name] = { cubeMap: values }; };
     put("barChunks", entries("barChunks").filter(([, r]) => r.a < cut).map(([key, r]) => [key, { ...r, end: Math.min(r.end, cut), bars: r.bars.filter((bar) => (bar.c + 1) * 2 ** r.n <= cut) }]));
     put("barEdges", entries("barEdges").filter(([, r]) => Number.isFinite(r.end) && r.end <= cut));
     put("candleRanges", entries("candleRanges").map(([key, r]) => {
@@ -278,5 +305,5 @@
     const scene = seal({ visualVersion: 3, kind: "view", query: { t1: q.b0, t2: q.b1, p1: q.r0, p2: q.r1, tR: q.n, pR: q.m }, view: { viewport: bounds, window: "", auto: false, mode: "volume", rowControlsVersion: 1, rows: "off", period: "visible", background: "off", backgroundPeriod: "90d", selection: null, replay: false, anchor: null, lines: [] }, drawings: E.drawings.empty(), scales: [], axes: [], models: [], observation: { source: f.source, instrument: "BTC/USDT", cutoffMs: f.cutoffMs, canonicalThroughMs: f.canonicalThroughMs, token: f.token, note: "Captured current-source query; no historical vintage reconstruction" } });
     return validate(seal({ schema: SCHEMA, instrument: "BTC/USDT", createdAt: Date.now(), mode: "captured", scene, snapshot, comparison: { comparisonVersion: 2, instrument: "BTC/USDT", selectedMetric: "volume", captures, focus: captures[0]?.id ?? null, reference: null, basis: "auto", sort: { key: "time", direction: "asc" }, view: "grid", page: 0, poc: null, expanded: false, restoreLayout: null }, selection: { query: { ...scene.query }, metrics: summary, source: f.source, measuredThrough: f.cutoffMs, state: "exact" }, focus: null }));
   }
-  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, selectionQuery, redact, configure, annotate, fromQuery, forExport });
+  return Object.freeze({ SCHEMA, MAX_BYTES, INLINE_MAX, seal, validate, parse, encode, decode, link, text, compare, diff, selectionQuery, redact, configure, annotate, fromQuery, forExport, replayCache });
 });
