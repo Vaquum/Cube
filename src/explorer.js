@@ -16281,10 +16281,10 @@
     return { kind: "history", from: Math.max(0, to - STRIP_HISTORY), to, step, need: [to - STRIP_HISTORY, to - step] };
   }
   const stripCovers = (held, want) => Boolean(held) && held.step === want.step && held.from <= want.need[0] && held.to > want.need[1];
-  function scheduleStrip() {
-    clearTimeout(stripRt.timer);
-    if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED || activeAnalysis?.mode === "captured") return;
-    stripRt.timer = setTimeout(pumpStrip, 200);
+  function scheduleStrip(wait = 200) {
+    clearTimeout(stripRt.timer); stripRt.timer = 0;
+    if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured" || !Number.isFinite(wait)) return;
+    stripRt.timer = setTimeout(pumpStrip, Math.max(200, wait));
   }
   // One read at a time, in no slot of the cube's: the view's grid first, then the history. A grid that failed is asked for again only
   // after a minute, and a held one again once it is five minutes old (the view at the live edge) or half an hour (the history).
@@ -16293,11 +16293,13 @@
     if (S.strip === "off" || !PACK.live || !STRIP_SERVED || stripRt.busy || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured") return;
     const view = stripViewWant(), history = stripHistoryWant(), now = performance.now(),
       liveEdge = (held) => held.to > msAt(Math.ceil(CUT)),
-      want = !stripCovers(stripRt.view, view) || (liveEdge(stripRt.view) && now - stripRt.view.at > 300000) ? view
-        : !stripCovers(stripRt.history, history) || now - stripRt.history.at > 1800000 ? history : null;
-    if (!want) return;
+      viewDue = stripRt.view && liveEdge(stripRt.view) ? stripRt.view.at + 300000 : Infinity,
+      historyDue = stripRt.history ? stripRt.history.at + 1800000 : -Infinity,
+      want = !stripCovers(stripRt.view, view) || now >= viewDue ? view
+        : !stripCovers(stripRt.history, history) || now >= historyDue ? history : null;
+    if (!want) { scheduleStrip(Math.min(viewDue, historyDue) - now); return; }
     const key = `${want.kind}|${want.from}|${want.to}|${want.step}`;
-    if (key === stripRt.failed.key && now - stripRt.failed.at < 60000) return;
+    if (key === stripRt.failed.key && now < stripRt.failed.at + 60000) { scheduleStrip(stripRt.failed.at + 60000 - now); return; }
     const controller = new AbortController(), owner = stripRt, revision = analysisRevision;
     const owned = () => stripRt === owner && analysisRevision === revision && activeAnalysis?.mode !== "captured";
     stripRt.busy = { key, controller };
@@ -16312,7 +16314,7 @@
       if (response.ok && body?.schema === "cube-strip@2") stripApply(want, body);
       else {
         // A bridge still reading its first publication is asked again in 15 seconds, any other failure after a minute.
-        stripRt.failed = { key, at: body?.error === "strip_loading" ? now - 45000 : now };
+        stripRt.failed = { key, at: performance.now() - (body?.error === "strip_loading" ? 45000 : 0) };
         if (body?.error === "strip_not_configured") stripRt.status = "unconfigured";
         else if (!stripRt.view) {
           stripRt.status = body?.error === "strip_loading" ? "loading" : "failed";
@@ -16322,7 +16324,7 @@
     } catch (error) {
       if (!owned()) return;
       if (!controller.signal.aborted) {
-        stripRt.failed = { key, at: now };
+        stripRt.failed = { key, at: performance.now() };
         if (!stripRt.view) {
           stripRt.status = "failed";
           stripRt.detail = error.message;
