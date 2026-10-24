@@ -6353,7 +6353,8 @@
   }
   function refreshTip() {
     const tip = el("tip");
-    if (hover && !tip.hidden && last?.sc && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision)) tooltip(hover, { redraw: false });
+    if (hover && !tip.hidden && last?.sc && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision
+      || tip.dataset.stripDetail === "compact" && stripRt.tipStamp !== stripReadoutStamp())) tooltip(hover, { redraw: false });
     // The readout key is named on the tip only while the tip shows (the pointer leaving, a pan or a tool hides
     // it without going through tooltip()); the attribute stays, empty, so a reader can always find it.
     if (tip.hidden && tip.dataset.readout) tip.dataset.readout = "";
@@ -6564,6 +6565,7 @@
     }
     // After a tap, the row section's control for the level line.
     if (nav.touchTip && !onLine && (inPlot(p) || onProfile(p))) tip.append(levelButton(Math.floor(p.p / ps)));
+    if (!tip.querySelector(":scope > [data-strip-slot]")) delete tip.dataset.stripDetail;
     tip.hidden = false;
     // Beside the pointer, right of it where it fits, and inside the panes, so it
     // never covers the cell under the pointer or the axis readouts.
@@ -6572,7 +6574,9 @@
       right = p.x + 16,
       left = right + tw <= G.x + G.w - 4 || onProfile(p) ? right : p.x - 16 - tw;
     tip.style.left = clamp(onProfile(p) ? p.x - 16 - tw : left, 4, G.width - tw - 4) + "px";
-    tip.style.top = clamp(p.y - th / 2, G.y + 4, G.y + G.h - th - 4) + "px";
+    tip.style.top = tip.dataset.stripDetail === "compact"
+      ? G.by + STRIP_LABELS - th - 8 + "px"
+      : clamp(p.y - th / 2, G.y + 4, G.y + G.h - th - 4) + "px";
     // The readout the tip was built from (a cell's here; a pane's or a row's set by their own sections):
     // named on the tip so the same record can be found in the table, and located on the legend.
     if (readout) scaleRt.tipReadout = readout;
@@ -16180,7 +16184,8 @@
     STRIP_HINT = el("strip").dataset.hint;
   const stripRt = { view: null, history: null, events: new Map(), jumps: new Map(), moves: new Map(), options: [], sources: null, components: null,
     attentionParts: null, snapshot: null, cutoff: null, status: STRIP_SERVED ? "idle" : "unconfigured", detail: "", model: "", coverage: "", coverageStats: null, busy: null, timer: 0,
-    failed: { key: "", at: -Infinity }, horizon: null, hits: [] };
+    failed: { key: "", at: -Infinity }, horizon: null, hits: [], tipStamp: "" };
+  const stripReadoutStamp = () => [stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at].join("|");
   const stripChoices = () => (PACK.live ? STRIP_CHOICES : ["off"]),
     stripForce = () => (S.strip.startsWith("forces.") ? S.strip.slice(7) : null),
     stripBase = (ms) => (ms / 1000 - T0) / BASE,
@@ -16650,7 +16655,7 @@
   const stripLabel = (s, attrs) => stripSvg("text", { "font-size": TYPE.s, ...attrs }, [document.createTextNode(s)]);
   // The four forces as arrows from a common centre; the instrument's primary figure carries their net separately.
   function stripTug(rows, w = 272) {
-    const rowH = inspect.on && inspect.surface === "strip" && hover?.inspect ? 22 : 18,
+    const detailed = inspect.on && inspect.surface === "strip" && hover?.inspect, rowH = 22,
       h = rows.length * rowH + 2, nameW = 84, valW = 46, cx = nameW + (w - nameW - valW) / 2, half = (w - nameW - valW) / 2 - 8,
       ext = Math.max(0.6, ...rows.map((r) => (r.v === null ? 0 : Math.abs(r.v)))),
       svg = stripSvg("svg", { width: w, height: h, viewBox: `0 0 ${w} ${h}`, role: "img",
@@ -16659,15 +16664,15 @@
     rows.forEach((r, i) => {
       const y = 1 + i * rowH + rowH / 2;
       if (r.net) svg.append(stripSvg("line", { x1: 0, y1: y - rowH / 2, x2: w, y2: y - rowH / 2, stroke: colors.line }));
-      svg.append(stripLabel(r.name, { x: 0, y: y + 4, fill: r.net || r.on ? colors.ink : colors.muted, "font-weight": r.net || r.on ? 600 : 400 }));
+      svg.append(stripLabel(r.name, { x: 0, y: y + 4, fill: r.net || r.on ? colors.ink : colors.muted, "font-size": detailed ? TYPE.s : 13, "font-weight": r.net || r.on ? 600 : 400 }));
       if (r.v === null) {
-        svg.append(stripLabel(r.note, { x: cx + 6, y: y + 4, fill: colors.muted }));
+        svg.append(stripLabel(r.note, { x: cx + 6, y: y + 4, fill: colors.muted, "font-size": detailed ? TYPE.s : 13 }));
         return;
       }
       const len = (Math.abs(r.v) / ext) * half, dir = r.v >= 0 ? 1 : -1, th = r.net ? 9 : 6, c = r.v >= 0 ? colors.positive : colors.negative, xe = cx + dir * len;
       svg.append(stripSvg("rect", { x: Math.min(cx, xe).toFixed(1), y: (y - th / 2).toFixed(1), width: Math.max(1, len).toFixed(1), height: th, fill: c }));
       svg.append(stripSvg("path", { d: `M${xe.toFixed(1)},${(y - th / 2 - 3).toFixed(1)}L${(xe + dir * 7).toFixed(1)},${y.toFixed(1)}L${xe.toFixed(1)},${(y + th / 2 + 3).toFixed(1)}Z`, fill: c }));
-      svg.append(stripLabel(signed(r.v, (x) => x.toFixed(2)), { x: w, y: y + 4, fill: colors.ink, "font-weight": 600, "text-anchor": "end" }));
+      svg.append(stripLabel(signed(r.v, (x) => x.toFixed(2)), { x: w, y: y + 4, fill: colors.ink, "font-size": detailed ? TYPE.s : 14, "font-weight": 600, "text-anchor": "end" }));
     });
     return svg;
   }
@@ -16686,7 +16691,7 @@
     for (const m of marks) {
       const x = X(m.x).toFixed(1);
       svg.append(stripSvg("line", { x1: x, y1: top - 1, x2: x, y2: bottom, stroke: colors.ink, "stroke-width": m.mid ? 1.5 : 1, ...(m.mid ? {} : { "stroke-dasharray": "3 2" }) }));
-      svg.append(stripLabel(m.label, { x: clamp(X(m.x), 12, w - 12).toFixed(1), y: 10, fill: m.mid ? colors.ink : colors.muted, "text-anchor": "middle" }));
+      svg.append(stripLabel(m.label, { x: clamp(X(m.x), 12, w - 12).toFixed(1), y: 12, fill: m.mid ? colors.ink : colors.muted, "text-anchor": "middle" }));
     }
     svg.append(stripSvg("line", { x1: 0, y1: bottom + 0.5, x2: w, y2: bottom + 0.5, stroke: colors.line }));
     for (const t of ticks) {
@@ -16760,16 +16765,19 @@
     tip.replaceChildren(uiEl("div", "ol-tip-head", title));
     scaleRt.tipReadout = null;
     const detailed = inspect.on && inspect.surface === "strip" && Boolean(hover?.inspect);
+    if (!detailed && !groups.some((group) => group.name === "Track record · next 24 h")) {
+      const supported = stripRt.view && ms < edge && stripSupport(stripHeld(ms), ms).inRange;
+      groups = [...groups, supported ? stripTrackPart(ms, edge, stripForce())
+        : { name: "Track record · next 24 h", metrics: [stripFact("Status", stripRt.status, "trackStatus")] }];
+    }
     const observation = cardObservation(primary.result, (held?.model ?? stripRt.model) || "field-strip@1", primary.unit, [stripBase(ms), stripBase(ms)], null,
       { source: "field-data-api", pack: (held?.snapshot ?? stripRt.snapshot)?.id ?? null, measuredThrough: stripBase(held?.cutoff ?? stripRt.cutoff ?? edge), completeness: status, visibility: "visible" });
     coreCardPresentation(tip, { primary, companions, groups, observation, profile, detailed });
     const details = tip.querySelector(".ol-cell-details"), context = tip.querySelector(".ol-cell-context");
-    let events = 0;
-    const sources = document.createElement("section"); sources.className = "ol-cell-group";
-    sources.append(uiEl("h3", "", "Current sources"), document.createElement("dl"));
-    // Hover keeps the measurements compact; Inspect exposes every support, timing and source record.
+    const sections = [];
     [...details.querySelectorAll(":scope > .ol-cell-group")].forEach((section, i) => {
       if (groups[i].profile) section.insertBefore(groups[i].profile, section.children[1]);
+      sections.push({ section, group: groups[i] });
       for (const metric of groups[i].metrics) {
         const value = [...section.querySelectorAll("dd")].find((dd) => dd.dataset.field === (metric.field ?? metric.label));
         if (value && metric.status) {
@@ -16784,63 +16792,91 @@
           } else if (metric.status !== "Known" && value.textContent.trim() !== metric.status) value.append(uiEl("span", "ol-strip-status", metric.status));
         }
       }
-      if (detailed) { tip.insertBefore(section, context); return; }
-      const name = groups[i].name;
-      if (presentation === "strip-forces") {
-        if (name.endsWith(" · inputs") && name !== "Attention · inputs") tip.insertBefore(section, context);
-        else if (name === "Track record · next 24 h") {
-          section.dataset.compact = "track";
-          const near = groups[i].metrics.find((metric) => metric.field === "trackNear");
-          if (groups[i].profile && near) section.querySelector("h3").textContent = `Next 24 h · n=${near.result.value}`;
-          const keep = new Set(groups[i].profile ? ["trackP5", "trackP50", "trackP95"] : ["trackNear", "trackStatus"]);
-          for (const row of section.querySelectorAll(".ol-cell-stat")) row.hidden = !keep.has(row.querySelector("dd")?.dataset.field);
-          tip.insertBefore(section, context);
-        }
-      } else if (presentation === "strip-sources") {
-        if (name === "Encoding" || name === "Availability") tip.insertBefore(section, context);
-        else if (name.startsWith("Current · ")) {
-          const row = section.querySelector(".ol-cell-stat");
-          row.querySelector("dt").textContent = name.slice("Current · ".length);
-          sources.lastElementChild.append(row);
-        }
-      } else if (presentation === "strip-ahead") {
-        if (groups[i].kind === "ahead-event") {
-          for (const row of section.querySelectorAll(".ol-cell-stat")) if (row.querySelector("dd")?.dataset.field.endsWith(".precision")) row.hidden = true;
-          if (events++ < 3) tip.insertBefore(section, context);
-        } else if (name === "Options · ATM volatility") {
-          for (const row of section.querySelectorAll(".ol-cell-stat")) {
-            const field = row.querySelector("dd")?.dataset.field;
-            row.hidden = !field?.startsWith("options.") || ["options.skew", "options.putCall"].includes(field);
-          }
-          tip.insertBefore(section, context);
-        } else if (name === "1 day · risk-neutral") tip.insertBefore(section, context);
-      } else if (presentation === "strip-event") {
-        if (name === "Provenance") return;
-        if (name === "Schedule") {
-          const keep = new Set(["eventAt", "eventPrecision", "eventImportance", "eventCertainty", "eventStatus"]);
-          for (const row of section.querySelectorAll(".ol-cell-stat")) row.hidden = !keep.has(row.querySelector("dd")?.dataset.field);
-        }
-        tip.insertBefore(section, context);
-      }
+      if (detailed) tip.insertBefore(section, context);
     });
-    if (!detailed && sources.lastElementChild.children.length) tip.insertBefore(sources, context);
-    if (!detailed && presentation === "strip-ahead" && events > 3) {
-      const count = uiEl("div", "ol-cell-state", `${events - 3} more important events · Inspect → Ahead`);
-      count.dataset.field = "aheadRemaining"; count.dataset.canonical = String(events - 3);
-      tip.insertBefore(count, context);
-    }
-    if (!detailed) {
-      const badge = uiEl("span", "ol-strip-status", status);
-      if (status !== "Known" && status !== "Scheduled") tip.querySelector(".ol-tip-head").append(badge);
-      for (const value of tip.querySelectorAll(':scope > .ol-cell-stats dd[data-typed], :scope > .ol-cell-stats dd[data-fact="Unavailable"]')) {
-        value.setAttribute("aria-label", value.title || "Unavailable");
-        value.textContent = "—";
-      }
-      tip.append(uiEl("div", "ol-cell-state ol-strip-inspect-hint", "Inspect → Strip: all measurements"));
-    }
     context.remove();
     tip.dataset.presentation = presentation;
     tip.dataset.stripDetail = detailed ? "full" : "compact";
+    if (!detailed) stripHoverFrame(tip, { sections, presentation, ms, status, profile });
+  }
+  // A strip sweep replaces values in a fixed instrument: neither a missing observation nor an event changes its geometry.
+  function stripHoverFrame(tip, { sections, presentation, ms, status, profile }) {
+    stripRt.tipStamp = stripReadoutStamp();
+    const slot = (name) => { const node = uiEl("div", "ol-strip-slot"); node.dataset.stripSlot = name; return node; },
+      header = slot("header"), summary = slot("summary"), forces = slot("forces"), event = slot("event"), track = slot("track"),
+      head = tip.querySelector(".ol-tip-head"), stats = tip.querySelector(".ol-core-stats");
+    head.title = head.textContent;
+    if (status !== "Known" && status !== "Scheduled") head.append(uiEl("span", "ol-strip-status", status));
+    header.append(head, uiEl("div", "ol-tip-sub", `${when(stripBase(ms))} UTC`));
+    if (profile) forces.append(profile);
+    for (const value of stats.querySelectorAll('dd[data-typed], dd[data-fact="Unavailable"]')) {
+      value.setAttribute("aria-label", `${value.previousElementSibling.textContent}: ${value.textContent}`);
+      value.textContent = "—";
+    }
+    stats.querySelector('[data-field="coverage"] .ol-reading-unit')?.remove();
+    if (presentation === "strip-sources") for (const value of stats.querySelectorAll('dd[data-field="publishedAt"], dd[data-field="fieldCutoff"]')) {
+      const number = Number(value.dataset.canonical);
+      if (Number.isFinite(number)) {
+        value.title = value.textContent;
+        const [date, time] = new Date(number).toISOString().split("T");
+        value.replaceChildren(uiEl("span", "ol-strip-date", date), uiEl("span", "ol-strip-time", time));
+      }
+    }
+    summary.append(stats);
+    const trackPart = sections.find(({ group }) => group.name === "Track record · next 24 h");
+    for (const { section, group } of sections) {
+      if (group.name !== "Track record · next 24 h" && !["Support", "Observation", "Attention · inputs", "Provenance"].includes(group.name)) {
+        if (presentation === "strip-forces") continue;
+        if (presentation === "strip-sources" && group.name.startsWith("Current · ")) {
+          const row = section.querySelector(".ol-cell-stat");
+          row.querySelector("dt").textContent = group.name.slice("Current · ".length);
+          event.append(row);
+        } else event.append(section);
+      }
+    }
+    const trackRows = new Map([...trackPart.section.querySelectorAll(".ol-cell-stat")].map((row) => [row.querySelector("dd").dataset.field, row])),
+      take = (field, label) => {
+        const row = trackRows.get(field);
+        if (row) return row;
+        const empty = uiEl("div", "ol-cell-stat"), value = document.createElement("dd");
+        value.dataset.field = field; value.dataset.canonical = "unsupported"; value.textContent = "—";
+        empty.append(Object.assign(document.createElement("dt"), { textContent: label }), value);
+        return empty;
+      }, outcome = take("trackOutcomeShare", "Outcome"), counts = document.createElement("dl"), quantiles = uiEl("div", "ol-strip-q3"),
+      distribution = uiEl("div", "ol-strip-distribution");
+    outcome.classList.add("ol-strip-outcome");
+    if (!trackPart.group.profile) {
+      const stateRow = trackRows.get("trackStatus"), state = stateRow?.querySelector("dd"), label = state?.textContent ?? "Unavailable",
+        marker = uiEl("span", "", label);
+      marker.dataset.field = "trackStatus"; marker.dataset.fact = label; marker.dataset.canonical = "unsupported";
+      stateRow?.remove();
+      outcome.querySelector("dd").replaceChildren(marker);
+      outcome.dataset.unavailable = "true";
+    }
+    counts.className = "ol-strip-sample-counts";
+    for (const [field, label] of [["trackNear", "Moments"], ["trackDays", "Days"], ["trackAll", "All moments"], ["trackOutcomeBaseShare", "All · outcome"]]) {
+      const row = take(field, label);
+      if (field !== "trackOutcomeBaseShare") row.querySelector("dt").textContent = label;
+      counts.append(row);
+    }
+    if (trackPart.group.profile) distribution.append(trackPart.group.profile);
+    else {
+      distribution.dataset.state = "unavailable";
+      distribution.append(uiEl("span", "", trackRows.get("trackStatus")?.querySelector("dd")?.textContent ?? "Unavailable"));
+    }
+    for (const p of [5, 50, 95]) {
+      const cell = uiEl("div"), list = document.createElement("dl");
+      for (const field of [`trackP${p}`, `trackAllP${p}`]) {
+        const row = take(field, field.startsWith("trackAll") ? "All" : `p${p}`), value = row.querySelector("dd"), number = Number(value.dataset.canonical);
+        if (Number.isFinite(number)) value.textContent = stripPct(number, 1);
+        if (field.startsWith("trackAll")) row.querySelector("dt").textContent = "All";
+        list.append(row);
+      }
+      cell.append(list); quantiles.append(cell);
+    }
+    track.append(uiEl("h3", "", "BTC · next 24 h · similar moments"), outcome, counts, distribution, quantiles);
+    const hint = uiEl("div", "ol-cell-state ol-strip-inspect-hint", "Inspect → Strip: all measurements");
+    tip.replaceChildren(header, summary, forces, event, track, hint, tip.querySelector(".ol-cell-details"));
   }
   function stripTiming(ms, edge, held = stripRt.view) {
     const feeds = [...new Set([...STRIP_FORCES.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention])],
@@ -16903,6 +16939,9 @@
       left = STRIP_FORCES.filter((f) => (force ? f === force : true) && !T.dims.includes(f)).map((f) => STRIP_NAMES[f]);
     metrics.push(stripNumber("Sample days", days, "trackDays"), stripNumber("Negative returns", share(T.near), "trackShare", "share"),
       stripNumber("All · negative returns", share(T.all), "trackBaseShare", "share"));
+    const fell = share(T.near) >= 0.5, outcome = fell ? "Fell" : "Rose";
+    metrics.push(stripNumber(`${outcome} in`, fell ? share(T.near) : 1 - share(T.near), "trackOutcomeShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })),
+      stripNumber(`All · ${outcome.toLowerCase()}`, fell ? share(T.all) : 1 - share(T.all), "trackOutcomeBaseShare", "share", (v) => ({ text: `${Math.round(v * 100)}%`, unit: "" })));
     for (const q of [0.05, 0.5, 0.95]) {
       const name = `p${Math.round(q * 100)}`, field = `P${Math.round(q * 100)}`;
       metrics.push(stripNumber(name, stripQuantile(rs, q), `track${field}`, "%"), stripNumber(`All · ${name}`, stripQuantile(as, q), `trackAll${field}`, "%"));
@@ -16914,7 +16953,7 @@
       .map((name) => stripRt.components[name].label);
     if (retro.length) metrics.push(stripFact("Retrospective inputs", retro.join(" · "), "trackRetrospective"));
     return { name: "Track record · next 24 h", metrics,
-      profile: stripHist(bins, { h: inspect.on && inspect.surface === "strip" && hover?.inspect ? 84 : 64, outline, marks: [{ x: stripQuantile(rs, 0.05), label: "p5" }, { x: stripQuantile(rs, 0.5), label: "p50", mid: true }, { x: stripQuantile(rs, 0.95), label: "p95" }],
+      profile: stripHist(bins, { h: 84, outline, marks: [{ x: stripQuantile(rs, 0.05), label: "p5" }, { x: stripQuantile(rs, 0.5), label: "p50", mid: true }, { x: stripQuantile(rs, 0.95), label: "p95" }],
         ticks: [{ x: -reach, label: `−${reach}%` }, { x: 0, label: "0" }, { x: reach, label: `+${reach}%` }] }) };
   }
   function stripForcesCard(tip, ms, edge) {
