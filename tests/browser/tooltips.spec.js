@@ -20,7 +20,8 @@ const bubble = page => page.locator("#ol-help-tooltip");
 async function frozen(page) {
   const now = new Date("2026-10-17T12:00:00Z");
   await page.clock.install({ time: now });
-  await page.clock.pauseAt(now);
+  // Pause ahead of installation so elapsed setup time cannot put the target in the past.
+  await page.clock.pauseAt(new Date(now.getTime() + 1000));
 }
 test("the read value itself explains its quantity at 500 ms and preserves existing descriptions", async ({ page, fakeFor, probe }) => {
   await open(page, fakeFor, probe);

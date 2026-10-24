@@ -33,6 +33,13 @@ for (const [term, id, content] of [
   await page.locator('#ol-reference-search').fill('');
   await expect(page.locator('#ol-reference-topic option:not([hidden])')).toHaveCount(60);
 });
+async function expectSettingVisible(page, selector) {
+  // Native scroll bounds round to CSS pixels; allow one pixel at a clipped edge.
+  await expect.poll(() => page.locator(selector).evaluate(node => {
+    const target = node.getBoundingClientRect(), body = document.querySelector('#ol-reference-body').getBoundingClientRect();
+    return target.top >= body.top - 1 && target.bottom <= body.bottom + 1;
+  })).toBe(true);
+}
 for (const phone of [false, true]) test(`Show Since reveals the generated date field without applying it (${phone ? 'phone' : 'desktop'})`, async ({ page, fakeFor, probe }) => {
   if (phone) await page.setViewportSize({ width: 390, height: 844 });
   await open(page, fakeFor, probe);
@@ -60,13 +67,13 @@ test('Show bounds opens Query, and axes/profile settings are reachable in their 
   await page.locator('#ol-reference-topic').selectOption('columns');
   await page.getByRole('button', { name: 'Show axes settings', exact: true }).click();
   await expect(page.locator('#ol-reference-status')).toContainText('Highlighted: axes settings');
-  await expect(page.locator('#ol-axis-chip')).toBeInViewport({ ratio: 0.99 });
+  await expectSettingVisible(page, '#ol-axis-chip');
   await page.locator('#ol-axis-chip').click();
   await expect(page.locator('#ol-axis-pop')).toBeVisible();
   await page.locator('#ol-reference-topic').selectOption('profiles');
   await page.getByRole('button', { name: 'Show profile settings', exact: true }).click();
   await expect(page.locator('#ol-reference-status')).toContainText('Highlighted: profile settings');
-  await expect(page.locator('#ol-profile-chip')).toBeInViewport({ ratio: 0.99 });
+  await expectSettingVisible(page, '#ol-profile-chip');
   expect(await page.evaluate(() => location.hash)).toBe(hash);
   await page.screenshot({ path: 'reports/reference-profile-settings.png' });
 });
