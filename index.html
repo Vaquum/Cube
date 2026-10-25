@@ -42418,7 +42418,7 @@
     return evidence.job?.output ?? { a: evidenceAnchor(), n: renderN(), m: renderM(), barrier: S.barrier || 1, loading: true, error: "Preparing current-source evidence…" };
   }
   async function calcEvidence(job) {
-    const n = renderN(), m = renderM(), ts = stepT(), a = evidenceAnchor(), end = (a + 1) * ts, barrier = S.barrier || 1;
+    const n = renderN(), m = renderM(), ts = stepT(), a = evidenceAnchor(), end = (a + 1) * ts, barrier = S.barrier || 1, horizon = S.horizon;
     const shared = { a, n, m, barrier };
     const keys = [...new Set([historyKey(n, m), historyKey(Math.min(n, 9), 0)])];
     const failed = keys.find((key) => cube.failed.has(key));
@@ -42453,7 +42453,7 @@
       }
       return !control.cancelled();
     };
-    let out, history, sourceDigest, stageEnd = null;
+    let out, history, sourceDigest, ledgerCounts, stageEnd = null;
     const stage = (name, identity = {}) => {
       stageEnd?.();
       stageEnd = diagnosticCurrent() ? diagnosticPhase("continuations." + name, { a,n,m,...identity }) : null;
@@ -42498,8 +42498,14 @@
           deliveredStateColumns:history.cols.length,heldState:boundary(held),heldSeasonal:boundary(seasonalHeld),recordedSeasonalColumns:recordedSeasonal?.cols.length??null,
           covered:history.covered,sources:history.sources,provenance});
       }
-      out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
+      out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
         seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, control);
+      if (out) {
+        stage("ledger-counts");
+        ledgerCounts = await prepareLedgerCounts(out, horizon, cooperate);
+        if (!ledgerCounts) return null;
+        stageEnd?.(); stageEnd = null;
+      }
     } finally {
       stageEnd?.(control.cancelled() ? "cancelled" : "failed");
       if (diagnosticCurrent()) diagnostics.mark("continuations-work", { a,n,m, yields:diagnosticYields, synchronousSamples:diagnosticCosts,
@@ -42507,7 +42513,24 @@
     }
     if (out && diagnosticCurrent()) diagnostics.mark("continuations-output", { a,n,m, ledger:out.ledger.length,
       cases:out.cases.map(c => c.length), matched:out.matched.map(c => c.length), sourceDigest, model:out.version, bootstrap:out.uncertainty?.version ?? null });
-    return out ? { ...out, sources: history.sources, covered: history.covered } : null;
+    return out ? { ...out, sources: history.sources, covered: history.covered, ledgerCounts } : null;
+  }
+  // Both ledger views share one bounded count pass owned by the completed
+  // study. Paging/opening a view only renders its 50 rows, never rescans history.
+  async function prepareLedgerCounts(e, horizon, cooperate) {
+    const counts = { starts:e.ledger.length, firstFailures:Object.fromEntries(window.explorerEvidence.REASONS.map(reason=>[reason,0])), stateEligible:0, matching:0, nonmatching:0,
+      matchingCompleted:e.matched[horizon].length, baselineCompleted:e.cases[horizon].length, missingHorizon:0, unfinished:0 };
+    for (let i=0; i<e.ledger.length; i++) {
+      if (i%512===0 && !await cooperate("ledger-counts")) return null;
+      const row=e.ledger[i];
+      if (Object.hasOwn(counts.firstFailures,row.reason)) counts.firstFailures[row.reason]++;
+      if (!row.state) continue;
+      counts.stateEligible++; if(row.matched) counts.matching++; else counts.nonmatching++;
+      const reason=row.outcomes[horizon]?.reason;
+      if(reason==="Missing horizon coverage") counts.missingHorizon++;
+      if(reason==="Unfinished horizon") counts.unfinished++;
+    }
+    return counts;
   }
   function evidenceTotals(e) {
     const barriers = S.evidenceKind === "barrier";
@@ -42557,10 +42580,7 @@
         const old = details.querySelector(".ol-ledger-content"); if (old) old.remove();
         const host = document.createElement("div"); host.className = "ol-ledger-content"; details.append(host);
         if (!e.ledger) { host.textContent = e.error ?? "Preparing current-source ledger…"; return; }
-        const failures = Object.fromEntries(window.explorerEvidence.REASONS.map((reason) => [reason, e.ledger.filter((r) => r.reason === reason).length]));
-        const eligible = e.ledger.filter((r) => r.state), completed = e.cases[S.horizon], matching = eligible.filter((r) => r.matched);
-        const counts = { starts: e.ledger.length, firstFailures: failures, stateEligible: eligible.length, matching: matching.length, nonmatching: eligible.length - matching.length,
-          matchingCompleted: e.matched[S.horizon].length, baselineCompleted: completed.length, missingHorizon: eligible.filter((r) => r.outcomes[S.horizon]?.reason === "Missing horizon coverage").length, unfinished: eligible.filter((r) => r.outcomes[S.horizon]?.reason === "Unfinished horizon").length };
+        const counts = e.ledgerCounts;
         const summary = document.createElement("pre"); summary.textContent = JSON.stringify(counts, null, 2); host.append(summary);
         host.dataset.counts = JSON.stringify(counts);
         if (!details.open) return;

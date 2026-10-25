@@ -123,11 +123,33 @@ observed long task. That recorded remaining cost justifies the preparation/diges
 correction above; its candidate measurements are still pending. Original failed
 labels, raw vectors and the correction remain retrievable.
 
+The exact committed `d700690` native full-app recording is retained in
+`native-preparation-candidate/`, using the frozen synthetic 100k trade profile.
+All 2,000 draws complete; the full compute phase is 1,248.1 ms and digest 225.4 ms.
+Controls open while busy during history wait. That observation is separate from
+CPU-phase response, and this single native diagnostic is not a paired gain claim.
+No exposed long task starts during calculation, but a 301 ms task begins just
+after publication, with a 297 ms draw. A separate declared attribution copy adds
+two optional recorder calls around the existing ledger filters: its two ledger
+views spend 134.3 and 131.2 ms counting the same rows, within a 270.6 ms draw.
+Served hashes, exact adaptations, full raw recordings and the later screenshot
+are retained. The attribution copy is not exact committed runtime acceptance.
+
+The follow-up replaces those repeated view scans with one cooperative count pass
+before publication. Both views share the resulting bounded metadata; paging only
+renders its 50 rows. Every original first-failure/eligible/matching/outcome count
+is preserved. The complete-DOM primary endpoint is unchanged; the diagnostic
+compute phase now includes this formerly synchronous draw work, so that secondary
+phase must not be treated as a like-for-like compute speed comparison.
+
 Cancellation during summaries, native/fallback byte equivalence (through 200k
 tuples) and all three whole-output goldens pass locally. New browser regressions
 exercise cached A→B→A with late success/failure, horizon changes during summary
 work, both ledgers, Cases as another consumer, bounded completion after departure,
-synthetic hidden/show ownership and Stop/restart during digest. Hidden documents
+synthetic hidden/show ownership, an obsolete complete study released just before
+publication and Stop/restart during digest. All eight 100k ledger count partitions
+agree with the original independent filters; cancellation stops the new pass at
+its next bounded checkpoint. Hidden documents
 retain the existing bounded-completion policy and can throttle short timers;
 synthetic visibility checks do not certify real hidden-page latency. Final
 candidate measurements and native responsiveness evidence remain pending.

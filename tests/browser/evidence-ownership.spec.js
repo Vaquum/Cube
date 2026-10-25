@@ -27,7 +27,10 @@ async function instrument(page,firstGate=false,fallback=false){
           }
         }});
         const record={horizon:input.horizon,kind:input.kind,complete:false};state.compute.push(record);
-        const out=await value.compute(input,child);record.complete=Boolean(out);record.cancelled=control.cancelled();return out;
+        const out=await value.compute(input,child);
+        const publication=state.publicationGate;
+        if(publication?.armed&&input.horizon===4){publication.armed=false;publication.entered=true;await new Promise(resolve=>publication.release=resolve);publication.released=true;}
+        record.complete=Boolean(out);record.cancelled=control.cancelled();return out;
       }};
     }});
   },{firstGate,fallback});
@@ -59,6 +62,17 @@ test('a horizon changed inside summary work owns the intervals and both ledgers'
   expect(result.ledgers[0]).toBe(result.ledgers[1]);expect(JSON.parse(result.ledgers[0]).baselineCompleted).toBeGreaterThan(0);
   const runs=await page.evaluate(()=>window.__evidenceOwnership.compute);
   expect(runs.find(x=>x.horizon===4)).toMatchObject({complete:false,cancelled:true});expect(runs.at(-1)).toMatchObject({horizon:8,complete:true,cancelled:false});
+});
+test('cached A owns publication when an already computed obsolete study is released',async({page,fakeFor,probe})=>{
+  test.setTimeout(90000);await instrument(page);const fake=await source(fakeFor);await page.goto(url(fake));const before=await complete(page);await probe.waitForReady();
+  await page.evaluate(()=>window.__evidenceOwnership.publicationGate={armed:true});await page.locator('#ol-horizon').selectOption('4');
+  await expect.poll(()=>page.evaluate(()=>window.__evidenceOwnership.publicationGate.entered),{timeout:60000}).toBe(true);
+  await page.locator('#ol-horizon').selectOption('1');expect(await complete(page)).toEqual(before);
+  await page.evaluate(()=>window.__evidenceOwnership.publicationGate.release());
+  await expect.poll(()=>page.evaluate(()=>window.__evidenceOwnership.publicationGate.released)).toBe(true);await probe.waitForReady();
+  expect(await complete(page)).toEqual(before);
+  expect(await page.evaluate(()=>window.__evidenceOwnership.compute.find(x=>x.horizon===4))).toMatchObject({complete:true,cancelled:true});
+  expect(fake.log().filter(x=>x.path==='/cube/columns')).toHaveLength(1);
 });
 for(const casesOpen of [false,true])test(`tab departure retains bounded completion ${casesOpen?'with Cases as consumer':'for unchanged reopening'}`,async({page,fakeFor,probe})=>{
   test.setTimeout(90000);await instrument(page,true);const fake=await source(fakeFor);await page.goto(url(fake));
