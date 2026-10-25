@@ -176,7 +176,7 @@ No exposed long task starts during calculation, but a 301 ms task begins just
 after publication, with a 297 ms draw. A separate declared attribution copy adds
 two optional recorder calls around the existing ledger filters: its two ledger
 views spend 134.3 and 131.2 ms counting the same rows, within a 270.6 ms draw.
-Served hashes, exact adaptations, full raw recordings and the later screenshot
+Committed/stamped template hashes, exact adaptations, full raw recordings and the later screenshot
 are retained. The attribution copy is not exact committed runtime acceptance.
 
 The follow-up replaces those repeated view scans with one cooperative count pass
@@ -197,6 +197,17 @@ its next bounded checkpoint. The subsequent current-head functional run is linke
 by the final manifest; its result remains an independent merge gate. Hidden documents
 retain the existing bounded-completion policy and can throttle short timers;
 synthetic visibility checks do not certify real hidden-page latency.
+
+Independent review found that older `cube-analysis@1` live-source exports have
+captured histories without `canonicalThrough`. Frozen investigations consume
+their captured served inputs directly, retaining their original support and
+`sourcePack`; they do not need live freshness metadata or a replacement read.
+The live reader keeps both support and canonical checks. A regression uses the
+actual pre-change `d944f50` exporter and its restored complete study as the oracle,
+then compares current restoration, both ledgers and full intervals, with no
+new history reads or manufactured metadata. Its remote execution is required
+before resolving review. Template hashes identify committed/metadata-stamped
+source; the fake injects its recorded source pack when serving the response.
 
 ## Reproduction and acceptance
 

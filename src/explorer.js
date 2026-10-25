@@ -20248,6 +20248,9 @@
   }
   function heldHistory(n, m) {
     const held = histories.get(historyKey(n, m)), boundary = historyBoundary(n);
+    // Captured investigations replay their frozen served inputs, including
+    // legacy exports without live freshness metadata. Never relabel them current.
+    if (activeAnalysis?.mode === "captured") return held ?? null;
     return held && held.b1 >= boundary.end && held.canonicalThrough === boundary.canonical ? held : null;
   }
   function historyWant() {
