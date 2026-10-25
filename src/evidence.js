@@ -42,10 +42,10 @@
     }
     return !control.cancelled?.();
   }
-  async function sorted(values, control, stage, budget) {
+  async function sorted(values, control, stage, budget, compare = null) {
     const size = 2048;
     for (let at = 0; at < values.length; at += size) {
-      const chunk = values.slice(at, at + size).sort((a, b) => a - b);
+      const chunk = values.slice(at, at + size).sort(compare ?? ((a, b) => a - b));
       for (let i = 0; i < chunk.length; i++) values[at + i] = chunk[i];
       if (!await checkpoint(control, stage, budget)) return null;
     }
@@ -55,12 +55,51 @@
       for (let at = 0; at < values.length; at += width * 2) {
         const middle = Math.min(at + width, values.length), end = Math.min(at + width * 2, values.length);
         let left = at, right = middle;
-        for (let i = at; i < end; i++) to[i] = right >= end || left < middle && from[left] <= from[right] ? from[left++] : from[right++];
+        for (let i = at; i < end; i++) to[i] = right >= end || left < middle && (compare ? !(compare(from[left], from[right]) > 0) : from[left] <= from[right]) ? from[left++] : from[right++];
         if (!await checkpoint(control, stage, budget)) return null;
       }
       [from, to] = [to, from];
     }
     return from;
+  }
+  // Exact JSON/UTF-8 bytes of [packKey, revision, sorted dependency tuples].
+  // Bounded serialization avoids one giant string/encoding task. Native SHA is
+  // optional; the same compression/padding remains available without a secure
+  // context. Neither path changes the canonical seed or publication identity.
+  async function sourceDigest({ packKey, revision, tuples }, hash, control = {}) {
+    const budget = { at: taskClock() };
+    let endPhase = control.phase?.("digest.sort");
+    try {
+      if (!await checkpoint(control, "digest", budget, true)) return null;
+      const ordered = await sorted(tuples.slice(), control, "digest", budget,
+        (x, y) => (String(x[0]) < String(y[0]) ? -1 : String(x[0]) > String(y[0]) ? 1 : 0) || x[1] - y[1]);
+      if (!ordered) return null;
+      endPhase?.(); endPhase = control.phase?.("digest.encode");
+      const parts = [hash.utf8(JSON.stringify([packKey, revision]).slice(0, -1) + ",[")];
+      for (let at = 0; at < ordered.length; at += 256) {
+        parts.push(hash.utf8((at ? "," : "") + JSON.stringify(ordered.slice(at, at + 256)).slice(1, -1)));
+        if (!await checkpoint(control, "digest", budget)) return null;
+      }
+      parts.push(hash.utf8("]]"));
+      const bytes = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));
+      let at = 0;
+      for (const part of parts) { bytes.set(part, at); at += part.length; if (!await checkpoint(control, "digest", budget)) return null; }
+      endPhase?.(); endPhase = null;
+      let digest;
+      if (control.digestBytes) {
+        endPhase = control.phase?.("digest.native-sha256");
+        try { digest = await control.digestBytes(bytes); if (digest?.length !== 32) digest = null; }
+        catch { digest = null; }
+        endPhase?.(digest ? "completed" : "failed"); endPhase = null;
+        if (control.cancelled?.()) return null;
+      }
+      if (!digest) {
+        endPhase = control.phase?.("digest.cooperative-sha256");
+        digest = await hash.sha256Async(bytes, () => checkpoint(control, "digest", budget));
+        endPhase?.(digest ? "completed" : "interrupted"); endPhase = null;
+      }
+      return digest && !control.cancelled?.() ? hash.hex(digest) : null;
+    } finally { endPhase?.("interrupted"); }
   }
   // Direction and barrier summaries share only their delta quantiles and
   // overlap population. Count both fields in one pass and sort once. Keep
@@ -232,5 +271,5 @@
     return alive() ? out : null;
     } finally { phaseEnd?.("interrupted"); }
   }
-  return Object.freeze({ MODEL, BOOTSTRAP, REASONS: Object.freeze(REASONS), quantile, fnv, random, summary, canonicalKey, intervalResult, bootstrap, compute });
+  return Object.freeze({ MODEL, BOOTSTRAP, REASONS: Object.freeze(REASONS), quantile, fnv, random, summary, canonicalKey, intervalResult, sourceDigest, bootstrap, compute });
 });

@@ -1,0 +1,189 @@
+{
+  "schema": "continuations-remaining-phase-attribution@1",
+  "producer": "909b28852d5116c085644d1b7ad68c5f98dfbcf9",
+  "arms": {
+    "A": {
+      "phaseMediansMs": {
+        "continuations.prepare-columns": 66,
+        "continuations.prepare-seasonal-index": 0.09999999997671694,
+        "continuations.digest": 463.69999999995343,
+        "continuations.summaries": 657.3999999999069
+      },
+      "observedLongTasks": [
+        {
+          "type": "browser-timing",
+          "at": 1922.1999999999534,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1382.5,
+          "duration": 534
+        },
+        {
+          "type": "browser-timing",
+          "at": 3486.5,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 3408.4000000000233,
+          "duration": 77
+        },
+        {
+          "type": "browser-timing",
+          "at": 6115.199999999953,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 5406.400000000023,
+          "duration": 708
+        },
+        {
+          "type": "browser-timing",
+          "at": 1869.5,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1320.7999999999884,
+          "duration": 544
+        },
+        {
+          "type": "browser-timing",
+          "at": 3511.5999999999767,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 3328,
+          "duration": 183
+        },
+        {
+          "type": "browser-timing",
+          "at": 6143.5,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 5378.299999999988,
+          "duration": 764
+        },
+        {
+          "type": "browser-timing",
+          "at": 1880.2000000000116,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1339,
+          "duration": 530
+        },
+        {
+          "type": "browser-timing",
+          "at": 3445.2000000000116,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 3366.5,
+          "duration": 78
+        },
+        {
+          "type": "browser-timing",
+          "at": 6116.700000000012,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 5366.299999999988,
+          "duration": 750
+        },
+        {
+          "type": "browser-timing",
+          "at": 1898.8000000000466,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1361.0999999999767,
+          "duration": 533
+        },
+        {
+          "type": "browser-timing",
+          "at": 3453.0999999999767,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 3385.9000000000233,
+          "duration": 66
+        },
+        {
+          "type": "browser-timing",
+          "at": 6012.20000000007,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 5357.599999999977,
+          "duration": 654
+        },
+        {
+          "type": "browser-timing",
+          "at": 1887.1999999999534,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1345.8999999999069,
+          "duration": 537
+        },
+        {
+          "type": "browser-timing",
+          "at": 3420.399999999907,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 3342.1999999999534,
+          "duration": 77
+        },
+        {
+          "type": "browser-timing",
+          "at": 6044.899999999907,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 5358.79999999993,
+          "duration": 685
+        }
+      ],
+      "maxObservedLongTaskMs": 764
+    },
+    "B": {
+      "phaseMediansMs": {
+        "continuations.prepare-columns": 65.29999999998836,
+        "continuations.prepare-seasonal-index": 0,
+        "continuations.digest": 464.9000000000233,
+        "continuations.summaries": 424.69999999995343
+      },
+      "observedLongTasks": [
+        {
+          "type": "browser-timing",
+          "at": 1890.7000000000116,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1362.2000000000116,
+          "duration": 524
+        },
+        {
+          "type": "browser-timing",
+          "at": 1921.5999999999767,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1359.0999999999767,
+          "duration": 557
+        },
+        {
+          "type": "browser-timing",
+          "at": 1914.2999999999302,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1371.4000000000233,
+          "duration": 537
+        },
+        {
+          "type": "browser-timing",
+          "at": 1881.7000000000698,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1343.9000000000233,
+          "duration": 534
+        },
+        {
+          "type": "browser-timing",
+          "at": 1835.399999999965,
+          "entryType": "longtask",
+          "name": "self",
+          "startTime": 1302.6999999999534,
+          "duration": 529
+        }
+      ],
+      "maxObservedLongTaskMs": 557
+    }
+  },
+  "limitation": "Async walls are not additive CPU; task entries start within the first compute window, not an exhaustive post-publication task census."
+}

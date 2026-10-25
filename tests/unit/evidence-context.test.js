@@ -110,3 +110,22 @@ test("cooperative paired summaries retain the synchronous arithmetic and indepen
     assert.notEqual(out.all[h].q, out.barrierAll[h].q);
   }
 });
+
+test("publication identity clips cutoffs at the anchor but retains support and replay identity", async () => {
+  const args=input(cols(200)),out=await H.compute(args),p={...args.provenance,sourceCutoff:300};
+  const key=(canonicalCutoff,extra={})=>H.canonicalKey({...args,provenance:{...p,canonicalCutoff,...extra}},out,'next-poc',1);
+  assert.deepEqual(key(150)[9],[200,150,null,200]);assert.notDeepEqual(key(150),key(151));
+  assert.deepEqual(key(200),key(300));assert.deepEqual(key(300)[9],[200,200,null,200]);
+  assert.notDeepEqual(key(200),key(200,{replayEdge:199}));
+  const shifted=H.canonicalKey({...args,b0:1,provenance:{...p,canonicalCutoff:200}},out,'next-poc',1);
+  assert.deepEqual(shifted[6],[1,200,0,1]);assert.notDeepEqual(shifted,key(200));assert.equal(shifted[10],key(200)[10]);
+});
+
+test("equal record content does not erase missing versus outside seasonal support",()=>{
+  const series=cols(100).map(c=>({...c,c:c.c+1}));
+  const observe=b0=>E.measure.seasonalActivity({index:E.measure.seasonalIndex({cols:series,n:0,b0,b1:101}),numerator:10,start:10752,end:10753,cutoff:10753});
+  assert.equal(observe(0).matches[0].result.tag,'unsupported');
+  assert.equal(observe(0).matches[0].result.reason,'Weekly match has missing coverage');
+  assert.equal(observe(1).matches[0].result.tag,'outside-support');
+  assert.equal(observe(1).matches[0].result.reason,'Weekly match outside served history');
+});

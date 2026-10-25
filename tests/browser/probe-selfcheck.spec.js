@@ -15,6 +15,21 @@
 // glyph assertion with the generated key's data-count), and nothing about the candidate page, which no spec here loads.
 const { test, expect, MissingSurfaceElement, observe, probeTools } = require("./fixtures.js");
 
+test("native digest promises remain owed work until they settle", async ({ baselinePage }) => {
+  const {page,probe}=await baselinePage({mode:"recorded",contextOptions:{reducedMotion:"reduce"}});
+  await probe.waitForReady();
+  const during=await page.evaluate(()=>{
+    window.__nativeDigestDone=false;
+    crypto.subtle.digest("SHA-256",new Uint8Array(4*1024*1024)).then(()=>{window.__nativeDigestDone=true;});
+    return window.__probe.readiness();
+  });
+  expect(during.ready).toBe(false);
+  expect(during.async).toContain("crypto.digest SHA-256");
+  await expect.poll(()=>page.evaluate(()=>window.__nativeDigestDone)).toBe(true);
+  await probe.waitForReady();
+  expect((await probe.readiness()).async).not.toContain("crypto.digest SHA-256");
+});
+
 // ---- the synthetic page of the probe (no D.18 markup beyond two chips and the main canvas) ----
 // scene A paints a known set on #ol-canvas; the numbers it must produce are in EXPECT_A.
 const SYNTHETIC = `<!doctype html><meta charset="utf-8"><title>probe synthetic</title>

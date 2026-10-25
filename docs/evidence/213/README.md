@@ -1,6 +1,7 @@
 # Continuations: pre-change attribution
 
-The first scheduling/freshness candidate is under test. #213 remains open until the complete
+The scheduling/freshness candidate has a verified paired result; the preparation,
+digest and retention correction is under test. #213 remains open until the complete
 before/after collection, correctness, source freshness, responsiveness,
 cancellation and independent review gates are satisfied. #96 retains absolute
 and cumulative acceptance.
@@ -67,7 +68,23 @@ or whole pack must obtain current inputs before publishing. A token-only rebuild
 with unchanged dependencies still permits the original held/in-flight read and
 keeps its actual `sourcePack`; no current provenance is invented. This preserves
 the existing token-only read-continuity guard while correcting the measured
-growth failure. There is no new cache or queue change.
+growth failure. There is no queue change or new cache.
+
+The complete-study map also has a 512 MiB structural estimate alongside its
+existing six-entry limit. The estimate counts ledger constituents/outcomes,
+cases, matched references and metadata; it evicts older entries at insertion.
+The 100k wire-history count is enforced before record allocation. These local
+retention limits preserve every case/ledger entry in an owned result; they are
+not a guarantee about total process heap or active temporary buffers.
+
+Preparation loops now use the same short-timer work slices. Dependency tuples
+retain their exact ordering and JSON/UTF-8 bytes through bounded serialization.
+Native asynchronous SHA is optional, with a cooperative SHA fallback using the
+original compression/padding, including in insecure/unsupported contexts. The
+original synchronous hash/arithmetic APIs retain their results and synchrony.
+Cancellation is checked after native completion before any publication. The
+test-only probe tracks native digest promises as owed work; no pending promise
+can masquerade as a completed study.
 
 `native-freshness-baseline/` retains a current-main reproduction: one append-only
 delta adds 105 eight-hour columns. At the same new source/anchor, retained history
@@ -81,13 +98,39 @@ The frozen five-pair A/A collection completed before these product edits:
 explorer first/warm observations. `baseline/raw.zip` is the untouched original CI
 artifact; `baseline/summary.json`, `assessment.json` and the manifest retain its
 producer/build/instrument hashes, host and independently computed floors. The
-first-use median was 5,661.7 ms and its initial noise floor 155.1 ms. This is a
-synthetic shared-CI baseline, with no candidate gain or absolute-budget claim.
+compute-phase median was 5,661.7 ms and its initial noise floor 155.1 ms. The
+earlier assessment mislabeled that secondary field as first-result completion.
+The declared busy-clear/complete-bootstrap endpoint was already retained in
+`endpoints[].automationWallMs` in every raw trial: its initial median is
+5,785.4 ms and its A/A floor 151.7 ms. `complete-endpoint-correction.json` retains
+the correction and all original endpoints; no source, instrument or observation
+is changed or discarded. Controller transport remains included, with native
+compute and two-quiet-frame presentation proxies reported separately.
 
-Cancellation during summaries and all three whole-output goldens pass locally.
-Candidate browser measurements, source/lifecycle regressions and responsiveness
-through preparation/digest remain pending. Do not close #213 from the scheduling
-change alone or count unchanged warm hits as first-use improvement.
+`first-candidate/` retains all 80 original payloads from the first candidate
+`0b82ff3` (runtime producer `909b288`), plus the independently checked assessment.
+All 120 initial/current payload hashes, 90 whole-kernel fingerprints and five
+paired whole-app input/provenance/interval/population comparisons agree. On that
+worker, the primary complete-DOM medians are 6,339.5 → 2,555.7 ms; paired median
+gain 3,690.5 ms exceeds the larger 151.7 ms floor in all five pairs. Yield counts
+fall from 907 to 108–113. Warm data completion and intended tab presentation stay
+separate and show no material gain. The complete 1,461-case browser suite passed
+once with no skips/retries on that head. These shared-CI results do not waive
+absolute/cumulative #96 acceptance.
+
+The first candidate still exposed a 464.9 ms median digest phase and a 557 ms
+observed long task. That recorded remaining cost justifies the preparation/digest
+correction above; its candidate measurements are still pending. Original failed
+labels, raw vectors and the correction remain retrievable.
+
+Cancellation during summaries, native/fallback byte equivalence (through 200k
+tuples) and all three whole-output goldens pass locally. New browser regressions
+exercise cached A→B→A with late success/failure, horizon changes during summary
+work, both ledgers, Cases as another consumer, bounded completion after departure,
+synthetic hidden/show ownership and Stop/restart during digest. Hidden documents
+retain the existing bounded-completion policy and can throttle short timers;
+synthetic visibility checks do not certify real hidden-page latency. Final
+candidate measurements and native responsiveness evidence remain pending.
 
 ## Reproduction and remaining collection
 
@@ -96,6 +139,7 @@ Pure Node characterization (no browser launch):
 ```
 node tools/characterize_evidence.cjs d8449f3acab8af9fd2d0dd46bd2a95f148a189c6 reports/characterization.json
 node --test tests/unit/evidence-characterization.test.js
+node tools/benchmark/continuations-assessment.cjs reports/initial reports/candidate reports/assessment.json
 ```
 
 Serve the exact-module diagnostic, then visit its printed address in the existing

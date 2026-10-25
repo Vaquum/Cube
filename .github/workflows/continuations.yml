@@ -2,6 +2,7 @@ name: Continuations evidence
 on:
   pull_request:
     paths:
+      - 'src/encoding.js'
       - 'src/evidence.js'
       - 'src/explorer.js'
       - 'index.html'
@@ -39,6 +40,11 @@ jobs:
             node tools/benchmark_continuations.mjs --candidate
           else
             node tools/benchmark_continuations.mjs
+          fi
+      - run: |
+          if test -f docs/evidence/213/baseline/raw.zip; then
+            python3 -m zipfile -e docs/evidence/213/baseline/raw.zip reports/continuations-initial
+            node tools/benchmark/continuations-assessment.cjs reports/continuations-initial reports/continuations reports/continuations/assessment.json
           fi
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

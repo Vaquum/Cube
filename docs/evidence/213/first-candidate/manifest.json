@@ -1,0 +1,31 @@
+{
+  "schema": "continuations-candidate-publication@1",
+  "head": "0b82ff313689ddb53bb47bdc0d78742ad36640cc",
+  "producer": "909b28852d5116c085644d1b7ad68c5f98dfbcf9",
+  "run": 40150824527,
+  "job": 121041851808,
+  "artifact": 12582338809,
+  "candidatePayloadsVerified": 80,
+  "files": [
+    {
+      "path": "summary.json",
+      "bytes": 42709,
+      "sha256": "a61309be4a586f250af21514eba12b3986aff4d8d8a218be8fc9b1fc0989934f"
+    },
+    {
+      "path": "assessment.json",
+      "bytes": 14109,
+      "sha256": "cab2b6051b3ef4cb49fc7c125abe077c014f6fcac1cb0f317bbca4f9fd18876f"
+    },
+    {
+      "path": "remaining-phase-attribution.json",
+      "bytes": 5329,
+      "sha256": "da20cd66f5633a2dda1842fb44a8bf80455a0433e2e2dbf44fb541e35c57cbc6"
+    },
+    {
+      "path": "raw.zip",
+      "bytes": 11170815,
+      "sha256": "535ffccad8c2da2051d32e7ae508bd8c16e76cbdf0ca18bb0e6ab163014553a3"
+    }
+  ]
+}

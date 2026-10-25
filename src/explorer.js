@@ -19170,7 +19170,7 @@
   // loaded tiers that can represent the level, the finest owning each column,
   // and live the cube's history of the level. Tiles fetched for views are not
   // among them, so where the view has been never changes the result.
-  function evidenceColumns(n, m, end) {
+  async function evidenceColumns(n, m, end, cooperate) {
     const ts = 2 ** n,
       owners = new Map(),
       byColumn = new Map(),
@@ -19192,24 +19192,34 @@
         c1 = Math.floor(stop / ts);
       if (c1 <= c0) continue;
       const owned = new Set();
-      for (let c = c0; c < c1; c++)
+      for (let c = c0; c < c1; c++) {
+        if ((c - c0) % 512 === 0 && !await cooperate("prepare-columns")) return null;
         if (!owners.has(c)) {
           owners.set(c, src.id);
           owned.add(c);
         }
+      }
       if (!owned.size) continue;
       const grouped =
         src === history
           ? history.cols
           : aggregate(src, n, m, [c0 * ts, c1 * ts, 0, Infinity]).cols;
-      let accepted = 0;
-      for (const col of grouped)
+      let accepted = 0, checked = 0;
+      for (const col of grouped) {
+        if (checked++ % 512 === 0 && !await cooperate("prepare-columns")) return null;
         if (owned.has(col.c)) {
           byColumn.set(col.c, { ...col, source: src.id, precision: src === history ? "Float32" : "Float64", covered: col.v > 0 || col.covered === true });
           accepted++;
         }
+      }
       // A delivered cell block covers its empty columns; sparse MSCC does not.
-      if (src !== history) for (const c of owned) if (!byColumn.has(c)) byColumn.set(c, { c, v: 0, bv: 0, poc: null, covered: true, source: src.id, precision: "Float64" });
+      if (src !== history) {
+        checked = 0;
+        for (const c of owned) {
+          if (checked++ % 512 === 0 && !await cooperate("prepare-columns")) return null;
+          if (!byColumn.has(c)) byColumn.set(c, { c, v: 0, bv: 0, poc: null, covered: true, source: src.id, precision: "Float64" });
+        }
+      }
       if (accepted)
         used.set(src.id, { id: src.id, n: src.n, m: src.m, columns: accepted });
     }
@@ -19245,6 +19255,20 @@
       TIERS.map((id) => `${id}:${evidenceSourceIdentity(sources[id])}`).join(","), ...[historyKey(renderN(),renderM()),historyKey(Math.min(renderN(),9),0)].map((id)=>evidenceSourceIdentity(histories.get(id))), [...cube.failed.entries()].map(([k,v]) => k + v).join("|")].join("|");
   }
   let gestureAt = 0;
+  const EVIDENCE_CACHE_BYTES = 512 * 1024 * 1024;
+  // Conservative structural estimate, not an engine heap measurement. Include
+  // six weekly constituents/eight outcomes per ledger row, case objects and
+  // matched-array references. Active jobs/UI references are separate owners.
+  function evidenceBytes(study) {
+    return 4096 + (study.ledger?.length ?? 0) * 3072 + (study.cases ?? []).reduce((n, x) => n + x.length * 256, 0) +
+      (study.matched ?? []).reduce((n, x) => n + x.length * 16, 0) + JSON.stringify(study.provenance ?? null).length * 2 + (study.error?.length ?? 0) * 2;
+  }
+  function retainEvidence(key, study) {
+    if (study.loading || evidenceBytes(study) > EVIDENCE_CACHE_BYTES) return;
+    evidenceCache.delete(key); evidenceCache.set(key, study);
+    while (evidenceCache.size > 6 || [...evidenceCache.values()].reduce((n, x) => n + evidenceBytes(x), 0) > EVIDENCE_CACHE_BYTES)
+      evidenceCache.delete(evidenceCache.keys().next().value);
+  }
   const evidence = { ready: null, last: null, timer: 0, job: null },
     gesturing = () => drag !== null || nav.pinch !== null || performance.now() - gestureAt < 200;
   // No old study survives a changed requested edge, pack, fit, horizon or source.
@@ -19279,8 +19303,7 @@
           const out = await calcEvidence(job);
           diagnosticOutcome = out?.loading ? "waiting-data" : out?.error ? "unavailable" : out ? "completed" : "cancelled";
           if (!out || job.cancelled || evidenceKey() !== key) return;
-          if (evidenceCache.size >= 6) evidenceCache.delete(evidenceCache.keys().next().value);
-          if (!out.loading) evidenceCache.set(key, out);
+          retainEvidence(key, out);
           evidence.ready = evidence.last = out; job.output = out; requestDraw();
         } catch (error) {
           if (job.cancelled || evidenceKey() !== key) return;
@@ -19299,30 +19322,6 @@
     const failed = keys.find((key) => cube.failed.has(key));
     if (failed) return { ...shared, error: `History unavailable: ${cube.failed.get(failed)}` };
     if (PACK.live && [[n,m],[Math.min(n,9),0]].some(([n,m]) => !heldHistory(n,m))) return { ...shared, loading: true, error: "Reading this level's history from the cube…" };
-    const diagnosticPreparation = diagnosticPhase("continuations.prepare-columns", { a, n, m, cutoff: CUT, canonicalCutoff: CANON, replay: S.replay });
-    const history = evidenceColumns(n, m, end), recordedSeasonal = PACK.live ? null : n===9 && m===0 ? history : evidenceColumns(Math.min(n,9),0,end);
-    diagnosticPreparation?.();
-    const diagnosticIndex = diagnosticPhase("continuations.prepare-seasonal-index", { a,n,m });
-    const index = PACK.live ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
-    const seasonalHeld = PACK.live ? heldHistory(Math.min(n, 9), 0) : null;
-    diagnosticIndex?.();
-    const diagnosticDigest = diagnosticPhase("continuations.digest", { a, n, m, support: [history.b0, end], columns: history.cols.length });
-    const tuples = history.cols.map((c) => [c.source, c.c, c.v, c.bv, c.poc, c.covered ? "covered" : "missing", (c.c + 1) * ts, "complete"]);
-    // Denominator records are dependencies too. Tail beyond the fixed anchor is excluded.
-    if (recordedSeasonal) for(const c of recordedSeasonal.cols) tuples.push(["recorded-seasonal",c.c,c.v,c.bv,c.poc,c.covered?"covered":"missing",(c.c+1)*2**Math.min(n,9),"complete"]);
-    if (seasonalHeld) for (const c of seasonalHeld.cols) if ((c.c + 1) * 2 ** seasonalHeld.n <= end) tuples.push(["seasonal-history", c.c, c.v, c.bv, c.poc, c.v > 0 || c.covered === true ? "covered" : "missing", (c.c + 1) * 2 ** seasonalHeld.n, "complete"]);
-    tuples.sort((x, y) => (String(x[0]) < String(y[0]) ? -1 : String(x[0]) > String(y[0]) ? 1 : 0) || x[1] - y[1]);
-    const packKey = p.packKey ?? PACK.packKey ?? [PACK.source, T0, BASE, PR], revision = p.revision ?? null;
-    const sourceDigest = E.hash.hex(E.hash.sha256(E.hash.utf8(JSON.stringify([packKey, revision, tuples]))));
-    diagnosticDigest?.();
-    const provenance = { instrument: INSTRUMENT, sourceDigest, packKey, revision, sourceCutoff: CUT, canonicalCutoff: CANON, replayEdge: S.replay ? activeCutoff() : null, measuredThrough: end,
-      priceLow: 0, priceHigh: null, precisionID: "observed-source-values+Float64-aggregation", reconstruction: "Current-source reconstruction; original vintages not guaranteed" };
-    if (diagnostics?.active) {
-      const held = heldHistory(n,m), boundary = h => h ? { columns:h.cols.length, support:[h.b0,h.b1], sourcePack:h.sourcePack ?? null } : null;
-      diagnostics.mark("continuations-input", { a,n,m,horizon:S.horizon,kind:S.evidenceKind,barrier,support:[history.b0,end],
-        deliveredStateColumns:history.cols.length, heldState:boundary(held), heldSeasonal:boundary(seasonalHeld), recordedSeasonalColumns:recordedSeasonal?.cols.length ?? null,
-        covered:history.covered,sources:history.sources,provenance });
-    }
     const diagnosticCompute = diagnostics?.active, diagnosticSession = diagnostics?.session, diagnosticYields = {}, diagnosticCosts = {},
       diagnosticCurrent = () => diagnosticCompute && diagnostics?.active && diagnostics.session === diagnosticSession;
     const accumulate = (groups, name, elapsed) => {
@@ -19341,11 +19340,66 @@
         for (const key of names) delete control[key];
       } });
     }
-    let out;
+    let sliceAt = performance.now(), firstSlice = true;
+    const cooperate = async stage => {
+      if (firstSlice || performance.now() - sliceAt >= 8) {
+        firstSlice = false;
+        const started = control.now?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (started !== undefined) control.yield?.(stage, control.now() - started);
+        sliceAt = performance.now();
+      }
+      return !control.cancelled();
+    };
+    let out, history, sourceDigest, stageEnd = null;
+    const stage = (name, identity = {}) => {
+      stageEnd?.();
+      stageEnd = diagnosticCurrent() ? diagnosticPhase("continuations." + name, { a,n,m,...identity }) : null;
+    };
     try {
+      stage("prepare-columns", { cutoff:CUT, canonicalCutoff:CANON, replay:S.replay });
+      const fromCube = Boolean(PACK.live);
+      history = await evidenceColumns(n, m, end, cooperate);
+      if (!history) return null;
+      const recordedSeasonal = fromCube ? null : n===9 && m===0 ? history : await evidenceColumns(Math.min(n,9),0,end,cooperate);
+      if ((!fromCube && !recordedSeasonal) || control.cancelled()) return null;
+      stage("prepare-seasonal-index");
+      const index = fromCube ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
+      const seasonalHeld = fromCube ? heldHistory(Math.min(n, 9), 0) : null;
+      stage("digest", { support:[history.b0,end], columns:history.cols.length });
+      const tuples = [];
+      for (let i = 0; i < history.cols.length; i++) {
+        if (i % 512 === 0 && !await cooperate("digest-tuples")) return null;
+        const c = history.cols[i]; tuples.push([c.source,c.c,c.v,c.bv,c.poc,c.covered?"covered":"missing",(c.c+1)*ts,"complete"]);
+      }
+      // Denominator records are dependencies too. Tail beyond the fixed anchor is excluded.
+      if (recordedSeasonal) for (let i = 0; i < recordedSeasonal.cols.length; i++) {
+        if (i % 512 === 0 && !await cooperate("digest-tuples")) return null;
+        const c = recordedSeasonal.cols[i]; tuples.push(["recorded-seasonal",c.c,c.v,c.bv,c.poc,c.covered?"covered":"missing",(c.c+1)*2**Math.min(n,9),"complete"]);
+      }
+      if (seasonalHeld) for (let i = 0; i < seasonalHeld.cols.length; i++) {
+        if (i % 512 === 0 && !await cooperate("digest-tuples")) return null;
+        const c = seasonalHeld.cols[i];
+        if ((c.c+1)*2**seasonalHeld.n <= end) tuples.push(["seasonal-history",c.c,c.v,c.bv,c.poc,c.v>0||c.covered===true?"covered":"missing",(c.c+1)*2**seasonalHeld.n,"complete"]);
+      }
+      const packKey = p.packKey ?? PACK.packKey ?? [PACK.source,T0,BASE,PR], revision = p.revision ?? null;
+      if (window.crypto?.subtle) control.digestBytes = async bytes => new Uint8Array(await window.crypto.subtle.digest("SHA-256", bytes));
+      try { sourceDigest = await window.explorerEvidence.sourceDigest({packKey,revision,tuples},E.hash,control); }
+      finally { delete control.digestBytes; }
+      if (!sourceDigest || control.cancelled()) return null;
+      stageEnd?.(); stageEnd = null;
+      const provenance = { instrument:INSTRUMENT,sourceDigest,packKey,revision,sourceCutoff:CUT,canonicalCutoff:CANON,replayEdge:S.replay?activeCutoff():null,measuredThrough:end,
+        priceLow:0,priceHigh:null,precisionID:"observed-source-values+Float64-aggregation",reconstruction:"Current-source reconstruction; original vintages not guaranteed" };
+      if (diagnosticCurrent()) {
+        const held = heldHistory(n,m), boundary = h => h ? {columns:h.cols.length,support:[h.b0,h.b1],sourcePack:h.sourcePack??null} : null;
+        diagnostics.mark("continuations-input", {a,n,m,horizon:S.horizon,kind:S.evidenceKind,barrier,support:[history.b0,end],
+          deliveredStateColumns:history.cols.length,heldState:boundary(held),heldSeasonal:boundary(seasonalHeld),recordedSeasonalColumns:recordedSeasonal?.cols.length??null,
+          covered:history.covered,sources:history.sources,provenance});
+      }
       out = await window.explorerEvidence.compute({ cols: history.cols, b0: history.b0, b1: end, a, n, m, barrier, horizon: S.horizon, kind: S.evidenceKind === "barrier" ? "poc-barrier" : "next-poc", provenance,
         seasonal: (args) => E.measure.seasonalActivity({ ...args, index, week: 7 * DAYS }) }, control);
     } finally {
+      stageEnd?.(control.cancelled() ? "cancelled" : "failed");
       if (diagnosticCurrent()) diagnostics.mark("continuations-work", { a,n,m, yields:diagnosticYields, synchronousSamples:diagnosticCosts,
         note:"Yield schedule-to-resume waits and per-seasonal-call elapsed samples include instrumentation overhead; phase walls overlap these samples" });
     }
@@ -20199,8 +20253,9 @@
       v = new DataView(buf);
     if (String.fromCharCode(...new Uint8Array(buf, 0, 4)) !== "MSCC")
       throw Error("Invalid column history");
-    const count = v.getUint32(16, true),
-      cs = new Uint32Array(buf, 32, count),
+    const count = v.getUint32(16, true);
+    if (count > 100000 || buf.byteLength !== 32 + 16 * count) throw Error("Invalid bounded column history");
+    const cs = new Uint32Array(buf, 32, count),
       pocs = new Uint32Array(buf, 32 + 4 * count, count),
       vol = new Float32Array(buf, 32 + 8 * count, count),
       bv = new Float32Array(buf, 32 + 12 * count, count);

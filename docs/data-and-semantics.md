@@ -286,7 +286,30 @@ nonstationarity can invalidate nominal coverage. Source digest covers observed
 winning state, threshold, weekly denominator and outcome tuples through the fixed
 anchor. Actual transport cutoffs remain provenance. Producer revision is absent
 when the existing pack does not supply one: this is current-source reconstruction.
-Computation uses cancellable setTimeout batches and no per-case transport.
+Computation uses cancellable, approximately 8 ms work slices with short setTimeout
+handoffs and no per-case transport. Preparation and dependency serialization yield
+too. The digest remains SHA-256 of the exact original JSON/UTF-8 bytes. Secure
+contexts may use native asynchronous SHA; the cooperative implementation produces
+the same bytes without native crypto. A late digest cannot publish a cancelled
+request, and intervals still publish with the complete study.
+
+The internal `E.hash.sha256Async(bytes, checkpoint)` contract complements the
+unchanged synchronous `sha256(bytes)`: both accept the same byte views/plain byte
+arrays and produce the same 32 bytes. The required caller-owned `checkpoint()` is
+awaited between bounded compression runs and before finalization; false resolves
+to `null`, never a partial digest. It supplies scheduling/cancellation without a
+DOM, secure-context or native-crypto dependency. No HTTP API or seed definition
+changes.
+
+Completed-study retention remains local: at most six entries and 512 MiB of
+estimated structure, using 3,072 bytes per ledger row (weekly constituents and
+all outcomes), 256 per case, 16 per matched-array reference and encoded metadata.
+An insertion evicts oldest entries until both limits hold. This is an explicit
+estimate, not a total engine heap limit: active calculation buffers and currently
+displayed studies are separate owners. Histories retain at most three entries of
+100,000 records each (about 38.4 MB at 128 bytes/record plus entry metadata);
+oversized/malformed MSCC populations are rejected before record allocation.
+There is no new preparation/result cache or change to probability identity.
 
 The v2 comparison record persists one of the existing nine selected metrics.
 Each capture retains its original reading and at most four already displayed
