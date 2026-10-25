@@ -312,6 +312,7 @@ class StripService:
         # Keep one complete answer state, including prices and outcome support. Restarting must not make readers wait
         # for historical replay or temporarily strip the distribution from an otherwise usable retained state.
         state = {k: v for k, v in vars(self.state).items() if k not in ("answers", "lock")}
+        state["prices"] = {k: getattr(self.prices, k) for k in ("hourly", "fine", "hourly_through", "fine_through", "cutoff")}
         body = json.dumps({"schema": model.SCHEMA, "model": model.MODEL, "state": state}, default=vars, allow_nan=False)
         self.store.db.execute("INSERT OR REPLACE INTO strip_resume VALUES (1, ?)", (body,))
 
@@ -327,12 +328,11 @@ class StripService:
         for name in ("components", "attention", "context"):
             state[name] = {k: model.Evidence(**v) for k, v in state[name].items()}
         state["dvol"] = model.Evidence(**state["dvol"])
-        state["prices"] = Prices(state["prices"]["bars"], state["prices"]["cutoff"])
-        now = int(self.clock() * 1000)
-        for source, facts in state["sources"].items():
-            checked, interval = facts.get("checkedAt"), facts["intervalSeconds"]
-            if source != "calendar" and facts["state"] == "ok" and checked is not None and now - checked > max(2 * interval, interval + 300) * 1000:
-                facts["state"] = "stale"
+        for name in ("hourly", "fine"):
+            setattr(self.prices, name, {int(t): close for t, close in state["prices"][name].items()})
+        for name in ("hourly_through", "fine_through", "cutoff"):
+            setattr(self.prices, name, state["prices"][name])
+        state["prices"] = self.prices.prices()
         self.state = State(**state)
         return True
 
@@ -369,4 +369,10 @@ class StripService:
         state = self.state
         if state is None:
             return 503, {"error": "strip_loading", "detail": self.last_error or "the first publication is being read"}
-        return 200, state.answer(start, end, step)
+        now, sources = int(self.clock() * 1000), {}
+        for source, facts in state.sources.items():
+            checked, interval = facts.get("checkedAt"), facts["intervalSeconds"]
+            sources[source] = dict(facts)
+            if source != "calendar" and facts["state"] == "ok" and checked is not None and now - checked > max(2 * interval, interval + 300) * 1000:
+                sources[source]["state"] = "stale"
+        return 200, state.answer(start, end, step, sources=sources)
