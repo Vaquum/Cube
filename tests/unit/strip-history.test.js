@@ -290,6 +290,10 @@ assert s.pinned=='b'*64 and not s.history_errors
 scans=r.scans
 assert not s.cycle(),'unchanged backfill summary must not replay or rebuild'
 assert r.scans==scans and r.reads==[1,3,2]
+# Completion between startup replay and the first live pin must also be consumed.
+r=Reader();r.reads=[];s=StripService(r,':memory:',clock=lambda:NOW/1000)
+s.bootstrap();r.complete=True;s.cycle()
+assert s.store.has_dataset('fred_macro_daily','2') and r.reads==[1,3,2],r.reads
 print(json.dumps({'records':3,'newBodyReads':len(r.reads)-len(reads),'livePinPreserved':True}))
 `;
   const run=spawnSync('python3',['-c',script],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8',timeout:25000});

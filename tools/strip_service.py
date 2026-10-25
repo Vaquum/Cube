@@ -158,7 +158,7 @@ class StripService:
         moved = False
         manifest = self.reader.snapshot()
         backfills = manifest.get("backfills")
-        if self.pinned is not None and backfills != self.backfill_summary:
+        if backfills != self.backfill_summary:
             previous = self.store.version
             self.bootstrap(scan_all=True)
             moved = self.store.version != previous
