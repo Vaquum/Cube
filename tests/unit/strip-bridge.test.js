@@ -73,7 +73,13 @@ def dataset(source, records, version='1', meta=None):
 
 SOURCES = {'fred_macro_daily': fred, 'deribit_funding': funding, 'hyperliquid_funding': hl, 'defillama_stablecoins': stable,
            'deribit_options': options, 'deribit_dvol': dvol, 'deribit_futures_basis': basis, 'mempool_retarget': retarget,
-           'wikimedia_daily': wiki, 'gdelt_gkg': gdelt, 'wikimedia_hourly': []}
+           'wikimedia_daily': wiki, 'gdelt_gkg': gdelt, 'wikimedia_hourly': [],
+           'sosovalue_etf_flows': [record('etf-a','etf_fund_flow',{'ticker':'A','flow_unit':'USD','net_inflow':40},day(NOW-DAY),'day'),
+                                 record('etf-b','etf_fund_flow',{'ticker':'B','flow_unit':'USD','net_inflow':-10},day(NOW-DAY),'day'),
+                                 record('etf-total','etf_flow_aggregate',{'expected_funds':['A','B','C']},day(NOW-DAY),'day')],
+           'coinalyze_current': [record('oi-a','open_interest',{'symbol':'A','unit':'USD','value':100},iso(NOW-600000))],
+           'coinalyze_history': [record('liq-a','liquidation_bar',{'symbol':'A','unit':'USD','long_liquidations_usd':8,'short_liquidations_usd':3},
+                                       iso(NOW-2*HOUR),metadata={'complete':True,'interval_end':iso(NOW-2*HOUR+900000)})]}
 def publication(pin, published, options_version):
     sets = {s: dataset(s, r, options_version if s == 'deribit_options' else '1') for s, r in SOURCES.items()}
     states = {s: {'status': 'ok', 'dataset_id': d['dataset_id'], 'received_at': d['received_at'], 'last_checked_at': iso(published - 60000),
@@ -105,7 +111,8 @@ class FieldData(BaseHTTPRequestHandler):
             nxt = offset + limit if offset + limit < len(records) else None
             return {'snapshot_id': manifest['snapshot_id'], 'published_at': manifest['published_at'], 'source': source, 'dataset_id': ds,
                     'status': manifest['datasets'].get(source, {}).get('status', 'ok'), 'state': manifest['datasets'].get(source, {}),
-                    'data': {'records': records[offset:offset + limit], 'received_at': iso(NOW - 120000), 'meta': {}, 'projection_version': '1.0.0'},
+                    'data': {'records': records[offset:offset + limit], 'received_at': iso(NOW - 120000),
+                             'meta': {'requested_market_count':3,'source_metadata':{'start':iso(NOW-7*HOUR),'end_exclusive':iso(NOW-HOUR)}}, 'projection_version': '1.0.0'},
                     'page': {'offset': offset, 'limit': limit, 'total': len(records), 'next_offset': nxt}}
         if url.path == '/v1/calendar':
             return self.send(200, page('calendar', 'c' * 64, cal))
@@ -171,6 +178,8 @@ out['precisions'] = sorted({e['schedule'][0]['precision'] for e in answer['event
 out['cancelled'] = [e['schedule'][0] for e in answer['events'] if e['id'] == 'e007']
 out['dated'] = [e['schedule'][0] for e in answer['events'] if e['id'] == 'e001']
 out['macro'] = next((v for v in reversed(answer['grid']['forces']['macro']) if v is not None), None)
+context_answer=json.loads(strip('from=%d&to=%d&step=%d' % (end-step,end+step,step))[1])
+out['context']={k:next((x for x in reversed(v) if x is not None),None) for k,v in context_answer['grid']['context'].items()}
 out['outdated'] = strip(grid, proto=False)[0]
 out['bad'] = json.loads(strip('from=1&to=2&step=60000')[1])
 # The next publication, found by a cycle: only the options moved, so only they and the snapshot, once, are read again.
@@ -203,6 +212,12 @@ test("the bridge reads field-data-api one pinned publication at a time, every pa
   assert.equal(out.reader.unavailable.coindesk_headlines.status, "disabled");
   assert.deepEqual([out.reader.unavailable.wikimedia_hourly.status, out.reader.unavailable.wikimedia_hourly.http], ["error", 503]);
   assert.equal(out.reader.gdelt_status, "stale");
+  assert.equal(out.context.etfFlow,30);
+  assert.equal(out.context.etfReported,2);
+  assert.equal(out.context.etfExpected,3);
+  assert.equal(out.context.oiUsd,100);
+  assert.equal(out.context.liqLong,8);
+  assert.equal(out.context.liqShort,3);
   // Without FIELD_DATA_URL the strip is not served, and the page is not told of it; with it, the page is.
   assert.deepEqual([out.off[0], JSON.parse(out.off[1])], [503, {error: "strip_not_configured"}]);
   assert.doesNotMatch(out.pageOff[1], /explorer-strip/);

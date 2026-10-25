@@ -31,7 +31,7 @@ async function open(page, fake, probe, hash) {
   await expect(page.locator("#ol-strip")).toHaveAttribute("data-state", "ready");
   await probe.waitForQuiet();
 }
-async function coverageResponse(page, { inputs, attention, cutoff, detail = true, sources = {}, events = [], omittedParts = [], nullParts = [] }) {
+async function coverageResponse(page, { inputs, attention, cutoff, detail = true, sources = {}, events = [], omittedParts = [], nullParts = [], context = null, historicalOutcomes = false }) {
   const available = new Set(INPUTS.slice(0, inputs)), attentionAvailable = new Set(ATTENTION.slice(0, attention));
   await page.route("**/cube/strip?*", async (route) => {
     const original = await route.fetch(), body = await original.json(), n = body.grid.attention.length;
@@ -51,6 +51,9 @@ async function coverageResponse(page, { inputs, attention, cutoff, detail = true
       for (const name of nullParts) body.grid.parts[name] = null;
     }
     body.events = events; body.jumps = [];
+    if (context) body.grid.context = Object.fromEntries(Object.entries(context).map(([name, value]) => [name, new Array(n).fill(value)]));
+    if (historicalOutcomes) body.grid.next24h = Array.from({ length: n }, (_, i) =>
+      body.grid.t0 + i * body.grid.step + DAY < body.cutoff ? (i % 7 - 3) / 10 : null);
     Object.assign(body.sources, sources);
     if (cutoff !== undefined) {
       body.cutoff = cutoff;
@@ -67,6 +70,33 @@ async function hoverBand(page, g, fraction = 0.5) {
   await expect(card).toHaveAttribute("data-presentation", "strip-forces");
   return card;
 }
+
+test("reported positioning facts reach Inspect while the compact histogram card retains its dimensions", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini"), view = rectangle(fake);
+  await coverageResponse(page, { inputs: 10, attention: 4, historicalOutcomes: true, context: {
+    etfFlow: -123000000, etfDate: view.from - DAY, etfReported: 11, etfExpected: 12,
+    oiUsd: 24000000000, oiObserved: view.from - 60000, oiReported: 17, oiExpected: 26,
+    liqLong: 12000000, liqShort: 4000000, liqStart: view.from - 6 * HOUR, liqEnd: view.from, liqReported: 8, liqExpected: 26,
+  } });
+  await open(page, fake, probe, view.hash);
+  const hover = await hoverBand(page, gOf(await layoutOf(page))), box = await hover.boundingBox();
+  expect(box.width).toBe(336); expect(box.height).toBe(484);
+  await expect(hover.locator('[data-field="context.etfFlow"]')).toBeHidden();
+  await expect(hover.locator('.ol-strip-distribution svg')).toBeVisible();
+  await page.keyboard.press("e");
+  await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
+  const card = page.locator("#ol-inspect-readout");
+  await expect(card.locator('[data-field="context.etfFlow"]')).toBeVisible();
+  expect(await canonical(card, "context.etfFlow")).toBe(-123000000);
+  expect(await canonical(card, "context.oiUsd")).toBe(24000000000);
+  expect(await canonical(card, "context.liqLong")).toBe(12000000);
+  expect(await canonical(card, "context.liqShort")).toBe(4000000);
+  await expect(card.locator('[data-field="context.etfReported"]')).toHaveText('11/12 reported');
+  await expect(card.locator('[data-field="context.oiReported"]')).toHaveText('17/26 reported');
+  await expect(card.locator('[data-field="context.liqReported"]')).toHaveText('8/26 reported');
+  const overflow = await card.locator('[data-field^="context."]').evaluateAll(nodes => nodes.filter(n => n.scrollWidth > n.clientWidth + 1).map(n => n.dataset.field));
+  expect(overflow).toEqual([]);
+});
 
 test("Ahead shows first-publication loading and refreshes a failed response without moving the Inspect cursor", async ({ page, fakeFor, allowConsole }) => {
   const fake = await fakeFor("mini"), view = rectangle(fake), gate = fake.on({ route: "/cube/strip" }).gate();
