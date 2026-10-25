@@ -54,8 +54,9 @@ test("optional phase recording preserves the complete study and ends each phase 
     phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome ?? "completed"]); } });
   assert.deepEqual(after, before);
   assert.deepEqual(phases, ["index","ledger-seasonal","thresholds-state","cases","summaries"].flatMap(name => [[name,"start"],[name,"completed"]]).concat(
-    [["bootstrap","start"]], ["bootstrap.summaries","bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,"completed"]]), [["bootstrap","completed"]]));
-  assert.deepEqual(yields.map(x => x.stage), ["index","ledger-seasonal","thresholds-state","cases","bootstrap.scan"]);
+    [["bootstrap","start"]], ["bootstrap.counts","bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,"completed"]]), [["bootstrap","completed"]]));
+  assert.deepEqual([...new Set(yields.map(x => x.stage))], ["index","ledger-seasonal","thresholds-state","cases","summaries","bootstrap.scan"]);
+  assert.ok(yields.filter(x => x.stage === "summaries").length >= 16);
   assert.equal(costs.length, 40); assert.ok(costs.every(x => x.stage === "seasonal" && x.duration === 1));
   assert.equal(samples[0].drawsRan, false); assert.equal(samples[0].validDraws.up.baseline, 0);
 });
@@ -75,7 +76,7 @@ test("shared block bootstrap keeps empty/partial calendar blocks and component d
   assert.equal(out.intervals.up.baseline.result.tag, "finite"); assert.equal(out.intervals.up.difference.result.tag, "finite");
   const phases = [];
   const again = await H.bootstrap(args, result, "next-poc", 1, { phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome]); } }); assert.deepEqual(out, again);
-  assert.deepEqual(phases, [["bootstrap", "start"]].concat(["bootstrap.summaries","bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,undefined]]), [["bootstrap","completed"]]));
+  assert.deepEqual(phases, [["bootstrap", "start"]].concat(["bootstrap.counts","bootstrap.scan","bootstrap.draws","bootstrap.intervals"].flatMap(name => [[name,"start"],[name,undefined]]), [["bootstrap","completed"]]));
 });
 
 test("each normative interval boundary is independent: 29/30 cases, 19/20 full matches, 1799/1800 draws", () => {
@@ -86,4 +87,45 @@ test("each normative interval boundary is independent: 29/30 cases, 19/20 full m
  assert.match(H.intervalResult({...good,values:values.slice(1)}).result.reason,/1800/);
  assert.equal(H.intervalResult({...good,values:values.map(()=>1)}).result.tag,"undefined");
  assert.match(H.intervalResult({...good,anchorReason:"No contiguous predecessor POC"}).result.reason,/predecessor/);
+});
+
+test("a latest request can cancel after summary work starts, before bootstrap or publication", async () => {
+  let cancelled = false, summaryYields = 0;
+  const phases = [], out = await H.compute(input(cols(5000)), { cancelled: () => cancelled, now: () => performance.now(),
+    yield: stage => { if (stage === "summaries" && ++summaryYields === 2) setTimeout(() => { cancelled = true; }, 0); },
+    phase: name => { phases.push([name, "start"]); return outcome => phases.push([name, outcome ?? "completed"]); } });
+  assert.equal(out, null); assert.ok(summaryYields >= 2);
+  assert.deepEqual(phases.at(-1), ["summaries", "interrupted"]);
+  assert.ok(!phases.some(([name]) => name === "bootstrap"));
+});
+
+test("cooperative paired summaries retain the synchronous arithmetic and independent arrays", async () => {
+  const series = cols(120); for (let i = 0; i < series.length; i++) series[i].poc += i % 7 - 3;
+  const out = await H.compute(input(series));
+  for (let h = 0; h <= 8; h++) {
+    assert.deepEqual(out.match[h], H.summary(out.matched[h], "direction"));
+    assert.deepEqual(out.all[h], H.summary(out.cases[h], "direction"));
+    assert.deepEqual(out.barrierMatch[h], H.summary(out.matched[h], "first"));
+    assert.deepEqual(out.barrierAll[h], H.summary(out.cases[h], "first"));
+    assert.notEqual(out.all[h].q, out.barrierAll[h].q);
+  }
+});
+
+test("publication identity clips cutoffs at the anchor but retains support and replay identity", async () => {
+  const args=input(cols(200)),out=await H.compute(args),p={...args.provenance,sourceCutoff:300};
+  const key=(canonicalCutoff,extra={})=>H.canonicalKey({...args,provenance:{...p,canonicalCutoff,...extra}},out,'next-poc',1);
+  assert.deepEqual(key(150)[9],[200,150,null,200]);assert.notDeepEqual(key(150),key(151));
+  assert.deepEqual(key(200),key(300));assert.deepEqual(key(300)[9],[200,200,null,200]);
+  assert.notDeepEqual(key(200),key(200,{replayEdge:199}));
+  const shifted=H.canonicalKey({...args,b0:1,provenance:{...p,canonicalCutoff:200}},out,'next-poc',1);
+  assert.deepEqual(shifted[6],[1,200,0,1]);assert.notDeepEqual(shifted,key(200));assert.equal(shifted[10],key(200)[10]);
+});
+
+test("equal record content does not erase missing versus outside seasonal support",()=>{
+  const series=cols(100).map(c=>({...c,c:c.c+1}));
+  const observe=b0=>E.measure.seasonalActivity({index:E.measure.seasonalIndex({cols:series,n:0,b0,b1:101}),numerator:10,start:10752,end:10753,cutoff:10753});
+  assert.equal(observe(0).matches[0].result.tag,'unsupported');
+  assert.equal(observe(0).matches[0].result.reason,'Weekly match has missing coverage');
+  assert.equal(observe(1).matches[0].result.tag,'outside-support');
+  assert.equal(observe(1).matches[0].result.reason,'Weekly match outside served history');
 });

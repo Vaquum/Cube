@@ -223,9 +223,10 @@
   // @prefix hash
   // @provides hash
   // == §02 hash: SHA-256, canonical JSON, mapping ids, base64url, UTF-8 and float64 packing (API.md A.3, C.7) ==
-  // Everything is synchronous and platform-free: no TextEncoder, no btoa, no subtle-crypto call (that one is
-  // asynchronous and secure-context only), so the same bytes come out in the page and in a bare Node vm
-  // context. DR-03: a mapping id is the first 96 bits of a SHA-256 over canonical JSON.
+  // The arithmetic stays synchronous and platform-free: no TextEncoder, no btoa, no subtle-crypto call,
+  // so the same bytes come out in the page and in a bare Node vm. The optional cooperative SHA wrapper
+  // takes its checkpoint from the caller; it uses the same compression and padding as synchronous SHA.
+  // DR-03: a mapping id is the first 96 bits of a SHA-256 over canonical JSON.
 
   // FIPS 180-4 round constants (the first 32 bits of the fractional parts of the cube roots of the first
   // 64 primes). A frozen plain array: a frozen table is not module state (DD-02), a typed array cannot be
@@ -293,6 +294,24 @@
     const w = new Int32Array(64);
     const full = len - (len % 64);
     for (let off = 0; off < full; off += 64) hashBlock(h, w, bytes, off);
+    return hashSha256Finish(bytes, len, full, h, w);
+  }
+  // E.hash.sha256Async(bytes, checkpoint): identical 32 bytes, with caller-owned
+  // cooperative checkpoints. A false checkpoint returns null, never a partial hash.
+  async function hashSha256Async(bytes, checkpoint) {
+    if (bytes === null || typeof bytes !== "object" || typeof bytes.length !== "number") throw new TypeError("sha256 needs a Uint8Array");
+    if (typeof checkpoint !== "function") throw new TypeError("Cooperative SHA needs a caller-owned checkpoint");
+    const len = bytes.length, full = len - len % 64,
+      h = new Int32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]), w = new Int32Array(64);
+    for (let start = 0; start < full; start += 65536) {
+      if (!await checkpoint()) return null;
+      const stop = Math.min(full, start + 65536);
+      for (let off = start; off < stop; off += 64) hashBlock(h, w, bytes, off);
+    }
+    if (!await checkpoint()) return null;
+    return hashSha256Finish(bytes, len, full, h, w);
+  }
+  function hashSha256Finish(bytes, len, full, h, w) {
     const rest = len - full;
     // Padding: 0x80, zeros, then the message length in bits as a 64-bit big-endian number. The length is
     // split without leaving double precision: len*8 = hi * 2^32 + lo with hi = floor(len / 2^29).
@@ -511,6 +530,7 @@
 
   API.hash = Object.freeze({
     sha256: hashSha256,
+    sha256Async: hashSha256Async,
     canonical: hashCanonical,
     id96: hashId96,
     b64urlEncode: hashB64Encode,

@@ -1,0 +1,33 @@
+{
+  "schema": "continuations-candidate-publication@1",
+  "head": "d70069016aa41208f3360c169a7c62eabcd3a3b4",
+  "producer": "a35dbc01aee6f01b795060007c3000c694881833",
+  "run": 40154869753,
+  "artifact": 12583634223,
+  "rawZipSha256": "898ada01bd3ebcf936419a0fa2c8db537b4afab64ff08fa6b5f74240f02e5d7b",
+  "independentlyAuditedPayloads": 120,
+  "wholeKernelOutputs": 90,
+  "identicalWholeAppPairs": 5,
+  "functionalRun": 40154869754,
+  "fullBrowserCasesOnce": 1473,
+  "browserSkips": 0,
+  "browserRetries": 0,
+  "remainingDefect": "Native 301ms publication task independently attributed to two ledger scans; corrected in 13e7d21, which is measured separately",
+  "files": [
+    {
+      "file": "assessment.json",
+      "bytes": 14147,
+      "sha256": "6405e497655f5d7d0f793601cc9d53526e48a3d71b4aacb32b472e703aedfe96"
+    },
+    {
+      "file": "raw.zip",
+      "bytes": 11170556,
+      "sha256": "898ada01bd3ebcf936419a0fa2c8db537b4afab64ff08fa6b5f74240f02e5d7b"
+    },
+    {
+      "file": "summary.json",
+      "bytes": 42728,
+      "sha256": "ba6d55e688811c34584ee1278d2c62abbb6846be9beefb1468fd6abbd0dc7e33"
+    }
+  ]
+}

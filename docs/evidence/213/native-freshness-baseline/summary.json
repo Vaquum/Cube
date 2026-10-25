@@ -1,0 +1,100 @@
+{
+  "schema": "retained-fresh-oracle@1",
+  "build": "d944f503b48de7f746c369b440f331294ef23654",
+  "sourceIndexSha256": "a5c4c478f1377d19138d43669f97df0660238d0176e741aa99975ffe6d6612d7",
+  "mutation": "append-only 35 days / 105 eight-hour columns, unchanged canonical coverage",
+  "route": "one delta, no whole pack",
+  "retained": {
+    "busy": "false",
+    "state": null,
+    "counts": {
+      "starts": 6382,
+      "firstFailures": {
+        "Missing coverage": 892,
+        "Observed empty POC population": 0,
+        "Missing POC": 0,
+        "No contiguous predecessor POC": 2,
+        "Ineligible seasonal support": 125,
+        "Unavailable fitted threshold": 0
+      },
+      "stateEligible": 5363,
+      "matching": 0,
+      "nonmatching": 5363,
+      "matchingCompleted": 0,
+      "baselineCompleted": 5362,
+      "missingHorizon": 1,
+      "unfinished": 0
+    }
+  },
+  "fresh": {
+    "busy": "false",
+    "state": [
+      0,
+      0,
+      1
+    ],
+    "counts": {
+      "starts": 6382,
+      "firstFailures": {
+        "Missing coverage": 877,
+        "Observed empty POC population": 0,
+        "Missing POC": 0,
+        "No contiguous predecessor POC": 1,
+        "Ineligible seasonal support": 83,
+        "Unavailable fitted threshold": 0
+      },
+      "stateEligible": 5421,
+      "matching": 244,
+      "nonmatching": 5177,
+      "matchingCompleted": 243,
+      "baselineCompleted": 5420,
+      "missingHorizon": 0,
+      "unfinished": 1
+    }
+  },
+  "files": [
+    {
+      "path": "history-append-control.json.gz",
+      "bytes": 1852,
+      "sha256": "ecc38255595edab4f38c1c9ffc20ea7d23b6a2caea07867ea7ec88e93a503c91",
+      "decodedSha256": "6230165f6b785b9985af42b03fa0c934b625533bf7ee98589e7624b8db66e771"
+    },
+    {
+      "path": "history-before-append.json.gz",
+      "bytes": 1279,
+      "sha256": "dcfd5f8abacdccfc4624aa232035010ceb7b2e1615af4c5ea21224a7420e3112",
+      "decodedSha256": "d95d720878941db7e5166eeaabf68f4d1f87a10044ba2161da9d97fafa8ee38c"
+    },
+    {
+      "path": "history-fresh-after-append.json.gz",
+      "bytes": 1283,
+      "sha256": "ecf6cdf00ad6437f39d55d77efe55697d8c309e3b163c2b7f59d2edb18e5d1bc",
+      "decodedSha256": "10ea0f7b3572d98bd627c7d10d087ff271d3d39fff159d07a1bae2ff74869d8b"
+    },
+    {
+      "path": "history-fresh-trace.json.gz",
+      "bytes": 12438,
+      "sha256": "47952cb8f77cf7d434774465d510a80111b1a9d32217fde3c71b4d636aeb3964",
+      "decodedSha256": "e0bc5620c87ec941a6c303cbcbddb513f253d75a103b76d2af29d69f175a262c"
+    },
+    {
+      "path": "history-retained-after-append.json.gz",
+      "bytes": 1059,
+      "sha256": "25e60498dc34b59933eae7aefb44e08961afdd54abda1e0e7b2b955445952666",
+      "decodedSha256": "f05773607007c9ac230c5ba7772a47ae5d4adebc99ef73eb6f5f5a9a8a8215fd"
+    },
+    {
+      "path": "history-retained-trace.json.gz",
+      "bytes": 29404,
+      "sha256": "387b93d33b364f08b4194624808ed4a29871a492092a1824cba8141a8b471a01",
+      "decodedSha256": "b618450292520868bed64cbb3081c1cd7aa114fc2d7e157cdc6dc770e88c2404"
+    },
+    {
+      "path": "history-server-log.json.gz",
+      "bytes": 991,
+      "sha256": "a6952449d2641026a37b68711ff2c530e4eb0c04e0e96c666154ac890ffb585a",
+      "decodedSha256": "ea38132091443d6358a7f79ff88fde968c453f403c5cb76045e1885f1c4ed022"
+    }
+  ],
+  "note": "Current-main baseline defect, not a candidate result. Original read sourcePack/support retained in raw diagnostics; source token alone does not make those inputs current."
+}

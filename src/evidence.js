@@ -32,6 +32,94 @@
     const started = control.now?.();
     setTimeout(() => { if (started !== undefined) control.yield?.(stage, control.now() - started); resolve(); }, 0);
   });
+  const taskClock = () => typeof performance === "object" ? performance.now() : Date.now();
+  // Keep short timers visible to the existing owed-work probe. Rows/draws keep
+  // their arithmetic order; only a spent work slice incurs another timer wait.
+  async function checkpoint(control, stage, budget, force = false) {
+    if (force || taskClock() - budget.at >= 8) {
+      await yieldTask(control, stage);
+      budget.at = taskClock();
+    }
+    return !control.cancelled?.();
+  }
+  async function sorted(values, control, stage, budget, compare = null) {
+    const size = 2048;
+    for (let at = 0; at < values.length; at += size) {
+      const chunk = values.slice(at, at + size).sort(compare ?? ((a, b) => a - b));
+      for (let i = 0; i < chunk.length; i++) values[at + i] = chunk[i];
+      if (!await checkpoint(control, stage, budget)) return null;
+    }
+    if (values.length <= size) return values;
+    let from = values, to = new Array(values.length);
+    for (let width = size; width < values.length; width *= 2) {
+      for (let at = 0; at < values.length; at += width * 2) {
+        const middle = Math.min(at + width, values.length), end = Math.min(at + width * 2, values.length);
+        let left = at, right = middle;
+        for (let i = at; i < end; i++) to[i] = right >= end || left < middle && (compare ? !(compare(from[left], from[right]) > 0) : from[left] <= from[right]) ? from[left++] : from[right++];
+        if (!await checkpoint(control, stage, budget)) return null;
+      }
+      [from, to] = [to, from];
+    }
+    return from;
+  }
+  // Exact JSON/UTF-8 bytes of [packKey, revision, sorted dependency tuples].
+  // Bounded serialization avoids one giant string/encoding task. Native SHA is
+  // optional; the same compression/padding remains available without a secure
+  // context. Neither path changes the canonical seed or publication identity.
+  async function sourceDigest({ packKey, revision, tuples }, hash, control = {}) {
+    const budget = { at: taskClock() };
+    let endPhase = control.phase?.("digest.sort");
+    try {
+      if (!await checkpoint(control, "digest", budget, true)) return null;
+      const ordered = await sorted(tuples.slice(), control, "digest", budget,
+        (x, y) => (String(x[0]) < String(y[0]) ? -1 : String(x[0]) > String(y[0]) ? 1 : 0) || x[1] - y[1]);
+      if (!ordered) return null;
+      endPhase?.(); endPhase = control.phase?.("digest.encode");
+      const parts = [hash.utf8(JSON.stringify([packKey, revision]).slice(0, -1) + ",[")];
+      for (let at = 0; at < ordered.length; at += 256) {
+        parts.push(hash.utf8((at ? "," : "") + JSON.stringify(ordered.slice(at, at + 256)).slice(1, -1)));
+        if (!await checkpoint(control, "digest", budget)) return null;
+      }
+      parts.push(hash.utf8("]]"));
+      const bytes = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));
+      let at = 0;
+      for (const part of parts) { bytes.set(part, at); at += part.length; if (!await checkpoint(control, "digest", budget)) return null; }
+      endPhase?.(); endPhase = null;
+      let digest;
+      if (control.digestBytes) {
+        endPhase = control.phase?.("digest.native-sha256");
+        try { digest = await control.digestBytes(bytes); if (digest?.length !== 32) digest = null; }
+        catch { digest = null; }
+        endPhase?.(digest ? "completed" : "failed"); endPhase = null;
+        if (control.cancelled?.()) return null;
+      }
+      if (!digest) {
+        endPhase = control.phase?.("digest.cooperative-sha256");
+        digest = await hash.sha256Async(bytes, () => checkpoint(control, "digest", budget));
+        endPhase?.(digest ? "completed" : "interrupted"); endPhase = null;
+      }
+      return digest && !control.cancelled?.() ? hash.hex(digest) : null;
+    } finally { endPhase?.("interrupted"); }
+  }
+  // Direction and barrier summaries share only their delta quantiles and
+  // overlap population. Count both fields in one pass and sort once. Keep
+  // independent result arrays; the public synchronous summary stays unchanged.
+  async function summaries(cases, control, budget) {
+    const values = [], direction = [0, 0, 0], barrier = [0, 0, 0];
+    let overlapping = 0;
+    for (let i = 0; i < cases.length; i++) {
+      if (i % 512 === 0 && !await checkpoint(control, "summaries", budget, i === 0)) return null;
+      const c = cases[i], before = cases[i - 1], after = cases[i + 1];
+      values.push(c.delta);
+      if (c.direction < 0) direction[0]++; else if (c.direction === 0) direction[1]++; else if (c.direction > 0) direction[2]++;
+      if (c.first < 0) barrier[0]++; else if (c.first === 0) barrier[1]++; else if (c.first > 0) barrier[2]++;
+      if (before && before.end + 1 > c.c || after && c.end + 1 > after.c) overlapping++;
+    }
+    const ordered = await sorted(values, control, "summaries", budget);
+    if (!ordered) return null;
+    const q = values.length ? [.1, .25, .5, .75, .9].map(p => quantile(ordered, p)) : [];
+    return [direction, barrier].map(counts => ({ n: cases.length, up: counts[2], flat: counts[1], down: counts[0], q: q.slice(), overlapping }));
+  }
   function summary(cases, field) {
     const values = cases.map((c) => c.delta).sort((a, b) => a - b);
     let overlapping = 0;
@@ -58,16 +146,18 @@
   }
   async function bootstrap(input, result, kind, horizon, control = {}) {
     const phaseEnd = control.phase?.("bootstrap");
-    let stageEnd = control.phase?.("bootstrap.summaries");
+    let stageEnd = control.phase?.("bootstrap.counts");
     let phaseOutcome = "interrupted";
     try {
-    const alive = () => !control.cancelled?.();
-    const field = kind === "poc-barrier" ? "first" : "direction", sample = summary(result.matched[horizon], field), base = summary(result.cases[horizon], field);
+    const budget = { at: taskClock() };
+    // Only the population sizes enter interval qualification, not the sorted
+    // quantiles or category counts formerly rebuilt here.
+    const field = kind === "poc-barrier" ? "first" : "direction", sampleN = result.matched[horizon].length, baseN = result.cases[horizon].length;
     stageEnd?.(); stageEnd = control.phase?.("bootstrap.scan");
     const length = result.blockLength, step = 2 ** result.n, start = input.b0 / step, stop = (result.a + 1), first = Math.floor(start / length), last = Math.ceil(stop / length);
     const blocks = Array.from({ length: Math.max(0, last - first) }, (_, i) => ({ id: first + i, sample: [0, 0, 0, 0], base: [0, 0, 0, 0], full: (first + i) * length >= start && (first + i + 1) * length <= stop }));
     for (let i = 0; i < result.cases[horizon].length; i++) {
-      if (i % 1024 === 0) { await yieldTask(control, "bootstrap.scan"); if (!alive()) return null; }
+      if (i % 1024 === 0 && !await checkpoint(control, "bootstrap.scan", budget, i === 0)) return null;
       const c = result.cases[horizon][i], block = blocks[Math.floor(c.c / length) - first], category = c[field] + 1;
       block.base[category]++; block.base[3]++;
       if (c.matched) { block.sample[category]++; block.sample[3]++; }
@@ -79,7 +169,7 @@
     // A floor failure remains explicit; do not spend 2000 draws on a known unusable study.
     if (result.state && fullMatched >= 20 && blocks.length) {
       for (let r = 0; r < 2000; r++) {
-        if (r % 16 === 0) { await yieldTask(control, "bootstrap.draws"); if (!alive()) return null; }
+        if (r % 16 === 0 && !await checkpoint(control, "bootstrap.draws", budget, r === 0)) return null;
         const s = [0, 0, 0, 0], b = [0, 0, 0, 0];
         for (let j = 0; j < blocks.length; j++) {
           const chosen = blocks[Math.floor(rng() / 4294967296 * blocks.length)];
@@ -97,7 +187,7 @@
     for (const name of ["down", "flat", "up"]) {
       intervals[name] = {};
       for (const component of ["conditional", "baseline", "difference"]) {
-        const values = draws[name][component].sort((a,b)=>a-b), ownN=component==="baseline" ? base.n : component==="conditional" ? sample.n : Math.min(sample.n,base.n);
+        const values = draws[name][component].sort((a,b)=>a-b), ownN=component==="baseline" ? baseN : component==="conditional" ? sampleN : Math.min(sampleN,baseN);
         intervals[name][component]=intervalResult({values,ownN,fullMatched,anchorReason:result.state ? null : result.anchorReason || "Anchor seasonal support unavailable"});
       }
     }
@@ -112,17 +202,19 @@
     let phaseEnd = control.phase?.("index");
     const phase = name => { phaseEnd?.(); phaseEnd = control.phase?.(name); };
     try {
-    const alive = () => !control.cancelled?.(), step = 2 ** input.n;
+    const alive = () => !control.cancelled?.(), step = 2 ** input.n, budget = { at: taskClock() };
     if (!Number.isInteger(input.a) || input.b1 <= input.b0 || (input.b1 - input.b0) / step > 100000) throw new RangeError("Invalid bounded evidence support");
     const by = new Map(), rows = [], shares = [], seasonalValues = [];
     for (let i = 0; i < input.cols.length; i++) {
-      if (i % 1024 === 0) { await yieldTask(control, "index"); if (!alive()) return null; }
+      // Retain both initial handoffs, so an input queued after the first one
+      // can cancel before even a cheap index runs into the next phase.
+      if (i % 1024 === 0 && !await checkpoint(control, "index", budget, i <= 1024)) return null;
       by.set(input.cols[i].c, input.cols[i]);
     }
     phase("ledger-seasonal");
     const stop = input.a + 1, first = Math.ceil(input.b0 / step);
     for (let c = first; c < stop; c++) {
-      if ((c - first) % 512 === 0) { await yieldTask(control, "ledger-seasonal"); if (!alive()) return null; }
+      if ((c - first) % 512 === 0 && !await checkpoint(control, "ledger-seasonal", budget, c === first)) return null;
       const col = by.get(c), previous = by.get(c - 1), row = { c, source: col?.source ?? null, time: [c * step, (c + 1) * step], volume: col?.v ?? null, buyShare: col?.v > 0 ? col.bv / col.v : null, poc: col?.poc ?? null, state: null, matched: false, reason: null, outcomes: {} };
       const seasonalStart = control.now?.();
       row.seasonal = input.seasonal({ numerator: col?.v ?? null, start: c * step, end: (c + 1) * step, cutoff: stop * step });
@@ -134,10 +226,11 @@
       rows.push(row);
     }
     phase("thresholds-state");
-    shares.sort((a, b) => a - b); seasonalValues.sort((a, b) => a - b);
-    const st = [quantile(shares, 1 / 3), quantile(shares, 2 / 3)], vt = [quantile(seasonalValues, 1 / 3), quantile(seasonalValues, 2 / 3)], fitted = st.every(Number.isFinite) && vt.every(Number.isFinite);
+    const orderedShares = await sorted(shares, control, "thresholds-state", budget), orderedSeasonal = orderedShares && await sorted(seasonalValues, control, "thresholds-state", budget);
+    if (!orderedShares || !orderedSeasonal) return null;
+    const st = [quantile(orderedShares, 1 / 3), quantile(orderedShares, 2 / 3)], vt = [quantile(orderedSeasonal, 1 / 3), quantile(orderedSeasonal, 2 / 3)], fitted = st.every(Number.isFinite) && vt.every(Number.isFinite);
     for (let i = 0; i < rows.length; i++) {
-      if (i % 512 === 0) { await yieldTask(control, "thresholds-state"); if (!alive()) return null; }
+      if (i % 512 === 0 && !await checkpoint(control, "thresholds-state", budget, i === 0)) return null;
       const row = rows[i];
       if (!row.reason && !fitted) { row.reason = REASONS[5]; row.result = unavailable(row.reason); }
       if (!row.reason) row.state = [Math.sign(row.poc - by.get(row.c - 1).poc) + 1, bucket(row.buyShare, st), bucket(row.seasonal.result.value, vt)];
@@ -146,7 +239,7 @@
     phase("cases");
     const cases = Array.from({ length: 9 }, () => []), matched = Array.from({ length: 9 }, () => []);
     for (let i = 0; i < rows.length; i++) {
-      if (i % 512 === 0) { await yieldTask(control, "cases"); if (!alive()) return null; }
+      if (i % 512 === 0 && !await checkpoint(control, "cases", budget, i === 0)) return null;
       const row = rows[i];
       row.matched = Boolean(state && row.state && row.state.every((v, j) => v === state[j]));
       if (!row.state) continue;
@@ -165,15 +258,18 @@
       }
     }
     phase("summaries");
+    const matchingSummaries = [], allSummaries = [];
+    for (const group of matched) { const pair = await summaries(group, control, budget); if (!pair) return null; matchingSummaries.push(pair); }
+    for (const group of cases) { const pair = await summaries(group, control, budget); if (!pair) return null; allSummaries.push(pair); }
     const blockLength = Math.ceil((6 * 10752 + 9 * step) / step);
     const out = { version: MODEL, a: input.a, n: input.n, m: input.m, barrier: input.barrier, from: first, poc: anchor?.poc ?? null, anchor, state,
-      thresholds: { share: st, seasonal: vt }, cases, matched, match: matched.map((c) => summary(c, "direction")), all: cases.map((c) => summary(c, "direction")),
-      barrierMatch: matched.map((c) => summary(c, "first")), barrierAll: cases.map((c) => summary(c, "first")), ledger: rows, blockLength, provenance: input.provenance,
+      thresholds: { share: st, seasonal: vt }, cases, matched, match: matchingSummaries.map(pair => pair[0]), all: allSummaries.map(pair => pair[0]),
+      barrierMatch: matchingSummaries.map(pair => pair[1]), barrierAll: allSummaries.map(pair => pair[1]), ledger: rows, blockLength, provenance: input.provenance,
       anchorReason: state ? null : anchor?.reason === REASONS[3] ? REASONS[3] : "Anchor seasonal support unavailable", fitReason: fitted ? null : REASONS[5] };
     phaseEnd?.(); phaseEnd = null;
     out.uncertainty = await bootstrap(input, out, input.kind, input.horizon, control);
     return alive() ? out : null;
     } finally { phaseEnd?.("interrupted"); }
   }
-  return Object.freeze({ MODEL, BOOTSTRAP, REASONS: Object.freeze(REASONS), quantile, fnv, random, summary, canonicalKey, intervalResult, bootstrap, compute });
+  return Object.freeze({ MODEL, BOOTSTRAP, REASONS: Object.freeze(REASONS), quantile, fnv, random, summary, canonicalKey, intervalResult, sourceDigest, bootstrap, compute });
 });

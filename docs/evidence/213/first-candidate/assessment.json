@@ -1,0 +1,502 @@
+{
+  "schema": "continuations-candidate-audit@1",
+  "initialProducer": "8c8def7ca9e41005602f2f855701a12c593f9a5a",
+  "producer": "909b28852d5116c085644d1b7ad68c5f98dfbcf9",
+  "host": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+    "node": "v22.23.3"
+  },
+  "browser": "153.0.8010.12",
+  "verifiedPayloads": 120,
+  "candidatePayloads": 80,
+  "kernelWholeOutputs": 90,
+  "wholeAppBeforeAfterIdenticalPairs": 5,
+  "metrics": {
+    "kernel:cap-qualified": {
+      "baselineMedianMs": 5169.399999999965,
+      "candidateMedianMs": 1350.3000000000466,
+      "medianPairedGainMs": 3810.5,
+      "initialFloorMs": 38.20000000001164,
+      "currentFloorMs": 57.699999999953434,
+      "noiseFloorMs": 57.699999999953434,
+      "positivePairs": 5,
+      "reducedWork": true,
+      "material": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 5233,
+          "B": 1313,
+          "gain": 3920,
+          "yieldCountA": 907,
+          "yieldCountB": 110
+        },
+        {
+          "pair": 1,
+          "A": 5169.399999999965,
+          "B": 1358.899999999965,
+          "gain": 3810.5,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        },
+        {
+          "pair": 2,
+          "A": 5150.200000000012,
+          "B": 1370,
+          "gain": 3780.2000000000116,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        },
+        {
+          "pair": 3,
+          "A": 5148.099999999977,
+          "B": 1350.3000000000466,
+          "gain": 3797.79999999993,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        },
+        {
+          "pair": 4,
+          "A": 5183.599999999977,
+          "B": 1336.4000000000233,
+          "gain": 3847.1999999999534,
+          "yieldCountA": 907,
+          "yieldCountB": 111
+        }
+      ]
+    },
+    "kernel:floor-failure": {
+      "baselineMedianMs": 446.19999999995343,
+      "candidateMedianMs": 234.70000000006985,
+      "medianPairedGainMs": 205.5,
+      "initialFloorMs": 33.39999999999998,
+      "currentFloorMs": 33.39999999999998,
+      "noiseFloorMs": 33.39999999999998,
+      "positivePairs": 5,
+      "reducedWork": true,
+      "material": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 446.19999999995343,
+          "B": 241.79999999998836,
+          "gain": 204.39999999996508,
+          "yieldCountA": 78,
+          "yieldCountB": 30
+        },
+        {
+          "pair": 1,
+          "A": 446.80000000004657,
+          "B": 241.79999999998836,
+          "gain": 205.0000000000582,
+          "yieldCountA": 78,
+          "yieldCountB": 30
+        },
+        {
+          "pair": 2,
+          "A": 438.9000000000233,
+          "B": 233.40000000002328,
+          "gain": 205.5,
+          "yieldCountA": 78,
+          "yieldCountB": 29
+        },
+        {
+          "pair": 3,
+          "A": 443.20000000006985,
+          "B": 234.70000000006985,
+          "gain": 208.5,
+          "yieldCountA": 78,
+          "yieldCountB": 29
+        },
+        {
+          "pair": 4,
+          "A": 451.5999999999767,
+          "B": 229.59999999997672,
+          "gain": 222,
+          "yieldCountA": 78,
+          "yieldCountB": 30
+        }
+      ]
+    },
+    "kernel:partial-coverage": {
+      "baselineMedianMs": 4958.300000000047,
+      "candidateMedianMs": 1327.4000000000233,
+      "medianPairedGainMs": 3657.0999999999767,
+      "initialFloorMs": 33.399999999999636,
+      "currentFloorMs": 128.59999999997672,
+      "noiseFloorMs": 128.59999999997672,
+      "positivePairs": 5,
+      "reducedWork": true,
+      "material": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 4964,
+          "B": 1327.4000000000233,
+          "gain": 3636.5999999999767,
+          "yieldCountA": 905,
+          "yieldCountB": 110
+        },
+        {
+          "pair": 1,
+          "A": 4935,
+          "B": 1277.9000000000233,
+          "gain": 3657.0999999999767,
+          "yieldCountA": 905,
+          "yieldCountB": 108
+        },
+        {
+          "pair": 2,
+          "A": 5002.5,
+          "B": 1344.8000000000466,
+          "gain": 3657.6999999999534,
+          "yieldCountA": 905,
+          "yieldCountB": 112
+        },
+        {
+          "pair": 3,
+          "A": 4954.29999999993,
+          "B": 1290.5,
+          "gain": 3663.79999999993,
+          "yieldCountA": 905,
+          "yieldCountB": 108
+        },
+        {
+          "pair": 4,
+          "A": 4958.300000000047,
+          "B": 1331,
+          "gain": 3627.3000000000466,
+          "yieldCountA": 905,
+          "yieldCountB": 109
+        }
+      ]
+    },
+    "app:first-complete": {
+      "baselineMedianMs": 6339.450473000004,
+      "candidateMedianMs": 2555.6508369999938,
+      "medianPairedGainMs": 3690.484762999986,
+      "initialFloorMs": 151.68887099999483,
+      "currentFloorMs": 115.09176699999443,
+      "noiseFloorMs": 151.68887099999483,
+      "positivePairs": 5,
+      "reducedWork": true,
+      "material": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 6364.103061999951,
+          "B": 2527.163922000036,
+          "gain": 3836.939139999915,
+          "yieldCountA": 907,
+          "yieldCountB": 111
+        },
+        {
+          "pair": 1,
+          "A": 6408.457998999977,
+          "B": 2523.8736370000406,
+          "gain": 3884.584361999936,
+          "yieldCountA": 907,
+          "yieldCountB": 108
+        },
+        {
+          "pair": 2,
+          "A": 6339.450473000004,
+          "B": 2648.9657100000186,
+          "gain": 3690.484762999986,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 3,
+          "A": 6286.632974000007,
+          "B": 2596.8250659999903,
+          "gain": 3689.807908000017,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 4,
+          "A": 6236.244971000007,
+          "B": 2555.6508369999938,
+          "gain": 3680.5941340000136,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        }
+      ]
+    },
+    "app:first-compute": {
+      "baselineMedianMs": 6155.400000000023,
+      "candidateMedianMs": 2394.5,
+      "medianPairedGainMs": 3688.9000000000233,
+      "initialFloorMs": 155.10000000000582,
+      "currentFloorMs": 116.30000000001746,
+      "noiseFloorMs": 155.10000000000582,
+      "positivePairs": 5,
+      "reducedWork": true,
+      "material": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 6195.299999999988,
+          "B": 2370.2000000000116,
+          "gain": 3825.0999999999767,
+          "yieldCountA": 907,
+          "yieldCountB": 111
+        },
+        {
+          "pair": 1,
+          "A": 6241.800000000047,
+          "B": 2361.5,
+          "gain": 3880.3000000000466,
+          "yieldCountA": 907,
+          "yieldCountB": 108
+        },
+        {
+          "pair": 2,
+          "A": 6155.400000000023,
+          "B": 2466.5,
+          "gain": 3688.9000000000233,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 3,
+          "A": 6120.79999999993,
+          "B": 2434.9000000000233,
+          "gain": 3685.899999999907,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 4,
+          "A": 6071.699999999953,
+          "B": 2394.5,
+          "gain": 3677.1999999999534,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        }
+      ]
+    },
+    "app:first-presentation": {
+      "baselineMedianMs": 6262.300000000047,
+      "candidateMedianMs": 2496.399999999907,
+      "medianPairedGainMs": 3694.0999999999767,
+      "initialFloorMs": 154.39999999999418,
+      "currentFloorMs": 118.90000000002328,
+      "noiseFloorMs": 154.39999999999418,
+      "positivePairs": 5,
+      "reducedWork": true,
+      "material": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 6291.799999999988,
+          "B": 2456.7000000000116,
+          "gain": 3835.0999999999767,
+          "yieldCountA": 907,
+          "yieldCountB": 111
+        },
+        {
+          "pair": 1,
+          "A": 6342.900000000023,
+          "B": 2458.7000000000116,
+          "gain": 3884.2000000000116,
+          "yieldCountA": 907,
+          "yieldCountB": 108
+        },
+        {
+          "pair": 2,
+          "A": 6262.300000000047,
+          "B": 2582.5999999999767,
+          "gain": 3679.70000000007,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 3,
+          "A": 6223.400000000023,
+          "B": 2529.3000000000466,
+          "gain": 3694.0999999999767,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 4,
+          "A": 6172.900000000023,
+          "B": 2496.399999999907,
+          "gain": 3676.5000000001164,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        }
+      ]
+    },
+    "app:warm-complete": {
+      "baselineMedianMs": 76.4166710000136,
+      "candidateMedianMs": 77.01561800006311,
+      "medianPairedGainMs": 1.6513440000126138,
+      "initialFloorMs": 33.399999999999636,
+      "currentFloorMs": 33.399999999999636,
+      "noiseFloorMs": 33.399999999999636,
+      "positivePairs": 3,
+      "reducedWork": false,
+      "material": false,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 72.85875399998622,
+          "B": 75.95988100004615,
+          "gain": -3.1011270000599325,
+          "yieldCountA": 907,
+          "yieldCountB": 111
+        },
+        {
+          "pair": 1,
+          "A": 81.08151799999177,
+          "B": 78.23469599999953,
+          "gain": 2.846821999992244,
+          "yieldCountA": 907,
+          "yieldCountB": 108
+        },
+        {
+          "pair": 2,
+          "A": 76.4166710000136,
+          "B": 74.76532700000098,
+          "gain": 1.6513440000126138,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 3,
+          "A": 74.11389000003692,
+          "B": 84.7424329999485,
+          "gain": -10.628542999911588,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 4,
+          "A": 83.91383600002155,
+          "B": 77.01561800006311,
+          "gain": 6.898217999958433,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        }
+      ]
+    },
+    "app:warm-compute": {
+      "baselineMedianMs": 13,
+      "candidateMedianMs": 12.900000000023283,
+      "medianPairedGainMs": 2.200000000069849,
+      "initialFloorMs": 33.399999999999636,
+      "currentFloorMs": 33.399999999999636,
+      "noiseFloorMs": 33.399999999999636,
+      "positivePairs": 3,
+      "reducedWork": false,
+      "material": false,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 11.200000000011642,
+          "B": 12,
+          "gain": -0.7999999999883585,
+          "yieldCountA": 907,
+          "yieldCountB": 111
+        },
+        {
+          "pair": 1,
+          "A": 21.300000000046566,
+          "B": 19.099999999976717,
+          "gain": 2.200000000069849,
+          "yieldCountA": 907,
+          "yieldCountB": 108
+        },
+        {
+          "pair": 2,
+          "A": 13,
+          "B": 10.599999999976717,
+          "gain": 2.400000000023283,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 3,
+          "A": 11.699999999953434,
+          "B": 20.5,
+          "gain": -8.800000000046566,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 4,
+          "A": 21.600000000093132,
+          "B": 12.900000000023283,
+          "gain": 8.70000000006985,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        }
+      ]
+    },
+    "app:warm-presentation": {
+      "baselineMedianMs": 725.6000000000349,
+      "candidateMedianMs": 719.7999999999884,
+      "medianPairedGainMs": 1.1000000000931323,
+      "initialFloorMs": 33.399999999999636,
+      "currentFloorMs": 33.399999999999636,
+      "noiseFloorMs": 33.399999999999636,
+      "positivePairs": 3,
+      "reducedWork": false,
+      "material": false,
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 717.3000000000466,
+          "B": 719.7999999999884,
+          "gain": -2.4999999999417923,
+          "yieldCountA": 907,
+          "yieldCountB": 111
+        },
+        {
+          "pair": 1,
+          "A": 725.6000000000349,
+          "B": 711.5999999999767,
+          "gain": 14.000000000058208,
+          "yieldCountA": 907,
+          "yieldCountB": 108
+        },
+        {
+          "pair": 2,
+          "A": 736.9000000000233,
+          "B": 732.0999999999767,
+          "gain": 4.800000000046566,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 3,
+          "A": 717.3000000000466,
+          "B": 716.1999999999534,
+          "gain": 1.1000000000931323,
+          "yieldCountA": 907,
+          "yieldCountB": 113
+        },
+        {
+          "pair": 4,
+          "A": 726.7000000000698,
+          "B": 745.8000000000466,
+          "gain": -19.099999999976717,
+          "yieldCountA": 907,
+          "yieldCountB": 112
+        }
+      ]
+    }
+  },
+  "correction": "The earlier assessment labeled firstMs as first-result latency. That field ends at compute completion. The declared complete-DOM endpoint was already captured in endpoints[].automationWallMs in all pre-edit and candidate raw trials; it is primary here. Compute and native two-frame presentation proxies remain separately reported. No collection/instrumentation/endpoint or raw observation is changed, discarded or replaced.",
+  "limitations": [
+    "Complete-DOM wall includes automation input/polling transport; identical paired harness and A/A floor, not a clean user latency/INP certificate",
+    "Native presentation-proxy is two quiet visible frames, not physical display presentation",
+    "Warm data/compute completion is separate from intended tab motion; no first-use claim from a warm hit",
+    "Nested walls/yield waits are not additive CPU; existing absolute/cumulative #96 acceptance is not waived"
+  ]
+}

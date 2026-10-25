@@ -2,7 +2,8 @@
 // U10 (TESTPLAN.md 2.2): the seams of src/encoding.js: what the module exports and how it loads, before
 // any part's own tests look inside it.
 //
-// Oracle: the list of exports below, transcribed by hand from API.md A.1 and A.3 plus docs/drawing-api.md (a name, and how many
+// Oracle: the list of exports below, transcribed by hand from API.md A.1 and A.3 plus docs/drawing-api.md
+// and the cooperative SHA contract in docs/data-and-semantics.md (a name, and how many
 // arguments it takes: the fewest it needs and the most it documents), the 31 keys of A.1, and the values
 // A.3 states for the constants. Nothing is derived from the module under test. `Function.length` counts
 // parameters up to the first default, so each function is checked against a [fewest, most] range, not one
@@ -37,7 +38,7 @@ const SPEC = {
   result: { TAGS: "array", TAG: "object", make: F(1, 2), finite: F(1), isValue: F(1), precedence: F(1), assertJsonSafe: F(1), describe: F(1, 2) },
   time: { baseToMs: F(1, 3), msToBase: F(1, 3), utcDay: F(1) },
   util: { windowLevel: F(1), clamp: F(3), quantile7: F(2), median7: F(1), lowerBound: F(2), upperBound: F(2) },
-  hash: { sha256: F(1), canonical: F(1), id96: F(1), b64urlEncode: F(1), b64urlDecode: F(1), hex: F(1, 2), utf8: F(1), fromUtf8: F(1), f64ToB64: F(1), b64ToF64: F(2) },
+  hash: { sha256: F(1), sha256Async: F(2), canonical: F(1), id96: F(1), b64urlEncode: F(1), b64urlDecode: F(1), hex: F(1, 2), utf8: F(1), fromUtf8: F(1), f64ToB64: F(1), b64ToF64: F(2) },
   measure: {
     developingPoc: F(2), // docs/data-and-semantics.md: cumulative UTC-session prefix POC
     FORMULAS: "object", MODES: "object", ROWS: "object", close: "object", exposure: F(7, 8), usesOf: F(2), isShort: F(2), cellValue: F(2),

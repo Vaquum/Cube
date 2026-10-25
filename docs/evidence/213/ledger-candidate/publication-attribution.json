@@ -1,0 +1,516 @@
+{
+  "schema": "continuations-publication-attribution@1",
+  "scope": "All observed longtasks starting between first Continuations click and warm click, including after calculation. Frame/draw signals are scoped observations, not INP, physical display timing or absolute/cumulative machine certification. Original full vectors remain in raw.zip.",
+  "observations": [
+    {
+      "pair": 0,
+      "firstClickAt": 691.4000000000233,
+      "warmClickAt": 2606,
+      "completePhaseEnd": {
+        "type": "phase-end",
+        "at": 2494.4000000000233,
+        "id": 14,
+        "name": "continuations",
+        "outcome": "completed",
+        "duration": 1352.4000000000233
+      },
+      "publicationDraw": {
+        "type": "draw",
+        "at": 2508.600000000035,
+        "duration": 7.2999999999883585,
+        "status": "target-output-submitted",
+        "requested": {
+          "intent": 3,
+          "revision": 17,
+          "auto": false,
+          "window": "24h",
+          "n": 4,
+          "m": 0,
+          "mode": "volume",
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "replay": false,
+          "anchor": null,
+          "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+          "generation": 0
+        },
+        "target": {
+          "n": 4,
+          "m": 0,
+          "reason": null
+        },
+        "fallbackReason": null,
+        "applicable": true,
+        "rendered": {
+          "intent": 3,
+          "revision": 17,
+          "n": 4,
+          "m": 0,
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "cutoff": 1600000,
+          "source": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "cellMeasurement": null,
+          "submittedSource": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "sourceVersion": "recent:1344,overview:782,reference:2880|2880",
+          "mapping": "_hhZkbPwbRCKdy_R",
+          "raster": {
+            "kind": "native-grid-draw"
+          }
+        },
+        "refinement": null,
+        "candleSurfaces": [],
+        "movement": null,
+        "pending": false,
+        "error": null
+      },
+      "longTasksStartingFromFirstClickThroughWarmClick": [],
+      "frameCount": 115,
+      "maxFrameIntervalMs": 16.800000000000182,
+      "frameP95Ms": 16.700000000000273,
+      "phaseWallsMs": {
+        "continuations.prepare-columns": 53.899999999965075,
+        "continuations.digest": 273.20000000001164,
+        "continuations.ledger-counts": 8.899999999965075
+      }
+    },
+    {
+      "pair": 1,
+      "firstClickAt": 692.4000000000233,
+      "warmClickAt": 2607.9000000000233,
+      "completePhaseEnd": {
+        "type": "phase-end",
+        "at": 2493.7000000000116,
+        "id": 14,
+        "name": "continuations",
+        "outcome": "completed",
+        "duration": 1363.5999999999767
+      },
+      "publicationDraw": {
+        "type": "draw",
+        "at": 2509.9000000000233,
+        "duration": 7.099999999976717,
+        "status": "target-output-submitted",
+        "requested": {
+          "intent": 3,
+          "revision": 17,
+          "auto": false,
+          "window": "24h",
+          "n": 4,
+          "m": 0,
+          "mode": "volume",
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "replay": false,
+          "anchor": null,
+          "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+          "generation": 0
+        },
+        "target": {
+          "n": 4,
+          "m": 0,
+          "reason": null
+        },
+        "fallbackReason": null,
+        "applicable": true,
+        "rendered": {
+          "intent": 3,
+          "revision": 17,
+          "n": 4,
+          "m": 0,
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "cutoff": 1600000,
+          "source": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "cellMeasurement": null,
+          "submittedSource": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "sourceVersion": "recent:1344,overview:782,reference:2880|2880",
+          "mapping": "_hhZkbPwbRCKdy_R",
+          "raster": {
+            "kind": "native-grid-draw"
+          }
+        },
+        "refinement": null,
+        "candleSurfaces": [],
+        "movement": null,
+        "pending": false,
+        "error": null
+      },
+      "longTasksStartingFromFirstClickThroughWarmClick": [],
+      "frameCount": 115,
+      "maxFrameIntervalMs": 16.799999999999955,
+      "frameP95Ms": 16.700000000000273,
+      "phaseWallsMs": {
+        "continuations.prepare-columns": 62.5,
+        "continuations.digest": 260.70000000001164,
+        "continuations.ledger-counts": 10.200000000011642
+      }
+    },
+    {
+      "pair": 2,
+      "firstClickAt": 721.6000000000349,
+      "warmClickAt": 2635.9000000000233,
+      "completePhaseEnd": {
+        "type": "phase-end",
+        "at": 2532,
+        "id": 14,
+        "name": "continuations",
+        "outcome": "completed",
+        "duration": 1374.2999999999884
+      },
+      "publicationDraw": {
+        "type": "draw",
+        "at": 2539.100000000035,
+        "duration": 6.900000000023283,
+        "status": "target-output-submitted",
+        "requested": {
+          "intent": 3,
+          "revision": 17,
+          "auto": false,
+          "window": "24h",
+          "n": 4,
+          "m": 0,
+          "mode": "volume",
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "replay": false,
+          "anchor": null,
+          "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+          "generation": 0
+        },
+        "target": {
+          "n": 4,
+          "m": 0,
+          "reason": null
+        },
+        "fallbackReason": null,
+        "applicable": true,
+        "rendered": {
+          "intent": 3,
+          "revision": 17,
+          "n": 4,
+          "m": 0,
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "cutoff": 1600000,
+          "source": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "cellMeasurement": null,
+          "submittedSource": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "sourceVersion": "recent:1344,overview:782,reference:2880|2880",
+          "mapping": "_hhZkbPwbRCKdy_R",
+          "raster": {
+            "kind": "native-grid-draw"
+          }
+        },
+        "refinement": null,
+        "candleSurfaces": [],
+        "movement": null,
+        "pending": false,
+        "error": null
+      },
+      "longTasksStartingFromFirstClickThroughWarmClick": [],
+      "frameCount": 115,
+      "maxFrameIntervalMs": 16.800000000000182,
+      "frameP95Ms": 16.700000000000273,
+      "phaseWallsMs": {
+        "continuations.prepare-columns": 53.399999999965075,
+        "continuations.digest": 291.70000000001164,
+        "continuations.ledger-counts": 13.200000000011642
+      }
+    },
+    {
+      "pair": 3,
+      "firstClickAt": 691.8999999999651,
+      "warmClickAt": 2587.7000000000116,
+      "completePhaseEnd": {
+        "type": "phase-end",
+        "at": 2481.2000000000116,
+        "id": 14,
+        "name": "continuations",
+        "outcome": "completed",
+        "duration": 1352.9000000000233
+      },
+      "publicationDraw": {
+        "type": "draw",
+        "at": 2489.2000000000116,
+        "duration": 6.900000000023283,
+        "status": "target-output-submitted",
+        "requested": {
+          "intent": 3,
+          "revision": 17,
+          "auto": false,
+          "window": "24h",
+          "n": 4,
+          "m": 0,
+          "mode": "volume",
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "replay": false,
+          "anchor": null,
+          "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+          "generation": 0
+        },
+        "target": {
+          "n": 4,
+          "m": 0,
+          "reason": null
+        },
+        "fallbackReason": null,
+        "applicable": true,
+        "rendered": {
+          "intent": 3,
+          "revision": 17,
+          "n": 4,
+          "m": 0,
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "cutoff": 1600000,
+          "source": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "cellMeasurement": null,
+          "submittedSource": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "sourceVersion": "recent:1344,overview:782,reference:2880|2880",
+          "mapping": "_hhZkbPwbRCKdy_R",
+          "raster": {
+            "kind": "native-grid-draw"
+          }
+        },
+        "refinement": null,
+        "candleSurfaces": [],
+        "movement": null,
+        "pending": false,
+        "error": null
+      },
+      "longTasksStartingFromFirstClickThroughWarmClick": [],
+      "frameCount": 114,
+      "maxFrameIntervalMs": 16.800000000000182,
+      "frameP95Ms": 16.799999999999955,
+      "phaseWallsMs": {
+        "continuations.prepare-columns": 80.29999999998836,
+        "continuations.digest": 253.80000000004657,
+        "continuations.ledger-counts": 8.899999999965075
+      }
+    },
+    {
+      "pair": 4,
+      "firstClickAt": 710,
+      "warmClickAt": 2569.79999999993,
+      "completePhaseEnd": {
+        "type": "phase-end",
+        "at": 2469.899999999907,
+        "id": 14,
+        "name": "continuations",
+        "outcome": "completed",
+        "duration": 1331.0999999999767
+      },
+      "publicationDraw": {
+        "type": "draw",
+        "at": 2476.899999999907,
+        "duration": 6.699999999953434,
+        "status": "target-output-submitted",
+        "requested": {
+          "intent": 3,
+          "revision": 17,
+          "auto": false,
+          "window": "24h",
+          "n": 4,
+          "m": 0,
+          "mode": "volume",
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "replay": false,
+          "anchor": null,
+          "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+          "generation": 0
+        },
+        "target": {
+          "n": 4,
+          "m": 0,
+          "reason": null
+        },
+        "fallbackReason": null,
+        "applicable": true,
+        "rendered": {
+          "intent": 3,
+          "revision": 17,
+          "n": 4,
+          "m": 0,
+          "camera": [
+            1598464,
+            1600161.28,
+            196,
+            205
+          ],
+          "cutoff": 1600000,
+          "source": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "cellMeasurement": null,
+          "submittedSource": {
+            "id": "recent",
+            "n": 0,
+            "m": 0,
+            "support": [
+              1589248,
+              1600000
+            ],
+            "pack": "966c35b22c432bfff709f33a95b6ce68001a24024f4cffbae1d44698522ede14",
+            "generation": 0,
+            "revision": 1
+          },
+          "sourceVersion": "recent:1344,overview:782,reference:2880|2880",
+          "mapping": "_hhZkbPwbRCKdy_R",
+          "raster": {
+            "kind": "native-grid-draw"
+          }
+        },
+        "refinement": null,
+        "candleSurfaces": [],
+        "movement": null,
+        "pending": false,
+        "error": null
+      },
+      "longTasksStartingFromFirstClickThroughWarmClick": [],
+      "frameCount": 111,
+      "maxFrameIntervalMs": 33.19999999999993,
+      "frameP95Ms": 16.799999999999955,
+      "phaseWallsMs": {
+        "continuations.prepare-columns": 61.699999999953434,
+        "continuations.digest": 258.20000000006985,
+        "continuations.ledger-counts": 9.70000000006985
+      }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+name: Continuations evidence
+on:
+  pull_request:
+    paths:
+      - 'src/encoding.js'
+      - 'src/evidence.js'
+      - 'src/explorer.js'
+      - 'index.html'
+      - '.github/workflows/continuations.yml'
+      - 'tools/benchmark_continuations.mjs'
+      - 'tools/diagnose_continuations.mjs'
+      - 'tools/characterize_evidence.cjs'
+      - 'tools/benchmark/continuations*'
+      - 'tests/support/evidence-study.js'
+      - 'tests/fixtures/evidence-study.json'
+      - 'tests/unit/evidence-characterization.test.js'
+      - 'docs/evidence/213/**'
+permissions:
+  contents: read
+jobs:
+  attribution:
+    name: Complete Continuations baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          if test -f docs/evidence/213/baseline/summary.json; then
+            node tools/benchmark_continuations.mjs --candidate
+          else
+            node tools/benchmark_continuations.mjs
+          fi
+      - run: |
+          if test -f docs/evidence/213/baseline/raw.zip; then
+            python3 -m zipfile -e docs/evidence/213/baseline/raw.zip reports/continuations-initial
+            node tools/benchmark/continuations-assessment.cjs reports/continuations-initial reports/continuations reports/continuations/assessment.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: continuations-evidence-${{ github.run_attempt }}
+          path: reports/continuations/
+          retention-days: 14
+          if-no-files-found: error

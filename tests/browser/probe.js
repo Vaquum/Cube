@@ -120,6 +120,15 @@ function install(surface) {
       return watching(original.apply(this, args), `${name} ${response?.label || "stream"}`, response?.required ?? name === "arrayBuffer");
     };
   }
+  // The optional study can await native SHA between timer slices. Keep that
+  // real outstanding operation visible; resolving it does not itself require
+  // another canvas draw (the current study still owns its publication draw).
+  if (window.crypto?.subtle) {
+    const digest = window.crypto.subtle.digest;
+    window.crypto.subtle.digest = function (...args) {
+      return watching(digest.apply(this, args), "crypto.digest " + String(args[0]));
+    };
+  }
   const clone = Response.prototype.clone;
   Response.prototype.clone = function (...args) {
     const copy = clone.apply(this, args);

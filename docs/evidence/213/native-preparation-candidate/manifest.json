@@ -1,0 +1,122 @@
+{
+  "schema": "continuations-native-preparation-candidate@1",
+  "runtime": "d70069016aa41208f3360c169a7c62eabcd3a3b4",
+  "browser": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "viewport": [
+      351,
+      575
+    ],
+    "dpr": 3.859999895095825,
+    "supportedEntryTypes": [
+      "element",
+      "event",
+      "first-input",
+      "interaction-contentful-paint",
+      "largest-contentful-paint",
+      "layout-shift",
+      "long-animation-frame",
+      "longtask",
+      "mark",
+      "measure",
+      "navigation",
+      "paint",
+      "resource",
+      "soft-navigation",
+      "visibility-state"
+    ],
+    "interactivityInert": true
+  },
+  "completePhaseMs": 1248.1000000238419,
+  "digestMs": 225.39999997615814,
+  "all2000Draws": true,
+  "longTasksStartingDuringCalculation": [],
+  "postPublicationTasks": [
+    {
+      "type": "browser-timing",
+      "at": 7964.400000035763,
+      "entryType": "longtask",
+      "name": "self",
+      "startTime": 7661.800000011921,
+      "duration": 301
+    }
+  ],
+  "actualDuringStudyState": {
+    "bootstrap": null,
+    "busy": "true",
+    "controlsExpanded": "true",
+    "recording": "Recording \u00b7 stops after two minutes, 10,000 events or 2 MiB",
+    "version": "Running explorer commit d70069016aa41208f3360c169a7c62eabcd3a3b4 \u00b7 25 Oct 2026, 02:32 UTC \u00b7 open its pull request"
+  },
+  "attributionLedgerCountSpans": [
+    {
+      "type": "phase-end",
+      "at": 3053.600000023842,
+      "id": 28,
+      "name": "continuations.ledger-counts",
+      "outcome": "completed",
+      "duration": 134.30000001192093
+    },
+    {
+      "type": "phase-end",
+      "at": 3185,
+      "id": 29,
+      "name": "continuations.ledger-counts",
+      "outcome": "completed",
+      "duration": 131.19999998807907
+    }
+  ],
+  "attributionDrawMs": [
+    270.5999999642372
+  ],
+  "limitations": [
+    "One exact committed full-app native correctness/diagnostic collection, not a paired performance acceptance or INP/compositor certificate",
+    "Controls opened while busy before history finished reading; this verifies interaction during data wait, not CPU-phase response",
+    "The only 301 ms observed task starts just after complete compute publication; no long task starting during calculation was exposed in this sample",
+    "Ledger attribution uses two declared recorder calls added to a separate materialised HTML copy; source/served hashes and adaptations retained; these attribution timings are not exact committed runtime acceptance",
+    "Screenshot was taken after complete intervals; the earlier DOM state separately proves Controls open while busy",
+    "Synthetic 100k trade source, ordinary local fake service; no production/cache-cold network claim"
+  ],
+  "files": [
+    {
+      "file": "d700-cap-controls-first-warm.json.gz",
+      "bytes": 23784,
+      "sha256": "ff4ead57902048dc1ab4df55e2d2e60fd218ea278df9c08f47f566c243531e0b",
+      "decodedBytes": 291581,
+      "decodedSha256": "57281c98e81427411a97050f301e4dccbf6178e44fd532b01c735206b8cc7371"
+    },
+    {
+      "file": "d700-ledger-attribution.json.gz",
+      "bytes": 14597,
+      "sha256": "7cb1afd4db84a786762226c8b02f8199007ba0cae1ea21f7fcc05e12f400f58c",
+      "decodedBytes": 154634,
+      "decodedSha256": "a4f19837c272e0b7eeba74a4592d6aa6e5f7cbd97549d6623c3dc76c5f3e49e0"
+    },
+    {
+      "file": "d700-during-study.json.gz",
+      "bytes": 228,
+      "sha256": "e811191e341688c4ea41d0252d905751477621f21c15cd6a9a938dada7d28134",
+      "decodedBytes": 282,
+      "decodedSha256": "857831a909f0f50db0eb78af20793b3f41fad43671bfd6f2cc2a5688a359846f"
+    },
+    {
+      "file": "build-d700690.json.gz",
+      "bytes": 886,
+      "sha256": "2317db2a371551d2fc03a31783c3ee8e9d6dd3cc370611efa2c6aa47b550c45f",
+      "decodedBytes": 1307,
+      "decodedSha256": "ffa05cb34980b32d440c92463a6a8b11b01512226ff946da3aa2aa04186a63f5"
+    },
+    {
+      "file": "build-d700690-attribution.json.gz",
+      "bytes": 1010,
+      "sha256": "4d34ac6cafb7e61bf52ce5e920b8ca8112b88e6df225f03f1a0e2dc9b7053396",
+      "decodedBytes": 1527,
+      "decodedSha256": "9e99f6ff412eb0d4e6fec8973bfd1aced1e8744e4c8697a80d3fd3f6c1b7d86f"
+    },
+    {
+      "file": "d700-controls-open.png",
+      "bytes": 19591,
+      "sha256": "47b033e1193812a5314209c0bbd58cbd581b2af7b305f56b8f2b0387a295f468"
+    }
+  ]
+}

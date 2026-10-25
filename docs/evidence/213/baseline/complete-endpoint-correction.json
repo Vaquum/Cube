@@ -1,0 +1,35 @@
+{
+  "schema": "continuations-endpoint-correction@1",
+  "original": "baseline/assessment.json app-first used raw firstMs, which ends at compute completion",
+  "declaredEndpoint": "busy=false with complete intended-grid bootstrap, originally retained in endpoints[0].automationWallMs in every pre-edit raw trial",
+  "initialCompleteDomMedianMs": 5785.389846499991,
+  "initialCompleteDomFloorMs": 151.68887099999483,
+  "preEditPairs": [
+    {
+      "pair": 0,
+      "A": 5926.437596,
+      "B": 5774.748725000005
+    },
+    {
+      "pair": 1,
+      "A": 5744.342306000006,
+      "B": 5767.941311000002
+    },
+    {
+      "pair": 2,
+      "A": 5813.1603030000115,
+      "B": 5709.809080999985
+    },
+    {
+      "pair": 3,
+      "A": 5810.800676999992,
+      "B": 5796.030967999977
+    },
+    {
+      "pair": 4,
+      "A": 5741.8561510000145,
+      "B": 5821.765769999998
+    }
+  ],
+  "note": "Analysis labeling correction only. No collection definition, source/raw payload or observation is changed or discarded. Controller transport remains included; native compute and two-frame presentation proxies are separate."
+}
