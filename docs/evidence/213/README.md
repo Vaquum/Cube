@@ -1,10 +1,50 @@
-# Continuations: pre-change attribution
+# Continuations: latency and responsiveness evidence
 
-The scheduling/freshness candidate has a verified paired result; the preparation,
-digest and retention correction is under test. #213 remains open until the complete
-before/after collection, correctness, source freshness, responsiveness,
-cancellation and independent review gates are satisfied. #96 retains absolute
-and cumulative acceptance.
+The final product candidate has verified paired complete-result gains and native
+responsiveness evidence. This records measurement and correctness evidence;
+current-head functional CI, independent approval and actual merge remain separate
+gates on PR #253. #96 retains absolute and cumulative acceptance.
+
+## Final product candidate
+
+`ledger-candidate/` retains the original 80-payload CI artifact for `13e7d21`
+(producer `d7e3922`) and its independently executed audit. Including initial A/A,
+all 120 payload hashes, 90 complete kernel fingerprints and five paired whole-app
+inputs/provenance/bootstrap/population comparisons were verified. The four frozen
+collection/fixture files remain byte-identical to pre-edit admission.
+
+| Complete result | Baseline median | Candidate median | Median paired gain | Larger A/A floor |
+| --- | ---: | ---: | ---: | ---: |
+| Whole explorer, busy clear and complete bootstrap DOM | 5,518.1 ms | 1,885.6 ms | 3,615.1 ms | 151.7 ms |
+| Supported 100k kernel | 4,601.6 ms | 1,029.5 ms | 3,579.8 ms | 38.2 ms |
+| Partial-coverage kernel | 4,499.4 ms | 994.2 ms | 3,506.6 ms | 100.2 ms |
+| Correctly withheld floor kernel | 397.9 ms | 193.4 ms | 206.8 ms | 33.4 ms |
+
+All five pairs improve in each row. Whole-app yields fall from 907 to 112–116,
+including preparation and ledger metadata work. Warm complete-DOM medians are
+66.7 → 65.1 ms; paired gain 4.1 ms is within its 33.4 ms floor and is not a
+material improvement. These are paired observations on one shared EPYC 9V74
+worker, Chrome 153, 1500×950/DPR 1; they are not designated-machine guarantees.
+
+The complete first-result window also includes publication after calculation:
+none of its five candidate recordings exposes a long task between first click
+and warm click. Publication draws are 6.7–7.3 ms, frame p95 is 16.7 ms in all
+five, and maximum frame intervals are 16.8–33.2 ms. Original full vectors and
+the exact window/first-draw records remain in `publication-attribution.json` and
+`raw.zip`; absence of exposed long tasks is not an INP/compositor certificate.
+
+`native-ledger-candidate/` retains the exact committed `13e7d21` full-app export
+from the existing authorized side-panel tab, with no source adaptations. Its
+first and changed-horizon studies include all 2,000 draws, reconciled ledgers
+and 4.9/3.9 ms publication draws. The first study's key, seed and every interval
+exactly match the pre-edit full-app input. Both count passes take 19.0/20.8 ms
+of cooperative wall time. A trusted Controls click inside the changed study's
+digest has 24 ms native Event Timing duration, 0.1 ms input delay and 1.3 ms
+processing. Controls are visibly open while busy. No exposed long task appears
+in this native recording; the full visible-frame maximum is still retained at
+51.5 ms. Chrome 156, 351×575/DPR 3.86 differs from the CI protocol. One input
+sample is not INP, and intended tab/sheet motion is a separate presentation proxy.
+The original production view was restored after collection.
 
 ## Retained evidence
 
@@ -49,7 +89,7 @@ duration to compute. Heap is a nonstandard engine estimate, not GC or retained
 heap attribution. None of these diagnostics certifies INP, compositor timing or
 the designated-machine budgets.
 
-## Candidate under test
+## Measured changes
 
 The selected change retains zero-delay timers and the initial cancellation
 handoffs, but charges another timer wait only after an 8 ms work slice. It does
@@ -120,7 +160,11 @@ absolute/cumulative #96 acceptance.
 
 The first candidate still exposed a 464.9 ms median digest phase and a 557 ms
 observed long task. That recorded remaining cost justifies the preparation/digest
-correction above; its candidate measurements are still pending. Original failed
+correction above. `preparation-candidate/` retains its next original 80-payload
+collection and independent audit: complete-DOM medians 5,154.4 → 1,596.0 ms,
+paired gain 3,579.8 ms above the same 151.7 ms floor in all five pairs. Its full
+1,473-case browser suite passes once with no skips/retries. The different workers
+are not used as an incremental candidate-to-candidate speed comparison. Original
 labels, raw vectors and the correction remain retrievable.
 
 The exact committed `d700690` native full-app recording is retained in
@@ -149,19 +193,22 @@ work, both ledgers, Cases as another consumer, bounded completion after departur
 synthetic hidden/show ownership, an obsolete complete study released just before
 publication and Stop/restart during digest. All eight 100k ledger count partitions
 agree with the original independent filters; cancellation stops the new pass at
-its next bounded checkpoint. Hidden documents
+its next bounded checkpoint. The subsequent current-head functional run is linked
+by the final manifest; its result remains an independent merge gate. Hidden documents
 retain the existing bounded-completion policy and can throttle short timers;
-synthetic visibility checks do not certify real hidden-page latency. Final
-candidate measurements and native responsiveness evidence remain pending.
+synthetic visibility checks do not certify real hidden-page latency.
 
-## Reproduction and remaining collection
+## Reproduction and acceptance
 
 Pure Node characterization (no browser launch):
 
 ```
 node tools/characterize_evidence.cjs d8449f3acab8af9fd2d0dd46bd2a95f148a189c6 reports/characterization.json
 node --test tests/unit/evidence-characterization.test.js
-node tools/benchmark/continuations-assessment.cjs reports/initial reports/candidate reports/assessment.json
+git fetch origin d7e39227c00eb0bb63add96ac123bcb6b62c2c3c
+python3 -m zipfile -e docs/evidence/213/baseline/raw.zip reports/213-initial
+python3 -m zipfile -e docs/evidence/213/ledger-candidate/raw.zip reports/213-final
+node tools/benchmark/continuations-assessment.cjs reports/213-initial reports/213-final reports/213-final-assessment.json
 ```
 
 Serve the exact-module diagnostic, then visit its printed address in the existing
@@ -185,5 +232,5 @@ must repeat A/A on its own worker and use the larger initial/current noise floor
 five alternating pairs, exact output equality and demonstrated work reduction.
 Do not interpret a smaller point-only endpoint, a floor failure or a missing
 endpoint as faster supported completion. Responsiveness/lifecycle and current
-retained-versus-fresh history still require their named regressions. A cache
+retained-versus-fresh history have separate named correctness regressions. A cache
 split, worker or queue rewrite is not implied by this attribution.

@@ -1,0 +1,44 @@
+{
+  "schema": "continuations-candidate-publication@1",
+  "head": "13e7d2184e9d79d343dbd5cebd3ff2ba37cde6f6",
+  "producer": "d7e39227c00eb0bb63add96ac123bcb6b62c2c3c",
+  "run": 40155462330,
+  "job": 121055809962,
+  "artifact": 12584094158,
+  "rawZipSha256": "3a8ef1ea7925bccc3bd49d593a7d1678b8fd3a797ca83054c0a8744af974f4e4",
+  "independentlyAuditedPayloads": 120,
+  "wholeKernelOutputs": 90,
+  "identicalWholeAppPairs": 5,
+  "sourceIndexSha256": "11c890254efb498d1fbed42ca2030eab959187f2f36f2fbf22a0734f64b81277",
+  "functionalRun": 40155462325,
+  "functionalStatus": "Check linked exact-head run; collection success does not replace full functional/review/merge gates",
+  "native": "../native-ledger-candidate/manifest.json",
+  "localUnit": {
+    "passed": 2260,
+    "skipped": 6,
+    "failed": 0
+  },
+  "sourceChange": "Single cooperative current-horizon ledger-count pass, shared by both views before publication; mathematical engine and frozen collection files unchanged from prior preparation candidate",
+  "files": [
+    {
+      "file": "assessment.json",
+      "bytes": 14056,
+      "sha256": "875c085e0d3451a94841032c167efbe3df8629213c15188687ba8e809909f719"
+    },
+    {
+      "file": "publication-attribution.json",
+      "bytes": 14329,
+      "sha256": "75bacf7dc215f84f6378454b00be95e031899ba40ecaec3d698e6d38c2dc4f66"
+    },
+    {
+      "file": "raw.zip",
+      "bytes": 11169190,
+      "sha256": "3a8ef1ea7925bccc3bd49d593a7d1678b8fd3a797ca83054c0a8744af974f4e4"
+    },
+    {
+      "file": "summary.json",
+      "bytes": 42739,
+      "sha256": "a1e0379b023f46d8bb07420b0f686d2410d97e366a803f8f3bd8656486c4ad2f"
+    }
+  ]
+}

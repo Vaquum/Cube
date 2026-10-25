@@ -1,0 +1,153 @@
+{
+  "schema": "continuations-native-ledger-candidate@1",
+  "runtime": "13e7d2184e9d79d343dbd5cebd3ff2ba37cde6f6",
+  "browser": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "viewport": [
+      351,
+      575
+    ],
+    "dpr": 3.859999895095825,
+    "supportedEntryTypes": [
+      "element",
+      "event",
+      "first-input",
+      "interaction-contentful-paint",
+      "largest-contentful-paint",
+      "layout-shift",
+      "long-animation-frame",
+      "longtask",
+      "mark",
+      "measure",
+      "navigation",
+      "paint",
+      "resource",
+      "soft-navigation",
+      "visibility-state"
+    ],
+    "interactivityInert": true
+  },
+  "sourceProfile": "Exact same appProfile function as the frozen collector; 200000 trades/100000 columns, seed12345",
+  "studyObservations": [
+    {
+      "completePhaseMs": 1180.199999988079,
+      "publicationDrawMs": 4.900000035762787,
+      "phaseEndAt": 8441.800000011921
+    },
+    {
+      "completePhaseMs": 1303.199999988079,
+      "publicationDrawMs": 3.900000035762787,
+      "phaseEndAt": 32239.30000001192
+    }
+  ],
+  "ledgerCountWallsMs": [
+    19,
+    20.80000001192093
+  ],
+  "longTasks": [],
+  "maxVisibleFrameIntervalMs": 51.5,
+  "controlDuringDigest": {
+    "input": {
+      "type": "input",
+      "at": 31023.900000035763,
+      "id": 44,
+      "scope": "ol-controls",
+      "owner": "ol-controls",
+      "expectsRequest": false,
+      "event": "click",
+      "target": "ol-sheet-toggle",
+      "trusted": true,
+      "eventTime": 31023.700000047684
+    },
+    "enclosingDigest": {
+      "type": "phase-end",
+      "at": 31203,
+      "id": 41,
+      "name": "continuations.digest",
+      "outcome": "completed",
+      "duration": 226.0999999642372
+    },
+    "nativeEventTiming": {
+      "type": "browser-timing",
+      "at": 31052.600000023842,
+      "entryType": "event",
+      "name": "click",
+      "startTime": 31023.700000047684,
+      "duration": 24,
+      "processingStart": 31023.80000001192,
+      "processingEnd": 31025.100000023842,
+      "interactionId": 5158,
+      "cancelable": true
+    },
+    "inputDelayMs": 0.09999996423721313,
+    "handlerMs": 1.300000011920929
+  },
+  "all2000Draws": true,
+  "bothLedgersAgree": true,
+  "firstStudyAllIntervalsKeySeedExactlyEqualPreEditFullApp": true,
+  "originalProductionViewRestored": true,
+  "limitations": [
+    "Two complete-study observations in one native page (first h1, uncached changed h4); one unchanged warm reopening, not paired acceptance statistics",
+    "Native Chrome156 351x575/DPR3.86 differs from shared-CI Chrome153 1500x950/DPR1; no designated-machine cumulative acceptance",
+    "No exposed longtask in this recording does not prove no jank; complete frame vectors remain and maximum observed visible interval is retained",
+    "The 24ms Event Timing sample is one real click during digest; not an INP or physical presentation certificate",
+    "Direct native selectOption produces an untrusted change event for horizon; the Controls pointer/click is trusted",
+    "The recorded compute phase includes new cooperative ledger metadata preparation; primary complete-DOM endpoint is unchanged, no compute-only apples-to-apples claim",
+    "Synthetic service, no production network/cache-cold certificate; hidden-page throttling not tested",
+    "The HTTP-fixture script is an executed source snapshot, retained for identity/reconstruction; it launches no browser"
+  ],
+  "files": [
+    {
+      "file": "13e-cap-first-horizon4-controls-warm.json.gz",
+      "bytes": 34084,
+      "sha256": "32e9d764af8451135ea6eac9bd8240b22bc35b4f839c8f370c6745e82882a1ec",
+      "decodedBytes": 421812,
+      "decodedSha256": "f7e7adfbc72b0a9539582c9d6d8684ace6c719d7352434b419d3da1cf8b93893"
+    },
+    {
+      "file": "13e-during-first.json.gz",
+      "bytes": 696,
+      "sha256": "0450e0d62cf515dd45a119faa546bd10cbfb9801f30dd30e7e635e6e32ac31d2",
+      "decodedBytes": 1661,
+      "decodedSha256": "d211c3b8024565c82fdad4acf12c5e247910571aeeccbf3bdf3cdc2ad493d297"
+    },
+    {
+      "file": "13e-during-horizon4.json.gz",
+      "bytes": 87,
+      "sha256": "c9e99aae117f1a666fc6b3e82d6db816ce5d5c646d45bda6ad5f2f6c788d3928",
+      "decodedBytes": 89,
+      "decodedSha256": "ab7a25b7b065e485a7fdb478818f0510647b7954498cc0fcec4c29dd9b956715"
+    },
+    {
+      "file": "13e-complete-state.json.gz",
+      "bytes": 985,
+      "sha256": "1f29e51850447f048d88c26ffac3c98954fffb60c845f505faa93ffbd04f9131",
+      "decodedBytes": 4062,
+      "decodedSha256": "527500ba9313b95b40854fc8c4b59ae50f8fad06cc0bb63daf164ddb2d1ad5d8"
+    },
+    {
+      "file": "build-13e7d21.json.gz",
+      "bytes": 917,
+      "sha256": "2a5c1a40ee32ffb0edb1dfa84c02a535138ed6d4853f442c3e8ddddf63904435",
+      "decodedBytes": 1364,
+      "decodedSha256": "3da36d1d12195701b694ff4a1624c9ba22db0dd21c1213e35a1bee28f5500ae7"
+    },
+    {
+      "file": "server.cjs.gz",
+      "bytes": 1495,
+      "sha256": "057dfabc5eff0a38da37ef0a5b7d4e9f6e59be61dfbe5ae648fb1e9a7c98f807",
+      "decodedBytes": 3323,
+      "decodedSha256": "e09c1a4c941a4aee992c1dd6314c34fff949bb6e772ed6b71a5189fe8622357c"
+    },
+    {
+      "file": "13e-complete.png",
+      "bytes": 29853,
+      "sha256": "1f9da179478fa7923200f494e870024fa11250ccf6030d83dbef645cd55ebee6"
+    },
+    {
+      "file": "13e-intervals.png",
+      "bytes": 27876,
+      "sha256": "b183c7d2e1e058f43bd5763ad230fb6f6cff31c16aa09ffd3a9c0c70eb97ad92"
+    }
+  ]
+}
