@@ -16335,6 +16335,7 @@
       news: ["financial_news_tone"],
       social: ["bluesky_live"],
       attention: ["gdelt_gkg", "wikimedia_daily", "wikimedia_hourly", "bluesky_live"],
+      context: ["sosovalue_etf_flows", "coinalyze_current", "coinalyze_history"],
     },
     STRIP_SOURCE_NAMES = {
       fred_macro_daily: "FRED macro, daily", deribit_funding: "Deribit funding", hyperliquid_funding: "Hyperliquid funding",
@@ -17121,7 +17122,7 @@
   }
   function stripSourceCard(tip, edge) {
     const force = stripForce(), feeds = [...(force ? stripFeeds(force) : STRIP_FORCES.flatMap(stripFeeds)), ...STRIP_FEEDS.attention, "deribit_dvol", "calendar"];
-    if (!force || force === "positioning") feeds.push("sosovalue_etf_flows", "coinalyze_current", "coinalyze_history");
+    if (!force || force === "positioning") feeds.push(...STRIP_FEEDS.context);
     stripCard(tip, { presentation: "strip-sources", title: `Strip · ${STRIP_NAMES[force ?? "forces"]}`, ms: edge - 1, edge,
       primary: stripTime("Field publication", stripRt.snapshot?.publishedAt, "publishedAt"),
       companions: [stripTime("Field cutoff", stripRt.cutoff, "fieldCutoff"), stripFact("Strip status", stripRt.status, "stripStatus")],
@@ -17222,7 +17223,10 @@
       return metric;
     }) });
     if (!support.hasDetails && available) coverage.text = "Detail unavailable";
-    if (!force || force === "positioning") groups.push(...stripPositioningContext(held, ms, available));
+    if (!force || force === "positioning") {
+      groups.push(...stripPositioningContext(held, ms, available));
+      feeds.push(...STRIP_FEEDS.context);
+    }
     groups.push({ name: "Support", metrics: [stripFact("Status", status, "supportStatus"), stripNumber("Known forces", available ? support.forcesKnown : 0, "forceCoverage", "", (v) => ({ text: `${v}/${support.forcesTotal}`, unit: "forces" })),
       stripNumber("Known attention inputs", available ? support.attentionKnown : 0, "attentionCoverage", "", (v) => ({ text: `${v}/${support.attentionTotal}`, unit: "inputs" }))] },
       stripTiming(ms, edge, held), ...stripSourceGroups(feeds), available ? stripTrackPart(ms, edge, force)
