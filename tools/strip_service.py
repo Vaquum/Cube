@@ -120,6 +120,7 @@ class StripService:
         self.state: State | None = None
         self.held: dict = {}
         self.pinned: str | None = None
+        self.backfill_summary: dict | None = None
         self.publication: dict = {}
         self.manifest_states: dict = {}
         self.calendar_state: dict | None = None
@@ -138,7 +139,7 @@ class StripService:
 
     def run(self) -> None:
         try:
-            self.bootstrap()
+            self.bootstrap(scan_all=True)
         except Exception as error:  # the cycle below still reads the latest publication
             self.last_error = f"bootstrap: {type(error).__name__}: {error}"
             traceback.print_exc()
@@ -156,6 +157,12 @@ class StripService:
         now = self.clock()
         moved = False
         manifest = self.reader.snapshot()
+        backfills = manifest.get("backfills")
+        if backfills != self.backfill_summary:
+            previous = self.store.version
+            self.bootstrap(scan_all=True)
+            moved = self.store.version != previous
+        self.backfill_summary = backfills
         if manifest["snapshot_id"] != self.pinned:
             moved = self.update(manifest=manifest) or moved
         if now - self.prices_at >= 300:
@@ -196,12 +203,14 @@ class StripService:
         self.last_error = None
         return True
 
-    def bootstrap(self, sources=None) -> None:
+    def bootstrap(self, sources=None, *, scan_all=False) -> None:
         """Read version metadata, then complete pinned datasets oldest first.
 
         The first full scan repairs older caches whose bootstrap stopped at 300
         versions by reconstructing each source in publication order. Subsequent
-        scans stop at acknowledged history. Replay is atomic per source; failed
+        scans stop at acknowledged history. A changed backfill summary scans past
+        acknowledged live heads to discover captures published between them.
+        Replay is atomic per source; failed
         sources keep their prior state and block live ingestion until recovered.
         """
         self.history_retry_at = self.clock() + 300
@@ -219,6 +228,8 @@ class StripService:
                 for v in batch:
                     if self.store.has_dataset(source, v.get("dataset_id", "")):
                         if complete:
+                            if scan_all:
+                                continue
                             done = True
                             break
                     versions.append(v)
@@ -241,7 +252,7 @@ class StripService:
                         if source == "calendar":
                             self.model.ingest_calendar(data.dataset_id, data.records, published)
                             continue
-                        interval = 300_000 if source in ("deribit_options", "deribit_dvol", "deribit_futures_basis", "gdelt_gkg", "bluesky_live",
+                        interval = 300_000 if source in ("deribit_options", "deribit_dvol", "deribit_futures_basis", "gdelt_gkg", "financial_news_tone", "bluesky_live",
                                                          "mempool_retarget") else 3_600_000 if source.endswith("_funding") or source == "wikimedia_hourly" else 21_600_000
                         self.model.ingest(source, data.dataset_id, data.records, data.meta, data.received_at, published, interval,
                                           retrospective=data.publication_kind == "backfill")

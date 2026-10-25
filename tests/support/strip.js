@@ -14,14 +14,14 @@ const MINUTE = 60000, HOUR = 3600000, DAY = 86400000, GRID = 900000, HORIZON = 9
 const STEPS = [900000, 3600000, 21600000, 86400000], MAX_POINTS = 20000;
 const FORCES = ["macro", "positioning", "news", "social"];
 const SOURCES = ["fred_macro_daily", "deribit_funding", "hyperliquid_funding", "defillama_stablecoins", "deribit_futures_basis", "deribit_options",
-  "deribit_dvol", "gdelt_gkg", "bluesky_live", "wikimedia_daily", "wikimedia_hourly", "mempool_retarget"];
+  "deribit_dvol", "gdelt_gkg", "financial_news_tone", "bluesky_live", "wikimedia_daily", "wikimedia_hourly", "mempool_retarget"];
 // Each force's parts, as the bridge names them.
 const COMPONENTS = {
   "macro.DTWEXBGS": ["macro", "Dollar"], "macro.DGS2": ["macro", "2-year yield"], "macro.DGS10": ["macro", "10-year yield"],
   "macro.BAMLH0A0HYM2": ["macro", "High-yield spread"],
   "positioning.funding": ["positioning", "Perpetual funding"], "positioning.stablecoins": ["positioning", "Stablecoin supply"],
   "positioning.basis": ["positioning", "Futures basis"], "positioning.skew": ["positioning", "Options put skew"],
-  "news.tone": ["news", "Tone of coverage"], "social.words": ["social", "Bullish against bearish words"],
+  "news.financial_tone": ["news", "Financial article tone"], "social.words": ["social", "Bullish against bearish words"],
 };
 const ATTENTION = { "attention.gdelt": ["News share", 0.5], "attention.wikipedia": ["Wikipedia, daily", 0.15],
   "attention.wikipedia_hourly": ["Wikipedia, hourly", 0.15], "attention.bluesky": ["Bluesky share", 0.2] };
@@ -106,12 +106,12 @@ class SyntheticStrip {
       "macro.DGS10": walk("macro.y10", 0.002, 0.005), "macro.BAMLH0A0HYM2": walk("macro.hy", 0.002, 0.003),
       "positioning.funding": walk("positioning.funding", 0.01, 0.025), "positioning.stablecoins": walk("positioning.stable", 0.005, 0.01),
       "positioning.basis": walk("positioning.basis", 0.01, 0.008), "positioning.skew": walk("positioning.skew", 0.01, 0.008),
-      "news.tone": walk("news", 0.03, 0.12), "social.words": walk("social", 0.05, 0.15),
+      "news.financial_tone": walk("news", 0.03, 0.12), "social.words": walk("social", 0.05, 0.15),
     };
     // News has stretches nothing covered, and Social no history before its last week: the page must say so, never draw them as zero.
     const gaps = mulberry32(subSeed(seed, "strip:news-gaps"));
     for (let day = 0; day * 96 < n; day++) {
-      if (gaps() < 0.15) for (let i = day * 96 + 24; i < Math.min(n, day * 96 + 48); i++) this.parts["news.tone"][i] = null;
+      if (gaps() < 0.15) for (let i = day * 96 + 24; i < Math.min(n, day * 96 + 48); i++) this.parts["news.financial_tone"][i] = null;
     }
     for (let i = 0; i < Math.min(n, Math.max(0, n - 7 * 96)); i++) this.parts["social.words"][i] = null;
     // The basis and skew begin a day before the cutoff, as a fresh deployment's do.
@@ -125,7 +125,7 @@ class SyntheticStrip {
     // Where each component's values stop being retrospective: six days before the cutoff, News from three, Social never yet.
     const live = hour(this.cutoffMs - 6 * DAY);
     this.retroUntil = Object.fromEntries([...Object.keys(COMPONENTS), ...Object.keys(ATTENTION)].map((name) => [name,
-      name === "social.words" ? null : name === "news.tone" ? hour(this.cutoffMs - 3 * DAY) : live]));
+      name === "social.words" ? null : name === "news.financial_tone" ? hour(this.cutoffMs - 3 * DAY) : live]));
     this.sources = Object.fromEntries([...SOURCES, "calendar"].map((name) => [name, {
       state: name === "wikimedia_hourly" ? "stale" : "ok", checkedAt: this.cutoffMs - (name === "wikimedia_hourly" ? 4 * HOUR : 2 * MINUTE),
       receivedAt: this.cutoffMs - 2 * MINUTE, intervalSeconds: 300, observedAt: name === "calendar" ? null : hour(this.cutoffMs) - HOUR,

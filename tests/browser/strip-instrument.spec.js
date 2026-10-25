@@ -13,7 +13,7 @@ test.use({ reducedMotion: "reduce" });
 
 const HOUR = 3600000, QUARTER = HOUR / 4, DAY = 24 * HOUR, LABELS = 12, BAND = 22, FOOT = 5;
 const INPUTS = ["macro.DTWEXBGS", "macro.DGS2", "macro.DGS10", "macro.BAMLH0A0HYM2", "positioning.funding",
-  "positioning.stablecoins", "positioning.basis", "positioning.skew", "news.tone", "social.words"];
+  "positioning.stablecoins", "positioning.basis", "positioning.skew", "news.financial_tone", "social.words"];
 const ATTENTION = ["attention.gdelt", "attention.wikipedia", "attention.wikipedia_hourly", "attention.bluesky"];
 const FORCES = ["macro", "positioning", "news", "social"];
 const iso = (ms) => new Date(ms).toISOString();

@@ -7,7 +7,7 @@ test.use({ reducedMotion: "reduce" });
 const HOUR = 3600000, DAY = 24 * HOUR, QUARTER = HOUR / 4, LABELS = 12, BAND = 22;
 const FORCES = ["macro", "positioning", "news", "social"];
 const INPUTS = ["macro.DTWEXBGS", "macro.DGS2", "macro.DGS10", "macro.BAMLH0A0HYM2", "positioning.funding",
-  "positioning.stablecoins", "positioning.basis", "positioning.skew", "news.tone", "social.words"];
+  "positioning.stablecoins", "positioning.basis", "positioning.skew", "news.financial_tone", "social.words"];
 const ATTENTION = ["attention.gdelt", "attention.wikipedia", "attention.wikipedia_hourly", "attention.bluesky"];
 const SLOTS = ["header", "summary", "forces", "track", "event"];
 const TRACK_FIELDS = ["trackOutcomeShare", "trackOutcomeBaseShare", "trackNear", "trackDays", "trackAll",
@@ -46,7 +46,7 @@ async function syntheticStates(page, view, outcomes = null, { recentDays = null,
       if (changedInputs && name.startsWith("macro.") && at < view.from)
         return at < view.from - 10 * DAY ? 0.075 : name === INPUTS[0] ? 0.1 : null;
       return state(i) === "sparse" ? name === INPUTS[0] ? 0.95 : null
-        : name.startsWith("macro.") ? 0.025 : name.startsWith("positioning.") ? -0.0125 : name === "news.tone" ? 0.02 : 0.03;
+        : name.startsWith("macro.") ? 0.025 : name.startsWith("positioning.") ? -0.0125 : name === "news.financial_tone" ? 0.02 : 0.03;
     };
     body.grid.parts = Object.fromEntries(INPUTS.map((name) => [name, Array.from({ length: n }, (_, i) => part(name, i))]));
     delete body.grid.forceInputs; // Exercise compatibility with a server that supplies full component arrays.
@@ -285,6 +285,8 @@ for (const sample of [
   await probe.waitForQuiet();
   const card = await hover(page, 0.18, "strip-forces"), outcome = card.locator('[data-field="trackOutcomeShare"]'), baseline = card.locator('[data-field="trackOutcomeBaseShare"]');
   await expect(outcome.locator("..").locator("dt")).toHaveText(sample.label);
+  await expect(card.locator('[data-field="trackComparedForces"]')).toHaveAttribute("data-compared", /macro/);
+  await expect(card.locator('[data-field="trackComparedForces"]')).toHaveAttribute("title", /Historical matches compare Macro/);
   expect(Number(await outcome.getAttribute("data-canonical"))).toBe(sample.share);
   expect(Number(await baseline.getAttribute("data-canonical"))).toBeCloseTo(sample.share, 2);
   await expect(card.locator('[data-strip-slot="track"] .ol-strip-hist')).toBeVisible();

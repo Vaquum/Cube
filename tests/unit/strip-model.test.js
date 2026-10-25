@@ -16,6 +16,43 @@ const tanh = Math.tanh, mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b), k = s.length >> 1; return s.length % 2 ? s[k] : (s[k - 1] + s[k]) / 2; };
 const close = (a, b, tol = 1e-9) => Math.abs(a - b) <= tol * Math.max(1, Math.abs(b));
 
+test("financial News: current-day unique articles, real capture timing, valid probabilities and explicit empty coverage", () => {
+  const out=python(String.raw`
+import copy
+t=I['T'];revision='4921590d3c0c3832c0efea24c8381ce0bda7844b'
+def article(key, score, ago=m.HOUR, analyzed=None, scope='article_body'):
+    return {'id':key,'kind':'financial_article_tone','published_at':m.iso(t-ago),
+            'values':{'url':'https://publisher.example/'+key,'analyzed_at':m.iso(analyzed or t-60000),
+                      'model_revision':revision,'method':'finbert_sentence_token_weighted/1','input_scope':scope,
+                      'score':score,'probabilities':{'positive':max(score,0),'negative':max(-score,0),'neutral':1-abs(score)}}}
+a=article('a',0.8);new=article('a-new',0.2,analyzed=t-30000);new['values']['url']=a['values']['url']
+bad=article('bad',1);bad['values']['probabilities']['neutral']=1
+wrong=article('wrong-model',1);wrong['values']['model_revision']='different'
+rows=[a,new,article('b',-0.4,scope='headline_only'),article('old',1,ago=25*m.HOUR),
+      article('future-publication',1,ago=-1),article('future-analysis',1,analyzed=t+1),bad,wrong]
+st=m.Store();model=m.Model(st)
+first=model.ingest('financial_news_tone','one',rows,{},m.iso(t),t+60000,300000)
+repeat=model.ingest('financial_news_tone','one',rows,{},m.iso(t),t+60000,300000)
+state=m.build_state(st,m.Prices([],None),{'id':None,'publishedAt':t+60000},{},t+60000)
+e=state.components['news.financial_tone'];initial=e.sample([t-1,t,t+59999,t+60000])
+stored=st.rows('financial_news')[0]
+model.ingest('financial_news_tone','two',[article('old',1,ago=25*m.HOUR)],{},m.iso(t+300000),t+360000,300000)
+later=m.build_state(st,m.Prices([],None),{}, {},t+360000)
+print(json.dumps({'model':m.MODEL,'first':first,'repeat':repeat,'initial':initial,'raw':stored[3],
+                  'counts':json.loads(stored[4]),'known':stored[1],'retrospective':stored[2],
+                  'empty':later.components['news.financial_tone'].sample([t+359999,t+360000]),
+                  'legacy_in_active_components':'news.tone' in state.components}))`,{T});
+  assert.equal(out.model,'field-strip@2');
+  assert.deepEqual([out.first,out.repeat],[1,0]);
+  assert.deepEqual(out.initial.slice(0,3),[null,null,null]);
+  assert.ok(close(out.initial[3],-0.06));
+  assert.ok(close(out.raw,-0.1));
+  assert.deepEqual(out.counts,{articles:2,article_body:1,headline_only:1});
+  assert.equal(out.known,T+60000);assert.equal(out.retrospective,0);
+  assert.ok(close(out.empty[0],-0.06));assert.equal(out.empty[1],null);
+  assert.equal(out.legacy_in_active_components,false);
+});
+
 test("macro: a FRED series' 5-observation change against its single-observation changes, up a headwind", () => {
   // 30 daily values that wander: rows are (observed, known, retro, value, extra).
   const values = Array.from({length: 30}, (_, i) => 4 + 0.02 * Math.sin(i) + 0.003 * i), rows = values.map((v, i) => [T + i * DAY, T + i * DAY + 22 * HOUR, 0, v, null]);
@@ -301,6 +338,8 @@ def put(t0, t1, retro=0):
             st.db.execute("INSERT INTO obs VALUES ('gdelt', ?, ?, ?, ?, ?, ?)", (f'g{t}', t, t + 15 * MIN, retro, rnd.gauss(-1, 0.6),
                 json.dumps({'bitcoin_articles': rnd.randint(0, 9), 'panel_articles': rnd.randint(500, 900),
                             'tone_scored_articles': rnd.randint(0, 1) if thin else rnd.randint(0, 9)})))
+    for t in range(t0, t1, 15 * MIN):
+        st.db.execute("INSERT INTO obs VALUES ('financial_news', ?, ?, ?, ?, ?, ?)", (f'f{t}', t, t + MIN, retro, rnd.uniform(-1, 1), json.dumps({'articles': 5})))
     for t in range(t0 - t0 % HOUR, t1, HOUR):
         if rnd.random() < 0.9:
             st.db.execute("INSERT OR IGNORE INTO obs VALUES ('options', ?, ?, ?, ?, ?, ?)", (f'o{t}', t + 7000, t + 7000, retro, rnd.gauss(2, 1),
@@ -322,7 +361,7 @@ print(json.dumps(steps))`, {seed: 7, T});
   assert.equal(out.length, 6);
   out.forEach((step, k) => assert.ok(step.same, `step ${k}: the kept build differs from a fresh one`));
   // Every frequent part had values to compare, and they grew as rows came.
-  for (const name of ["news.tone", "social.words", "attention.gdelt", "attention.bluesky"]) assert.ok(out[0].sizes[name] > 100 && out[5].sizes[name] > out[0].sizes[name], name);
+  for (const name of ["news.financial_tone", "social.words", "attention.gdelt", "attention.bluesky"]) assert.ok(out[0].sizes[name] > 100 && out[5].sizes[name] > out[0].sizes[name], name);
   assert.ok(out[5].options > out[0].options);
 });
 

@@ -1,0 +1,15 @@
+{
+  "origin": "Actual production article publication replayed locally through the Cube consumer",
+  "model": "field-strip@2",
+  "publication": "2026-10-25T07:15:01.229Z",
+  "total_scores": 284,
+  "eligible_current_24h_articles": 43,
+  "selected_scopes": {
+    "article_body": 7,
+    "headline_only": 36
+  },
+  "news_force": -0.0573364887064696,
+  "independent_mean_matches": true,
+  "unavailable_before_first_actual_publication": true,
+  "legacy_gdelt_not_in_news": true
+}
