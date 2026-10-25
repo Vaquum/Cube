@@ -1,0 +1,1014 @@
+{
+  "schema": "study-characterization-golden@1",
+  "baseline": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+  "sourceHashes": {
+    "src/encoding.js": "0262e7727c217d785ac32a1a954ed8fbe9e153517913a7080a9fcd583762ce2a",
+    "src/evidence.js": "5c91cc2f22e0eb4cb7eb6f90d948d6fb3ff989bae88556dfe94d4d1519a01fd0"
+  },
+  "fixtureSha256": "542f510c6779b2b156d345a6eb603bc03357163d06d64d2055036c4ba8944823",
+  "method": "study-tree-sha256@1; every enumerable output field, all rows/all horizons; 128 records per chunk",
+  "cases": [
+    {
+      "name": "cap-qualified",
+      "inputDigest": "1c9bc37745eac29bd644b5f0a4e6e6084c3ad7867cb610c28ce16cca224c0d5a",
+      "population": {
+        "ledger": 100000,
+        "cases": [
+          0,
+          97311,
+          97310,
+          97309,
+          97308,
+          97307,
+          97306,
+          97305,
+          97304
+        ],
+        "matched": [
+          0,
+          4890,
+          4890,
+          4889,
+          4889,
+          4889,
+          4889,
+          4889,
+          4889
+        ],
+        "state": [
+          0,
+          1,
+          1
+        ],
+        "reasons": {
+          "No contiguous predecessor POC": 1,
+          "Ineligible seasonal support": 2687,
+          "null": 97312
+        },
+        "fullMatched": 24,
+        "calendarBlocks": 25,
+        "seed": 3428437984,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            1600000,
+            0,
+            null
+          ],
+          1600000,
+          1600000,
+          [
+            1600000,
+            1600000,
+            null,
+            1600000
+          ],
+          "1c9bc37745eac29bd644b5f0a4e6e6084c3ad7867cb610c28ce16cca224c0d5a",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8863636363636364,
+            1.1162790697674418
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "flat": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "up": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  13.196614890803474,
+                  15.036678083377316
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.86238581132921,
+                  40.20840379576521
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -26.813294771665678,
+                  -25.033798738861467
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  18.039020286026236,
+                  20.21575982558025
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  19.75451908974885,
+                  20.09304627567434
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -1.8412100988495905,
+                  0.3007310468308346
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  65.35375283157403,
+                  68.2120947922883
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.93412296541499,
+                  40.14462186074425
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  25.356377766893342,
+                  28.14319372205525
+                ]
+              },
+              "validDraws": 2000
+            }
+          }
+        },
+        "drawsRan": true
+      },
+      "root": "22976151f0b5c0b8b8d84a2b1fd8f2ff8cf1e4ed3f1e475f178f556e9d2a3d3f",
+      "fields": {
+        "a": {
+          "root": "fd5f56b40a79a385708428e7b32ab996a681080a166a2206e750eb4819186145"
+        },
+        "all": {
+          "root": "d70f1a20f448958f2a0ff41a827f39ac21850497358ea50a3e70cfac25261e98"
+        },
+        "anchor": {
+          "root": "efeeb8b043bdb25c6906f7a6a4c5bd1f81252c62e4b35e7ade06689917bb3270"
+        },
+        "anchorReason": {
+          "root": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        "barrier": {
+          "root": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+        },
+        "barrierAll": {
+          "root": "848a4d7d6c56382e43ec37a01c87953fd5b03b1188c71c4b69fb0c868e5861a3"
+        },
+        "barrierMatch": {
+          "root": "7c5a77616c8405701ae3642211b95dcc0b3bea91ce194c94824bdac979149ac9"
+        },
+        "blockLength": {
+          "root": "775988758f13f17d20e083ed112c78ad3b62be322f501d4a61ca174a704be1a7"
+        },
+        "cases": [
+          {
+            "count": 0,
+            "root": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 97311,
+            "root": "a4dd3f2e03b77e63cdcac4c15771bfb05574295bffb4b9258e35cfbe835c550e"
+          },
+          {
+            "count": 97310,
+            "root": "131470f64f45225f4289015c8c5db486f4433241691cc98bd6b6d06b67699d43"
+          },
+          {
+            "count": 97309,
+            "root": "00077ce4340e61d5c94cb3165f7790d71bbf9c0c247013d4ae52702954c4f373"
+          },
+          {
+            "count": 97308,
+            "root": "314bf791540d9ba1f6d548bd4c50cbea3d56a733d022e780a4fe3f7c059b4b12"
+          },
+          {
+            "count": 97307,
+            "root": "61bd2703e364c4c595fb95fb0c5b5f98035c27cf0ce33f48a221a0e1c2c1dadc"
+          },
+          {
+            "count": 97306,
+            "root": "94a42b35c2156c4afd39ff85c69191bb6dc5eb2f9543d352bf4f609c22d8e9dd"
+          },
+          {
+            "count": 97305,
+            "root": "ee2b41a33bbbab20dee1a80a2c364f39d6b4c12aa75f343eac6c0ee29b0452a5"
+          },
+          {
+            "count": 97304,
+            "root": "7667f30ba52dbb0d795686c6ebc7b075822b7a27e5f6207239558b23980343ac"
+          }
+        ],
+        "fitReason": {
+          "root": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        "from": {
+          "root": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+        },
+        "ledger": {
+          "count": 100000,
+          "root": "033dfd4b101db17c46297dcd3b911b544454d94b5571e17124c150e6b8c187e6"
+        },
+        "m": {
+          "root": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+        },
+        "match": {
+          "root": "0af2d816589fd6d33b71c3b3dbdcb84ae6510a733629ff8035adad82a23d5bf9"
+        },
+        "matched": [
+          {
+            "count": 0,
+            "root": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 4890,
+            "root": "60922200a98c82134b73b483d48337a2aa4362caf0cbdd804d67cddae41e3445"
+          },
+          {
+            "count": 4890,
+            "root": "4abc65775a58cec19964d2cd874735ec4fe658a382624acac69d3955ee3f3712"
+          },
+          {
+            "count": 4889,
+            "root": "f2cef55677a3bdf2c9d0d28558347aba75cc35a60aa628558e508ad804eaf7be"
+          },
+          {
+            "count": 4889,
+            "root": "ae79d5789f31e4fc7593a0d04cd5684667361866a82b5a4433101dbb36b5ddbb"
+          },
+          {
+            "count": 4889,
+            "root": "5481ad4333238ed2fb053f155746ba5450944db22ea28efed7049f312d773c25"
+          },
+          {
+            "count": 4889,
+            "root": "d0d05869f3a0e560085b1ed0394ec91272be20468bc7f0655a29a6ae21736aa4"
+          },
+          {
+            "count": 4889,
+            "root": "02e2f55ed4bb47879fcb95dd85c9fa978b9d0b7ee10c9a1604440884af7e5182"
+          },
+          {
+            "count": 4889,
+            "root": "3c5fd78a4199ceadce0b1a8028845b9aaf374c03faa04910d1d854819c7e86b8"
+          }
+        ],
+        "n": {
+          "root": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+        },
+        "poc": {
+          "root": "a4e00d7e6aa82111575438c5e5d3e63269d4c475c718b2389f6d02932c47f8a6"
+        },
+        "provenance": {
+          "root": "e561991b8c8703066ac86502a6a093bf79e890daf054287d7dacea34a9e26f43"
+        },
+        "state": {
+          "root": "fcb99bcf1428bb917ed25f2260c182b4054a03c2d762fd70d816c9c34b374477"
+        },
+        "thresholds": {
+          "root": "ea022c0b4cd0de009cdd5f98ec34458ff573a4b0c3dd88b357587bdd5daabe90"
+        },
+        "uncertainty": {
+          "root": "c2f4c11785bbc15147040fc1c29ab3bb5a2fe3f3e2f2615d5d4a017fdb96c4e2"
+        },
+        "version": {
+          "root": "b14e68e9f369e21dbff7010df6936ccdb6940428bfb23dbe86d928429974daf8"
+        }
+      }
+    },
+    {
+      "name": "floor-failure",
+      "inputDigest": "81bface3b60d02ed3022646d01bc74aafb399649ffaab5e9f47b93b40950d3b1",
+      "population": {
+        "ledger": 10000,
+        "cases": [
+          0,
+          7311,
+          7310,
+          7309,
+          7308,
+          7307,
+          7306,
+          7305,
+          7304
+        ],
+        "matched": [
+          0,
+          643,
+          643,
+          643,
+          643,
+          643,
+          642,
+          642,
+          642
+        ],
+        "state": [
+          2,
+          0,
+          2
+        ],
+        "reasons": {
+          "No contiguous predecessor POC": 1,
+          "Ineligible seasonal support": 2687,
+          "null": 7312
+        },
+        "fullMatched": 2,
+        "calendarBlocks": 3,
+        "seed": 181847042,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            160000,
+            0,
+            null
+          ],
+          160000,
+          160000,
+          [
+            160000,
+            160000,
+            null,
+            160000
+          ],
+          "81bface3b60d02ed3022646d01bc74aafb399649ffaab5e9f47b93b40950d3b1",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8823529411764706,
+            1.1162790697674418
+          ],
+          [
+            2,
+            0,
+            2
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          },
+          "flat": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          },
+          "up": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          }
+        },
+        "drawsRan": false
+      },
+      "root": "3905eaaed342b17ddb2c781ea90f6cd87ccd6c383a0b84d16cbb2b7a2e33827d",
+      "fields": {
+        "a": {
+          "root": "888df25ae35772424a560c7152a1de794440e0ea5cfee62828333a456a506e05"
+        },
+        "all": {
+          "root": "f93c95d8517f66e96e4a1d25e87e6cc11ed97246862fc14af891af2865955354"
+        },
+        "anchor": {
+          "root": "def5be24a8d27defd84dff61993dac23f93ba0b723b6a407afb5bd0dc3cd6630"
+        },
+        "anchorReason": {
+          "root": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        "barrier": {
+          "root": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+        },
+        "barrierAll": {
+          "root": "7bd13133f04429928054fde1f7b9d8cf85dc1addf72dba2d49ac94971166a235"
+        },
+        "barrierMatch": {
+          "root": "31bc942894cd12a00b5e85a9f8e2c4f14c505a1f8df85cbacb91ecc1805e5ee4"
+        },
+        "blockLength": {
+          "root": "775988758f13f17d20e083ed112c78ad3b62be322f501d4a61ca174a704be1a7"
+        },
+        "cases": [
+          {
+            "count": 0,
+            "root": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 7311,
+            "root": "99ea756694609b32ecc8c3cc614dd7ccabee47a5badf81ae9afefaddc63ea171"
+          },
+          {
+            "count": 7310,
+            "root": "ba9b4e39122513439685a1e4b3aeb67a1a5e7e767e8890ecf50fdd302ac5fd04"
+          },
+          {
+            "count": 7309,
+            "root": "2b0c13eb200d1649019173008f22d2141f6e9effddfdaad7d4d2fa584c82be8f"
+          },
+          {
+            "count": 7308,
+            "root": "989657e5c5dc5035541da6890a18ec9c68fa125e49feebbe24b34001a0d56255"
+          },
+          {
+            "count": 7307,
+            "root": "63df43d6224dea59b8f6e86d7a557868aa6904e3d539040ef4d3472b7b34ff6c"
+          },
+          {
+            "count": 7306,
+            "root": "efe59957d1062fee145fdd97bde8b8b4fc24939df3d4c69172eaf6a86a108cae"
+          },
+          {
+            "count": 7305,
+            "root": "fed100e39ff51f21e468b7f143218a5a654c4bb1c31841a5e3fe7b515258ae34"
+          },
+          {
+            "count": 7304,
+            "root": "a44d283526fc65a1870737916eea59a8be11399daf4a97634f95db04e1fce7b1"
+          }
+        ],
+        "fitReason": {
+          "root": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        "from": {
+          "root": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+        },
+        "ledger": {
+          "count": 10000,
+          "root": "d860d8f0e166100a9028baa598c6fc11e3f37cfaa7223cd29de4156b699bc9c0"
+        },
+        "m": {
+          "root": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+        },
+        "match": {
+          "root": "5d0aea63386d2b46091d9e3180c8b6c15c66667e77b10ab4f374ddacb19dcff9"
+        },
+        "matched": [
+          {
+            "count": 0,
+            "root": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 643,
+            "root": "ede2f3f5a3f944f125d805cb9be357a7ed5ea81d0ca10e7fc97ae9da7f563e5a"
+          },
+          {
+            "count": 643,
+            "root": "c07438f8fe15ab446ef1980803b7deb2eba9eee81476f06f3d814ad97814bdfe"
+          },
+          {
+            "count": 643,
+            "root": "42caf5a8adc7d2d3b4eef8a64c8319a183c410d740d38a7d0cad18ede8248074"
+          },
+          {
+            "count": 643,
+            "root": "2bcbdc174db3f18a1861f0e13c08f65060fa8d6855c7804d77dd2ced231666b8"
+          },
+          {
+            "count": 643,
+            "root": "0fde27a81bc1950b4b2081360deb322f7116bf20675816ea8e0da94f87bb21b0"
+          },
+          {
+            "count": 642,
+            "root": "053d02d1ea3ea6dcf4987f561d998da5c8782766d8ecc41344f5cd895fc9c03e"
+          },
+          {
+            "count": 642,
+            "root": "3999510309b0793e6390c1efbeabcfadefdbf8136c861bb7e1b9ae062a795b2a"
+          },
+          {
+            "count": 642,
+            "root": "85cfe6408825b5fc29d64ea58e45832cbacfb5141147dc4de11328b845aee8b3"
+          }
+        ],
+        "n": {
+          "root": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+        },
+        "poc": {
+          "root": "c17edaae86e4016a583e098582f6dbf3eccade8ef83747df9ba617ded9d31309"
+        },
+        "provenance": {
+          "root": "0c2eed347af0419f7c953609f055935c9b051ba1f36d1776f53e82abd9f13c92"
+        },
+        "state": {
+          "root": "4c750b999450a3a4963b08978f24316abd16517f7976804863d76bf1d24e51a7"
+        },
+        "thresholds": {
+          "root": "e8cd280963dfc830a56b37d91d33a44306f9a570a84187956052445a7842178f"
+        },
+        "uncertainty": {
+          "root": "81410f567339e167bb2cc1cc72cd9e577d6bde58587825e1e232fc9252ff93e2"
+        },
+        "version": {
+          "root": "b14e68e9f369e21dbff7010df6936ccdb6940428bfb23dbe86d928429974daf8"
+        }
+      }
+    },
+    {
+      "name": "partial-coverage",
+      "inputDigest": "824beee8e8b4dfca6a6ec8d122985904f4636860642420720fc26f88afa76813",
+      "population": {
+        "ledger": 100000,
+        "cases": [
+          0,
+          95311,
+          94651,
+          93994,
+          93338,
+          92684,
+          92031,
+          91379,
+          90731
+        ],
+        "matched": [
+          0,
+          4770,
+          4741,
+          4707,
+          4671,
+          4642,
+          4613,
+          4575,
+          4554
+        ],
+        "state": [
+          0,
+          1,
+          1
+        ],
+        "reasons": {
+          "Missing coverage": 390,
+          "No contiguous predecessor POC": 681,
+          "Ineligible seasonal support": 2663,
+          "Observed empty POC population": 196,
+          "Missing POC": 97,
+          "null": 95973
+        },
+        "fullMatched": 24,
+        "calendarBlocks": 25,
+        "seed": 1814194462,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            1600000,
+            0,
+            null
+          ],
+          1600000,
+          1600000,
+          [
+            1600000,
+            1600000,
+            null,
+            1600000
+          ],
+          "824beee8e8b4dfca6a6ec8d122985904f4636860642420720fc26f88afa76813",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8863636363636364,
+            1.1162790697674418
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "flat": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "up": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  13.39553119496057,
+                  15.3126345602193
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.88122267601234,
+                  40.217554818634696
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -26.642301811558056,
+                  -24.764452563091133
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  17.94632928453816,
+                  20.24806465111413
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  19.74397736990176,
+                  20.096961465024204
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -1.9397157973628147,
+                  0.2741566548547811
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  65.04923270977926,
+                  68.07346578308929
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.910662546513926,
+                  40.13430669920089
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  25.085456702725985,
+                  28.027109725612252
+                ]
+              },
+              "validDraws": 2000
+            }
+          }
+        },
+        "drawsRan": true
+      },
+      "root": "8960521144b6b79e161eef1d0794979e524919cded936742fde59e63d52b6594",
+      "fields": {
+        "a": {
+          "root": "fd5f56b40a79a385708428e7b32ab996a681080a166a2206e750eb4819186145"
+        },
+        "all": {
+          "root": "045aa880b099663a80d9078c198dd48b30a066af3d80638da3dc941274023ddb"
+        },
+        "anchor": {
+          "root": "efeeb8b043bdb25c6906f7a6a4c5bd1f81252c62e4b35e7ade06689917bb3270"
+        },
+        "anchorReason": {
+          "root": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        "barrier": {
+          "root": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+        },
+        "barrierAll": {
+          "root": "5419c4069b993be4bf91e5c35b0b77a0844583fd88fc3cf259dbdd1d7856a382"
+        },
+        "barrierMatch": {
+          "root": "065bef6aaf9f79c9809f4d3dc7d8ca87eb6d15cbfed0d5aa12a5c613bc083cb9"
+        },
+        "blockLength": {
+          "root": "775988758f13f17d20e083ed112c78ad3b62be322f501d4a61ca174a704be1a7"
+        },
+        "cases": [
+          {
+            "count": 0,
+            "root": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 95311,
+            "root": "4f338beb4bca924c32945fa63f75aec5021219abc5a2b7995eec45669037fde8"
+          },
+          {
+            "count": 94651,
+            "root": "b149c2ff6d11e9e19204e9b3034afbdb2f239703f5c6ee56cb0fc8af3ba7e9da"
+          },
+          {
+            "count": 93994,
+            "root": "ae2d0ed848f827db448d7b6cd1a248c6c84202572019f7aff925aeb605238796"
+          },
+          {
+            "count": 93338,
+            "root": "1e0c35cb9ad181f3f5d6b43aa28cddec04fcd598af3a54808cb8d4fef7065394"
+          },
+          {
+            "count": 92684,
+            "root": "9a168bb2f82e07f971167c62a0bfd2978c2c0154a5879ad7e265cdb77e41854c"
+          },
+          {
+            "count": 92031,
+            "root": "230ccfbb6cc71012ac86171c3912857bc67c6a74e69724f5bf23c202dfdec240"
+          },
+          {
+            "count": 91379,
+            "root": "beb3beb4fd6fe860f0d1a0537f90d5a9a6f26545d5b742f7624ac77e6dc6a7c2"
+          },
+          {
+            "count": 90731,
+            "root": "167345b766f0db4f1700453abb057a3d0d7760b9c419761c38e33c67df412611"
+          }
+        ],
+        "fitReason": {
+          "root": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        "from": {
+          "root": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+        },
+        "ledger": {
+          "count": 100000,
+          "root": "20b36e956196931f00632088dcdd66d47aaa351569569fec557fab5c0b69adb2"
+        },
+        "m": {
+          "root": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+        },
+        "match": {
+          "root": "be488d99f1169fd61124560f5a98880beb5714a13c100b557ad0645d80c81a2a"
+        },
+        "matched": [
+          {
+            "count": 0,
+            "root": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 4770,
+            "root": "edc2aeae08723301ac7956a449ffbbde42f88a526da5af4fc3441800300b684e"
+          },
+          {
+            "count": 4741,
+            "root": "cdad207b5c7c5be035b14c0fb2802732d01933b011a0c23702fc3e850604447f"
+          },
+          {
+            "count": 4707,
+            "root": "32f07a9e90e416915e4579938df8db3755b4a915bf1d20b7e2f74fe5d4575943"
+          },
+          {
+            "count": 4671,
+            "root": "11118730d650113a31c197efe8ee1dfec85b390d84fb2c5f64413cc0bf2cbc45"
+          },
+          {
+            "count": 4642,
+            "root": "18363e6e0e98e4ebe26ecfbacd41afa8f097440723c3e1adf9ae368214b99a58"
+          },
+          {
+            "count": 4613,
+            "root": "f29d71bc1d26dcec33f9ff11e9b1207546992b68cbdba3e0c8c9fffef7e5b08d"
+          },
+          {
+            "count": 4575,
+            "root": "bb63f47575f32953212457f5a0f49cc4115d4d50a8136cf3d4b54c78b93d2776"
+          },
+          {
+            "count": 4554,
+            "root": "a2c7f82d59870edfeb3f3990b68a6fb896328fa133ad397fea717a51d51d4334"
+          }
+        ],
+        "n": {
+          "root": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+        },
+        "poc": {
+          "root": "a4e00d7e6aa82111575438c5e5d3e63269d4c475c718b2389f6d02932c47f8a6"
+        },
+        "provenance": {
+          "root": "34e33cb76f35e89df68e7cb6c7d6879415170f4f0e51219fd42aedc917be5af4"
+        },
+        "state": {
+          "root": "fcb99bcf1428bb917ed25f2260c182b4054a03c2d762fd70d816c9c34b374477"
+        },
+        "thresholds": {
+          "root": "ea022c0b4cd0de009cdd5f98ec34458ff573a4b0c3dd88b357587bdd5daabe90"
+        },
+        "uncertainty": {
+          "root": "8a4e82c100c009e0ed74eee021837d7f830f27282db90f55efdf4d26e563368d"
+        },
+        "version": {
+          "root": "b14e68e9f369e21dbff7010df6936ccdb6940428bfb23dbe86d928429974daf8"
+        }
+      }
+    }
+  ]
+}

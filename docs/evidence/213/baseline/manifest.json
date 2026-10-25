@@ -1,0 +1,19 @@
+{
+  "schema": "evidence-characterization-publication@1",
+  "files": [
+    {
+      "path": "characterization-d844.json.gz",
+      "bytes": 583232,
+      "sha256": "c0aa83247f0459496f13a180c2db95ad4c56dd18146acc37866b06d58552d224",
+      "decodedBytes": 1261891,
+      "decodedSha256": "716ae1caaaf0cd88c401fe39805b943f97a8545e57f802033f976b82f9a7222c"
+    },
+    {
+      "path": "characterization-d944.json.gz",
+      "bytes": 583230,
+      "sha256": "4edf4adc6cb6edba79faaf86862b30b0fbfe0a8f3dd95b81ebbd9f56892d80bf",
+      "decodedBytes": 1261883,
+      "decodedSha256": "61c41722463bbc496a5d18c249b9391ed8f143ef57fa69de7511d1bbc3720bca"
+    }
+  ]
+}

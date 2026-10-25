@@ -1,0 +1,1892 @@
+{
+  "schema": "native-continuations-baseline@1",
+  "build": "d944f503b48de7f746c369b440f331294ef23654",
+  "diagnosticHtmlSha256": "a44fe96d7fcee78bc77fbb0ff438675378bc391cbddd1b060666f2d0c15a97fc",
+  "samples": [
+    {
+      "case": "cap-qualified",
+      "repeat": 0,
+      "computeWallMs": 5841.100000023842,
+      "prepareMs": 164.19999998807907,
+      "yieldCount": 907,
+      "yieldScheduleToResumeMs": 4509.799999773502,
+      "maximumObservedLongTaskStartingWithinComputeMs": 716,
+      "longTasksCrossingPreparationBoundary": [
+        {
+          "startTime": 4162.5,
+          "duration": 165
+        }
+      ],
+      "fingerprint": "22976151f0b5c0b8b8d84a2b1fd8f2ff8cf1e4ed3f1e475f178f556e9d2a3d3f",
+      "population": {
+        "ledger": 100000,
+        "cases": [
+          0,
+          97311,
+          97310,
+          97309,
+          97308,
+          97307,
+          97306,
+          97305,
+          97304
+        ],
+        "matched": [
+          0,
+          4890,
+          4890,
+          4889,
+          4889,
+          4889,
+          4889,
+          4889,
+          4889
+        ],
+        "state": [
+          0,
+          1,
+          1
+        ],
+        "reasons": {
+          "No contiguous predecessor POC": 1,
+          "Ineligible seasonal support": 2687,
+          "null": 97312
+        },
+        "fullMatched": 24,
+        "calendarBlocks": 25,
+        "seed": 3428437984,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            1600000,
+            0,
+            null
+          ],
+          1600000,
+          1600000,
+          [
+            1600000,
+            1600000,
+            null,
+            1600000
+          ],
+          "1c9bc37745eac29bd644b5f0a4e6e6084c3ad7867cb610c28ce16cca224c0d5a",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8863636363636364,
+            1.1162790697674418
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "flat": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "up": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  13.196614890803474,
+                  15.036678083377316
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.86238581132921,
+                  40.20840379576521
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -26.813294771665678,
+                  -25.033798738861467
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  18.039020286026236,
+                  20.21575982558025
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  19.75451908974885,
+                  20.09304627567434
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -1.8412100988495905,
+                  0.3007310468308346
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  65.35375283157403,
+                  68.2120947922883
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.93412296541499,
+                  40.14462186074425
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  25.356377766893342,
+                  28.14319372205525
+                ]
+              },
+              "validDraws": 2000
+            }
+          }
+        },
+        "drawsRan": true
+      }
+    },
+    {
+      "case": "cap-qualified",
+      "repeat": 1,
+      "computeWallMs": 6021.599999964237,
+      "prepareMs": 158.30000001192093,
+      "yieldCount": 907,
+      "yieldScheduleToResumeMs": 4613.799999952316,
+      "maximumObservedLongTaskStartingWithinComputeMs": 806,
+      "longTasksCrossingPreparationBoundary": [],
+      "fingerprint": "22976151f0b5c0b8b8d84a2b1fd8f2ff8cf1e4ed3f1e475f178f556e9d2a3d3f",
+      "population": {
+        "ledger": 100000,
+        "cases": [
+          0,
+          97311,
+          97310,
+          97309,
+          97308,
+          97307,
+          97306,
+          97305,
+          97304
+        ],
+        "matched": [
+          0,
+          4890,
+          4890,
+          4889,
+          4889,
+          4889,
+          4889,
+          4889,
+          4889
+        ],
+        "state": [
+          0,
+          1,
+          1
+        ],
+        "reasons": {
+          "No contiguous predecessor POC": 1,
+          "Ineligible seasonal support": 2687,
+          "null": 97312
+        },
+        "fullMatched": 24,
+        "calendarBlocks": 25,
+        "seed": 3428437984,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            1600000,
+            0,
+            null
+          ],
+          1600000,
+          1600000,
+          [
+            1600000,
+            1600000,
+            null,
+            1600000
+          ],
+          "1c9bc37745eac29bd644b5f0a4e6e6084c3ad7867cb610c28ce16cca224c0d5a",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8863636363636364,
+            1.1162790697674418
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "flat": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "up": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  13.196614890803474,
+                  15.036678083377316
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.86238581132921,
+                  40.20840379576521
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -26.813294771665678,
+                  -25.033798738861467
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  18.039020286026236,
+                  20.21575982558025
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  19.75451908974885,
+                  20.09304627567434
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -1.8412100988495905,
+                  0.3007310468308346
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  65.35375283157403,
+                  68.2120947922883
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.93412296541499,
+                  40.14462186074425
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  25.356377766893342,
+                  28.14319372205525
+                ]
+              },
+              "validDraws": 2000
+            }
+          }
+        },
+        "drawsRan": true
+      }
+    },
+    {
+      "case": "cap-qualified",
+      "repeat": 2,
+      "computeWallMs": 6128.399999976158,
+      "prepareMs": 187,
+      "yieldCount": 907,
+      "yieldScheduleToResumeMs": 4709.099999725819,
+      "maximumObservedLongTaskStartingWithinComputeMs": 797,
+      "longTasksCrossingPreparationBoundary": [
+        {
+          "startTime": 18668.30000001192,
+          "duration": 2585
+        }
+      ],
+      "fingerprint": "22976151f0b5c0b8b8d84a2b1fd8f2ff8cf1e4ed3f1e475f178f556e9d2a3d3f",
+      "population": {
+        "ledger": 100000,
+        "cases": [
+          0,
+          97311,
+          97310,
+          97309,
+          97308,
+          97307,
+          97306,
+          97305,
+          97304
+        ],
+        "matched": [
+          0,
+          4890,
+          4890,
+          4889,
+          4889,
+          4889,
+          4889,
+          4889,
+          4889
+        ],
+        "state": [
+          0,
+          1,
+          1
+        ],
+        "reasons": {
+          "No contiguous predecessor POC": 1,
+          "Ineligible seasonal support": 2687,
+          "null": 97312
+        },
+        "fullMatched": 24,
+        "calendarBlocks": 25,
+        "seed": 3428437984,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            1600000,
+            0,
+            null
+          ],
+          1600000,
+          1600000,
+          [
+            1600000,
+            1600000,
+            null,
+            1600000
+          ],
+          "1c9bc37745eac29bd644b5f0a4e6e6084c3ad7867cb610c28ce16cca224c0d5a",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8863636363636364,
+            1.1162790697674418
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "flat": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "up": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  13.196614890803474,
+                  15.036678083377316
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.86238581132921,
+                  40.20840379576521
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -26.813294771665678,
+                  -25.033798738861467
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  18.039020286026236,
+                  20.21575982558025
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  19.75451908974885,
+                  20.09304627567434
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -1.8412100988495905,
+                  0.3007310468308346
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  65.35375283157403,
+                  68.2120947922883
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.93412296541499,
+                  40.14462186074425
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  25.356377766893342,
+                  28.14319372205525
+                ]
+              },
+              "validDraws": 2000
+            }
+          }
+        },
+        "drawsRan": true
+      }
+    },
+    {
+      "case": "floor-failure",
+      "repeat": 0,
+      "computeWallMs": 449,
+      "prepareMs": 17.5,
+      "yieldCount": 78,
+      "yieldScheduleToResumeMs": 368.30000001192093,
+      "maximumObservedLongTaskStartingWithinComputeMs": null,
+      "longTasksCrossingPreparationBoundary": [],
+      "fingerprint": "3905eaaed342b17ddb2c781ea90f6cd87ccd6c383a0b84d16cbb2b7a2e33827d",
+      "population": {
+        "ledger": 10000,
+        "cases": [
+          0,
+          7311,
+          7310,
+          7309,
+          7308,
+          7307,
+          7306,
+          7305,
+          7304
+        ],
+        "matched": [
+          0,
+          643,
+          643,
+          643,
+          643,
+          643,
+          642,
+          642,
+          642
+        ],
+        "state": [
+          2,
+          0,
+          2
+        ],
+        "reasons": {
+          "No contiguous predecessor POC": 1,
+          "Ineligible seasonal support": 2687,
+          "null": 7312
+        },
+        "fullMatched": 2,
+        "calendarBlocks": 3,
+        "seed": 181847042,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            160000,
+            0,
+            null
+          ],
+          160000,
+          160000,
+          [
+            160000,
+            160000,
+            null,
+            160000
+          ],
+          "81bface3b60d02ed3022646d01bc74aafb399649ffaab5e9f47b93b40950d3b1",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8823529411764706,
+            1.1162790697674418
+          ],
+          [
+            2,
+            0,
+            2
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          },
+          "flat": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          },
+          "up": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          }
+        },
+        "drawsRan": false
+      }
+    },
+    {
+      "case": "floor-failure",
+      "repeat": 1,
+      "computeWallMs": 494.5,
+      "prepareMs": 16.700000047683716,
+      "yieldCount": 78,
+      "yieldScheduleToResumeMs": 397.9000000357628,
+      "maximumObservedLongTaskStartingWithinComputeMs": 67,
+      "longTasksCrossingPreparationBoundary": [],
+      "fingerprint": "3905eaaed342b17ddb2c781ea90f6cd87ccd6c383a0b84d16cbb2b7a2e33827d",
+      "population": {
+        "ledger": 10000,
+        "cases": [
+          0,
+          7311,
+          7310,
+          7309,
+          7308,
+          7307,
+          7306,
+          7305,
+          7304
+        ],
+        "matched": [
+          0,
+          643,
+          643,
+          643,
+          643,
+          643,
+          642,
+          642,
+          642
+        ],
+        "state": [
+          2,
+          0,
+          2
+        ],
+        "reasons": {
+          "No contiguous predecessor POC": 1,
+          "Ineligible seasonal support": 2687,
+          "null": 7312
+        },
+        "fullMatched": 2,
+        "calendarBlocks": 3,
+        "seed": 181847042,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            160000,
+            0,
+            null
+          ],
+          160000,
+          160000,
+          [
+            160000,
+            160000,
+            null,
+            160000
+          ],
+          "81bface3b60d02ed3022646d01bc74aafb399649ffaab5e9f47b93b40950d3b1",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8823529411764706,
+            1.1162790697674418
+          ],
+          [
+            2,
+            0,
+            2
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          },
+          "flat": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          },
+          "up": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          }
+        },
+        "drawsRan": false
+      }
+    },
+    {
+      "case": "floor-failure",
+      "repeat": 2,
+      "computeWallMs": 503.4000000357628,
+      "prepareMs": 16.5,
+      "yieldCount": 78,
+      "yieldScheduleToResumeMs": 396.3000003695488,
+      "maximumObservedLongTaskStartingWithinComputeMs": 68,
+      "longTasksCrossingPreparationBoundary": [],
+      "fingerprint": "3905eaaed342b17ddb2c781ea90f6cd87ccd6c383a0b84d16cbb2b7a2e33827d",
+      "population": {
+        "ledger": 10000,
+        "cases": [
+          0,
+          7311,
+          7310,
+          7309,
+          7308,
+          7307,
+          7306,
+          7305,
+          7304
+        ],
+        "matched": [
+          0,
+          643,
+          643,
+          643,
+          643,
+          643,
+          642,
+          642,
+          642
+        ],
+        "state": [
+          2,
+          0,
+          2
+        ],
+        "reasons": {
+          "No contiguous predecessor POC": 1,
+          "Ineligible seasonal support": 2687,
+          "null": 7312
+        },
+        "fullMatched": 2,
+        "calendarBlocks": 3,
+        "seed": 181847042,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            160000,
+            0,
+            null
+          ],
+          160000,
+          160000,
+          [
+            160000,
+            160000,
+            null,
+            160000
+          ],
+          "81bface3b60d02ed3022646d01bc74aafb399649ffaab5e9f47b93b40950d3b1",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8823529411764706,
+            1.1162790697674418
+          ],
+          [
+            2,
+            0,
+            2
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          },
+          "flat": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          },
+          "up": {
+            "conditional": 0,
+            "baseline": 0,
+            "difference": 0
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "baseline": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            },
+            "difference": {
+              "result": {
+                "tag": "unsupported",
+                "reason": "Fewer than 20 full matched blocks"
+              },
+              "validDraws": 0
+            }
+          }
+        },
+        "drawsRan": false
+      }
+    },
+    {
+      "case": "partial-coverage",
+      "repeat": 0,
+      "computeWallMs": 6639.099999964237,
+      "prepareMs": 164.5999999642372,
+      "yieldCount": 905,
+      "yieldScheduleToResumeMs": 4508.79999935627,
+      "maximumObservedLongTaskStartingWithinComputeMs": 1593,
+      "longTasksCrossingPreparationBoundary": [
+        {
+          "startTime": 215707.40000003576,
+          "duration": 167
+        }
+      ],
+      "fingerprint": "8960521144b6b79e161eef1d0794979e524919cded936742fde59e63d52b6594",
+      "population": {
+        "ledger": 100000,
+        "cases": [
+          0,
+          95311,
+          94651,
+          93994,
+          93338,
+          92684,
+          92031,
+          91379,
+          90731
+        ],
+        "matched": [
+          0,
+          4770,
+          4741,
+          4707,
+          4671,
+          4642,
+          4613,
+          4575,
+          4554
+        ],
+        "state": [
+          0,
+          1,
+          1
+        ],
+        "reasons": {
+          "Missing coverage": 390,
+          "No contiguous predecessor POC": 681,
+          "Ineligible seasonal support": 2663,
+          "Observed empty POC population": 196,
+          "Missing POC": 97,
+          "null": 95973
+        },
+        "fullMatched": 24,
+        "calendarBlocks": 25,
+        "seed": 1814194462,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            1600000,
+            0,
+            null
+          ],
+          1600000,
+          1600000,
+          [
+            1600000,
+            1600000,
+            null,
+            1600000
+          ],
+          "824beee8e8b4dfca6a6ec8d122985904f4636860642420720fc26f88afa76813",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8863636363636364,
+            1.1162790697674418
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "flat": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "up": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  13.39553119496057,
+                  15.3126345602193
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.88122267601234,
+                  40.217554818634696
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -26.642301811558056,
+                  -24.764452563091133
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  17.94632928453816,
+                  20.24806465111413
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  19.74397736990176,
+                  20.096961465024204
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -1.9397157973628147,
+                  0.2741566548547811
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  65.04923270977926,
+                  68.07346578308929
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.910662546513926,
+                  40.13430669920089
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  25.085456702725985,
+                  28.027109725612252
+                ]
+              },
+              "validDraws": 2000
+            }
+          }
+        },
+        "drawsRan": true
+      }
+    },
+    {
+      "case": "partial-coverage",
+      "repeat": 1,
+      "computeWallMs": 6781.600000023842,
+      "prepareMs": 159.0999999642372,
+      "yieldCount": 905,
+      "yieldScheduleToResumeMs": 4549.100000977516,
+      "maximumObservedLongTaskStartingWithinComputeMs": 1620,
+      "longTasksCrossingPreparationBoundary": [],
+      "fingerprint": "8960521144b6b79e161eef1d0794979e524919cded936742fde59e63d52b6594",
+      "population": {
+        "ledger": 100000,
+        "cases": [
+          0,
+          95311,
+          94651,
+          93994,
+          93338,
+          92684,
+          92031,
+          91379,
+          90731
+        ],
+        "matched": [
+          0,
+          4770,
+          4741,
+          4707,
+          4671,
+          4642,
+          4613,
+          4575,
+          4554
+        ],
+        "state": [
+          0,
+          1,
+          1
+        ],
+        "reasons": {
+          "Missing coverage": 390,
+          "No contiguous predecessor POC": 681,
+          "Ineligible seasonal support": 2663,
+          "Observed empty POC population": 196,
+          "Missing POC": 97,
+          "null": 95973
+        },
+        "fullMatched": 24,
+        "calendarBlocks": 25,
+        "seed": 1814194462,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            1600000,
+            0,
+            null
+          ],
+          1600000,
+          1600000,
+          [
+            1600000,
+            1600000,
+            null,
+            1600000
+          ],
+          "824beee8e8b4dfca6a6ec8d122985904f4636860642420720fc26f88afa76813",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8863636363636364,
+            1.1162790697674418
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "flat": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "up": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  13.39553119496057,
+                  15.3126345602193
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.88122267601234,
+                  40.217554818634696
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -26.642301811558056,
+                  -24.764452563091133
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  17.94632928453816,
+                  20.24806465111413
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  19.74397736990176,
+                  20.096961465024204
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -1.9397157973628147,
+                  0.2741566548547811
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  65.04923270977926,
+                  68.07346578308929
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.910662546513926,
+                  40.13430669920089
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  25.085456702725985,
+                  28.027109725612252
+                ]
+              },
+              "validDraws": 2000
+            }
+          }
+        },
+        "drawsRan": true
+      }
+    },
+    {
+      "case": "partial-coverage",
+      "repeat": 2,
+      "computeWallMs": 6728.900000035763,
+      "prepareMs": 160.80000001192093,
+      "yieldCount": 905,
+      "yieldScheduleToResumeMs": 4620.000000476837,
+      "maximumObservedLongTaskStartingWithinComputeMs": 1564,
+      "longTasksCrossingPreparationBoundary": [],
+      "fingerprint": "8960521144b6b79e161eef1d0794979e524919cded936742fde59e63d52b6594",
+      "population": {
+        "ledger": 100000,
+        "cases": [
+          0,
+          95311,
+          94651,
+          93994,
+          93338,
+          92684,
+          92031,
+          91379,
+          90731
+        ],
+        "matched": [
+          0,
+          4770,
+          4741,
+          4707,
+          4671,
+          4642,
+          4613,
+          4575,
+          4554
+        ],
+        "state": [
+          0,
+          1,
+          1
+        ],
+        "reasons": {
+          "Missing coverage": 390,
+          "No contiguous predecessor POC": 681,
+          "Ineligible seasonal support": 2663,
+          "Observed empty POC population": 196,
+          "Missing POC": 97,
+          "null": 95973
+        },
+        "fullMatched": 24,
+        "calendarBlocks": 25,
+        "seed": 1814194462,
+        "key": [
+          "seasonal-state@1",
+          "block-bootstrap@2",
+          "next-poc",
+          "SYNTHETIC-213",
+          4,
+          0,
+          [
+            0,
+            1600000,
+            0,
+            null
+          ],
+          1600000,
+          1600000,
+          [
+            1600000,
+            1600000,
+            null,
+            1600000
+          ],
+          "824beee8e8b4dfca6a6ec8d122985904f4636860642420720fc26f88afa76813",
+          [
+            0.3333333333333333,
+            0.5
+          ],
+          [
+            0.8863636363636364,
+            1.1162790697674418
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          1,
+          1,
+          8,
+          4041,
+          "prior-positive-volume",
+          "prior-seasonal-eligible",
+          "synthetic-integers+Float64"
+        ],
+        "resamples": 2000,
+        "validDraws": {
+          "down": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "flat": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          },
+          "up": {
+            "conditional": 2000,
+            "baseline": 2000,
+            "difference": 2000
+          }
+        },
+        "intervals": {
+          "down": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  13.39553119496057,
+                  15.3126345602193
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.88122267601234,
+                  40.217554818634696
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -26.642301811558056,
+                  -24.764452563091133
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "flat": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  17.94632928453816,
+                  20.24806465111413
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  19.74397736990176,
+                  20.096961465024204
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  -1.9397157973628147,
+                  0.2741566548547811
+                ]
+              },
+              "validDraws": 2000
+            }
+          },
+          "up": {
+            "conditional": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  65.04923270977926,
+                  68.07346578308929
+                ]
+              },
+              "validDraws": 2000
+            },
+            "baseline": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  39.910662546513926,
+                  40.13430669920089
+                ]
+              },
+              "validDraws": 2000
+            },
+            "difference": {
+              "result": {
+                "tag": "finite",
+                "value": [
+                  25.085456702725985,
+                  28.027109725612252
+                ]
+              },
+              "validDraws": 2000
+            }
+          }
+        },
+        "drawsRan": true
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "production-611-first-1.json.gz",
+      "bytes": 29406,
+      "sha256": "242da3e5a76bbc3dbc5f68c0689a80b23a54192870e721a5beda0215bd70f7b9",
+      "decodedBytes": 323799,
+      "decodedSha256": "8a45983986f4f87bbc5c68eb875712c68706bc7c9260c0d38efe7621fe265105"
+    },
+    {
+      "path": "production-611-first-1-state.json.gz",
+      "bytes": 835,
+      "sha256": "13dec23861fae0cb9365f01af2f68fc7f6cd921ca448d3dc1ba9b2915ff99c1a",
+      "decodedBytes": 1855,
+      "decodedSha256": "91c916225dbe7103c08bf4cadfda9e6abc9b0aa89dea417b8c61ac52e06cddae"
+    },
+    {
+      "path": "production-611-first-1-summary.json.gz",
+      "bytes": 3969,
+      "sha256": "b4942a050c629219e7f3ab6bccafceae36d50eda02c3ff009fc6586875cdbd71",
+      "decodedBytes": 22553,
+      "decodedSha256": "338831ddd4fcf2696eef03a9672196732b8706f20e276ea9ba83ce134ebdd711"
+    },
+    {
+      "path": "kernel-d944-cap-three.json.gz",
+      "bytes": 839214,
+      "sha256": "7aaa8aad335cf4c62927ad0b91e572119f3f3cc4d906f9bf02ce2ffe99dcee64",
+      "decodedBytes": 1523038,
+      "decodedSha256": "989a6107d0dc529e9413e5ef9b45466bd4e5690ba7e402bb866a6f21f00e5d7a"
+    },
+    {
+      "path": "kernel-d944-floor-three.json.gz",
+      "bytes": 79640,
+      "sha256": "91e74f073ce7b6ac8357ddea88291b9b59472931aa8464309aeb99d9cf236805",
+      "decodedBytes": 149211,
+      "decodedSha256": "731a533bd58a3ba2fc75a92c6819c88c223e2a58466a4c15e2e9740643204210"
+    },
+    {
+      "path": "kernel-d944-partial-three.json.gz",
+      "bytes": 807025,
+      "sha256": "d5511932fac54a90fff25beae09d5c8874559cf99eef4729c9bc950d123bf915",
+      "decodedBytes": 1465910,
+      "decodedSha256": "d7cf6dd0a2591c3ec61fe504a191452b9d7790bd6e7b1bbd84456fa897edaf4c"
+    },
+    {
+      "path": "kernel-d944-cap-three.png",
+      "bytes": 47969,
+      "sha256": "b1dc4dc5072d6faf940bb7f071373c3f6445e0896aa1be2987a6febb83ff2460"
+    },
+    {
+      "path": "restored-production.png",
+      "bytes": 71594,
+      "sha256": "5f845f70907e57103a34f50c0ed743a1fae747ff1ceade3bcce37141111f9f6a"
+    }
+  ],
+  "limitations": [
+    "Kernel same-page sequential repeats, not formal paired A/A or whole explorer latency",
+    "Production trace is exact deployed 61175f2, separately identified from current-main synthetic kernel d944f50",
+    "Engine long-task entries can straddle preparation or fingerprint boundaries; raw entries retained, maxima here use entries starting within compute only; no CPU sum",
+    "Heap values are nonstandard engine estimates, not retained-heap/GC attribution",
+    "No candidate product changes or improvement certificate yet; formal remote A/A pending"
+  ]
+}
