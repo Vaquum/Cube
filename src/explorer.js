@@ -16332,17 +16332,18 @@
     STRIP_FEEDS = {
       macro: ["fred_macro_daily"],
       positioning: ["deribit_funding", "hyperliquid_funding", "deribit_futures_basis", "deribit_options", "defillama_stablecoins"],
-      news: ["gdelt_gkg"],
+      news: ["financial_news_tone"],
       social: ["bluesky_live"],
       attention: ["gdelt_gkg", "wikimedia_daily", "wikimedia_hourly", "bluesky_live"],
     },
     STRIP_SOURCE_NAMES = {
       fred_macro_daily: "FRED macro, daily", deribit_funding: "Deribit funding", hyperliquid_funding: "Hyperliquid funding",
       deribit_futures_basis: "Deribit futures basis", deribit_options: "Deribit options", defillama_stablecoins: "Stablecoin supply, daily",
-      deribit_dvol: "Deribit DVOL", gdelt_gkg: "GDELT news", bluesky_live: "Bluesky sample", wikimedia_daily: "Wikipedia, daily",
+      deribit_dvol: "Deribit DVOL", gdelt_gkg: "GDELT coverage", financial_news_tone: "Financial article sentiment", bluesky_live: "Bluesky sample", wikimedia_daily: "Wikipedia, daily",
       wikimedia_hourly: "Wikipedia, hourly", mempool_retarget: "Difficulty retarget", calendar: "Calendar",
     },
     STRIP_CERTAINTY = { confirmed: "confirmed", tentative: "tentative", rule_derived: "set by rule", unspecified: "certainty not given", estimate: "an estimate" };
+  const stripFeeds = (force) => force === "news" && stripRt.components?.["news.tone"] ? ["gdelt_gkg"] : STRIP_FEEDS[force];
   // A bridge that serves the strip declares it in the page (tools/strip_contract.py); a page without the declaration never asks.
   const STRIP_SERVED = Boolean(document.querySelector('meta[name="explorer-strip"]')),
     STRIP_HINT = el("strip").dataset.hint;
@@ -17079,12 +17080,18 @@
       }
       cell.append(list); quantiles.append(cell);
     }
-    track.append(uiEl("h3", "", `BTC · next 24 h · ${distribution.dataset.state === "baseline" ? "all moments" : "similar moments"}`), outcome, counts, distribution, quantiles);
+    const compared = trackPart.group.compared ?? [], names = compared.map(f => STRIP_NAMES[f]),
+      label = compared.length >= 3 ? `${compared.length} forces` : names.join(" + "),
+      heading = uiEl("h3", "", `BTC · next 24 h · ${distribution.dataset.state === "baseline" ? "all moments" : label || "similar moments"}`);
+    heading.dataset.field = "trackComparedForces";
+    heading.dataset.compared = compared.join(",");
+    heading.title = compared.length ? `Historical matches compare ${names.join(", ")}` : "All eligible price moments";
+    track.append(heading, outcome, counts, distribution, quantiles);
     const hint = uiEl("div", "ol-cell-state ol-strip-inspect-hint", "Inspect → Strip: all measurements");
     tip.replaceChildren(header, summary, forces, event, track, hint, tip.querySelector(".ol-cell-details"));
   }
   function stripTiming(ms, edge, held = stripRt.view) {
-    const feeds = [...new Set([...STRIP_FORCES.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention])],
+    const feeds = [...new Set([...STRIP_FORCES.flatMap(stripFeeds), ...STRIP_FEEDS.attention])],
       starts = feeds.map((f) => stripRt.sources?.[f]?.recordedFrom).filter(Number.isFinite);
     return { name: "Observation", metrics: [stripTime("Inspected at", ms, "inspectedAt"),
       stripTime("Field cutoff", held?.cutoff ?? stripRt.view?.cutoff ?? stripRt.cutoff, "fieldCutoff"), stripTime("Effective edge", edge, "effectiveEdge"),
@@ -17112,7 +17119,7 @@
     return [typeof value === "number" ? stripNumber(label, value, field) : stripFact(label, String(value), field)];
   }
   function stripSourceCard(tip, edge) {
-    const force = stripForce(), feeds = [...(force ? STRIP_FEEDS[force] : STRIP_FORCES.flatMap((f) => STRIP_FEEDS[f])), ...STRIP_FEEDS.attention, "deribit_dvol", "calendar"];
+    const force = stripForce(), feeds = [...(force ? stripFeeds(force) : STRIP_FORCES.flatMap(stripFeeds)), ...STRIP_FEEDS.attention, "deribit_dvol", "calendar"];
     stripCard(tip, { presentation: "strip-sources", title: `Strip · ${STRIP_NAMES[force ?? "forces"]}`, ms: edge - 1, edge,
       primary: stripTime("Field publication", stripRt.snapshot?.publishedAt, "publishedAt"),
       companions: [stripTime("Field cutoff", stripRt.cutoff, "fieldCutoff"), stripFact("Strip status", stripRt.status, "stripStatus")],
@@ -17168,7 +17175,7 @@
       profile = stripHist(bins, { h: 84, outline, marks: [{ x: stripQuantile(quantiles, 0.05), label: "p5" }, { x: stripQuantile(quantiles, 0.5), label: "p50", mid: true }, { x: stripQuantile(quantiles, 0.95), label: "p95" }],
         ticks: [{ x: -reach, label: `−${reach}%` }, { x: 0, label: "0" }, { x: reach, label: `+${reach}%` }] });
     profile.dataset.distribution = supported ? "matched" : "baseline";
-    return { name: "Track record · next 24 h", metrics, profile };
+    return { name: "Track record · next 24 h", metrics, profile, compared: T.dims };
   }
   function stripForcesCard(tip, ms, edge) {
     const force = stripForce(), held = stripHeld(ms), support = stripSupport(held, ms, force), available = support.inRange && ms < edge,
@@ -17177,7 +17184,7 @@
       rows = STRIP_FORCES.map((f, j) => ({ name: STRIP_NAMES[f], force: f, v: values[j], on: f === force, note: "Unavailable",
         retrospective: available && Object.entries(stripRt.components ?? {}).some(([name, c]) => c.force === f && stripAt(held, ms, name) !== null && ms < stripRetroUntil(name)) })),
       lean = available ? stripLean(held, ms, force) : null,
-      feeds = [...new Set([...shown.flatMap((f) => STRIP_FEEDS[f]), ...STRIP_FEEDS.attention])],
+      feeds = [...new Set([...shown.flatMap(stripFeeds), ...STRIP_FEEDS.attention])],
       status = !available ? ms >= (held?.cutoff ?? stripRt.view?.cutoff ?? stripRt.cutoff ?? Infinity) ? "After field cutoff" : ms >= edge ? "After effective edge" : "Unavailable"
         : lean === null ? "Unavailable" : support.inputsKnown === null || support.attentionKnown === null ? "Detail unavailable"
         : support.inputsKnown < support.inputsTotal || support.attentionKnown < support.attentionTotal || attention === null ? "Partial" : "Known",

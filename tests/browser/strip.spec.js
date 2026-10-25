@@ -526,9 +526,9 @@ test("coverage reports changing support only before the visible replay edge", as
     body.grid.forces.news = body.grid.forces.news.map((v, i) => t0 + i * step < middle ? null : v);
     // Synthetic support changes, independent of the fake's optional per-component detail at coarse history resolutions.
     const inputs = ["macro.DTWEXBGS", "macro.DGS2", "macro.DGS10", "macro.BAMLH0A0HYM2", "positioning.funding",
-      "positioning.stablecoins", "positioning.basis", "positioning.skew", "news.tone", "social.words"],
+      "positioning.stablecoins", "positioning.basis", "positioning.skew", "news.financial_tone", "social.words"],
       attention = ["attention.gdelt", "attention.wikipedia", "attention.wikipedia_hourly", "attention.bluesky"], n = body.grid.attention.length;
-    body.grid.parts = Object.fromEntries(inputs.map((name) => [name, Array.from({ length: n }, (_, i) => name === "news.tone" && t0 + i * step < middle ? null : 0)]));
+    body.grid.parts = Object.fromEntries(inputs.map((name) => [name, Array.from({ length: n }, (_, i) => name === "news.financial_tone" && t0 + i * step < middle ? null : 0)]));
     for (const name of attention) body.grid.parts[name] = Array.from({ length: n }, (_, i) => t0 + i * step >= middle ? null : 0.3);
     body.grid.attention = body.grid.attention.map((v, i) => t0 + i * step >= middle ? null : v);
     await route.fulfill({ response: original, json: body });

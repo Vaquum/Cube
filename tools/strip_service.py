@@ -241,7 +241,7 @@ class StripService:
                         if source == "calendar":
                             self.model.ingest_calendar(data.dataset_id, data.records, published)
                             continue
-                        interval = 300_000 if source in ("deribit_options", "deribit_dvol", "deribit_futures_basis", "gdelt_gkg", "bluesky_live",
+                        interval = 300_000 if source in ("deribit_options", "deribit_dvol", "deribit_futures_basis", "gdelt_gkg", "financial_news_tone", "bluesky_live",
                                                          "mempool_retarget") else 3_600_000 if source.endswith("_funding") or source == "wikimedia_hourly" else 21_600_000
                         self.model.ingest(source, data.dataset_id, data.records, data.meta, data.received_at, published, interval,
                                           retrospective=data.publication_kind == "backfill")

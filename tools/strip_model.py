@@ -8,7 +8,7 @@ placed at the time a rule says their source makes them public. Nothing here call
 (``field_data.py``) and the cube's bars (``strip_service.py``) feed it. It needs the standard library only.
 
 ``build_state`` turns the stored observations into evidence, one series per component, each a list of (known-at, value)
-under a fixed formula, method ``field-strip@1``. ``State.answer`` samples them on a grid for ``/cube/strip``.
+under a fixed formula, method ``field-strip@2``. ``State.answer`` samples them on a grid for ``/cube/strip``.
 """
 
 from __future__ import annotations
@@ -26,19 +26,19 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
 SCHEMA = "cube-strip@2"
-MODEL = "field-strip@1"
+MODEL = "field-strip@2"
 MINUTE, HOUR, DAY = 60_000, 3_600_000, 86_400_000
 FORCES = ("macro", "positioning", "news", "social")
 # What the Strip reads from field-data-api; the calendar has its own route.
 SOURCES = (
     "fred_macro_daily", "deribit_funding", "hyperliquid_funding", "defillama_stablecoins", "deribit_futures_basis",
-    "deribit_options", "deribit_dvol", "gdelt_gkg", "bluesky_live", "wikimedia_daily", "wikimedia_hourly", "mempool_retarget",
+    "deribit_options", "deribit_dvol", "gdelt_gkg", "financial_news_tone", "bluesky_live", "wikimedia_daily", "wikimedia_hourly", "mempool_retarget",
 )
 # Which sources each part of the Strip stands on: the page shows their freshness beside it.
 FEEDS = {
     "macro": ("fred_macro_daily",),
     "positioning": ("deribit_funding", "hyperliquid_funding", "defillama_stablecoins", "deribit_futures_basis", "deribit_options"),
-    "news": ("gdelt_gkg",),
+    "news": ("financial_news_tone",),
     "social": ("bluesky_live",),
     "attention": ("gdelt_gkg", "wikimedia_daily", "wikimedia_hourly", "bluesky_live"),
     "events": ("calendar", "mempool_retarget"),
@@ -49,7 +49,7 @@ SERIES_OF = {
     "fred_macro_daily": ("fred:DTWEXBGS", "fred:DGS2", "fred:DGS10", "fred:BAMLH0A0HYM2"),
     "deribit_funding": ("funding:deribit",), "hyperliquid_funding": ("funding:hyperliquid",), "defillama_stablecoins": ("stable",),
     "deribit_futures_basis": ("basis",), "deribit_options": ("options",), "deribit_dvol": ("dvol",), "gdelt_gkg": ("gdelt",),
-    "bluesky_live": ("bluesky",), "wikimedia_daily": ("wiki_day",), "wikimedia_hourly": ("wiki_hour",), "mempool_retarget": ("retarget",),
+    "financial_news_tone": ("financial_news",), "bluesky_live": ("bluesky",), "wikimedia_daily": ("wiki_day",), "wikimedia_hourly": ("wiki_hour",), "mempool_retarget": ("retarget",),
 }
 MACRO_SERIES = {"DTWEXBGS": "Dollar", "DGS2": "2-year yield", "DGS10": "10-year yield", "BAMLH0A0HYM2": "High-yield spread"}
 # Each component: its force, its weight in it and its label. Attention's components carry their weight in the mean.
@@ -57,7 +57,7 @@ COMPONENTS = {
     **{"macro." + code: ("macro", label) for code, label in MACRO_SERIES.items()},
     "positioning.funding": ("positioning", "Perpetual funding"), "positioning.stablecoins": ("positioning", "Stablecoin supply"),
     "positioning.basis": ("positioning", "Futures basis"), "positioning.skew": ("positioning", "Options put skew"),
-    "news.tone": ("news", "Tone of coverage"), "social.words": ("social", "Bullish against bearish words"),
+    "news.financial_tone": ("news", "Financial article tone"), "social.words": ("social", "Bullish against bearish words"),
 }
 ATTENTION = {"attention.gdelt": ("News share", 0.5), "attention.wikipedia": ("Wikipedia, daily", 0.15),
              "attention.wikipedia_hourly": ("Wikipedia, hourly", 0.15), "attention.bluesky": ("Bluesky share", 0.2)}
@@ -237,6 +237,35 @@ def observations(source: str, records: list, meta: dict, received_ms: int) -> li
             if at is not None:
                 extra = {k: v.get(k) for k in ("bitcoin_articles", "panel_articles", "tone_scored_articles")}
                 out.append(Obs("gdelt", r["id"], at, _num(v.get("tone_mean")), extra, at + 15 * MINUTE))
+    elif source == "financial_news_tone":
+        # One value per actual capture; publisher dates select the trailing day,
+        # but today's analysis is never backdated into yesterday's force history.
+        articles = {}
+        for r in records:
+            v = r.get("values") or {}
+            published, analyzed = ms(r.get("published_at")), ms(v.get("analyzed_at"))
+            score, url, probabilities = _num(v.get("score")), v.get("url"), v.get("probabilities")
+            if not isinstance(probabilities, dict):
+                continue
+            ps = [_num(probabilities.get(k)) for k in ("positive", "negative", "neutral")]
+            if (r.get("kind") != "financial_article_tone" or not isinstance(url, str) or not url
+                    or published is None or not received_ms - DAY < published <= received_ms
+                    or analyzed is None or analyzed > received_ms
+                    or v.get("model_revision") != "4921590d3c0c3832c0efea24c8381ce0bda7844b"
+                    or v.get("method") != "finbert_sentence_token_weighted/1"
+                    or v.get("input_scope") not in ("article_body", "headline_only")
+                    or score is None or not -1 <= score <= 1
+                    or any(p is None or not 0 <= p <= 1 for p in ps)
+                    or abs(math.fsum(ps) - 1) > 1e-5 or abs(ps[0] - ps[1] - score) > 1e-5):
+                continue
+            previous = articles.get(url)
+            if previous is None or (analyzed, str(r.get("id"))) > previous[0]:
+                articles[url] = ((analyzed, str(r.get("id"))), score, v["input_scope"])
+        values = list(articles.values())
+        out.append(Obs("financial_news", str(received_ms), received_ms,
+                       math.fsum(a[1] for a in values) / len(values) if values else None,
+                       {"articles": len(values), **{scope: sum(a[2] == scope for a in values)
+                        for scope in ("article_body", "headline_only")}}, received_ms))
     elif source == "bluesky_live":
         continuous = (meta.get("mode") or (meta.get("source_metadata") or {}).get("mode") or
                       (meta.get("session") or {}).get("mode")) == "continuous_checkpointed"
@@ -1069,9 +1098,12 @@ def build_state(store: Store, prices: Prices, snapshot: dict, sources: dict, now
     components["positioning.stablecoins"] = cached("stable", ("stable",), lambda: stablecoin_evidence(store.rows("stable")))
     components["positioning.basis"] = cached("basis", ("basis",), lambda: hourly_evidence("positioning.basis", store.rows("basis"), 0.3))
     components["positioning.skew"] = cached("skew", ("options",), lambda: hourly_evidence("positioning.skew", store.rows("options"), -0.3))
-    # How far back a value at a row at or after a cut looks: news, the trailing day and the 30 complete days before it; social, the
-    # trailing day; attention, the trailing week of two-hour shares, or of whole hours.
-    components["news.tone"] = evidence("tail.news", "news.tone", "gdelt", news_entries, lambda cut: cut - cut % DAY - 31 * DAY, 2 * HOUR)
+    # The financial source already supplies a complete capture of its feed panel.
+    # Each capture's trailing-day mean has no historical-normal warmup. GDELT
+    # remains a separate attention input; dictionary and financial tone never mix.
+    components["news.financial_tone"] = evidence("tail.financial_news", "news.financial_tone", "financial_news",
+        lambda rows: [(o, k, None if v is None else 0.6 * v, json.loads(x) if x else {})
+                      for o, k, _, v, x in rows], lambda cut: cut, 2 * HOUR)
     components["social.words"] = evidence("tail.social", "social.words", "bluesky", social_entries, lambda cut: cut - DAY, HOUR)
     attention = {
         "attention.gdelt": evidence("tail.attention.gdelt", "attention.gdelt", "gdelt", gdelt_attention_entries,
