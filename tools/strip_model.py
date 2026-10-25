@@ -33,6 +33,7 @@ FORCES = ("macro", "positioning", "news", "social")
 SOURCES = (
     "fred_macro_daily", "deribit_funding", "hyperliquid_funding", "defillama_stablecoins", "deribit_futures_basis",
     "deribit_options", "deribit_dvol", "gdelt_gkg", "financial_news_tone", "bluesky_live", "wikimedia_daily", "wikimedia_hourly", "mempool_retarget",
+    "sosovalue_etf_flows", "coinalyze_current", "coinalyze_history",
 )
 # Which sources each part of the Strip stands on: the page shows their freshness beside it.
 FEEDS = {
@@ -50,6 +51,13 @@ SERIES_OF = {
     "deribit_funding": ("funding:deribit",), "hyperliquid_funding": ("funding:hyperliquid",), "defillama_stablecoins": ("stable",),
     "deribit_futures_basis": ("basis",), "deribit_options": ("options",), "deribit_dvol": ("dvol",), "gdelt_gkg": ("gdelt",),
     "financial_news_tone": ("financial_news",), "bluesky_live": ("bluesky",), "wikimedia_daily": ("wiki_day",), "wikimedia_hourly": ("wiki_hour",), "mempool_retarget": ("retarget",),
+    "sosovalue_etf_flows": ("context.etf",), "coinalyze_current": ("context.oi",), "coinalyze_history": ("context.liquidations",),
+}
+# Raw positioning readings are separate from the force formulas.
+CONTEXT = {
+    "context.etf": (12 * HOUR, ("etfFlow", "etfDate", "etfReported", "etfExpected")),
+    "context.oi": (10 * MINUTE, ("oiUsd", "oiObserved", "oiReported", "oiExpected")),
+    "context.liquidations": (30 * MINUTE, ("liqLong", "liqShort", "liqStart", "liqEnd", "liqReported", "liqExpected")),
 }
 MACRO_SERIES = {"DTWEXBGS": "Dollar", "DGS2": "2-year yield", "DGS10": "10-year yield", "BAMLH0A0HYM2": "High-yield spread"}
 # Each component: its force, its weight in it and its label. Attention's components carry their weight in the mean.
@@ -171,7 +179,50 @@ def observations(source: str, records: list, meta: dict, received_ms: int) -> li
     """The observations one dataset carries, in the Strip's series (docs/strip.md, Source mappings)."""
     out: list[Obs] = []
     hour = received_ms - received_ms % HOUR
-    if source == "fred_macro_daily":
+    if source == "sosovalue_etf_flows":
+        totals, funds = {}, {}
+        for r in records:
+            v, day = r.get("values") or {}, ms(r.get("observed_at"))
+            if day is None:
+                continue
+            if r.get("kind") == "etf_flow_aggregate":
+                totals[day] = v
+            elif r.get("kind") == "etf_fund_flow" and v.get("flow_unit") == "USD" and _num(v.get("net_inflow")) is not None:
+                funds.setdefault(day, {})[v.get("ticker")] = v["net_inflow"]
+        if totals:
+            day = max((d for d in totals if funds.get(d)), default=max(totals))
+            total, reported = totals[day], funds.get(day, {})
+            selected = set(total.get("expected_funds") or [])
+            reported = {ticker: value for ticker, value in reported.items() if ticker in selected}
+            value = math.fsum(reported.values()) if reported else None
+            out.append(Obs("context.etf", str(received_ms), day, value,
+                {"etfFlow": value, "etfDate": day, "etfReported": len(reported), "etfExpected": len(selected)}, received_ms))
+    elif source == "coinalyze_current":
+        rows = [r for r in records if r.get("kind") == "open_interest" and (r.get("values") or {}).get("unit") == "USD"
+                and _num((r.get("values") or {}).get("value")) is not None and ms(r.get("observed_at")) is not None]
+        rows = list({r["values"]["symbol"]: r for r in sorted(rows, key=lambda r: ms(r["observed_at"]))}.values())
+        expected = _num(meta.get("requested_market_count"))
+        times = [ms(r["observed_at"]) for r in rows]
+        value = math.fsum(r["values"]["value"] for r in rows) if rows else None
+        out.append(Obs("context.oi", str(received_ms), max(times, default=received_ms), value,
+            {"oiUsd": value, "oiObserved": min(times) if times else None,
+             "oiReported": len({r["values"]["symbol"] for r in rows}), "oiExpected": expected}, received_ms))
+    elif source == "coinalyze_history":
+        source_meta = meta.get("source_metadata") or {}
+        start, end = ms(source_meta.get("start")), ms(source_meta.get("end_exclusive"))
+        if start is not None and end is not None and start < end <= received_ms:
+            rows = [r for r in records if r.get("kind") == "liquidation_bar" and (r.get("values") or {}).get("unit") == "USD"
+                    and (r.get("metadata") or {}).get("complete") is True
+                    and start <= (ms(r.get("observed_at")) or -1) < end
+                    and (ms((r.get("metadata") or {}).get("interval_end")) or end + 1) <= end
+                    and all(_num((r.get("values") or {}).get(k)) is not None for k in ("long_liquidations_usd", "short_liquidations_usd"))]
+            long = math.fsum(r["values"]["long_liquidations_usd"] for r in rows) if rows else None
+            short = math.fsum(r["values"]["short_liquidations_usd"] for r in rows) if rows else None
+            out.append(Obs("context.liquidations", str(received_ms), end, long,
+                {"liqLong": long, "liqShort": short, "liqStart": start, "liqEnd": end,
+                 "liqReported": len({r["values"]["symbol"] for r in rows}),
+                 "liqExpected": _num(meta.get("requested_market_count"))}, received_ms))
+    elif source == "fred_macro_daily":
         for r in records:
             v = r.get("values") or {}
             series, day, value = v.get("series"), ms(r.get("observed_at")), _num(v.get("value"))
@@ -544,6 +595,16 @@ class Evidence:
         if i < 0 or t - self.known[i] > self.stale_ms:
             return None, None, None
         return self.value[i], self.detail[i], self.known[i]
+
+
+def context_evidence(series: str, rows: list[tuple]) -> Evidence:
+    """A late historical import cannot replace a newer observed reading."""
+    entries, latest = [], -1
+    for observed, known, _, value, extra in sorted(rows, key=lambda r: (r[1], r[0])):
+        if observed >= latest:
+            entries.append((known, value, json.loads(extra) if extra else {}))
+            latest = observed
+    return Evidence.of(series, entries, CONTEXT[series][0])
 
 
 class Window:
@@ -919,6 +980,7 @@ class State:
     options: list
     cutoff: int
     version: int = 0
+    context: dict = field(default_factory=dict)
     answers: dict = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -955,6 +1017,11 @@ class State:
         if len(times) <= 3000:
             grid["parts"] = {name: [None if v is None else round(v, 4) for v in e.sample(times)]
                              for name, e in {**self.components, **self.attention}.items()}
+            grid["context"] = {}
+            for series, evidence in self.context.items():
+                readings = [evidence.at(t)[1] for t in times]
+                for name in CONTEXT[series][1]:
+                    grid["context"][name] = [row.get(name) if row is not None else None for row in readings]
         def near(s: dict) -> bool:
             # A cancelled or withdrawn entry is placed by the date it last had.
             at = s["at"] if s["at"] is not None else s.get("lastAt")
@@ -1113,6 +1180,8 @@ def build_state(store: Store, prices: Prices, snapshot: dict, sources: dict, now
                                       lambda cut: cut - 7 * DAY - HOUR, 2 * HOUR, HOUR),
     }
     dvol = cached("dvol", ("dvol",), lambda: dvol_evidence(store.rows("dvol")))
+    context = {series: cached(series, (series,), lambda series=series: context_evidence(series, store.rows(series)))
+               for series in CONTEXT}
     # Each sample is its own row's, so only the rows from the earliest new one on are read again.
     options = [e[1] for e in tail("tail.options", "options", options_entries, lambda cut: cut)[0].done]
     reactions = store.reactions()
@@ -1130,4 +1199,4 @@ def build_state(store: Store, prices: Prices, snapshot: dict, sources: dict, now
     cache["row"] = last
     return State(built_ms=now_ms, snapshot=snapshot, sources=sources, components=components, attention=attention, dvol=dvol,
                  prices=prices, events=events, moves=series_moves(reactions), jumps=jumps, options=options, cutoff=cutoff,
-                 version=store.version)
+                 version=store.version, context=context)

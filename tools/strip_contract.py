@@ -151,6 +151,12 @@ def check(answer: object, start: int, end: int, step: int) -> None:
             fail("grid.parts", "must be an object")
         for name, part in grid["parts"].items():
             series(part, f"grid.parts.{name}", n)
+    if "context" in grid:
+        if not isinstance(grid["context"], dict):
+            fail("grid.context", "must be an object")
+        for name, part in grid["context"].items():
+            text(name, "grid.context key", 64)
+            series(part, f"grid.context.{name}", n)
 
     if not isinstance(top["events"], list):
         fail("events", "must be a list")

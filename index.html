@@ -39437,12 +39437,14 @@
       news: ["financial_news_tone"],
       social: ["bluesky_live"],
       attention: ["gdelt_gkg", "wikimedia_daily", "wikimedia_hourly", "bluesky_live"],
+      context: ["sosovalue_etf_flows", "coinalyze_current", "coinalyze_history"],
     },
     STRIP_SOURCE_NAMES = {
       fred_macro_daily: "FRED macro, daily", deribit_funding: "Deribit funding", hyperliquid_funding: "Hyperliquid funding",
       deribit_futures_basis: "Deribit futures basis", deribit_options: "Deribit options", defillama_stablecoins: "Stablecoin supply, daily",
       deribit_dvol: "Deribit DVOL", gdelt_gkg: "GDELT coverage", financial_news_tone: "Financial article sentiment", bluesky_live: "Bluesky sample", wikimedia_daily: "Wikipedia, daily",
       wikimedia_hourly: "Wikipedia, hourly", mempool_retarget: "Difficulty retarget", calendar: "Calendar",
+      sosovalue_etf_flows: "US spot BTC ETFs", coinalyze_current: "BTC perpetual open interest", coinalyze_history: "BTC perpetual liquidations",
     },
     STRIP_CERTAINTY = { confirmed: "confirmed", tentative: "tentative", rule_derived: "set by rule", unspecified: "certainty not given", estimate: "an estimate" };
   const stripFeeds = (force) => force === "news" && stripRt.components?.["news.tone"] ? ["gdelt_gkg"] : STRIP_FEEDS[force];
@@ -39568,7 +39570,7 @@
   function stripApply(want, body) {
     const grid = body.grid,
       held = { from: want.from, to: want.to, step: grid.step, t0: grid.t0, forces: grid.forces, attention: grid.attention, close: grid.close,
-        next24h: grid.next24h, dvol: grid.dvol, parts: grid.parts ?? null, forceInputs: grid.forceInputs ?? null, components: body.components,
+        next24h: grid.next24h, dvol: grid.dvol, parts: grid.parts ?? null, context: grid.context ?? null, forceInputs: grid.forceInputs ?? null, components: body.components,
         cutoff: body.cutoff, snapshot: body.snapshot, model: body.model, at: performance.now() };
     stripRt[want.kind] = held;
     for (const e of body.events) stripRt.events.set(e.id, e);
@@ -40222,6 +40224,7 @@
   }
   function stripSourceCard(tip, edge) {
     const force = stripForce(), feeds = [...(force ? stripFeeds(force) : STRIP_FORCES.flatMap(stripFeeds)), ...STRIP_FEEDS.attention, "deribit_dvol", "calendar"];
+    if (!force || force === "positioning") feeds.push(...STRIP_FEEDS.context);
     stripCard(tip, { presentation: "strip-sources", title: `Strip · ${STRIP_NAMES[force ?? "forces"]}`, ms: edge - 1, edge,
       primary: stripTime("Field publication", stripRt.snapshot?.publishedAt, "publishedAt"),
       companions: [stripTime("Field cutoff", stripRt.cutoff, "fieldCutoff"), stripFact("Strip status", stripRt.status, "stripStatus")],
@@ -40232,6 +40235,23 @@
         ...stripSourceGroups(feeds, true),
         ...(stripRt.detail ? [{ name: "Availability", metrics: [stripFact("Detail", stripRt.detail, "stripDetail")] }] : []),
       ], status: stripRt.status });
+  }
+  function stripPositioningContext(held, ms, available) {
+    if (!held?.context) return [];
+    const i = Math.floor((ms - held.t0) / held.step),
+      read = (name) => available ? held.context[name]?.[i] ?? null : null,
+      money = (label, name) => stripNumber(label, read(name), `context.${name}`, "USD"),
+      date = stripNumber("Report date", read("etfDate"), "context.etfDate", "", (v) => ({ text: new Date(v).toISOString().slice(0, 10), unit: "date only" })),
+      coverage = (label, reported, expected) => stripFact(label,
+        read(reported) !== null && read(expected) !== null ? `${read(reported)}/${read(expected)} reported` : "Unavailable", `context.${reported}`);
+    return [
+      { name: "US spot BTC ETFs · reported flows", metrics: [money("Reported net flow", "etfFlow"), date, coverage("Fund coverage", "etfReported", "etfExpected")] },
+      { name: "BTC perpetuals · reported open interest", metrics: [money("Reported open interest", "oiUsd"),
+        stripTime("Oldest provider update", read("oiObserved"), "context.oiObserved"), coverage("Market coverage", "oiReported", "oiExpected")] },
+      { name: "BTC perpetuals · reported liquidations", metrics: [money("Long liquidations", "liqLong"), money("Short liquidations", "liqShort"),
+        stripTime("Window starts", read("liqStart"), "context.liqStart"), stripTime("Window ends", read("liqEnd"), "context.liqEnd"),
+        coverage("Market coverage", "liqReported", "liqExpected")] },
+    ];
   }
   // The track record is a distribution and support counts, without an outcome narrative.
   function stripTrackPart(ms, edge, force) {
@@ -40305,6 +40325,10 @@
       return metric;
     }) });
     if (!support.hasDetails && available) coverage.text = "Detail unavailable";
+    if (!force || force === "positioning") {
+      groups.push(...stripPositioningContext(held, ms, available));
+      feeds.push(...STRIP_FEEDS.context);
+    }
     groups.push({ name: "Support", metrics: [stripFact("Status", status, "supportStatus"), stripNumber("Known forces", available ? support.forcesKnown : 0, "forceCoverage", "", (v) => ({ text: `${v}/${support.forcesTotal}`, unit: "forces" })),
       stripNumber("Known attention inputs", available ? support.attentionKnown : 0, "attentionCoverage", "", (v) => ({ text: `${v}/${support.attentionTotal}`, unit: "inputs" }))] },
       stripTiming(ms, edge, held), ...stripSourceGroups(feeds), available ? stripTrackPart(ms, edge, force)
