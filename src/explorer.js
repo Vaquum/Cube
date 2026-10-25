@@ -4866,7 +4866,7 @@
     return atr.get(Math.floor(t / DAYS) - 1) ?? null;
   }
   function seasonalSource(n) {
-    const level = Math.min(n, 9), held = PACK.live ? histories.get(historyKey(level, 0)) : null;
+    const level = Math.min(n, 9), held = PACK.live ? heldHistory(level, 0) : null;
     if (held) {
       if (!seasonalIndexes.has(held)) seasonalIndexes.set(held, E.measure.seasonalIndex({ cols: held.cols, n: level, b0: held.b0, b1: held.b1, precision: "Float32", source: "MSCC column history" }));
       return seasonalIndexes.get(held);
@@ -4901,7 +4901,7 @@
     const key = historyKey(Math.min(n, 9), 0), failed = !index && cube.failed.get(key);
     if (failed) activity.result = E.result.make("failed", { reason: failed });
     else if (!index && cube.busy?.key === key) activity.result = E.result.make("pending", { reason: "Reading seasonal column history" });
-    return { ...activity, sourcePack: histories.get(historyKey(Math.min(n, 9), 0))?.sourcePack ?? PACK.state_token ?? null };
+    return { ...activity, sourcePack: heldHistory(Math.min(n, 9), 0)?.sourcePack ?? PACK.state_token ?? null };
   }
   function coreContextTarget() {
     if (!inspect.on || !last) return null;
@@ -19175,7 +19175,7 @@
       owners = new Map(),
       byColumn = new Map(),
       used = new Map(),
-      history = PACK.live ? histories.get(historyKey(n, m)) : null;
+      history = PACK.live ? heldHistory(n, m) : null;
     const candidates = TIERS.map((id) => sources[id])
       .filter((src) => src && src.n <= n && src.m <= m)
       .sort((a, b) => a.n - b.n || a.m - b.m);
@@ -19256,7 +19256,7 @@
       evidence.ready = evidence.last = null;
       const job = { key, cancelled: false }; evidence.job = job;
       if (diagnostics?.active) {
-        const keys = [...new Set([historyKey(renderN(),renderM()), historyKey(Math.min(renderN(),9),0)])].filter(id => PACK.live && !histories.has(id) && !cube.failed.has(id));
+        const keys = [...new Set([[renderN(),renderM()],[Math.min(renderN(),9),0]].filter(([n,m]) => PACK.live && !heldHistory(n,m)).map(([n,m]) => historyKey(n,m)))].filter(id => !cube.failed.has(id));
         for (const [id, wait] of diagnosticHistoryQueue) if (!keys.includes(id)) { wait.end?.("obsolete"); diagnosticHistoryQueue.delete(id); }
         for (const id of keys) if (!diagnosticHistoryQueue.has(id)) {
           if (cube.busy?.key === id) diagnostics.mark("history-already-dispatched", { key:id,
@@ -19298,13 +19298,13 @@
     const keys = [...new Set([historyKey(n, m), historyKey(Math.min(n, 9), 0)])];
     const failed = keys.find((key) => cube.failed.has(key));
     if (failed) return { ...shared, error: `History unavailable: ${cube.failed.get(failed)}` };
-    if (PACK.live && keys.some((key) => !histories.has(key))) return { ...shared, loading: true, error: "Reading this level's history from the cube…" };
+    if (PACK.live && [[n,m],[Math.min(n,9),0]].some(([n,m]) => !heldHistory(n,m))) return { ...shared, loading: true, error: "Reading this level's history from the cube…" };
     const diagnosticPreparation = diagnosticPhase("continuations.prepare-columns", { a, n, m, cutoff: CUT, canonicalCutoff: CANON, replay: S.replay });
     const history = evidenceColumns(n, m, end), recordedSeasonal = PACK.live ? null : n===9 && m===0 ? history : evidenceColumns(Math.min(n,9),0,end);
     diagnosticPreparation?.();
     const diagnosticIndex = diagnosticPhase("continuations.prepare-seasonal-index", { a,n,m });
     const index = PACK.live ? seasonalSource(n) : E.measure.seasonalIndex({cols:recordedSeasonal.cols,n:Math.min(n,9),b0:recordedSeasonal.b0,b1:recordedSeasonal.b1,precision:"Observed recorded values / Float64 aggregation",source:"Recorded covered tiers"}), p = PACK.provenance ?? {};
-    const seasonalHeld = PACK.live ? histories.get(historyKey(Math.min(n, 9), 0)) : null;
+    const seasonalHeld = PACK.live ? heldHistory(Math.min(n, 9), 0) : null;
     diagnosticIndex?.();
     const diagnosticDigest = diagnosticPhase("continuations.digest", { a, n, m, support: [history.b0, end], columns: history.cols.length });
     const tuples = history.cols.map((c) => [c.source, c.c, c.v, c.bv, c.poc, c.covered ? "covered" : "missing", (c.c + 1) * ts, "complete"]);
@@ -19318,7 +19318,7 @@
     const provenance = { instrument: INSTRUMENT, sourceDigest, packKey, revision, sourceCutoff: CUT, canonicalCutoff: CANON, replayEdge: S.replay ? activeCutoff() : null, measuredThrough: end,
       priceLow: 0, priceHigh: null, precisionID: "observed-source-values+Float64-aggregation", reconstruction: "Current-source reconstruction; original vintages not guaranteed" };
     if (diagnostics?.active) {
-      const held = histories.get(historyKey(n,m)), boundary = h => h ? { columns:h.cols.length, support:[h.b0,h.b1], sourcePack:h.sourcePack ?? null } : null;
+      const held = heldHistory(n,m), boundary = h => h ? { columns:h.cols.length, support:[h.b0,h.b1], sourcePack:h.sourcePack ?? null } : null;
       diagnostics.mark("continuations-input", { a,n,m,horizon:S.horizon,kind:S.evidenceKind,barrier,support:[history.b0,end],
         deliveredStateColumns:history.cols.length, heldState:boundary(held), heldSeasonal:boundary(seasonalHeld), recordedSeasonalColumns:recordedSeasonal?.cols.length ?? null,
         covered:history.covered,sources:history.sources,provenance });
@@ -20165,22 +20165,32 @@
   // The continuations' history at the drawn level: each column's POC, volume
   // and taker-buy volume, for up to the last 100,000 columns.
   const histories = new Map(),
-    // MSCC contains only completed columns. A delta appends the tail; a whole
-    // pack invalidates the generation. Token changes must not orphan a held read.
+    // Unchanged completed support may survive an append-only delta. Its
+    // original sourcePack stays truthful; a new token alone proves nothing.
     historyKey = (n, m) => ["history", live.generation, n, m].join("|");
+  function historyBoundary(n) {
+    const end = Math.floor(CUT / 2 ** n) * 2 ** n;
+    return { end, canonical: CANON === null ? null : Math.min(CANON, end) };
+  }
+  function heldHistory(n, m) {
+    const held = histories.get(historyKey(n, m)), boundary = historyBoundary(n);
+    return held && held.b1 >= boundary.end && held.canonicalThrough === boundary.canonical ? held : null;
+  }
   function historyWant() {
     const target = coreContextTarget(), expanded = Boolean(el("context").querySelector(".ol-core-details[open]")), wants = [];
     if (S.tab === "evidence" || (S.drawerOpen && S.drawer === "cases")) wants.push([renderN(), renderM()], [Math.min(renderN(), 9), 0]);
     if (target || expanded) wants.push([Math.min(target?.n ?? renderN(), 9), 0]);
     for (const [n, m] of wants) {
-      const key = historyKey(n, m), sourcePack = PACK.state_token;
-      if (histories.has(key) || cube.failed.has(key)) continue;
+      const key = historyKey(n, m), sourcePack = PACK.state_token, boundary = historyBoundary(n);
+      if (heldHistory(n, m) || cube.failed.has(key)) continue;
       return { key, relevant: () => {
+        const now = historyBoundary(n);
+        if (now.end !== boundary.end || now.canonical !== boundary.canonical) return false;
         const current = coreContextTarget(), expandedNow = Boolean(el("context").querySelector(".ol-core-details[open]"));
         return (S.tab === "evidence" || (S.drawerOpen && S.drawer === "cases")) && [historyKey(renderN(), renderM()), historyKey(Math.min(renderN(), 9), 0)].includes(key) ||
           (current || expandedNow) && historyKey(Math.min(current?.n ?? renderN(), 9), 0) === key;
       }, path: `/cube/columns?n=${n}&m=${m}`, decode: (body) => unpackHistory(body.columns),
-        apply: (history) => { histories.set(key, { ...history, sourcePack }); while (histories.size > 3) histories.delete(histories.keys().next().value); evidenceCache.clear(); } };
+        apply: (history) => { histories.set(key, { ...history, sourcePack, canonicalThrough:boundary.canonical }); while (histories.size > 3) histories.delete(histories.keys().next().value); evidenceCache.clear(); } };
     }
     return null;
   }

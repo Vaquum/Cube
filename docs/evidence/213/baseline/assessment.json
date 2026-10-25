@@ -1,0 +1,223 @@
+{
+  "schema": "continuations-baseline-audit@1",
+  "producer": "8c8def7ca9e41005602f2f855701a12c593f9a5a",
+  "head": "98a116a62a7de6f09766f083249fefd57039139e",
+  "workflow": 40149242003,
+  "job": 121037059879,
+  "artifact": 12581642848,
+  "zipSha256": "0c4407b8f65cf0f18de0a12dd1a639b73090b2d7167103e9829585b1498e4232",
+  "rawPayloadsVerified": 40,
+  "kernelExactOutputChecks": 30,
+  "wholeAppFirstWarmChecks": 10,
+  "instrumentation": {
+    "tools/benchmark/continuations.v1.json": "37d154e07c5e4d00e3c52a91976d2fe724dc3911f6de408d197f88e7f7668c8f",
+    "tools/benchmark/continuations-page.mjs": "3e7dbc1599a76c74c6bdd92d353855c01654e898c0c53749ad423382942c0000",
+    "tools/benchmark_continuations.mjs": "61f5a74dcff3fdf3c461ea5a4228deb454e9fa21bad4cbd6eb7610422a77ad37",
+    "tests/support/evidence-study.js": "542f510c6779b2b156d345a6eb603bc03357163d06d64d2055036c4ba8944823"
+  },
+  "host": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "node": "v22.23.3"
+  },
+  "browser": "153.0.8010.12",
+  "measures": {
+    "cap-qualified": {
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 4776.599999999991,
+          "B": 4741.800000000003,
+          "difference": 34.79999999998836
+        },
+        {
+          "pair": 1,
+          "A": 4722.700000000012,
+          "B": 4684.5,
+          "difference": 38.20000000001164
+        },
+        {
+          "pair": 2,
+          "A": 4714.899999999994,
+          "B": 4725.599999999977,
+          "difference": -10.699999999982538
+        },
+        {
+          "pair": 3,
+          "A": 4720.100000000035,
+          "B": 4715.299999999988,
+          "difference": 4.800000000046566
+        },
+        {
+          "pair": 4,
+          "A": 4743.100000000035,
+          "B": 4722.300000000047,
+          "difference": 20.79999999998836
+        }
+      ],
+      "medianWallMs": 4722.500000000029,
+      "p95AbsolutePairDifferenceMs": 38.20000000001164,
+      "twiceMedianFrameIntervalMs": 33.399999999999636,
+      "floorMs": 38.20000000001164
+    },
+    "floor-failure": {
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 421.1999999999971,
+          "B": 429.6000000000058,
+          "difference": -8.400000000008731
+        },
+        {
+          "pair": 1,
+          "A": 428.19999999998254,
+          "B": 436,
+          "difference": -7.800000000017462
+        },
+        {
+          "pair": 2,
+          "A": 433.3999999999942,
+          "B": 429.3999999999942,
+          "difference": 4.0
+        },
+        {
+          "pair": 3,
+          "A": 443.6000000000349,
+          "B": 423.70000000001164,
+          "difference": 19.900000000023283
+        },
+        {
+          "pair": 4,
+          "A": 424.79999999998836,
+          "B": 429,
+          "difference": -4.2000000000116415
+        }
+      ],
+      "medianWallMs": 429.1999999999971,
+      "p95AbsolutePairDifferenceMs": 19.900000000023283,
+      "twiceMedianFrameIntervalMs": 33.39999999999998,
+      "floorMs": 33.39999999999998
+    },
+    "partial-coverage": {
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 4590.399999999994,
+          "B": 4604.500000000015,
+          "difference": -14.100000000020373
+        },
+        {
+          "pair": 1,
+          "A": 4606.299999999988,
+          "B": 4595,
+          "difference": 11.299999999988358
+        },
+        {
+          "pair": 2,
+          "A": 4620.599999999977,
+          "B": 4619.6999999999825,
+          "difference": 0.8999999999941792
+        },
+        {
+          "pair": 3,
+          "A": 4645.800000000047,
+          "B": 4632.299999999988,
+          "difference": 13.500000000058208
+        },
+        {
+          "pair": 4,
+          "A": 4627.5,
+          "B": 4642.299999999988,
+          "difference": -14.799999999988358
+        }
+      ],
+      "medianWallMs": 4620.14999999998,
+      "p95AbsolutePairDifferenceMs": 14.799999999988358,
+      "twiceMedianFrameIntervalMs": 33.399999999999636,
+      "floorMs": 33.399999999999636
+    },
+    "app-first": {
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 5805.600000000006,
+          "B": 5650.5,
+          "difference": 155.10000000000582
+        },
+        {
+          "pair": 1,
+          "A": 5622.700000000012,
+          "B": 5646.600000000006,
+          "difference": -23.89999999999418
+        },
+        {
+          "pair": 2,
+          "A": 5689.200000000012,
+          "B": 5584,
+          "difference": 105.20000000001164
+        },
+        {
+          "pair": 3,
+          "A": 5684.700000000012,
+          "B": 5672.900000000023,
+          "difference": 11.799999999988358
+        },
+        {
+          "pair": 4,
+          "A": 5618.5,
+          "B": 5693.5,
+          "difference": -75.0
+        }
+      ],
+      "medianWallMs": 5661.700000000012,
+      "p95AbsolutePairDifferenceMs": 155.10000000000582,
+      "twiceMedianFrameIntervalMs": 33.399999999999636,
+      "floorMs": 155.10000000000582
+    },
+    "app-warm": {
+      "pairs": [
+        {
+          "pair": 0,
+          "A": 18.09999999999127,
+          "B": 17.60000000000582,
+          "difference": 0.4999999999854481
+        },
+        {
+          "pair": 1,
+          "A": 15.89999999999418,
+          "B": 17.800000000017462,
+          "difference": -1.900000000023283
+        },
+        {
+          "pair": 2,
+          "A": 15.799999999988358,
+          "B": 18.79999999998836,
+          "difference": -3.0
+        },
+        {
+          "pair": 3,
+          "A": 20.400000000023283,
+          "B": 19.20000000001164,
+          "difference": 1.2000000000116415
+        },
+        {
+          "pair": 4,
+          "A": 18.599999999976717,
+          "B": 16.20000000001164,
+          "difference": 2.3999999999650754
+        }
+      ],
+      "medianWallMs": 17.950000000004366,
+      "p95AbsolutePairDifferenceMs": 3.0,
+      "twiceMedianFrameIntervalMs": 33.399999999999636,
+      "floorMs": 33.399999999999636
+    }
+  },
+  "limitations": [
+    "Pre-candidate A/A only, no improvement claim",
+    "App firstMs input-click to complete compute phase; busy-clear/complete DOM interval separately verified, tool elapsed separate",
+    "Synthetic in-process backend, no production service-time certificate",
+    "Existing absolute/cumulative acceptance stays in #96"
+  ]
+}

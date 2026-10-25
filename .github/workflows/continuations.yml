@@ -2,6 +2,9 @@ name: Continuations evidence
 on:
   pull_request:
     paths:
+      - 'src/evidence.js'
+      - 'src/explorer.js'
+      - 'index.html'
       - '.github/workflows/continuations.yml'
       - 'tools/benchmark_continuations.mjs'
       - 'tools/diagnose_continuations.mjs'

@@ -14,6 +14,21 @@
       "sha256": "4edf4adc6cb6edba79faaf86862b30b0fbfe0a8f3dd95b81ebbd9f56892d80bf",
       "decodedBytes": 1261883,
       "decodedSha256": "61c41722463bbc496a5d18c249b9391ed8f143ef57fa69de7511d1bbc3720bca"
+    },
+    {
+      "path": "summary.json",
+      "bytes": 23536,
+      "sha256": "93dbcb39a14e96b0b5b4d76845106c277a450e06275fdc342735ac339e6a1f1f"
+    },
+    {
+      "path": "raw.zip",
+      "bytes": 5591677,
+      "sha256": "0c4407b8f65cf0f18de0a12dd1a639b73090b2d7167103e9829585b1498e4232"
+    },
+    {
+      "path": "assessment.json",
+      "bytes": 6293,
+      "sha256": "2b5d9036cceac7073f0749f92df3d1d38d66059da971dabdfdba2b8896016912"
     }
   ]
 }
