@@ -3,6 +3,7 @@
 // captured-study oracle. This does not synthesize or rename freshness metadata.
 const {test,expect}=require('./fixtures.js');
 const {materialise}=require('../support/builds.js');
+const probeModule=require('./probe.js');
 test.use({reducedMotion:'reduce',viewport:{width:1920,height:1080}});
 async function complete(page){
   await expect.poll(async()=>await page.locator('#ol-evidence').getAttribute('aria-busy')==='false'&&Boolean(await page.locator('#ol-evidence-intervals').getAttribute('data-bootstrap')),{timeout:60000}).toBe(true);
@@ -17,7 +18,8 @@ test('pre-change live-source investigations restore their frozen Continuations w
   const document=await oldPage.evaluate(()=>window.cubeAgent.export());expect(document.schema).toBe('cube-analysis@1');expect(document.snapshot.live).toBe(true);
   const histories=document.snapshot.cache.histories.cubeMap;expect(histories.length).toBeGreaterThan(0);expect(histories.every(([,held])=>!Object.hasOwn(held,'canonicalThrough'))).toBe(true);
   await testInfo.attach('legacy-live-source-investigation',{body:Buffer.from(JSON.stringify(document)),contentType:'application/json'});
-  await oldPage.evaluate(document=>window.cubeAgent.apply(document),document);const expected=await complete(oldPage);
+  await oldPage.evaluate(document=>window.cubeAgent.apply(document),document);await oldPage.locator('#ol-evidence-tab').click();
+  await probeModule.forPage(oldPage).waitForReady();const expected=await complete(oldPage);
   const fake=await fakeFor(profile,{quiet:3600,next:3600});await page.goto(fake.url+'/#w=30d&r=9,0&auto=0&vis=2');await probe.waitForReady();
   const reads=()=>fake.log().filter(x=>x.path==='/cube/columns').length,before=reads();
   await page.evaluate(document=>window.cubeAgent.apply(document),document);await page.locator('#ol-evidence-tab').click();
