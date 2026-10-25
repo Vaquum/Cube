@@ -1,0 +1,1558 @@
+{
+  "schema": "cube-presentation-assessment@1",
+  "metric": "cube-presentation@1",
+  "initialSummarySha256": "85f1655c26ea57c24fcb2e4471e2232f53476c6f06108af7488e886abf6d5ef3",
+  "runSummarySha256": "9a12c8f4f2d802136512cd7f985293adadf3db819ee8687ca5c5342189fe4908",
+  "implementationSha256": "31c00694d2f5f70c27b7ea791c073dc80a43db344513562739ac3e151d154e9f",
+  "initialProducer": "331367ee46766d751b18c5f71a26fb604c1426c4",
+  "candidateProducer": "a1cc27efd860777439f1d47350e9d79ce10b7dc6",
+  "candidatePrHead": "5592683b86f1811047332bd9706957dcbb841523",
+  "allRawTrialHashesVerified": true,
+  "rawTrialsReanalyzed": 368,
+  "collectorComplete": true,
+  "cases": [
+    {
+      "case": "phone-open",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        0.10000000000002274,
+        -0.7000000000000455,
+        -0.2999999999999545,
+        0.10000000000002274,
+        0.10000000000002274
+      ],
+      "medianGainMs": 0.10000000000002274,
+      "floorMs": 33.399999999999636,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          2.3999999999999773,
+          0.39999999999997726,
+          0.40000000000009095,
+          0.09999999999990905,
+          0.1999999999999318
+        ],
+        "aaP95Ms": 2.3999999999999773,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          1.099999999999909,
+          0.2999999999999545,
+          0.09999999999990905,
+          0.10000000000013642,
+          0.3000000000000682
+        ],
+        "aaP95Ms": 1.099999999999909,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 596.8000000000001,
+          "minimum": 596.1,
+          "maximum": 597
+        },
+        "excessMs": {
+          "median": -67.19999999999993,
+          "minimum": -67.89999999999998,
+          "maximum": -67
+        },
+        "markerMs": {
+          "median": 663.9,
+          "minimum": 663.1999999999999,
+          "maximum": 664
+        },
+        "cssMs": {
+          "median": 130.5,
+          "minimum": 129.70000000000002,
+          "maximum": 130.5
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 596.8000000000001,
+          "minimum": 596.7,
+          "maximum": 597.1
+        },
+        "excessMs": {
+          "median": -67.19999999999993,
+          "minimum": -67.29999999999995,
+          "maximum": -66.89999999999998
+        },
+        "markerMs": {
+          "median": 663.8000000000001,
+          "minimum": 663.8,
+          "maximum": 664.1
+        },
+        "cssMs": {
+          "median": 113.70000000000002,
+          "minimum": 113.69999999999999,
+          "maximum": 130.7
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "phone-close",
+      "outcome": "material-improvement",
+      "pairedDifferencesMs": [
+        384.5999999999999,
+        384.4999999999999,
+        384.39999999999986,
+        384.6000000000001,
+        384.5
+      ],
+      "medianGainMs": 384.5,
+      "floorMs": 33.39999999999975,
+      "workReduction": true,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0.20000000000004547,
+          0.3000000000000682,
+          0.10000000000002274,
+          0.20000000000004547,
+          1.1368683772161603e-13
+        ],
+        "aaP95Ms": 0.3000000000000682,
+        "twoFramesMs": 33.39999999999975,
+        "floorMs": 33.39999999999975
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0,
+          0,
+          0.10000000000002274,
+          0.20000000000004547,
+          0
+        ],
+        "aaP95Ms": 0.20000000000004547,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 665.1999999999999,
+          "minimum": 665.0999999999999,
+          "maximum": 665.3000000000001
+        },
+        "excessMs": {
+          "median": 1.1999999999999318,
+          "minimum": 1.099999999999909,
+          "maximum": 1.3000000000000682
+        },
+        "markerMs": {
+          "median": 665.1999999999999,
+          "minimum": 665.0999999999999,
+          "maximum": 665.3000000000001
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 280.7,
+          "minimum": 280.6,
+          "maximum": 280.70000000000005
+        },
+        "excessMs": {
+          "median": -383.3,
+          "minimum": -383.4,
+          "maximum": -383.29999999999995
+        },
+        "markerMs": {
+          "median": 664,
+          "minimum": 663.9,
+          "maximum": 664.1
+        },
+        "cssMs": {
+          "median": 130.7,
+          "minimum": 113.99999999999999,
+          "maximum": 130.79999999999998
+        }
+      },
+      "work": {
+        "kind": "temporary-toolbar-layout-cycle",
+        "preregistration": "stylesheetAllowance.reason: the 49→139 px toolbar excursion selected before candidate edits",
+        "demonstrated": true,
+        "before": [
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-0-A.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 90,
+            "transitions": 2
+          },
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-1-A.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 90,
+            "transitions": 2
+          },
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-2-A.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 90,
+            "transitions": 2
+          },
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-3-A.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 90,
+            "transitions": 2
+          },
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-4-A.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 90,
+            "transitions": 2
+          }
+        ],
+        "after": [
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-0-B.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 0,
+            "transitions": 0
+          },
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-1-B.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 0,
+            "transitions": 0
+          },
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-2-B.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 0,
+            "transitions": 0
+          },
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-3-B.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 0,
+            "transitions": 0
+          },
+          {
+            "outcome": "complete",
+            "raw": "ab-phone-close-4-B.json.gz",
+            "actor": 4,
+            "beforeHeightCssPx": 49,
+            "finalHeightCssPx": 49,
+            "maximumExcursionCssPx": 0,
+            "transitions": 0
+          }
+        ],
+        "limitation": "Counts observed normal-flow height changes; does not claim a browser-internal layout count or CPU duration."
+      }
+    },
+    {
+      "case": "drawer-open",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        -0.09999999999990905,
+        0,
+        -1.8999999999999773,
+        0.10000000000002274,
+        -1.8999999999999773
+      ],
+      "medianGainMs": -0.09999999999990905,
+      "floorMs": 33.399999999999636,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0.6000000000001364,
+          2.1000000000000227,
+          0.1999999999999318,
+          0.3000000000000682,
+          0.8999999999999773
+        ],
+        "aaP95Ms": 2.1000000000000227,
+        "twoFramesMs": 33.299999999999955,
+        "floorMs": 33.299999999999955
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0.1999999999999318,
+          0.6000000000000227,
+          0.900000000000091,
+          0.09999999999990905,
+          0.5
+        ],
+        "aaP95Ms": 0.900000000000091,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 585.1,
+          "minimum": 585,
+          "maximum": 585.5
+        },
+        "excessMs": {
+          "median": -78.89999999999998,
+          "minimum": -79,
+          "maximum": -78.5
+        },
+        "markerMs": {
+          "median": 1561.6999999999998,
+          "minimum": 1561.5,
+          "maximum": 1561.7
+        },
+        "cssMs": {
+          "median": 156.6,
+          "minimum": 155.9,
+          "maximum": 157.9
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 585.5,
+          "minimum": 585,
+          "maximum": 587.1
+        },
+        "excessMs": {
+          "median": -78.5,
+          "minimum": -79,
+          "maximum": -76.89999999999998
+        },
+        "markerMs": {
+          "median": 1561.6999999999998,
+          "minimum": 1561.3999999999999,
+          "maximum": 1561.9
+        },
+        "cssMs": {
+          "median": 157.6,
+          "minimum": 156.39999999999998,
+          "maximum": 160.1
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "drawer-close",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        0,
+        -0.10000000000002274,
+        0.2999999999999545,
+        0.3000000000000682,
+        -0.10000000000002274
+      ],
+      "medianGainMs": 0,
+      "floorMs": 33.39999999999981,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0.3000000000000682,
+          0.4999999999998863,
+          1.7000000000001592,
+          1.3999999999999773,
+          1.1000000000000227
+        ],
+        "aaP95Ms": 1.7000000000001592,
+        "twoFramesMs": 33.39999999999981,
+        "floorMs": 33.39999999999981
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0.8999999999999773,
+          0,
+          0.2999999999999545,
+          1.3999999999999773,
+          1.4999999999998863
+        ],
+        "aaP95Ms": 1.4999999999998863,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 674.0999999999999,
+          "minimum": 673.3,
+          "maximum": 674.5
+        },
+        "excessMs": {
+          "median": 10.099999999999909,
+          "minimum": 9.299999999999955,
+          "maximum": 10.5
+        },
+        "markerMs": {
+          "median": 823.4,
+          "minimum": 823,
+          "maximum": 824.4
+        },
+        "cssMs": {
+          "median": 172.7,
+          "minimum": 170.8,
+          "maximum": 173.39999999999998
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 674.1,
+          "minimum": 673,
+          "maximum": 674.6
+        },
+        "excessMs": {
+          "median": 10.100000000000023,
+          "minimum": 9,
+          "maximum": 10.600000000000023
+        },
+        "markerMs": {
+          "median": 823.3,
+          "minimum": 822.4,
+          "maximum": 823.5
+        },
+        "cssMs": {
+          "median": 172.29999999999998,
+          "minimum": 171.9,
+          "maximum": 187.4
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "drawer-tab",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        0,
+        0.10000000000002274,
+        0,
+        0.3000000000000682,
+        -0.5000000000000568
+      ],
+      "medianGainMs": 0,
+      "floorMs": 33.399999999999636,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          1.6999999999999318,
+          1.2000000000000455,
+          1.1999999999999886,
+          3.5,
+          2.1999999999999886
+        ],
+        "aaP95Ms": 3.5,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0.2999999999999545,
+          0,
+          0.19999999999998863,
+          0.30000000000001137,
+          0.19999999999998863
+        ],
+        "aaP95Ms": 0.30000000000001137,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 276.8,
+          "minimum": 276.59999999999997,
+          "maximum": 276.90000000000003
+        },
+        "excessMs": {
+          "median": -387.2,
+          "minimum": -387.40000000000003,
+          "maximum": -387.09999999999997
+        },
+        "markerMs": {
+          "median": 676.5,
+          "minimum": 676.5,
+          "maximum": 676.8
+        },
+        "cssMs": {
+          "median": 125.4,
+          "minimum": 108.50000000000001,
+          "maximum": 125.6
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 276.7,
+          "minimum": 276.59999999999997,
+          "maximum": 277.1
+        },
+        "excessMs": {
+          "median": -387.3,
+          "minimum": -387.40000000000003,
+          "maximum": -386.9
+        },
+        "markerMs": {
+          "median": 676.6,
+          "minimum": 676.5,
+          "maximum": 676.9
+        },
+        "cssMs": {
+          "median": 125.19999999999999,
+          "minimum": 108.69999999999999,
+          "maximum": 125.3
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "inspector-open",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        -1.6000000000001364,
+        1.8999999999999773,
+        0.6999999999999318,
+        -1.7000000000000455,
+        -1.1000000000000227
+      ],
+      "medianGainMs": -1.1000000000000227,
+      "floorMs": 33.40000000000009,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          9.199999999999932,
+          8.900000000000091,
+          6.5,
+          1.400000000000091,
+          13.399999999999977
+        ],
+        "aaP95Ms": 13.399999999999977,
+        "twoFramesMs": 33.40000000000009,
+        "floorMs": 33.40000000000009
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          1.8000000000000682,
+          0.20000000000004547,
+          0.6000000000000227,
+          1.1999999999999318,
+          1.2999999999999545
+        ],
+        "aaP95Ms": 1.8000000000000682,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 589.4,
+          "minimum": 589,
+          "maximum": 590.9
+        },
+        "excessMs": {
+          "median": -74.60000000000002,
+          "minimum": -75,
+          "maximum": -73.10000000000002
+        },
+        "markerMs": {
+          "median": 782.5999999999999,
+          "minimum": 782.3,
+          "maximum": 782.8
+        },
+        "cssMs": {
+          "median": 695.5,
+          "minimum": 695.3,
+          "maximum": 695.7
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 590.5,
+          "minimum": 589,
+          "maximum": 590.7
+        },
+        "excessMs": {
+          "median": -73.5,
+          "minimum": -75,
+          "maximum": -73.29999999999995
+        },
+        "markerMs": {
+          "median": 782.6,
+          "minimum": 782.4,
+          "maximum": 783.6
+        },
+        "cssMs": {
+          "median": 695.4,
+          "minimum": 695.1999999999999,
+          "maximum": 695.8000000000001
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "inspector-close",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        1.2999999999999545,
+        -0.6000000000001364,
+        -0.3000000000000682,
+        -0.3000000000000682,
+        -0.10000000000002274
+      ],
+      "medianGainMs": -0.3000000000000682,
+      "floorMs": 33.40000000000009,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          10,
+          11,
+          1.2000000000000455,
+          0.8000000000000682,
+          10.300000000000068
+        ],
+        "aaP95Ms": 11,
+        "twoFramesMs": 33.40000000000009,
+        "floorMs": 33.40000000000009
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0,
+          0.10000000000013642,
+          1.0000000000001137,
+          0.1999999999999318,
+          0.10000000000002274
+        ],
+        "aaP95Ms": 1.0000000000001137,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 592.6999999999999,
+          "minimum": 592.5,
+          "maximum": 593.5
+        },
+        "excessMs": {
+          "median": -71.30000000000007,
+          "minimum": -71.5,
+          "maximum": -70.5
+        },
+        "markerMs": {
+          "median": 1549.7,
+          "minimum": 1549.6,
+          "maximum": 1550.8
+        },
+        "cssMs": {
+          "median": 683.4,
+          "minimum": 683.1,
+          "maximum": 685.5
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 593,
+          "minimum": 592.1,
+          "maximum": 593.8000000000001
+        },
+        "excessMs": {
+          "median": -71,
+          "minimum": -71.89999999999998,
+          "maximum": -70.19999999999993
+        },
+        "markerMs": {
+          "median": 1549.7,
+          "minimum": 1549.6,
+          "maximum": 1550.1000000000001
+        },
+        "cssMs": {
+          "median": 685.2,
+          "minimum": 683.1,
+          "maximum": 685.4000000000001
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "cells-sort",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        6.999999999999886,
+        2.2000000000000455,
+        -2.800000000000068,
+        -7.699999999999932,
+        1.2000000000000455
+      ],
+      "medianGainMs": 1.2000000000000455,
+      "floorMs": 57,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          1,
+          5.000000000000114,
+          0.40000000000009095,
+          13.700000000000045,
+          57
+        ],
+        "aaP95Ms": 57,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 57
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          4.399999999999977,
+          0.7999999999999545,
+          2.3999999999999773,
+          0.5,
+          20.199999999999932
+        ],
+        "aaP95Ms": 20.199999999999932,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 646,
+          "minimum": 640.4000000000001,
+          "maximum": 647.4
+        },
+        "excessMs": {
+          "median": -18,
+          "minimum": -23.59999999999991,
+          "maximum": -16.600000000000023
+        },
+        "markerMs": {
+          "median": 646,
+          "minimum": 640.4000000000001,
+          "maximum": 647.4
+        },
+        "cssMs": {
+          "median": 109,
+          "minimum": 103.2,
+          "maximum": 127.60000000000001
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 644.9,
+          "minimum": 640.4000000000001,
+          "maximum": 648.1
+        },
+        "excessMs": {
+          "median": -19.100000000000023,
+          "minimum": -23.59999999999991,
+          "maximum": -15.899999999999977
+        },
+        "markerMs": {
+          "median": 644.9,
+          "minimum": 640.4000000000001,
+          "maximum": 648.1
+        },
+        "cssMs": {
+          "median": 119.89999999999999,
+          "minimum": 106.5,
+          "maximum": 127.6
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "cells-next",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        -23.400000000000034,
+        0.7999999999999545,
+        1.6999999999999886,
+        -1.400000000000034,
+        22
+      ],
+      "medianGainMs": 0.7999999999999545,
+      "floorMs": 40.099999999999994,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          40.099999999999994,
+          2.999999999999943,
+          0.9000000000000057,
+          35.599999999999994,
+          2.900000000000034
+        ],
+        "aaP95Ms": 40.099999999999994,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 40.099999999999994
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          22.5,
+          0.3000000000000682,
+          0.8000000000000682,
+          0.10000000000002274,
+          24.100000000000023
+        ],
+        "aaP95Ms": 24.100000000000023,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 281.4,
+          "minimum": 259.59999999999997,
+          "maximum": 283.3
+        },
+        "excessMs": {
+          "median": -382.6,
+          "minimum": -404.40000000000003,
+          "maximum": -380.7
+        },
+        "markerMs": {
+          "median": 666.1999999999999,
+          "minimum": 645.7,
+          "maximum": 667.9
+        },
+        "cssMs": {
+          "median": 117.80000000000001,
+          "minimum": 116.20000000000002,
+          "maximum": 126.9
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 281.6,
+          "minimum": 259.20000000000005,
+          "maximum": 283
+        },
+        "excessMs": {
+          "median": -382.4,
+          "minimum": -404.79999999999995,
+          "maximum": -381
+        },
+        "markerMs": {
+          "median": 666.3000000000001,
+          "minimum": 645.1,
+          "maximum": 667.8
+        },
+        "cssMs": {
+          "median": 109.9,
+          "minimum": 99.29999999999998,
+          "maximum": 117.30000000000001
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "cells-previous",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        -5.2000000000000455,
+        0.10000000000002274,
+        -1,
+        -0.7000000000000455,
+        0.4000000000000341
+      ],
+      "medianGainMs": -0.7000000000000455,
+      "floorMs": 40.79999999999998,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          38.60000000000002,
+          40.79999999999998,
+          6.699999999999989,
+          38.80000000000001,
+          37.10000000000002
+        ],
+        "aaP95Ms": 40.79999999999998,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 40.79999999999998
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          1.2999999999999545,
+          22.900000000000034,
+          3.3000000000000114,
+          0.19999999999998863,
+          23.19999999999999
+        ],
+        "aaP95Ms": 23.19999999999999,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 281.9,
+          "minimum": 253.5,
+          "maximum": 282.29999999999995
+        },
+        "excessMs": {
+          "median": -382.1,
+          "minimum": -410.5,
+          "maximum": -381.70000000000005
+        },
+        "markerMs": {
+          "median": 666.8,
+          "minimum": 638.3,
+          "maximum": 667.4
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 281.8,
+          "minimum": 258.70000000000005,
+          "maximum": 283
+        },
+        "excessMs": {
+          "median": -382.2,
+          "minimum": -405.29999999999995,
+          "maximum": -381
+        },
+        "markerMs": {
+          "median": 667.0999999999999,
+          "minimum": 643.5,
+          "maximum": 667.7
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "comparison-sort",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        -0.40000000000009095,
+        2.7999999999999545,
+        2.199999999999932,
+        -3.400000000000091,
+        -0.3000000000000682
+      ],
+      "medianGainMs": -0.3000000000000682,
+      "floorMs": 36.399999999999864,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          1.1000000000000227,
+          0.09999999999990905,
+          36.200000000000045,
+          36.399999999999864,
+          2
+        ],
+        "aaP95Ms": 36.399999999999864,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 36.399999999999864
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          2,
+          0.1999999999999318,
+          1.900000000000091,
+          3.2999999999999545,
+          1.1000000000000227
+        ],
+        "aaP95Ms": 3.2999999999999545,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 667.3,
+          "minimum": 664.5,
+          "maximum": 667.9
+        },
+        "excessMs": {
+          "median": 3.2999999999999545,
+          "minimum": 0.5,
+          "maximum": 3.8999999999999773
+        },
+        "markerMs": {
+          "median": 667.3,
+          "minimum": 664.5,
+          "maximum": 667.9
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 666.3000000000001,
+          "minimum": 665.1,
+          "maximum": 667.9000000000001
+        },
+        "excessMs": {
+          "median": 2.300000000000068,
+          "minimum": 1.1000000000000227,
+          "maximum": 3.900000000000091
+        },
+        "markerMs": {
+          "median": 666.3000000000001,
+          "minimum": 665.1,
+          "maximum": 667.9000000000001
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "comparison-direction",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        0.599999999999909,
+        -2.6000000000000227,
+        0,
+        -2.800000000000068,
+        -1.6000000000000227
+      ],
+      "medianGainMs": -1.6000000000000227,
+      "floorMs": 33.399999999999636,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          3.099999999999909,
+          0.4999999999998863,
+          0.39999999999997726,
+          1.2000000000000455,
+          3.7000000000000455
+        ],
+        "aaP95Ms": 3.7000000000000455,
+        "twoFramesMs": 33.25000000000034,
+        "floorMs": 33.25000000000034
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          1.6999999999999318,
+          0.2999999999999545,
+          1.3999999999999773,
+          0.09999999999990905,
+          0.6999999999999318
+        ],
+        "aaP95Ms": 1.6999999999999318,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 659.6999999999999,
+          "minimum": 659.1,
+          "maximum": 662.3
+        },
+        "excessMs": {
+          "median": -4.300000000000068,
+          "minimum": -4.899999999999977,
+          "maximum": -1.7000000000000455
+        },
+        "markerMs": {
+          "median": 659.6999999999999,
+          "minimum": 659.1,
+          "maximum": 662.3
+        },
+        "cssMs": {
+          "median": 110.4,
+          "minimum": 108.5,
+          "maximum": 125.49999999999999
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 661.7,
+          "minimum": 661.3,
+          "maximum": 662.2
+        },
+        "excessMs": {
+          "median": -2.2999999999999545,
+          "minimum": -2.7000000000000455,
+          "maximum": -1.7999999999999545
+        },
+        "markerMs": {
+          "median": 661.7,
+          "minimum": 661.3,
+          "maximum": 662.2
+        },
+        "cssMs": {
+          "median": 110.30000000000001,
+          "minimum": 94.39999999999999,
+          "maximum": 111.19999999999999
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "comparison-basis-reorder",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        -2.6000000000000227,
+        1.8999999999999773,
+        -2.6000000000000227,
+        -34.30000000000007,
+        3.6000000000000227
+      ],
+      "medianGainMs": -2.6000000000000227,
+      "floorMs": 45.19999999999993,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          2.7000000000000455,
+          0.6000000000000227,
+          1.3000000000000682,
+          3.2000000000000455,
+          45.19999999999993
+        ],
+        "aaP95Ms": 45.19999999999993,
+        "twoFramesMs": 33.39999999999981,
+        "floorMs": 45.19999999999993
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          2.7999999999999545,
+          5.199999999999932,
+          2,
+          2.7000000000000455,
+          1.8999999999999773
+        ],
+        "aaP95Ms": 5.199999999999932,
+        "twoFramesMs": 33.399999999999864,
+        "floorMs": 33.399999999999864
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 573.6999999999999,
+          "minimum": 570.4,
+          "maximum": 574.2
+        },
+        "excessMs": {
+          "median": -90.30000000000007,
+          "minimum": -93.60000000000002,
+          "maximum": -89.79999999999995
+        },
+        "markerMs": {
+          "median": 625.5,
+          "minimum": 622.3000000000001,
+          "maximum": 626
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 573,
+          "minimum": 570.6,
+          "maximum": 608
+        },
+        "excessMs": {
+          "median": -91,
+          "minimum": -93.39999999999998,
+          "maximum": -56
+        },
+        "markerMs": {
+          "median": 624.7,
+          "minimum": 622.6,
+          "maximum": 659.8
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "comparison-membership",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        -2.3000000000000114,
+        -1.2000000000000455,
+        -1.3000000000000114,
+        -0.20000000000004547,
+        0.9000000000000341
+      ],
+      "medianGainMs": -1.2000000000000455,
+      "floorMs": 33.39999999999975,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          11.900000000000034,
+          0.39999999999997726,
+          2.700000000000017,
+          1.200000000000017,
+          2.4000000000000057
+        ],
+        "aaP95Ms": 11.900000000000034,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0.7000000000000455,
+          0.0999999999999659,
+          1.599999999999966,
+          0.30000000000001137,
+          2
+        ],
+        "aaP95Ms": 2,
+        "twoFramesMs": 33.39999999999975,
+        "floorMs": 33.39999999999975
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 276.2,
+          "minimum": 275.7,
+          "maximum": 277.7
+        },
+        "excessMs": {
+          "median": -387.8,
+          "minimum": -388.3,
+          "maximum": -386.3
+        },
+        "markerMs": {
+          "median": 660.4,
+          "minimum": 660.1999999999999,
+          "maximum": 661.9
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 278,
+          "minimum": 275.29999999999995,
+          "maximum": 279
+        },
+        "excessMs": {
+          "median": -386,
+          "minimum": -388.70000000000005,
+          "maximum": -385
+        },
+        "markerMs": {
+          "median": 661.6,
+          "minimum": 659.6999999999999,
+          "maximum": 663.5
+        },
+        "cssMs": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    },
+    {
+      "case": "comparison-next",
+      "outcome": "no-demonstrated-improvement",
+      "pairedDifferencesMs": [
+        0.700000000000017,
+        -0.29999999999998295,
+        31.700000000000017,
+        -0.10000000000002274,
+        -0.4000000000000341
+      ],
+      "medianGainMs": -0.10000000000002274,
+      "floorMs": 48.400000000000034,
+      "workReduction": false,
+      "initialFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          48.299999999999955,
+          1.2999999999999545,
+          48.400000000000034,
+          0.4000000000000057,
+          1.7999999999999545
+        ],
+        "aaP95Ms": 48.400000000000034,
+        "twoFramesMs": 33.2000000000005,
+        "floorMs": 48.400000000000034
+      },
+      "workerFloor": {
+        "outcome": "complete",
+        "pairs": 5,
+        "absoluteDifferencesMs": [
+          0.49999999999994316,
+          1.1000000000000227,
+          0.4000000000000057,
+          2.842170943040401e-14,
+          0.5000000000000284
+        ],
+        "aaP95Ms": 1.1000000000000227,
+        "twoFramesMs": 33.399999999999636,
+        "floorMs": 33.399999999999636
+      },
+      "baseline": {
+        "presentationMs": {
+          "median": 254.00000000000003,
+          "minimum": 253,
+          "maximum": 285.3
+        },
+        "excessMs": {
+          "median": -410,
+          "minimum": -411,
+          "maximum": -378.7
+        },
+        "markerMs": {
+          "median": 637.8,
+          "minimum": 637.2,
+          "maximum": 669.8
+        },
+        "cssMs": {
+          "median": 120.9,
+          "minimum": 104.5,
+          "maximum": 122.10000000000001
+        }
+      },
+      "candidate": {
+        "presentationMs": {
+          "median": 253.6,
+          "minimum": 253.29999999999998,
+          "maximum": 254.5
+        },
+        "excessMs": {
+          "median": -410.4,
+          "minimum": -410.70000000000005,
+          "maximum": -409.5
+        },
+        "markerMs": {
+          "median": 637.5999999999999,
+          "minimum": 637,
+          "maximum": 638.8
+        },
+        "cssMs": {
+          "median": 104.49999999999999,
+          "minimum": 104.29999999999998,
+          "maximum": 121.5
+        }
+      },
+      "work": {
+        "demonstrated": false,
+        "reason": "No separate unnecessary-work removal is claimed for this case"
+      }
+    }
+  ],
+  "focus": [
+    {
+      "case": "phone-close",
+      "pair": 0,
+      "raw": "ab-phone-close-0-B.json.gz",
+      "immediateFocus": "ol-sheet-toggle",
+      "firstFrameFocus": "ol-sheet-toggle",
+      "finalFocus": "ol-sheet-toggle",
+      "immediateInteractivity": "inert",
+      "expectedCloseFocus": "ol-sheet-toggle",
+      "correct": true
+    },
+    {
+      "case": "phone-close",
+      "pair": 1,
+      "raw": "ab-phone-close-1-B.json.gz",
+      "immediateFocus": "ol-sheet-toggle",
+      "firstFrameFocus": "ol-sheet-toggle",
+      "finalFocus": "ol-sheet-toggle",
+      "immediateInteractivity": "inert",
+      "expectedCloseFocus": "ol-sheet-toggle",
+      "correct": true
+    },
+    {
+      "case": "phone-close",
+      "pair": 2,
+      "raw": "ab-phone-close-2-B.json.gz",
+      "immediateFocus": "ol-sheet-toggle",
+      "firstFrameFocus": "ol-sheet-toggle",
+      "finalFocus": "ol-sheet-toggle",
+      "immediateInteractivity": "inert",
+      "expectedCloseFocus": "ol-sheet-toggle",
+      "correct": true
+    },
+    {
+      "case": "phone-close",
+      "pair": 3,
+      "raw": "ab-phone-close-3-B.json.gz",
+      "immediateFocus": "ol-sheet-toggle",
+      "firstFrameFocus": "ol-sheet-toggle",
+      "finalFocus": "ol-sheet-toggle",
+      "immediateInteractivity": "inert",
+      "expectedCloseFocus": "ol-sheet-toggle",
+      "correct": true
+    },
+    {
+      "case": "phone-close",
+      "pair": 4,
+      "raw": "ab-phone-close-4-B.json.gz",
+      "immediateFocus": "ol-sheet-toggle",
+      "firstFrameFocus": "ol-sheet-toggle",
+      "finalFocus": "ol-sheet-toggle",
+      "immediateInteractivity": "inert",
+      "expectedCloseFocus": "ol-sheet-toggle",
+      "correct": true
+    },
+    {
+      "case": "phone-escape",
+      "pair": 0,
+      "raw": "ab-phone-escape-0-B.json.gz",
+      "immediateFocus": "ol-sheet-toggle",
+      "firstFrameFocus": "ol-sheet-toggle",
+      "finalFocus": "ol-sheet-toggle",
+      "immediateInteractivity": "inert",
+      "expectedCloseFocus": "ol-sheet-toggle",
+      "correct": true
+    },
+    {
+      "case": "phone-close-outside",
+      "pair": 0,
+      "raw": "ab-phone-close-outside-0-B.json.gz",
+      "immediateFocus": "ol-canvas",
+      "firstFrameFocus": "ol-canvas",
+      "finalFocus": "ol-canvas",
+      "immediateInteractivity": "inert",
+      "expectedCloseFocus": "ol-canvas",
+      "correct": true
+    },
+    {
+      "case": "phone-escape-outside",
+      "pair": 0,
+      "raw": "ab-phone-escape-outside-0-B.json.gz",
+      "immediateFocus": "ol-canvas",
+      "firstFrameFocus": "ol-canvas",
+      "finalFocus": "ol-canvas",
+      "immediateInteractivity": "inert",
+      "expectedCloseFocus": "ol-canvas",
+      "correct": true
+    }
+  ],
+  "allObservedClosingFocusCorrect": true,
+  "limits": [
+    "The producer summary remains unchanged. This separate assessment supplies the declared work evidence to the existing improvement function.",
+    "Only phone-close has a claimed unnecessary-layout removal. Numeric gains in other cases cannot manufacture that claim.",
+    "Styled-DOM geometry/opacity is not canvas-pixel or physical-display presentation.",
+    "This does not replace the unmodified motion guards or waive #96 absolute/cumulative budgets."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "candidate": "5592683b86f1811047332bd9706957dcbb841523",
+  "observation": {
+    "action": "Escape from deliberately focused canvas",
+    "focus": "ol-canvas",
+    "interactivity": "inert",
+    "running": true,
+    "sheet": "closed"
+  },
+  "limitation": "Read after native tool transport, not a canonical latency sample."
+}

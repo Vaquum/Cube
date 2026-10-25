@@ -8062,9 +8062,13 @@
     });
   }
   function setSheet(open) {
+    const at = document.activeElement,
+      restoreFocus = !open && PHONE.matches && root.dataset.sheet === "open" &&
+        (!at || at === document.body || el("controls").contains(at));
     root.dataset.sheet = open ? "open" : "closed";
     el("sheet-toggle").setAttribute("aria-expanded", String(open));
     if (!open) closePop();
+    if (restoreFocus) el("sheet-toggle").focus({ preventScroll: true });
   }
   // On a phone the controls open in a sheet, and the chart header's newer
   // menus with them (Columns, Background and Rows), before POC lines; wider,
@@ -23762,7 +23766,6 @@
     if (closePop(true)) return;
     if (root.dataset.sheet === "open") {
       setSheet(false);
-      el("sheet-toggle").focus();
       return;
     }
     if (trendTool) { drawingCancelOperation(); setTool(drawingEntryTool); return; }

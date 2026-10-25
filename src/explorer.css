@@ -2707,7 +2707,8 @@
     display: none;
   }
   /* One column that scrolls; wrapping would start a second column off-screen. */
-  #origo-lens[data-sheet="open"] .ol-controls {
+  #origo-lens[data-sheet="open"] .ol-controls,
+  #origo-lens .ol-controls[data-flow-retained] {
     position: fixed;
     left: 0;
     right: 0;
@@ -2726,7 +2727,8 @@
     border-radius: var(--r-l) var(--r-l) 0 0;
     box-shadow: 0 calc(-1 * var(--sp-3)) var(--sp-6) var(--ol-shadow);
   }
-  #origo-lens[data-sheet="open"] .ol-sheet-head {
+  #origo-lens[data-sheet="open"] .ol-sheet-head,
+  #origo-lens .ol-controls[data-flow-retained] .ol-sheet-head {
     display: flex;
     align-items: center;
     justify-content: space-between;

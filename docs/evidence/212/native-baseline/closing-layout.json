@@ -1,0 +1,57 @@
+{
+  "baseline": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+  "before": {
+    "bar": {
+      "bottom": 48.77347946166992,
+      "height": 48.77347946166992,
+      "left": 0,
+      "right": 351.8134765625,
+      "top": 0,
+      "width": 351.8134765625,
+      "x": 0,
+      "y": 0
+    },
+    "direction": "column",
+    "position": "fixed",
+    "sheet": {
+      "bottom": 572.809684753418,
+      "height": 449.0042114257813,
+      "left": 0,
+      "right": 351.8134765625,
+      "top": 123.80547332763672,
+      "width": 351.8134765625,
+      "x": 0,
+      "y": 123.80547332763672
+    },
+    "sheetState": "open"
+  },
+  "closing": {
+    "bar": {
+      "bottom": 138.7710418701172,
+      "height": 138.7710418701172,
+      "left": 0,
+      "right": 351.8134765625,
+      "top": 0,
+      "width": 351.8134765625,
+      "x": 0,
+      "y": 0
+    },
+    "direction": "row",
+    "focus": "BODY",
+    "position": "static",
+    "retained": true,
+    "running": true,
+    "sheet": {
+      "bottom": 244.41768646240232,
+      "height": 121.9964370727539,
+      "left": 264.0665588378906,
+      "right": 1386.1925354003906,
+      "top": 122.42124938964844,
+      "width": 1122.1259765625,
+      "x": 264.0665588378906,
+      "y": 122.42124938964844
+    },
+    "sheetState": "closed"
+  },
+  "limitation": "Native side-panel observation after tool transport, not a canonical benchmark sample. Screenshot is a later native snapshot; its capture is not synchronized with the DOM observation."
+}

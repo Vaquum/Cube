@@ -1,0 +1,41 @@
+{
+  "kind": "native-side-panel-focus-diagnostic",
+  "baseline": "d8449f3acab8af9fd2d0dd46bd2a95f148a189c6",
+  "observations": [
+    {
+      "action": "Close button",
+      "controlsInteractivity": "inert",
+      "expanded": "false",
+      "focus": "BODY",
+      "motionMarkers": [
+        "ol-controls"
+      ],
+      "sheet": "closed",
+      "version": "Cube d8449f3 \u00b7 24 Oct 2026, 18:39 UTC",
+      "documentClientSize": [
+        344,
+        568
+      ]
+    },
+    {
+      "action": "Escape with Close control focused",
+      "controlsInteractivity": "inert",
+      "expanded": "false",
+      "focus": "ol-sheet-toggle",
+      "motionMarkers": [
+        "ol-controls"
+      ],
+      "sheet": "closed",
+      "version": "Cube d8449f3 \u00b7 24 Oct 2026, 18:39 UTC",
+      "documentClientSize": [
+        344,
+        568
+      ]
+    }
+  ],
+  "limitations": [
+    "Reads occur after browser tool transport; not an in-handler latency measurement.",
+    "Document client size is 344x568 including the effect of scrollbars. Outer viewport and DPR were not newly measured in this observation; the canonical remote case is 390x844.",
+    "Synthetic standard fixture; deployment-style metadata only."
+  ]
+}
