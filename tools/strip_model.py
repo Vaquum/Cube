@@ -984,9 +984,10 @@ class State:
     answers: dict = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def answer(self, start: int, end: int, step: int) -> bytes:
+    def answer(self, start: int, end: int, step: int, *, sources: dict | None = None) -> bytes:
         """The cube-strip@2 answer for the grid times start <= t < end, as JSON bytes; kept per grid."""
-        key = (start, end, step)
+        sources = self.sources if sources is None else sources
+        key = (start, end, step, tuple((source, facts["state"]) for source, facts in sources.items()))
         with self.lock:
             hit = self.answers.get(key)
         if hit is not None:
@@ -1028,7 +1029,7 @@ class State:
             return at is not None and start - DAY <= at < end + 90 * DAY
         events = [e for e in self.events if any(near(s) for s in e["schedule"])]
         body = {
-            "schema": SCHEMA, "model": MODEL, "cutoff": self.cutoff, "snapshot": self.snapshot, "sources": self.sources,
+            "schema": SCHEMA, "model": MODEL, "cutoff": self.cutoff, "snapshot": self.snapshot, "sources": sources,
             "components": {name: {"force": f, "label": label, "retroUntil": self.components[name].retro_until}
                            for name, (f, label) in COMPONENTS.items() if name in self.components},
             "attentionParts": {name: {"label": label, "weight": w, "retroUntil": self.attention[name].retro_until}

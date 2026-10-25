@@ -10,6 +10,7 @@ when something moved, and swapped in whole.
 
 from __future__ import annotations
 
+import json
 import math
 import threading
 import time
@@ -130,6 +131,7 @@ class StripService:
         self.cache: dict = {}
         self.prices_at = 0.0
         self.thread: threading.Thread | None = None
+        self.store.db.execute("CREATE TABLE IF NOT EXISTS strip_resume (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL)")
 
     # ------------------------------------------------------------ the worker
 
@@ -138,6 +140,10 @@ class StripService:
         self.thread.start()
 
     def run(self) -> None:
+        try:
+            self.resume()
+        except Exception:  # an absent or unusable checkpoint still permits the normal first load
+            traceback.print_exc()
         try:
             self.bootstrap(scan_all=True)
         except Exception as error:  # the cycle below still reads the latest publication
@@ -303,6 +309,32 @@ class StripService:
     def rebuild(self) -> None:
         now = int(self.clock() * 1000)
         self.state = build_state(self.store, self.prices.prices(), self.publication, self.source_states(now), now, self.cache)
+        # Keep one complete answer state, including prices and outcome support. Restarting must not make readers wait
+        # for historical replay or temporarily strip the distribution from an otherwise usable retained state.
+        state = {k: v for k, v in vars(self.state).items() if k not in ("answers", "lock")}
+        state["prices"] = {k: getattr(self.prices, k) for k in ("hourly", "fine", "hourly_through", "fine_through", "cutoff")}
+        body = json.dumps({"schema": model.SCHEMA, "model": model.MODEL, "state": state}, default=vars, allow_nan=False)
+        self.store.db.execute("INSERT OR REPLACE INTO strip_resume VALUES (1, ?)", (body,))
+
+    def resume(self) -> bool:
+        """Serve the last complete state while the worker reads newer publications and prices."""
+        row = self.store.db.execute("SELECT body FROM strip_resume WHERE id=1").fetchone()
+        if row is None:
+            return False
+        saved = json.loads(row[0])
+        if (saved.get("schema"), saved.get("model")) != (model.SCHEMA, model.MODEL):
+            return False
+        state = saved["state"]
+        for name in ("components", "attention", "context"):
+            state[name] = {k: model.Evidence(**v) for k, v in state[name].items()}
+        state["dvol"] = model.Evidence(**state["dvol"])
+        for name in ("hourly", "fine"):
+            setattr(self.prices, name, {int(t): close for t, close in state["prices"][name].items()})
+        for name in ("hourly_through", "fine_through", "cutoff"):
+            setattr(self.prices, name, state["prices"][name])
+        state["prices"] = self.prices.prices()
+        self.state = State(**state)
+        return True
 
     # ------------------------------------------------------------ what the page reads
 
@@ -337,4 +369,10 @@ class StripService:
         state = self.state
         if state is None:
             return 503, {"error": "strip_loading", "detail": self.last_error or "the first publication is being read"}
-        return 200, state.answer(start, end, step)
+        now, sources = int(self.clock() * 1000), {}
+        for source, facts in state.sources.items():
+            checked, interval = facts.get("checkedAt"), facts["intervalSeconds"]
+            sources[source] = dict(facts)
+            if source != "calendar" and facts["state"] == "ok" and checked is not None and now - checked > max(2 * interval, interval + 300) * 1000:
+                sources[source]["state"] = "stale"
+        return 200, state.answer(start, end, step, sources=sources)
