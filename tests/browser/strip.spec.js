@@ -409,6 +409,9 @@ test("recorded partial history is disclosed on the band, in its hatch and in the
     body.grid.forces = Object.fromEntries(Object.entries(grid.forces).map(([k, v]) => [k, read(v)]));
     body.grid.attention = read(grid.attention);
     body.grid.parts = Object.fromEntries(Object.entries(grid.parts).map(([k, v]) => [k, read(v)]));
+    body.model = "field-strip@1";
+    body.components["news.tone"] = { ...body.components["news.financial_tone"], label: "Tone of coverage" };
+    delete body.components["news.financial_tone"];
     body.events = []; body.jumps = [];
     body.sources = Object.fromEntries(Object.entries(recorded.sources).map(([name, source]) => [name, {
       ...source, recordedFrom: source.recordedFrom === null ? null : source.recordedFrom + shift,

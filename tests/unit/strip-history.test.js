@@ -253,3 +253,46 @@ with tempfile.TemporaryDirectory() as root:
   assert.equal(run.status,0,run.stderr);
   assert.equal(JSON.parse(run.stdout).repeatedBodyReads,0);
 });
+
+test("a completed backfill is discovered behind acknowledged live heads without restarting or recounting", () => {
+  const script=String.raw`
+import json,sys
+sys.path.insert(0,'tools')
+import strip_model as m
+from field_data import Dataset,Publication
+from strip_service import StripService
+NOW=1792843200000
+class Reader:
+    complete=False;reads=[];scans=0
+    def snapshot(self):return {'snapshot_id':'b'*64,'backfills':{'complete':1} if self.complete else {}}
+    def history(self,source,**kw):
+        self.scans+=1
+        return {'versions':[] if source!='fred_macro_daily' else [
+            {'dataset_id':str(i),'first_published_at':m.iso(NOW+i*m.HOUR)}
+            for i in ((3,2,1) if self.complete else (3,1))]}
+    def version(self,source,v):
+        i=int(v['dataset_id']);self.reads.append(i)
+        return Dataset(source,str(i),m.iso(NOW+i*m.HOUR),[{'id':str(i),'observed_at':'2025-01-0'+str(i),
+            'values':{'series':'DGS2','value':i}}],{}, {},'ok',
+            publication_kind='backfill' if i==2 else 'live')
+    def publication(self,*a,**kw):
+        return Publication('b'*64,m.iso(NOW+4*m.HOUR),None,{},datasets={})
+r=Reader();s=StripService(r,':memory:',clock=lambda:NOW/1000)
+s.bootstrap();s.cycle();reads=list(r.reads);scans=r.scans
+assert reads==[1,3],reads
+assert not s.store.has_dataset('fred_macro_daily','2')
+r.complete=True
+assert s.cycle(),'new historical rows must rebuild even when the live snapshot did not move'
+assert r.reads==[1,3,2],r.reads
+assert s.store.has_dataset('fred_macro_daily','2')
+assert len(s.store.rows('fred:DGS2'))==3
+assert s.pinned=='b'*64 and not s.history_errors
+scans=r.scans
+assert not s.cycle(),'unchanged backfill summary must not replay or rebuild'
+assert r.scans==scans and r.reads==[1,3,2]
+print(json.dumps({'records':3,'newBodyReads':len(r.reads)-len(reads),'livePinPreserved':True}))
+`;
+  const run=spawnSync('python3',['-c',script],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8',timeout:25000});
+  assert.equal(run.status,0,run.stderr);
+  assert.equal(JSON.parse(run.stdout).newBodyReads,1);
+});
