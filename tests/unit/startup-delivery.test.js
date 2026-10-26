@@ -4,7 +4,7 @@ const {spawnSync}=require("node:child_process");
 
 test("live delivery keeps measured startup cells, defers archives and caches exact application bytes",()=>{
   const script=String.raw`
-import base64,gzip,http.client,json,re,struct,sys,tempfile,threading,time
+import base64,gzip,hashlib,http.client,json,re,struct,sys,tempfile,threading,time
 from pathlib import Path
 sys.path.insert(0,'tools')
 import cube_bridge as c
@@ -30,6 +30,7 @@ with tempfile.TemporaryDirectory() as directory:
     (page.parent/'vendor'/'d3.min.js').write_text('window.vendorReady=true;')
     page.write_text('<html><head><style>body {color:green}</style></head><body><script src="vendor/d3.min.js"></script><script type="application/json" id="origo-lens-data">{}</script><script>window.first=1;</script><script>window.second=window.first+1;</script></body></html>')
     e=object.__new__(c.Explorer);e.page=page;e.lock=threading.Lock()
+    e.asset_store=page.parent/'assets'
     e.pack={'state_token':'held','cutoff':'2026-10-16T12:00:00Z','blocks':{name:{'b0':3,'b1':32.5,'gzip_base64':encoded} for name in ('recent','overview','reference')}}
     e.packed_at=time.monotonic();e.advanced_at=time.time();e.stale=False;e.version='test'
     e.current_pack=lambda:(_ for _ in ()).throw(AssertionError('HTML read the cube'))
@@ -68,6 +69,35 @@ with tempfile.TemporaryDirectory() as directory:
         connection.request('GET',script_path,headers={'Accept-Encoding':'identity','If-None-Match':etag})
         response=connection.getresponse();assert response.status==200
         assert response.read()==gzip.decompress(e.asset(script_path)[1])
+
+        # A replacement process knows only its own current document. The old
+        # content address must still return the old exact bytes from the volume.
+        original_script=gzip.decompress(e.asset(script_path)[1])
+        page.write_text(page.read_text().replace('window.first=1;','window.first=10;'))
+        replacement=object.__new__(c.Explorer);replacement.page=page;replacement.lock=threading.Lock();replacement.asset_store=e.asset_store
+        H.explorer=replacement
+        connection.request('GET',script_path,headers={'Accept-Encoding':'gzip'})
+        response=connection.getresponse();assert response.status==200 and gzip.decompress(response.read())==original_script
+        assert script_path not in replacement.document[1]
+        connection.request('GET',archive,headers={'Accept-Encoding':'gzip'})
+        response=connection.getresponse();assert response.status==200 and gzip.decompress(response.read())==raw
+
+        # Data churn cannot evict deployment code. Each namespace is bounded.
+        latest=[]
+        for i in range(20):
+            assets={}
+            for suffix,kind in [('js','application/javascript'),('css','text/css')]:
+                source=(suffix+str(i)).encode();address='/assets/'+hashlib.sha256(source).hexdigest()+'.'+suffix
+                assets[address]=(kind,gzip.compress(source,mtime=0))
+            replacement.store_assets(assets);latest=list(assets)
+        assert len(list(e.asset_store.glob('*.js.gz')))+len(list(e.asset_store.glob('*.css.gz')))==c.APPLICATION_ASSETS_HELD
+        assert replacement.asset(script_path) is None
+        for address in latest:assert replacement.asset(address) is not None
+        for i in range(50):
+            body=gzip.compress(bytes([i]),mtime=0);address='/assets/'+hashlib.sha256(body).hexdigest()+'.msc'
+            replacement.store_assets({address:('application/octet-stream',body)},archive=True)
+        assert len(list(e.asset_store.glob('*.msc.gz')))==3*c.PACKS_HELD
+        for address in latest:assert replacement.asset(address) is not None
     finally:server.shutdown();server.server_close();worker.join()
 print('startup sums, support, deferred archives, exact assets, encoding and HEAD passed')
 `;

@@ -5,6 +5,8 @@ archives independently of the real HTML/assets handler in browser tests.
 """
 import json
 import sys
+import signal
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -16,14 +18,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 import cube_bridge as c
 
 config = json.loads(sys.stdin.readline())
-e = object.__new__(c.Explorer)
-e.page = Path(config["page"])
-e.lock = threading.Lock()
-e.pack = config["pack"]
-e.packed_at = time.monotonic()
-e.advanced_at = time.time()
-e.stale = False
-e.version = e.pack.get("page", "delivery-fixture")
+asset_cache = tempfile.TemporaryDirectory(prefix="cube-delivery-assets-")
+
+
+def explorer(page):
+    instance = object.__new__(c.Explorer)
+    instance.page = Path(page)
+    instance.asset_store = Path(asset_cache.name)
+    instance.lock = threading.Lock()
+    instance.pack = config["pack"]
+    instance.packed_at = time.monotonic()
+    instance.advanced_at = time.time()
+    instance.stale = False
+    instance.version = instance.pack.get("page", "delivery-fixture")
+    return instance
+
+
+e = explorer(config["page"])
 archives = threading.Event()
 if not config.get("hold"):
     archives.set()
@@ -37,6 +48,9 @@ class Handler(c.Handler):
         if path == "/test/release":
             archives.set()
             self.reply(200, "text/plain", b"released")
+        elif path == "/test/deploy" and config.get("deployPage"):
+            Handler.explorer = explorer(config["deployPage"])
+            self.reply(200, "text/plain", b"replacement container")
         elif path.startswith("/cube/"):
             try:
                 response = urlopen(Request(config["upstream"] + self.path), timeout=30)
@@ -56,4 +70,9 @@ class Handler(c.Handler):
 
 server = c.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
 print(json.dumps({"url": "http://127.0.0.1:" + str(server.server_port)}), flush=True)
-server.serve_forever()
+signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
+try:
+    server.serve_forever()
+finally:
+    server.server_close()
+    asset_cache.cleanup()

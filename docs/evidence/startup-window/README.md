@@ -43,6 +43,11 @@ pack; the incomplete first parent is excluded and the open last parent retains
 its actual support. Full history, recent and reference archives then load as
 binary gzip responses at low network priority. Their values and normal pack/delta
 protocol are unchanged. Portable `index.html` remains self-contained.
+Assets are atomically published on the existing persistent application volume
+before HTML is sent. A replacement process can serve the preceding document's
+exact script/style bytes; code retention (32 files) is separate from archive
+retention (48 files). Unit and browser regressions cover replacement between
+HTML and script fetch, bounded retention and credential-bearing page URLs.
 
 `delivery-bytes.json` compares byte sizes using the production pack captured from
 the original page. The initial live document falls from the observed 1.52 MB
@@ -53,7 +58,8 @@ separately from a cached reload. Byte reduction alone is not a latency result.
 Window selection dispatches its required read directly, without the continuous
 gesture's 200 ms debounce. Window camera and grid share one timeline, so late
 data does not start a second full spring. An unchanged resolved price fit
-retains the existing camera animation; changed fits keep their motion.
+retains the existing camera animation, including Auto level selection while
+the camera is still moving; changed fits keep their motion.
 
 Unit checks use independently specified quantities/support and exercise the real
 HTML/assets HTTP handler, gzip/identity/HEAD, conditional requests and preservation

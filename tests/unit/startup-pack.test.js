@@ -22,6 +22,7 @@ def pack(token):
 def explorer(page, held=True):
     e=object.__new__(c.Explorer)
     e.page=page;e.lock=threading.Lock();e.building=threading.Lock()
+    e.asset_store=page.parent/'assets'
     e.pack=pack('old') if held else None;e.stale=False;e.held={}
     e.packed_at=time.monotonic()-120;e.advanced_at=time.time()-300
     e.data_cutoff='2026-10-16T12:00:00+00:00';e.version='test-version'

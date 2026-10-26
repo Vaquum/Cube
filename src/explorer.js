@@ -430,6 +430,7 @@
   async function inflate(block) {
     if (block.url) {
       const target = new URL(block.url, location.href);
+      target.username = ""; target.password = "";
       if (target.origin !== location.origin || !/^\/assets\/[a-f0-9]{64}\.msc$/.test(target.pathname) || target.search || target.hash)
         throw Error("Invalid archive address");
       const response = await fetch(target, { priority: "low", signal: AbortSignal.timeout(60000) });
@@ -20109,10 +20110,10 @@
     windowGridCoverage = { cells: source.cells, start, end, max };
     return max;
   }
-  function autoLevel(animate = true) {
+  function autoLevel(animate = true, preservePresentation = false) {
     // A whole-window command interrupts old presentation even at a locked or
     // unchanged level. Its destination never inherits the departed grid.
-    if (!animate) { transition = null; subdivisionStop(); Flow.cancelMotion(canvas, "cells"); }
+    if (!animate && !preservePresentation) { transition = null; subdivisionStop(); Flow.cancelMotion(canvas, "cells"); }
     if (comparisonModel.expanded || !canvas.getClientRects().length || canvas.getBoundingClientRect().height <= 0 || !S.auto || !(S.tB > S.tA) || !(S.pB > S.pA)) return false;
     const g = navGeometry();
     if (!(g.w > 0 && g.h > 0)) return false;
@@ -20137,6 +20138,7 @@
     }
     const changed = n !== S.n || m !== S.m;
     if (changed) {
+      if (preservePresentation && subdivision.actor) subdivision.actor.goal = null;
       const animateCamera = subdivision.actor?.animateCamera;
       if (animate) {
         beginLevelMorph();
@@ -23868,8 +23870,9 @@
     fit(pending.padding);
     // Compare the requested camera, not its current interpolated frame. Do not
     // copy into an active actor's retained surface when the fit is unchanged.
-    const before = animate && camera.some((value, i) => value !== subdivisionCamera()[i]) ? subdivisionCapture() : null;
-    if (S.auto) autoLevel(false);
+    const cameraChanged = camera.some((value, i) => value !== subdivisionCamera()[i]),
+      before = animate && cameraChanged ? subdivisionCapture() : null;
+    if (S.auto) autoLevel(false, Boolean(animate && !cameraChanged));
     if (before) subdivisionStart(before, true);
     update();
     syncURL(true);

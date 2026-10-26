@@ -94,7 +94,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-from collections import OrderedDict
 import gzip
 import hashlib
 import json
@@ -104,6 +103,7 @@ import re
 import struct
 import sys
 import threading
+import tempfile
 import time
 from functools import cached_property, lru_cache
 from datetime import UTC, datetime
@@ -127,6 +127,7 @@ BASE_PRICE = 125
 DAY = 1536  # base columns per day
 PACK_MAX_AGE_SECONDS = 60
 PACKS_HELD = 16
+APPLICATION_ASSETS_HELD = 32  # At least sixteen deployments' script/style pairs.
 FIELDS = ("vol", "tbvol", "cnt", "tbcnt", "col", "row")  # MSC2 order
 MOTION_FIELDS = ("vol", "tbvol", "cnt", "tbcnt", "path", "dwell", "high", "low", "col", "row")  # MSC3 order
 MOTION_MEASURES = ("path_length", "dwell", "high", "low")
@@ -564,6 +565,7 @@ def tails(old: dict, new: dict) -> dict | None:
 class Explorer:
     def __init__(self, page: Path) -> None:
         self.page = page
+        self.asset_store = Path(os.environ.get("CUBE_ASSETS", "/var/lib/cube-explorer/assets"))
         self.lock = threading.Lock()  # guards the fields below; never held while the cube is read
         self.building = threading.Lock()  # one pack build at a time
         self.pack: dict | None = None
@@ -936,18 +938,60 @@ class Explorer:
             path = asset(match.group(1), ".css", "text/css")
             return f'<link rel="stylesheet" href="{path}">'
         text = re.sub(r"<style>(.*?)</style>", replace_style, text, flags=re.S)
+        self.store_assets(assets)
         return text, assets
 
-    @cached_property
-    def archive_assets(self) -> OrderedDict:
-        return OrderedDict()
+    def store_assets(self, assets: dict, archive: bool = False) -> None:
+        """Publish immutable bytes before HTML, on the existing persistent volume.
+
+        Script/style retention is independent of per-minute archive retention:
+        data traffic cannot evict code still named by a deployment's HTML.
+        """
+        if not assets:
+            return
+        self.asset_store.mkdir(parents=True, exist_ok=True)
+        pattern = r"[a-f0-9]{64}\.msc\.gz" if archive else r"[a-f0-9]{64}\.(?:js|css)\.gz"
+        limit = 3 * PACKS_HELD if archive else APPLICATION_ASSETS_HELD
+        with self.lock:
+            keep = set()
+            for path, (_, body) in assets.items():
+                name = path.rsplit("/", 1)[1] + ".gz"
+                keep.add(name)
+                with tempfile.NamedTemporaryFile(dir=self.asset_store, prefix=".asset-", delete=False) as file:
+                    temporary = Path(file.name)
+                    file.write(body)
+                try:
+                    os.replace(temporary, self.asset_store / name)
+                finally:
+                    temporary.unlink(missing_ok=True)
+            cached = []
+            for file in self.asset_store.iterdir():
+                if re.fullmatch(pattern, file.name):
+                    try:
+                        cached.append((file.stat().st_mtime_ns, file))
+                    except FileNotFoundError:
+                        pass  # Another retiring container may have pruned it.
+            for _, file in sorted(cached, reverse=True):
+                if len(keep) < limit:
+                    keep.add(file.name)
+                if file.name not in keep:
+                    file.unlink(missing_ok=True)
 
     def asset(self, path: str) -> tuple[str, bytes] | None:
         fixed = self.document[1].get(path)
         if fixed:
             return fixed
-        with self.lock:
-            return self.archive_assets.get(path)
+        match = re.fullmatch(r"/assets/([a-f0-9]{64})\.(js|css|msc)", path)
+        if not match:
+            return None
+        try:
+            body = (self.asset_store / (path.rsplit("/", 1)[1] + ".gz")).read_bytes()
+        except FileNotFoundError:
+            return None
+        archive = match[2] == "msc"
+        if hashlib.sha256(body if archive else gzip.decompress(body)).hexdigest() != match[1]:
+            raise ValueError("cached asset does not match its address")
+        return ("application/octet-stream" if archive else VENDOR_TYPES["." + match[2]], body)
 
     def html(self) -> bytes:
         text = self.document[0]
@@ -972,12 +1016,7 @@ class Explorer:
             blocks[name]["url"] = path
         recent = current["blocks"]["recent"]
         startup = startup_block(recent["gzip_base64"], recent["b0"], recent["b1"])
-        with self.lock:
-            for path, value in assets.items():
-                self.archive_assets[path] = value
-                self.archive_assets.move_to_end(path)
-            while len(self.archive_assets) > 3 * PACKS_HELD:
-                self.archive_assets.popitem(last=False)
+        self.store_assets(assets, archive=True)
         data = json.dumps({**current, **timing, "blocks": blocks, "startup": startup}, separators=(",", ":")).replace("<", "\\u003c")
         replaced, hits = re.subn(
             r'(<script type="application/json" id="origo-lens-data">).*?(</script>)',

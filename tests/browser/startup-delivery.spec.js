@@ -4,11 +4,19 @@
 // stands in for readiness: controls and calibrated chart must work while held.
 const {test,expect}=require("./fixtures.js");
 const {spawn}=require("node:child_process"), path=require("node:path");
+const fs=require("node:fs"),os=require("node:os");
 
-async function delivery(fake,hold) {
+async function delivery(fake,hold,deploy=false) {
+  let deployRoot,deployPage;
+  if(deploy) {
+    deployRoot=fs.mkdtempSync(path.join(os.tmpdir(),"cube-deployment-"));deployPage=path.join(deployRoot,"index.html");
+    fs.writeFileSync(deployPage,fs.readFileSync(path.join(fake.pageRoot,"index.html"),"utf8").replace("<script>","<script>/* next deployment */\n"));
+    fs.cpSync(path.join(fake.pageRoot,"vendor"),path.join(deployRoot,"vendor"),{recursive:true});
+  }
   const child=spawn("python3",["tests/support/startup-delivery.py"],{cwd:path.resolve(__dirname,"../.."),stdio:["pipe","pipe","pipe"]});
   let errors="";child.stderr.on("data",chunk=>errors+=chunk);
-  child.stdin.end(JSON.stringify({page:path.join(fake.pageRoot,"index.html"),pack:fake.currentPack(),upstream:fake.url,hold})+"\n");
+  child.stdin.end(JSON.stringify({page:path.join(fake.pageRoot,"index.html"),pack:fake.currentPack(),upstream:fake.url,hold,deployPage})+"\n");
+  if(deployRoot)child.once("exit",()=>fs.rmSync(deployRoot,{recursive:true,force:true}));
   const url=await new Promise((resolve,reject)=>{
     let data="";child.stdout.on("data",chunk=>{data+=chunk;if(data.includes("\n"))resolve(JSON.parse(data.split("\n")[0]).url);});
     child.once("error",reject);child.once("exit",code=>reject(Error(`delivery server exited ${code}: ${errors}`)));
@@ -36,6 +44,34 @@ for(const mode of ["volume","path"]) test(`the first ${mode} chart and window co
     const counts=await page.evaluate(()=>({blocks:Object.keys(JSON.parse(document.getElementById("origo-lens-data").textContent).blocks)}));
     expect(counts.blocks.sort()).toEqual(["overview","recent","reference"]);
   } finally { await page.request.get(server.url+"/test/release").catch(()=>{});server.close(); }
+});
+
+test("credential-bearing page URLs still load all deferred archives",async({page,fakeFor,probe})=>{
+  const fake=await fakeFor("mini",{next:300}),server=await delivery(fake,false);
+  try {
+    const url=new URL(server.url);url.username="fixture";url.password="local";url.hash="w=24h&vis=2";
+    await page.goto(url.href);await page.waitForFunction(()=>Boolean(window.cubeAgent));await probe.waitForReady();
+    await expect(page.locator("#ol-loading")).toBeHidden();
+    const ids=await page.evaluate(async()=>(await window.cubeAgent.export()).snapshot.sources.map(source=>source.id));
+    expect(ids).toEqual(expect.arrayContaining(["overview","recent","reference"]));
+  } finally {server.close();}
+});
+
+test("a deployment between HTML and script download preserves the original application",async({page,fakeFor})=>{
+  const fake=await fakeFor("mini",{next:300}),server=await delivery(fake,false,true);
+  let announce,release,oldScript;
+  const arrived=new Promise(resolve=>announce=resolve),held=new Promise(resolve=>release=resolve);
+  await page.route("**/assets/*.js",async route=>{oldScript=new URL(route.request().url()).pathname;announce();await held;await route.continue();});
+  try {
+    const navigation=page.goto(server.url+"/#w=24h&vis=2");await arrived;
+    await page.request.get(server.url+"/test/deploy");release();await navigation;
+    await page.waitForFunction(()=>Boolean(window.cubeAgent));
+    await expect(page.locator("#ol-canvas")).toHaveCSS("opacity","1");
+    await expect(page.locator("#ol-loading")).toBeHidden();
+    expect(await page.locator("script[defer][src]").getAttribute("src")).toBe(oldScript);
+    const replacement=await (await page.request.get(server.url+"/")).text();
+    expect(replacement.match(/<script defer src="([^"]+)"/)[1]).not.toBe(oldScript);
+  } finally {release();server.close();}
 });
 
 test("reload reuses the same application asset and preserves the requested view",async({page,fakeFor,probe})=>{
