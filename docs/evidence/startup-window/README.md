@@ -18,7 +18,9 @@ diagnostics, not a Core Web Vitals or physical display certificate.
   truncation. Seven-day, 30-day and 90-day changes acknowledged input in 34, 36
   and 33 ms. Target-output presentation proxies were 1,499, 1,605 and 1,422 ms.
   Their data arrived 752, 884 and 690 ms after input; each then waited another
-  approximately 700 ms even though the requested camera was unchanged. A
+  approximately 700 ms even though the requested camera was unchanged. Source
+  inspection found an independent grid spring after data arrival as well as an
+  unconditional camera restart. A
   cached 24-hour change took 724 ms including its intended camera motion.
 - `old-tab-61175f2.json.gz`: the previously open 24 October build, about 31 hours
   old, reported server timeouts and a pending update. Its observed 24-hour and
@@ -49,8 +51,9 @@ The first uncached application download remains substantial and must be reported
 separately from a cached reload. Byte reduction alone is not a latency result.
 
 Window selection dispatches its required read directly, without the continuous
-gesture's 200 ms debounce. An unchanged resolved price fit retains the existing
-camera animation instead of restarting it. Changed fits keep their motion.
+gesture's 200 ms debounce. Window camera and grid share one timeline, so late
+data does not start a second full spring. An unchanged resolved price fit
+retains the existing camera animation; changed fits keep their motion.
 
 Unit checks use independently specified quantities/support and exercise the real
 HTML/assets HTTP handler, gzip/identity/HEAD, conditional requests and preservation

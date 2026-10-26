@@ -79,22 +79,22 @@ test('newly revealed history stays coloured through a held wider-window tile and
 test('a calibration arriving mid-camera keeps colour beyond the presented viewport',async({page,fakeFor,probe})=>{
  await page.addInitScript(()=>{let api;Object.defineProperty(window,'explorerMotion',{get:()=>api,set:motion=>{
   api={...motion,spring(owner,name,options){
-   const camera=name==='cells-camera',detail=name==='cells';
-   return motion.spring(owner,name,camera||detail?{...options,
-    canComplete:()=>camera?window.__cameraProgress==null:!window.__holdDetail,
-    write(value){options.write(camera&&window.__cameraProgress!=null?{progress:window.__cameraProgress}:detail&&window.__holdDetail?{progress:0}:value);}
+   const camera=name==='cells-camera';
+   return motion.spring(owner,name,camera?{...options,
+    canComplete:()=>window.__cameraProgress==null,
+    write(value){options.write(window.__cameraProgress!=null?{progress:window.__cameraProgress}:value);}
    }:options);
   }};
  }});});
  const fake=await open(page,fakeFor,probe),gate=fake.on({route:'/cube/tile'}).gate();
  try {
-  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;window.__cameraProgress=.35;window.__holdDetail=true;});
+  await page.evaluate(()=>{window.__subdivisionGrid={n:10,m:2};window.__holdSubdivisionCalibration=true;window.__cameraProgress=.35;});
   await page.locator('#ol-window').click();await page.locator('[data-window="180d"]').click();await gate.arrived();
   await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision','waiting');
   await page.evaluate(()=>{window.__holdSubdivisionCalibration=false;});gate.open();
   await expect(page.locator('#ol-canvas')).toHaveAttribute('data-subdivision',/dividing|joining|blending/);
-  // The final detail is still at alpha zero. Advance only the camera to expose
-  // the history outside the viewport captured when calibration landed.
+  // Advance the window's shared camera/detail clock to expose the history
+  // outside the viewport captured when calibration landed.
   await page.evaluate(()=>{window.__cameraProgress=1;});
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   expect((await pixels(page,.15)).blue).toBeGreaterThan(1000);
@@ -104,7 +104,7 @@ test('a calibration arriving mid-camera keeps colour beyond the presented viewpo
   await page.evaluate(()=>{window.__cameraProgress=1;});
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   expect((await pixels(page,.15)).blue).toBeGreaterThan(1000);
- } finally {gate.open();await page.evaluate(()=>{window.__cameraProgress=null;window.__holdDetail=false;window.__holdSubdivisionCalibration=false;});}
+ } finally {gate.open();await page.evaluate(()=>{window.__cameraProgress=null;window.__holdSubdivisionCalibration=false;});}
 });
 test('wider-window preview honours a held comparison mapping without fitting',async({page,fakeFor,probe,surface})=>{
  // Keep the calibration context stable while the scale dialog changes layout.

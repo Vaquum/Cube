@@ -983,8 +983,16 @@
     subdivisionPrepare();
     canvas.dataset.subdivision = "waiting"; canvas.setAttribute("aria-busy", "true");
     Flow.spring(canvas, "cells-camera", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
-      write: ({ progress }) => { if (subdivision.actor === actor) { actor.camera = clamp(progress, 0, 1); requestDraw(true); } },
-      complete: () => { if (subdivision.actor === actor) { actor.cameraDone = true; subdivisionComplete(actor); } } });
+      write: ({ progress }) => { if (subdivision.actor === actor) {
+        actor.camera = clamp(progress, 0, 1);
+        if (actor.animateCamera) actor.detail = actor.camera;
+        requestDraw(true);
+      } },
+      complete: () => { if (subdivision.actor === actor) {
+        actor.cameraDone = true;
+        if (actor.animateCamera) { actor.detailDone = Boolean(actor.target); requestDraw(true); }
+        else subdivisionComplete(actor);
+      } } });
     return true;
   }
   function subdivisionPrepare() {
@@ -1116,13 +1124,19 @@
       actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });
       if (diagnostics?.active) actor.diagnosticTarget = diagnosticSource(displaySource());
       actor.plan = Flow.subdivisionPlan(actor.before.field, actor.target, colors.surface);
-      actor.detail = 0; actor.detailDone = false;
       subdivisionRaster(actor.target, subdivisionCamera());
       canvas.dataset.subdivision = actor.plan ? actor.plan.refining ? "dividing" : "joining" : "blending";
       canvas.dataset.subdivisionTiles = String(actor.plan?.count ?? 0);
-      Flow.spring(canvas, "cells", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
-        write: ({ progress }) => { if (subdivision.actor === actor) { actor.detail = clamp(progress, 0, 1); requestDraw(true); } },
-        complete: () => { if (subdivision.actor === actor) { actor.detailDone = true; subdivisionComplete(actor); } } });
+      if (actor.animateCamera) {
+        // A window has one timeline. An answer arriving after its camera has
+        // settled is presented now, rather than adding another full spring.
+        actor.detail = actor.camera; actor.detailDone = actor.cameraDone;
+      } else {
+        actor.detail = 0; actor.detailDone = false;
+        Flow.spring(canvas, "cells", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
+          write: ({ progress }) => { if (subdivision.actor === actor) { actor.detail = clamp(progress, 0, 1); requestDraw(true); } },
+          complete: () => { if (subdivision.actor === actor) { actor.detailDone = true; subdivisionComplete(actor); } } });
+      }
     }
     // Empty/failed destinations use their honest native state. A merely pending
     // read holds the old field, without an idle requestAnimationFrame loop.
@@ -1152,6 +1166,7 @@
     actor.hasPaint = true;
     passFrame = null;
     if (!actor.target) chartLabel(actor.preview ? "Refining grid · loaded history" : "Refining grid · previous colours held", G.x + 8, G.y + 12);
+    if (actor.animateCamera) subdivisionComplete(actor);
   }
   function beginLevelMorph() {
     if (S.mode === "volume" && subdivisionStart(subdivisionCapture())) return;
