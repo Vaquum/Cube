@@ -13,7 +13,7 @@ test("a window choice reads immediately and an unchanged fit does not restart ca
       }};
     }});
     const later=window.setTimeout;
-    window.setTimeout=(callback,delay,...args)=>later(callback,window.holdWindowDebounce&&delay===200?3600000:delay,...args);
+    window.setTimeout=(callback,delay,...args)=>later(callback,window.holdWindowDebounce&&callback.name==="pumpCube"&&delay===200?3600000:delay,...args);
   });
   await page.goto(fake.url+"/#w=24h&vis=2");await probe.waitForReady();
   await page.evaluate(()=>{window.windowCameraStarts=[];window.holdWindowDebounce=true;});
@@ -21,6 +21,7 @@ test("a window choice reads immediately and an unchanged fit does not restart ca
   try {
     await page.locator("#ol-canvas").focus();await page.keyboard.press("7");
     await gate.arrived(); // the 200 ms dispatch timer is held for an hour
+    await page.evaluate(()=>{window.holdWindowDebounce=false;});
     const before=JSON.parse(await page.locator("#ol-query-text").inputValue());
     gate.open();await probe.waitForReady();
     const after=JSON.parse(await page.locator("#ol-query-text").inputValue());
