@@ -1,0 +1,17 @@
+{
+  "baselineDocumentEncoded": 1517279,
+  "baselineDocumentDecoded": 3470355,
+  "candidateDocumentDecoded": 134089,
+  "candidateDocumentGzip": 32292,
+  "startupBase64": 14164,
+  "applicationAssets": {
+    "/assets/85959efe69f54a0b6d7f31ab48c74f4f7f347ce77bd18520bdb6594bb2b5f323.js": {
+      "kind": "application/javascript",
+      "gzipBytes": 814488
+    },
+    "/assets/e34120075869cf415508a3a7db4b55511f06b1a70e9ecacb0f658875fefcf4ae.css": {
+      "kind": "text/css",
+      "gzipBytes": 24055
+    }
+  }
+}

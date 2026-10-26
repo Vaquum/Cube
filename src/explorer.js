@@ -428,6 +428,15 @@
     },
     ago = (ms) => (ms < 5000 ? "just now" : `${elapsed(ms)} ago`);
   async function inflate(block) {
+    if (block.url) {
+      const target = new URL(block.url, location.href);
+      target.username = ""; target.password = "";
+      if (target.origin !== location.origin || !/^\/assets\/[a-f0-9]{64}\.msc$/.test(target.pathname) || target.search || target.hash)
+        throw Error("Invalid archive address");
+      const response = await fetch(target, { priority: "low", signal: AbortSignal.timeout(60000) });
+      if (!response.ok) throw Error(`Archive unavailable: the server answered ${response.status}`);
+      return response.arrayBuffer();
+    }
     const bytes = Uint8Array.from(atob(block.gzip_base64), (c) =>
       c.charCodeAt(0),
     );
@@ -975,8 +984,16 @@
     subdivisionPrepare();
     canvas.dataset.subdivision = "waiting"; canvas.setAttribute("aria-busy", "true");
     Flow.spring(canvas, "cells-camera", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
-      write: ({ progress }) => { if (subdivision.actor === actor) { actor.camera = clamp(progress, 0, 1); requestDraw(true); } },
-      complete: () => { if (subdivision.actor === actor) { actor.cameraDone = true; subdivisionComplete(actor); } } });
+      write: ({ progress }) => { if (subdivision.actor === actor) {
+        actor.camera = clamp(progress, 0, 1);
+        if (actor.animateCamera) actor.detail = actor.camera;
+        requestDraw(true);
+      } },
+      complete: () => { if (subdivision.actor === actor) {
+        actor.cameraDone = true;
+        if (actor.animateCamera) { actor.detailDone = Boolean(actor.target); requestDraw(true); }
+        else subdivisionComplete(actor);
+      } } });
     return true;
   }
   function subdivisionPrepare() {
@@ -1108,13 +1125,19 @@
       actor.target = subdivisionField({ camera: subdivisionCamera(), sc, shown, cut, n: renderN(), m: renderM() });
       if (diagnostics?.active) actor.diagnosticTarget = diagnosticSource(displaySource());
       actor.plan = Flow.subdivisionPlan(actor.before.field, actor.target, colors.surface);
-      actor.detail = 0; actor.detailDone = false;
       subdivisionRaster(actor.target, subdivisionCamera());
       canvas.dataset.subdivision = actor.plan ? actor.plan.refining ? "dividing" : "joining" : "blending";
       canvas.dataset.subdivisionTiles = String(actor.plan?.count ?? 0);
-      Flow.spring(canvas, "cells", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
-        write: ({ progress }) => { if (subdivision.actor === actor) { actor.detail = clamp(progress, 0, 1); requestDraw(true); } },
-        complete: () => { if (subdivision.actor === actor) { actor.detailDone = true; subdivisionComplete(actor); } } });
+      if (actor.animateCamera) {
+        // A window has one timeline. An answer arriving after its camera has
+        // settled is presented now, rather than adding another full spring.
+        actor.detail = actor.camera; actor.detailDone = actor.cameraDone;
+      } else {
+        actor.detail = 0; actor.detailDone = false;
+        Flow.spring(canvas, "cells", { from: { progress: 0 }, to: { progress: 1 }, rebase: true,
+          write: ({ progress }) => { if (subdivision.actor === actor) { actor.detail = clamp(progress, 0, 1); requestDraw(true); } },
+          complete: () => { if (subdivision.actor === actor) { actor.detailDone = true; subdivisionComplete(actor); } } });
+      }
     }
     // Empty/failed destinations use their honest native state. A merely pending
     // read holds the old field, without an idle requestAnimationFrame loop.
@@ -1144,6 +1167,7 @@
     actor.hasPaint = true;
     passFrame = null;
     if (!actor.target) chartLabel(actor.preview ? "Refining grid · loaded history" : "Refining grid · previous colours held", G.x + 8, G.y + 12);
+    if (actor.animateCamera) subdivisionComplete(actor);
   }
   function beginLevelMorph() {
     if (S.mode === "volume" && subdivisionStart(subdivisionCapture())) return;
@@ -20086,10 +20110,10 @@
     windowGridCoverage = { cells: source.cells, start, end, max };
     return max;
   }
-  function autoLevel(animate = true) {
+  function autoLevel(animate = true, preservePresentation = false) {
     // A whole-window command interrupts old presentation even at a locked or
     // unchanged level. Its destination never inherits the departed grid.
-    if (!animate) { transition = null; subdivisionStop(); Flow.cancelMotion(canvas, "cells"); }
+    if (!animate && !preservePresentation) { transition = null; subdivisionStop(); Flow.cancelMotion(canvas, "cells"); }
     if (comparisonModel.expanded || !canvas.getClientRects().length || canvas.getBoundingClientRect().height <= 0 || !S.auto || !(S.tB > S.tA) || !(S.pB > S.pA)) return false;
     const g = navGeometry();
     if (!(g.w > 0 && g.h > 0)) return false;
@@ -20114,6 +20138,7 @@
     }
     const changed = n !== S.n || m !== S.m;
     if (changed) {
+      if (preservePresentation && subdivision.actor) subdivision.actor.goal = null;
       const animateCamera = subdivision.actor?.animateCamera;
       if (animate) {
         beginLevelMorph();
@@ -20801,7 +20826,7 @@
     if (src.id === "reference-with-tail")
       return motionTierWant("reference") || motionTierWant("recent");
     if (TIERS.includes(src.id)) return motionTierWant(src.id);
-    return src.id.startsWith("tile:") ? motionTileWant(src) : null;
+    return src.id === "startup" || src.id.startsWith("tile:") ? motionTileWant(src) : null;
   }
   function motionMeasureWant() {
     const r = requestedBounds(),
@@ -23741,6 +23766,10 @@
     setWindow(w);
     fitPrice("Window", null, true);
     subdivisionStart(before, true);
+    // A discrete choice already names its destination; the gesture debounce
+    // only adds idle time before its required read.
+    clearTimeout(cube.timer);
+    pumpCube();
   }
   function setMode(mode) {
     drawingCancelOperation(); drawingKeyContext = false;
@@ -23836,11 +23865,15 @@
       return;
     }
     if (windowPriceFitPending()) return;
-    const before = subdivision.actor?.animateCamera ? subdivisionCapture() : null;
+    const camera = subdivisionCamera(), animate = subdivision.actor?.animateCamera;
     pendingWindowPriceFit = null;
     fit(pending.padding);
-    if (S.auto) autoLevel(false);
-    subdivisionStart(before, true);
+    // Compare the requested camera, not its current interpolated frame. Do not
+    // copy into an active actor's retained surface when the fit is unchanged.
+    const cameraChanged = camera.some((value, i) => value !== subdivisionCamera()[i]),
+      before = animate && cameraChanged ? subdivisionCapture() : null;
+    if (S.auto) autoLevel(false, Boolean(animate && !cameraChanged));
+    if (before) subdivisionStart(before, true);
     update();
     syncURL(true);
     save();
@@ -26060,12 +26093,20 @@
     for (const kbd of qsa("[data-key]")) kbd.textContent = KEYS[kbd.dataset.key];
     getColors();
     drawingLoad();
-    const recentDecode = diagnosticPhase("startup.decode", { source: "recent" });
-    try { sources.recent = await unpack(PACK.blocks.recent, "recent"); recentDecode?.(); }
+    const firstSource = PACK.live && PACK.startup ? "startup" : "recent";
+    if (firstSource === "startup") {
+      PACK.blocks.startup = PACK.startup;
+      // Background archives must not reserve the visible view's read path.
+      for (const id of TIERS) loadState[id] = "deferred";
+    }
+    const recentDecode = diagnosticPhase("startup.decode", { source: firstSource });
+    try { sources[firstSource] = await unpack(PACK.blocks[firstSource], firstSource); recentDecode?.(); }
     catch (error) { recentDecode?.("failed"); throw error; }
     // Decoded blocks keep their metadata only: a tab open all day holds no payloads.
-    delete PACK.blocks.recent.gzip_base64;
-    loadState.recent = "ready";
+    delete PACK.blocks[firstSource].gzip_base64;
+    delete PACK.startup;
+    loadState[firstSource] = "ready";
+    if (firstSource === "startup") loadingLine.startup = "";
     ready = true;
     geometry();
     setWindow("24h");
@@ -26104,6 +26145,7 @@
     revealStartup(el("controls"));
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();
+    if (firstSource === "startup") { clearTimeout(cube.timer); pumpCube(); }
     scaleArm();
     title();
     new ResizeObserver(() => {
@@ -26133,15 +26175,24 @@
     await new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );
-    for (const id of ["overview", "reference"]) {
-      loadingLine.startup = `Loading ${id === "overview" ? "the full history" : "the 30-day archive"}${PACK.live ? " from the cube" : ""}…`;
+    for (const id of firstSource === "startup" ? ["overview", "recent", "reference"] : ["overview", "reference"]) {
+      if (sources[id] && loadState[id] === "ready") continue;
+      const metadata = PACK.blocks[id], generation = live.generation, token = PACK.state_token,
+        current = () => generation === live.generation && token === PACK.state_token && metadata === PACK.blocks[id];
+      if (firstSource !== "startup") loadingLine.startup = `Loading ${id === "overview" ? "the full history" : "the 30-day archive"}${PACK.live ? " from the cube" : ""}…`;
       renderLoading();
       try {
         const blockDecode = diagnosticPhase("startup.decode", { source: id });
-        try { sources[id] = await unpack(PACK.blocks[id], id); blockDecode?.(); }
-        catch (error) { blockDecode?.("failed"); throw error; }
-        delete PACK.blocks[id].gzip_base64;
+        let decoded;
+        try { decoded = await unpack(metadata, id); blockDecode?.(current() ? "completed" : "obsolete"); }
+        catch (error) { blockDecode?.(current() ? "failed" : "obsolete"); throw error; }
+        if (!current()) continue;
+        sources[id] = decoded;
+        delete metadata.gzip_base64;
         loadState[id] = "ready";
+        if (id === "recent" && sources.startup) {
+          delete sources.startup; delete motion.sources.startup; delete PACK.blocks.startup; delete loadState.startup;
+        }
         loadingLine.blocks.delete(id);
         // Lines summed from coarser blocks are summed again from finer ones.
         lineResults.clear();
@@ -26154,6 +26205,7 @@
         update();
         scaleArm();
       } catch (error) {
+        if (!current()) continue;
         loadState[id] = "unavailable";
         loadingLine.blocks.set(id, error.message);
         renderLoading();

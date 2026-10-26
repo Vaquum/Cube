@@ -110,6 +110,26 @@ const EXPECT_A = {
 };
 
 test.describe("B24 probe, synthetic page", () => {
+  test("local compression does not owe a paint, while decoded data still does", async ({page,probe}) => {
+    await page.setContent(SYNTHETIC);
+    await page.evaluate(()=>window.sceneA());await probe.waitForReady();
+    const count=(await probe.stats()).drawFrames;
+    await page.evaluate(async()=>{
+      const stream=new Blob(["portable view bytes"]).stream().pipeThrough(new CompressionStream("gzip"));
+      const response=new Response(stream),copy=response.clone();
+      [window.__compressedView]=await Promise.all([response.arrayBuffer(),copy.arrayBuffer()]);
+    });
+    expect((await probe.readiness()).ready).toBe(true);
+    expect((await probe.stats()).drawFrames).toBe(count);
+    await page.evaluate(async()=>{
+      const stream=new Blob([window.__compressedView]).stream().pipeThrough(new DecompressionStream("gzip"));
+      await new Response(stream).arrayBuffer();
+    });
+    expect((await probe.readiness()).painted).toBe(false);
+    expect((await probe.readiness()).ready).toBe(false);
+    await page.evaluate(()=>window.sceneA());await probe.waitForDrawFrames(count+1);await probe.waitForReady();
+  });
+
   test("the frame log counts the known set, per draw frame, with attributes snapshotted at each frame end", async ({ page, probe }) => {
     await page.setContent(SYNTHETIC);
     expect(await probe.present()).toBe(true);

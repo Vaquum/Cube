@@ -103,7 +103,9 @@ import re
 import struct
 import sys
 import threading
+import tempfile
 import time
+from functools import cached_property, lru_cache
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -125,6 +127,7 @@ BASE_PRICE = 125
 DAY = 1536  # base columns per day
 PACK_MAX_AGE_SECONDS = 60
 PACKS_HELD = 16
+APPLICATION_ASSETS_HELD = 32  # At least sixteen deployments' script/style pairs.
 FIELDS = ("vol", "tbvol", "cnt", "tbcnt", "col", "row")  # MSC2 order
 MOTION_FIELDS = ("vol", "tbvol", "cnt", "tbcnt", "path", "dwell", "high", "low", "col", "row")  # MSC3 order
 MOTION_MEASURES = ("path_length", "dwell", "high", "low")
@@ -181,6 +184,39 @@ NOTES = [
     "Overview is contextual: 64 hours × 1000 USDT over the whole history.",
     "Any rectangle, finer detail and the continuations' history are read from the cube on demand.",
 ]
+
+
+@lru_cache(maxsize=16)
+def startup_block(encoded: str, b0: float, b1: float) -> dict:
+    """Two recent days at 15-minute resolution, summed from held recent cells.
+
+    Archives remain unchanged. Exclude the first incomplete parent so this
+    source never claims children that were outside the recent block.
+    """
+    raw = gzip.decompress(base64.b64decode(encoded))
+    magic, n, m, _, _, _, count = struct.unpack_from("<4sBBHIII", raw)
+    if (magic, n, m) != (b"MSC2", 0, 0) or len(raw) != 32 + 40 * count:
+        raise ValueError("invalid recent startup block")
+    start = math.ceil(max(b0, b1 - 2 * DAY) / 16) * 16
+    cols = struct.unpack_from(f"<{count}I", raw, 32 + 32 * count)
+    rows = struct.unpack_from(f"<{count}I", raw, 32 + 36 * count)
+    groups: dict[tuple[int, int], list[list[float]]] = {}
+    for i, (col, row) in enumerate(zip(cols, rows)):
+        if col < start:
+            continue
+        parts = groups.setdefault((col // 16, row), [[], [], [], []])
+        for field in range(4):
+            parts[field].append(struct.unpack_from("<d", raw, 32 + (field * count + i) * 8)[0])
+    ordered = sorted(groups)
+    col0, col1 = start // 16, math.ceil(b1 / 16)
+    payload = struct.pack("<4sBBHIII12x", b"MSC2", 4, 0, 0, col0, col1, len(ordered))
+    for field in range(4):
+        payload += struct.pack(f"<{len(ordered)}d", *(math.fsum(groups[key][field]) for key in ordered))
+    for axis in range(2):
+        payload += struct.pack(f"<{len(ordered)}I", *(key[axis] for key in ordered))
+    return {"n": 4, "m": 0, "b0": start, "b1": b1, "count": len(ordered),
+            "col0": col0, "col1": col1, "layout": "MSC2", "encoding": "gzip+base64",
+            "gzip_base64": base64.b64encode(gzip.compress(payload, mtime=0)).decode()}
 
 
 def edge(base_index: float) -> str:
@@ -529,6 +565,7 @@ def tails(old: dict, new: dict) -> dict | None:
 class Explorer:
     def __init__(self, page: Path) -> None:
         self.page = page
+        self.asset_store = Path(os.environ.get("CUBE_ASSETS", "/var/lib/cube-explorer/assets"))
         self.lock = threading.Lock()  # guards the fields below; never held while the cube is read
         self.building = threading.Lock()  # one pack build at a time
         self.pack: dict | None = None
@@ -871,8 +908,93 @@ class Explorer:
             )
         return answer
 
-    def html(self) -> bytes:
+    @cached_property
+    def document(self) -> tuple[str, dict]:
+        """Keep portable index.html intact; serve reusable code separately live."""
         text = self.page.read_text(encoding="utf-8")
+        assets = {}
+        def asset(source: str, suffix: str, kind: str) -> str:
+            raw = source.encode()
+            path = "/assets/" + hashlib.sha256(raw).hexdigest() + suffix
+            assets[path] = (kind, gzip.compress(raw, mtime=0))
+            return path
+        scripts = re.findall(r"<script>(.*?)</script>", text, re.S)
+        if scripts:
+            vendor_tag = '<script src="vendor/d3.min.js"></script>'
+            if vendor_tag in text:
+                scripts.insert(0, (self.page.parent / "vendor" / "d3.min.js").read_text(encoding="utf-8"))
+                text = text.replace(vendor_tag, "", 1)
+            path = asset("\n;\n".join(scripts), ".js", "application/javascript")
+            first = True
+            def replace_script(match):
+                nonlocal first
+                if not first:
+                    return ""
+                first = False
+                return f'<script defer src="{path}"></script>'
+            text = re.sub(r"<script>(.*?)</script>", replace_script, text, flags=re.S)
+            text = text.replace("</head>", f'<link rel="preload" as="script" href="{path}"></head>', 1)
+        def replace_style(match):
+            path = asset(match.group(1), ".css", "text/css")
+            return f'<link rel="stylesheet" href="{path}">'
+        text = re.sub(r"<style>(.*?)</style>", replace_style, text, flags=re.S)
+        self.store_assets(assets)
+        return text, assets
+
+    def store_assets(self, assets: dict, archive: bool = False) -> None:
+        """Publish immutable bytes before HTML, on the existing persistent volume.
+
+        Script/style retention is independent of per-minute archive retention:
+        data traffic cannot evict code still named by a deployment's HTML.
+        """
+        if not assets:
+            return
+        self.asset_store.mkdir(parents=True, exist_ok=True)
+        pattern = r"[a-f0-9]{64}\.msc\.gz" if archive else r"[a-f0-9]{64}\.(?:js|css)\.gz"
+        limit = 3 * PACKS_HELD if archive else APPLICATION_ASSETS_HELD
+        with self.lock:
+            keep = set()
+            for path, (_, body) in assets.items():
+                name = path.rsplit("/", 1)[1] + ".gz"
+                keep.add(name)
+                with tempfile.NamedTemporaryFile(dir=self.asset_store, prefix=".asset-", delete=False) as file:
+                    temporary = Path(file.name)
+                    file.write(body)
+                try:
+                    os.replace(temporary, self.asset_store / name)
+                finally:
+                    temporary.unlink(missing_ok=True)
+            cached = []
+            for file in self.asset_store.iterdir():
+                if re.fullmatch(pattern, file.name):
+                    try:
+                        cached.append((file.stat().st_mtime_ns, file))
+                    except FileNotFoundError:
+                        pass  # Another retiring container may have pruned it.
+            for _, file in sorted(cached, reverse=True):
+                if len(keep) < limit:
+                    keep.add(file.name)
+                if file.name not in keep:
+                    file.unlink(missing_ok=True)
+
+    def asset(self, path: str) -> tuple[str, bytes] | None:
+        fixed = self.document[1].get(path)
+        if fixed:
+            return fixed
+        match = re.fullmatch(r"/assets/([a-f0-9]{64})\.(js|css|msc)", path)
+        if not match:
+            return None
+        try:
+            body = (self.asset_store / (path.rsplit("/", 1)[1] + ".gz")).read_bytes()
+        except FileNotFoundError:
+            return None
+        archive = match[2] == "msc"
+        if hashlib.sha256(body if archive else gzip.decompress(body)).hexdigest() != match[1]:
+            raise ValueError("cached asset does not match its address")
+        return ("application/octet-stream" if archive else VENDOR_TYPES["." + match[2]], body)
+
+    def html(self) -> bytes:
+        text = self.document[0]
         # Paint the last consistent snapshot before refreshing it. An expired pack
         # can take seconds to rebuild, and another tab may already be building it.
         # Its actual age/cutoff travel with it; the page polls immediately when due.
@@ -885,7 +1007,17 @@ class Explorer:
             self.current_pack()
         # The pack with its timing, which names this page's version: the page compares it
         # with the version later answers name, and offers a reload when they differ.
-        data = json.dumps({**current, **timing}, separators=(",", ":")).replace("<", "\\u003c")
+        blocks, assets = {}, {}
+        for name, meta in current["blocks"].items():
+            compressed = base64.b64decode(meta["gzip_base64"])
+            path = "/assets/" + hashlib.sha256(compressed).hexdigest() + ".msc"
+            assets[path] = ("application/octet-stream", compressed)
+            blocks[name] = {key: value for key, value in meta.items() if key != "gzip_base64"}
+            blocks[name]["url"] = path
+        recent = current["blocks"]["recent"]
+        startup = startup_block(recent["gzip_base64"], recent["b0"], recent["b1"])
+        self.store_assets(assets, archive=True)
+        data = json.dumps({**current, **timing, "blocks": blocks, "startup": startup}, separators=(",", ":")).replace("<", "\\u003c")
         replaced, hits = re.subn(
             r'(<script type="application/json" id="origo-lens-data">).*?(</script>)',
             lambda match: match.group(1) + data + match.group(2), text, count=1, flags=re.S,
@@ -1103,6 +1235,19 @@ class Handler(BaseHTTPRequestHandler):
                 self.json(self.explorer.touched(n, b0, b1, args.get("pack", [""])[0]))
             elif (asset := self.explorer.vendor_file(url.path)) is not None:
                 self.reply(200, VENDOR_TYPES.get(asset.suffix, "application/octet-stream"), asset.read_bytes())
+            elif url.path.startswith("/assets/") and (asset := self.explorer.asset(url.path)) is not None:
+                kind, body = asset
+                # Archive bytes are already gzip; application assets are compressed
+                # once per server process. HTTP decoding precedes arrayBuffer().
+                accepts_gzip = any(part.strip().split(";", 1)[0] == "gzip" and not re.search(r";\s*q=0(?:\.0*)?(?:\s*$|;)", part)
+                                   for part in self.headers.get("Accept-Encoding", "").split(","))
+                etag = '"' + url.path.rsplit("/", 1)[1] + ("-gzip" if accepts_gzip else "-identity") + '"'
+                unchanged = any(value.strip().removeprefix("W/") in ("*", etag)
+                                for value in self.headers.get("If-None-Match", "").split(","))
+                self.reply(304 if unchanged else 200, kind,
+                           b"" if unchanged else body if accepts_gzip else gzip.decompress(body),
+                           {"Cache-Control": "private, max-age=31536000, immutable", "Vary": "Accept-Encoding", "ETag": etag,
+                            **({"Content-Encoding": "gzip"} if accepts_gzip else {})})
             else:
                 self.reply(404, "text/plain", b"not found")
         except ValueError as error:
@@ -1151,8 +1296,10 @@ class Handler(BaseHTTPRequestHandler):
     def reply(self, status: int, kind: str, body: bytes, headers: dict[str, str] | None = None) -> None:
         self.send_response(status)
         self.send_header("Content-Type", kind)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        if status != 304:
+            self.send_header("Content-Length", str(len(body)))
+        if not headers or "Cache-Control" not in headers:
+            self.send_header("Cache-Control", "no-store")
         for name, value in (headers or {}).items():
             self.send_header(name, value)
         self.end_headers()

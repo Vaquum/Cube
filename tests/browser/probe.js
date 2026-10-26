@@ -92,6 +92,17 @@ function install(surface) {
   // Longer timers (hover hints, live polling) are future observations, not work owed by the current view.
   const work = { seq: 0, next: 0, async: new Map(), timers: new Map(), rafs: new Set(), decodedSeq: 0, lastFrame: null, clock: false };
   const responses = new WeakMap();
+  // Export compression produces bytes, not chart data. Keep its promise as
+  // owed work without requiring a subsequent paint. Decompression retains
+  // the existing conservative draw-after-body requirement.
+  const compressedStreams = new WeakSet(), pipeThrough = ReadableStream.prototype.pipeThrough;
+  ReadableStream.prototype.pipeThrough = function(transform, ...args) {
+    const stream = pipeThrough.call(this, transform, ...args);
+    if (typeof CompressionStream === "function" && transform instanceof CompressionStream) compressedStreams.add(stream);
+    return stream;
+  };
+  const responseWork = response => responses.get(response) ??
+    (compressedStreams.has(response.body) ? { label: "local compression", required: false } : null);
   const changed = () => { work.seq++; };
   function watching(result, label, drawAfter = false) {
     const id = ++work.next;
@@ -116,7 +127,7 @@ function install(surface) {
   for (const name of ["arrayBuffer", "blob", "formData", "json", "text"]) {
     const original = Response.prototype[name];
     Response.prototype[name] = function (...args) {
-      const response = responses.get(this);
+      const response = responseWork(this);
       return watching(original.apply(this, args), `${name} ${response?.label || "stream"}`, response?.required ?? name === "arrayBuffer");
     };
   }
@@ -131,8 +142,9 @@ function install(surface) {
   }
   const clone = Response.prototype.clone;
   Response.prototype.clone = function (...args) {
+    const response = responseWork(this);
     const copy = clone.apply(this, args);
-    if (responses.has(this)) responses.set(copy, responses.get(this));
+    if (response) { responses.set(this, response); responses.set(copy, response); }
     return copy;
   };
   let timeout = window.setTimeout, clear = window.clearTimeout;
