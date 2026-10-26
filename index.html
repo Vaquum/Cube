@@ -49176,7 +49176,11 @@
     getColors();
     drawingLoad();
     const firstSource = PACK.live && PACK.startup ? "startup" : "recent";
-    if (firstSource === "startup") PACK.blocks.startup = PACK.startup;
+    if (firstSource === "startup") {
+      PACK.blocks.startup = PACK.startup;
+      // Background archives must not reserve the visible view's read path.
+      for (const id of TIERS) loadState[id] = "deferred";
+    }
     const recentDecode = diagnosticPhase("startup.decode", { source: firstSource });
     try { sources[firstSource] = await unpack(PACK.blocks[firstSource], firstSource); recentDecode?.(); }
     catch (error) { recentDecode?.("failed"); throw error; }
@@ -49184,6 +49188,7 @@
     delete PACK.blocks[firstSource].gzip_base64;
     delete PACK.startup;
     loadState[firstSource] = "ready";
+    if (firstSource === "startup") loadingLine.startup = "";
     ready = true;
     geometry();
     setWindow("24h");
@@ -49252,7 +49257,7 @@
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );
     for (const id of firstSource === "startup" ? ["overview", "recent", "reference"] : ["overview", "reference"]) {
-      loadingLine.startup = `Loading ${id === "overview" ? "the full history" : id === "recent" ? "the seven-day archive" : "the 30-day archive"}${PACK.live ? " from the cube" : ""}…`;
+      if (firstSource !== "startup") loadingLine.startup = `Loading ${id === "overview" ? "the full history" : "the 30-day archive"}${PACK.live ? " from the cube" : ""}…`;
       renderLoading();
       try {
         const blockDecode = diagnosticPhase("startup.decode", { source: id });
