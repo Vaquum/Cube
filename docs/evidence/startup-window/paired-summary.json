@@ -1,0 +1,125 @@
+{
+  "kind": "controlled single-pair diagnostic; not statistical acceptance",
+  "baselineCommit": "d0fbdd59656199db94401e750c6f388b8a85ecfa",
+  "candidateCommit": "ddca20fc9519e6420c07f8e7efab0df04b8dc1ab",
+  "baselineHtmlSha256": "5e99dbadce5b27351584eb23908037b689ab2fa1eb5e7b13cfe25de4c171968e",
+  "candidateHtmlSha256": "5d73c63e0b2f4b43104c1fcaf3c66b62d56e6e6ff4e35b8283674399bc7e8e08",
+  "fixture": {
+    "mode": "live",
+    "profile": "standard",
+    "seed": 20260924,
+    "cutoff": "2026-09-24T12:02:00.000000Z",
+    "cutoffBase": 3214082.1333333333,
+    "tiers": {
+      "overview": {
+        "n": 12,
+        "m": 3,
+        "b0": 0,
+        "b1": 3214082.1333333333,
+        "count": 192,
+        "col0": 0,
+        "col1": 785
+      },
+      "recent": {
+        "n": 0,
+        "m": 0,
+        "b0": 3203331,
+        "b1": 3214082.1333333333,
+        "count": 11161,
+        "col0": 3203331,
+        "col1": 3214083
+      },
+      "reference": {
+        "n": 4,
+        "m": 0,
+        "b0": 3168000,
+        "b1": 3214080,
+        "count": 4106,
+        "col0": 198000,
+        "col1": 200880
+      }
+    },
+    "priceBand": {
+      "rows": [
+        179,
+        190
+      ],
+      "usdt": [
+        22375,
+        23750
+      ]
+    },
+    "source": "SYNTHETIC fixture standard seed 20260924 - not market data",
+    "packToken": "f60aae4c3e8c6cfd6e7f8af528024e963edd9ca96d8c6c96cc635300caab278a"
+  },
+  "delay": {
+    "route": "/cube/query",
+    "milliseconds": 900
+  },
+  "cases": {
+    "paired-d0fbdd5-900ms": {
+      "truncated": false,
+      "viewport": [
+        351,
+        575
+      ],
+      "pack": "f60aae4c3e8c6cfd6e7f8af528024e963edd9ca96d8c6c96cc635300caab278a",
+      "inputAckMs": 22.699999928474426,
+      "dataReadyMs": 1918.3999999761581,
+      "presentationProxyMs": 1950.2999999523163,
+      "dataAppliedMs": 1138.1999999284744,
+      "postDataToReadyMs": 780.2000000476837,
+      "requested": {
+        "intent": 2,
+        "revision": 14,
+        "auto": true,
+        "window": "7d",
+        "n": 10,
+        "m": 0,
+        "mode": "volume",
+        "camera": [
+          3203330.1333333333,
+          3215211.0933333333,
+          177,
+          192
+        ],
+        "replay": false,
+        "anchor": null,
+        "pack": "f60aae4c3e8c6cfd6e7f8af528024e963edd9ca96d8c6c96cc635300caab278a",
+        "generation": 0
+      }
+    },
+    "paired-ddca20f-900ms": {
+      "truncated": false,
+      "viewport": [
+        351,
+        575
+      ],
+      "pack": "f60aae4c3e8c6cfd6e7f8af528024e963edd9ca96d8c6c96cc635300caab278a",
+      "inputAckMs": 21.200000047683716,
+      "dataReadyMs": 1040.2000000476837,
+      "presentationProxyMs": 1069,
+      "dataAppliedMs": 926.5,
+      "postDataToReadyMs": 113.70000004768372,
+      "requested": {
+        "intent": 2,
+        "revision": 17,
+        "auto": true,
+        "window": "7d",
+        "n": 10,
+        "m": 0,
+        "mode": "volume",
+        "camera": [
+          3203330.1333333333,
+          3215211.0933333333,
+          177,
+          192
+        ],
+        "replay": false,
+        "anchor": null,
+        "pack": "f60aae4c3e8c6cfd6e7f8af528024e963edd9ca96d8c6c96cc635300caab278a",
+        "generation": 0
+      }
+    }
+  }
+}

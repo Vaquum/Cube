@@ -76,3 +76,30 @@ This includes local transport and a previously stored valid calibration; it is
 not production network latency or a first-visit result. The startup source was
 decoded at 151 ms. The recording later reached its 120-second cap and includes
 archive-gate timeouts; its early completed readiness remains retained.
+
+## Controlled delayed window answer
+
+The two untruncated `paired-*-900ms.json.gz` captures compare the deployed
+`d0fbdd5` application with implementation `ddca20f` in the same existing side-panel
+tab. Both use the same standard synthetic cube, pack, 351 × 575 viewport, seven-day
+destination, resolution and fitted bounds. Only `/cube/query` is given a 900 ms
+fixture delay, after each startup has completed. The candidate uses the real
+production delivery handler; the baseline uses its original portable application
+through the existing fake server. No browser instrumentation is injected; inputs
+and exports use the page's recorder. Portable builds have empty deployment
+attestation fields, so source file hashes and commits are retained explicitly in
+`paired-summary.json`, together with the fixture identity and raw request log.
+
+| Metric | Baseline | Candidate |
+| --- | ---: | ---: |
+| Input acknowledgment | 22.7 ms | 21.2 ms |
+| Requested data applied after input | 1,138.2 ms | 926.5 ms |
+| Applied data to target output submitted | 780.2 ms | 113.7 ms |
+| Input to target output presentation proxy | 1,950.3 ms | 1,069.0 ms |
+
+This single pair demonstrates removal of the debounce and second full settling
+period under the declared delayed answer. It is not a confidence interval, a
+physical display measurement or a production network result. Changed price fits
+retain their necessary camera motion. The complete browser suite remains the
+correctness gate for interruption, calibration, source replacement and reduced
+motion.
