@@ -23848,12 +23848,14 @@
       return;
     }
     if (windowPriceFitPending()) return;
-    const before = subdivision.actor?.animateCamera ? subdivisionCapture() : null;
+    const camera = subdivisionCamera(), animate = subdivision.actor?.animateCamera;
     pendingWindowPriceFit = null;
     fit(pending.padding);
+    // Compare the requested camera, not its current interpolated frame. Do not
+    // copy into an active actor's retained surface when the fit is unchanged.
+    const before = animate && camera.some((value, i) => value !== subdivisionCamera()[i]) ? subdivisionCapture() : null;
     if (S.auto) autoLevel(false);
-    // An unchanged fit must not restart the camera's full spring after a read.
-    if (before && before.camera.some((value, i) => value !== subdivisionCamera()[i])) subdivisionStart(before, true);
+    if (before) subdivisionStart(before, true);
     update();
     syncURL(true);
     save();
@@ -26125,6 +26127,7 @@
     revealStartup(el("controls"));
     startHistory(linked ? "Link" : restored ? "Restored" : "Opened");
     update();
+    if (firstSource === "startup") { clearTimeout(cube.timer); pumpCube(); }
     scaleArm();
     title();
     new ResizeObserver(() => {

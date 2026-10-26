@@ -61,3 +61,15 @@ while checking immediate window dispatch and a single camera animation.
 
 Production remeasurement and complete CI/review status belong to the resulting
 pull request. This evidence does not close cumulative acceptance issue #96.
+
+## Controlled side-panel check
+
+`controlled-cached-startup.json.gz` uses the production HTTP delivery handler
+and the standard synthetic cube on localhost in the same side-panel tab, with
+archives independently withheld. On candidate `46bb66b`, application and CSS
+resource transfers were both zero on reload. The requested seven-day data was
+submitted at 427 ms from navigation, while the first archive was still held.
+This includes local transport and a previously stored valid calibration; it is
+not production network latency or a first-visit result. The startup source was
+decoded at 151 ms. The recording later reached its 120-second cap and includes
+archive-gate timeouts; its early completed readiness remains retained.
