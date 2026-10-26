@@ -7,15 +7,16 @@ const { spawnSync } = require("node:child_process");
 
 test("production HTML paints held packs without waiting for expiry, invalidation or a concurrent refresh", () => {
   const script = String.raw`
-import json,re,sys,tempfile,threading,time
+import base64,gzip,json,re,struct,sys,tempfile,threading,time
 from pathlib import Path
 sys.path.insert(0,'tools')
 import cube_bridge as c
 
 def pack(token):
+    encoded=base64.b64encode(gzip.compress(struct.pack('<4sBBHIII12x',b'MSC2',0,0,0,0,100,0))).decode()
     return {'state_token':token,'cutoff':'2026-10-16T12:00:00+00:00',
             'data_cutoff':'2026-10-16T12:00:00+00:00','canonical_through':None,
-            'cutoffBase':100,'blocks':{name:{'count':0,'gzip_base64':token}
+            'cutoffBase':100,'blocks':{name:{'count':0,'b0':0,'b1':100,'gzip_base64':encoded}
                                      for name in ('recent','overview','reference')}}
 
 def explorer(page, held=True):
@@ -38,7 +39,9 @@ with tempfile.TemporaryDirectory() as directory:
         e=explorer(page);e.packed_at=time.monotonic()-age;e.stale=invalidated
         e.current_pack=lambda:(_ for _ in ()).throw(AssertionError('HTML started a rebuild'))
         body=payload(e)
-        assert body['state_token']=='old' and body['blocks']==pack('old')['blocks']
+        assert body['state_token']=='old'
+        assert all('gzip_base64' not in block and block['url'].startswith('/assets/') for block in body['blocks'].values())
+        assert body['startup']['n']==4 and body['startup']['b1']==100
         assert age<=body['age']<age+1 and body['quiet']>=300
         assert body['next']==expected_next and body['page']=='test-version'
 

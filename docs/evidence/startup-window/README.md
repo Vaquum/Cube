@@ -1,0 +1,63 @@
+# Startup and window response investigation, 26 October 2026
+
+Production observations use the user's existing in-app browser on their machine
+and connection. No additional browser connection or local browser process was
+used. The page's opt-in recorder retained native navigation/resource/EventTiming,
+long-task and animation-frame entries plus application phases. These are
+diagnostics, not a Core Web Vitals or physical display certificate.
+
+## Baseline
+
+- `updated-d0fbdd5-reload.json.gz`: deployed `d0fbdd5`. Navigation response began
+  at 148 ms but finished at 27,828 ms: 1,517,279 encoded / 3,470,355 decoded bytes.
+  The application recorder could only start at 27,859 ms, after the inline
+  application arrived. Buffered resource entries preserve that download; the
+  navigation entry was initially incomplete and its final fields are retained
+  in the subsequent sweep. Recent-data decoding itself took 52 ms.
+- `updated-d0fbdd5-window-sweep.json.gz`: same build, fresh recording, no recording
+  truncation. Seven-day, 30-day and 90-day changes acknowledged input in 34, 36
+  and 33 ms. Target-output presentation proxies were 1,499, 1,605 and 1,422 ms.
+  Their data arrived 752, 884 and 690 ms after input; each then waited another
+  approximately 700 ms even though the requested camera was unchanged. A
+  cached 24-hour change took 724 ms including its intended camera motion.
+- `old-tab-61175f2.json.gz`: the previously open 24 October build, about 31 hours
+  old, reported server timeouts and a pending update. Its observed 24-hour and
+  seven-day changes were approximately 720 ms. This does not reproduce every
+  user-reported multi-second interaction.
+
+The reload and old-tab captures reached the recorder's 120-second limit and
+are explicitly marked truncated. The cited completed transitions are inside
+the retained intervals. Native buffered events pre-dating a recording are not
+current test samples. Several long tasks during the later sweep include recorder
+export, open panel and observer work; source attribution is not a CPU profile.
+No broad claim of a render-thread root cause is made from those entries.
+
+## Change and validation
+
+Live delivery separates content-addressed, privately cached application/style
+assets from current market data, including vendored D3 in the application asset.
+A small two-day, 15-minute measured source is summed from the same held recent
+pack; the incomplete first parent is excluded and the open last parent retains
+its actual support. Full history, recent and reference archives then load as
+binary gzip responses at low network priority. Their values and normal pack/delta
+protocol are unchanged. Portable `index.html` remains self-contained.
+
+`delivery-bytes.json` compares byte sizes using the production pack captured from
+the original page. The initial live document falls from the observed 1.52 MB
+transfer to about 32 KB gzip; application and stylesheet bytes are reusable.
+The first uncached application download remains substantial and must be reported
+separately from a cached reload. Byte reduction alone is not a latency result.
+
+Window selection dispatches its required read directly, without the continuous
+gesture's 200 ms debounce. An unchanged resolved price fit retains the existing
+camera animation instead of restarting it. Changed fits keep their motion.
+
+Unit checks use independently specified quantities/support and exercise the real
+HTML/assets HTTP handler, gzip/identity/HEAD, conditional requests and preservation
+of the portable page. Browser checks use the production delivery handler against
+the existing synthetic cube, hold all archives while the first calibrated chart
+and window controls work, verify reload cache reuse, and hold the debounce timer
+while checking immediate window dispatch and a single camera animation.
+
+Production remeasurement and complete CI/review status belong to the resulting
+pull request. This evidence does not close cumulative acceptance issue #96.
