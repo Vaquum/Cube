@@ -51,7 +51,10 @@ test("an unchanged deferred Auto fit preserves the active camera",async({page,fa
     encoding={...value,util:{...value.util,windowLevel:()=>({n:10,m:2})}};
   }});});
   const fake=await fakeFor(profile,{next:300});
-  await page.goto(fake.url+"/#w=24h&vis=2");await probe.waitForReady();
+  // Seven days includes a whole occupied 16-hour column; the 24-hour span
+  // cuts both occupied columns and correctly has no fitted starting field.
+  await page.goto(fake.url+"/#w=7d&vis=2");await probe.waitForReady();
+  await expect(page.locator("#ol-legend")).toHaveAttribute("data-state","ready");
   await page.evaluate(()=>{window.windowCameraStarts=[];window.windowCameraDone=0;window.windowHold=.35;});
   const gate=fake.on({route:"/cube/tile"}).gate();
   try {

@@ -24,7 +24,7 @@ async function delivery(fake,hold,deploy=false) {
   return {url,close:()=>child.kill()};
 }
 
-for(const mode of ["volume","path"]) test(`the first ${mode} chart and window controls work before any archive arrives`,async({page,fakeFor},testInfo)=>{
+for(const mode of ["volume","path"]) test(`the first ${mode} chart and window controls work before any archive arrives`,async({page,fakeFor,probe},testInfo)=>{
   const fake=await fakeFor("standard",{next:300}),server=await delivery(fake,true);
   try {
     await page.goto(server.url+"/#w=24h&vis=2&mode="+mode);
@@ -39,6 +39,7 @@ for(const mode of ["volume","path"]) test(`the first ${mode} chart and window co
     await page.screenshot({path:testInfo.outputPath("usable-before-archives.png")});
     await page.request.get(server.url+"/test/release");
     await page.waitForFunction(()=>Boolean(window.cubeAgent));
+    await probe.waitForReady();
     await expect(page.locator("#ol-loading")).toBeHidden();
     await expect(page.locator("#ol-window-text")).toHaveText("7d");
     const counts=await page.evaluate(()=>({blocks:Object.keys(JSON.parse(document.getElementById("origo-lens-data").textContent).blocks)}));
