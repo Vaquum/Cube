@@ -20824,7 +20824,7 @@
     if (src.id === "reference-with-tail")
       return motionTierWant("reference") || motionTierWant("recent");
     if (TIERS.includes(src.id)) return motionTierWant(src.id);
-    return src.id.startsWith("tile:") ? motionTileWant(src) : null;
+    return src.id === "startup" || src.id.startsWith("tile:") ? motionTileWant(src) : null;
   }
   function motionMeasureWant() {
     const r = requestedBounds(),
@@ -26173,16 +26173,22 @@
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );
     for (const id of firstSource === "startup" ? ["overview", "recent", "reference"] : ["overview", "reference"]) {
+      if (sources[id] && loadState[id] === "ready") continue;
+      const metadata = PACK.blocks[id], generation = live.generation, token = PACK.state_token,
+        current = () => generation === live.generation && token === PACK.state_token && metadata === PACK.blocks[id];
       if (firstSource !== "startup") loadingLine.startup = `Loading ${id === "overview" ? "the full history" : "the 30-day archive"}${PACK.live ? " from the cube" : ""}…`;
       renderLoading();
       try {
         const blockDecode = diagnosticPhase("startup.decode", { source: id });
-        try { sources[id] = await unpack(PACK.blocks[id], id); blockDecode?.(); }
-        catch (error) { blockDecode?.("failed"); throw error; }
-        delete PACK.blocks[id].gzip_base64;
+        let decoded;
+        try { decoded = await unpack(metadata, id); blockDecode?.(current() ? "completed" : "obsolete"); }
+        catch (error) { blockDecode?.(current() ? "failed" : "obsolete"); throw error; }
+        if (!current()) continue;
+        sources[id] = decoded;
+        delete metadata.gzip_base64;
         loadState[id] = "ready";
         if (id === "recent" && sources.startup) {
-          delete sources.startup; delete PACK.blocks.startup; delete loadState.startup;
+          delete sources.startup; delete motion.sources.startup; delete PACK.blocks.startup; delete loadState.startup;
         }
         loadingLine.blocks.delete(id);
         // Lines summed from coarser blocks are summed again from finer ones.
@@ -26196,6 +26202,7 @@
         update();
         scaleArm();
       } catch (error) {
+        if (!current()) continue;
         loadState[id] = "unavailable";
         loadingLine.blocks.set(id, error.message);
         renderLoading();

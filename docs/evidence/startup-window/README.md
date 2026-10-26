@@ -58,9 +58,19 @@ retains the existing camera animation; changed fits keep their motion.
 Unit checks use independently specified quantities/support and exercise the real
 HTML/assets HTTP handler, gzip/identity/HEAD, conditional requests and preservation
 of the portable page. Browser checks use the production delivery handler against
-the existing synthetic cube, hold all archives while the first calibrated chart
+the existing synthetic cube, hold all archives while the first calibrated Volume
+and Path charts
 and window controls work, verify reload cache reuse, and hold the debounce timer
 while checking immediate window dispatch and a single camera animation.
+An archive completion is checked against its original pack, generation and
+metadata; a replacement whole pack owns all subsequent source writes. A gated
+refresh regression checks that releasing old archives cannot overwrite it.
+
+The browser probe separately tracks local export compression without inventing
+a subsequent chart-paint obligation. Its synthetic self-check verifies both that
+compression/cloning leaves a painted frame valid and that decompressed data still
+requires a later draw. This addresses an idle-frame dependency exposed in the
+recorded-selection refresh test; production does not add a redraw for an export.
 
 Production remeasurement and complete CI/review status belong to the resulting
 pull request. This evidence does not close cumulative acceptance issue #96.

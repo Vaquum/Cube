@@ -16,10 +16,10 @@ async function delivery(fake,hold) {
   return {url,close:()=>child.kill()};
 }
 
-test("the first measured chart and window controls work before any archive arrives",async({page,fakeFor},testInfo)=>{
+for(const mode of ["volume","path"]) test(`the first ${mode} chart and window controls work before any archive arrives`,async({page,fakeFor},testInfo)=>{
   const fake=await fakeFor("standard",{next:300}),server=await delivery(fake,true);
   try {
-    await page.goto(server.url+"/#w=24h&vis=2");
+    await page.goto(server.url+"/#w=24h&vis=2&mode="+mode);
     await expect(page.locator("#ol-canvas")).toHaveCSS("opacity","1");
     await expect(page.locator("#ol-legend")).toHaveAttribute("data-state","ready");
     await expect(page.locator("#ol-window")).toBeEnabled();
@@ -52,4 +52,27 @@ test("reload reuses the same application asset and preserves the requested view"
     await expect(page.locator("#ol-window-text")).toHaveText("30d");
     expect(await page.evaluate(()=>performance.getEntriesByType("resource").find(entry=>entry.name.endsWith(".js")&&entry.name.includes("/assets/"))?.transferSize)).toBe(0);
   } finally {server.close();}
+});
+
+test("a late archive cannot overwrite a newer complete pack",async({page,fakeFor,probe,allowConsole})=>{
+  const fake=await fakeFor("standard",{next:300}),server=await delivery(fake,true);
+  allowConsole(/Failed to load resource.*409/);
+  try {
+    await page.goto(server.url+"/#w=24h&vis=2");
+    await expect(page.locator("#ol-canvas")).toHaveCSS("opacity","1");
+    await expect(page.locator("#ol-legend")).toHaveAttribute("data-state","ready");
+    fake.advance({minutes:60});
+    const newer=fake.currentPack();
+    fake.on({route:"/cube/query",times:1}).fail({status:409,body:{error:"cube_changed"}});
+    await page.locator("#ol-canvas").focus();await page.keyboard.press("7");
+    const through=new Date(newer.cutoff).toISOString().replace("T"," ").replace(".000Z"," UTC");
+    await expect(page.locator("#ol-data-through")).toHaveText("Data through "+through);
+    await page.request.get(server.url+"/test/release");
+    await page.waitForFunction(()=>Boolean(window.cubeAgent));await probe.waitForReady();
+    const snapshot=await page.evaluate(async()=>{const packet=await window.cubeAgent.export();return {token:packet.snapshot.token,sources:packet.snapshot.sources.map(source=>({id:source.id,b1:source.b1}))};});
+    expect(snapshot.token).toBe(newer.state_token);
+    for(const id of ["overview","recent","reference"])
+      expect(snapshot.sources.find(source=>source.id===id)?.b1,id).toBe(newer.blocks[id].b1);
+    await expect(page.locator("#ol-loading")).toBeHidden();
+  } finally {await page.request.get(server.url+"/test/release").catch(()=>{});server.close();}
 });
