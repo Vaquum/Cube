@@ -1,5 +1,53 @@
 # Strip
 
+## Micro
+
+The live bridge also declares Micro independently of Forces, through
+`<meta name="explorer-micro" content="/cube/micro">`. Micro uses the existing
+Origo market-state service and the bridge's existing secondary query slot. It
+adds no worker, collection, provider access or operational storage.
+
+The upper lane shows the ask share of resting near-book depth; the lower lane
+shows the bid share. The middle line shows net aggressive individual flow as a
+share of gross flow. Shade is a share, not absolute liquidity. Hatching marks
+unavailable depth/flow and incomplete one-second book samples. Near depth means
+within 0.1 bp of the sampled mid, only when all of that radius was captured.
+
+Hover reads the preceding thirty seconds lazily. Market ribbon places side
+USDT bubbles at actual one-second execution VWAPs, with a mid-price path and
+resting-depth shade on the same timeline. Inspect's Response map follows
+cumulative net aggressive USDT against observed mid movement; its ending ring
+shows bid/ask near-depth shares. Sources exposes the exact accepted partition,
+revision/build identities and the method. Exchange and receipt clocks remain
+separate. This is descriptive co-movement, not an estimate of causal impact or
+hidden liquidity.
+
+Micro pins individual-trade generations to the cube pack held by the page.
+Overview uses accepted minute trade/aggregate statistics and the last eligible
+book per bin. Detail reads executions and actual aggregate groups. Group counts
+and mean size provide grouping context about the same executions; aggregate
+notional is never added to individual flow. Groups are not assumed to identify
+complete parent orders. Missing coverage stays unavailable rather than zero.
+
+No Micro request is started while it is inactive or while a captured
+investigation is selected. Requests end at the cube/replay edge, and every book
+receipt is strictly before that edge. Detail ends at the inspected second.
+Historical data reconstructs accepted source generations, not first-publication
+knowledge of trade corrections. A cached live page cannot paint a quote after a
+rewound receipt edge. The existing immutable book cohort begins
+2026-10-24T13:00Z; earlier times have no captured book. Wide views page through
+bounded 31-day Origo reads with no more than 4096 bins per request. An eight-entry
+bridge cache and four-window detail cache are request data, not another source
+history. Recorded/captured investigations without these inputs disclose their
+absence.
+
+The HTTP request is `POST /cube/micro?proto=2` with exactly `pack`, `from`, `to`,
+`step`, `as_of`. Times are integer epoch milliseconds, intervals half-open and
+aligned. The bridge derives the relevant trade-pin digest, validates the held
+cutoff and relays Origo's `origo-micro@1` response. Source changes return an
+explicit conflict instead of blending generations. The native API contract is
+documented in Origo's `docs/Developer/Market-state-micro.md`.
+
 The **Strip** is a band between the price pane and the columns that shows what the cells cannot: the forces acting on BTC from outside this one market, as potential rather than as news items. Its first and only dataset so far is **Forces**. Its data comes from [field-data-api](https://github.com/Vaquum/field-data-api), the shared service of compact field-data projections and the calendar, and from the cube's own prices. This document is the Strip's contract: what the bridge reads from the service, how each projected field becomes a value the page draws, the route the page reads, and the fixed formulas both sides use. News reads the service's pinned financial FinBERT scores; Social retains its literal word counts. Financial tone describes the text, not Bitcoin price direction.
 
 ## What Forces draws

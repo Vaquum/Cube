@@ -338,10 +338,13 @@ A Wave-2 package that adds a NEW top-level helper reading `colors.*` under a nam
 
 ### 3.11 Strip additions (#193)
 
+Micro (#259) uses the same signed roles for bid/buy and ask/sell, independently of Forces. `microPaint()` draws resting ask/bid share in separate lanes and individual net aggression in their middle line; unavailable and partial book coverage is hatched. `microPlot()` draws actual execution VWAP/USDT bubbles with the mid path for hover, and cumulative net flow against observed mid response in Inspect. `microTip()` retains source clocks, grouping and exact source identities. The visual is descriptive, with no inference of hidden liquidity or causal impact.
+
 | ID | Consumer | File / function / CSS rule | Current | Target role | Measurement / channel | Owner | Tests | Status |
 |---|---|---|---|---|---|---|---|---|
 | N-57 | The Strip band under the price pane: each pixel column's lean as the colour tables' positive or negative arm (from the midpoint toward the role), painted over the surface at the attention's alpha; the undefined hatch where no force, along its top partial force coverage, or along its foot no attention, is known; visible and accessible input/attention coverage counts, proportional missing-input hatches and a field-cutoff marker; the dashed line where retrospective values end; variable-height light from the strongest event contribution, preserving the force colour under a dense calendar, and the seams of measured reactions in the ink; the brackets of events dated without an hour; its name, frame and event labels | src/explorer.js: `paintStrip()`, `stripColour()`, `stripBeams()`, `paintStripHorizon()` (new for #193) | none | `+`, `-` and `mid` over the surface for the lean, the ink for light and seams, `CHR` for the name, labels and frame; a missing lean or attention is the undefined hatch (`pattern-slate`), never the midpoint; the retrospective line is `CHR` | STRIP | #193 | B69 | done |
 | N-58 | The Strip's cards: the forces as arrows from a common centre with their parts, the distribution of the track record with its p5, p50 and p95, an event's when, weight, move and history, and each source's freshness as structured measurements shared by hover and the Strip Inspect surface, without narrative paragraphs | src/explorer.js: `stripTug()`, `stripHist()` (new for #193); src/explorer.css `.ol-strip-*` | none | `+` and `-` for direction, each value also a signed number in the ink; the ink outline for all moments; `CHR` text | HOVER | #193 | B69, U101, U102, U103 | done |
+| N-59 | Micro book share, executed flow, Market ribbon and Response map | src/explorer.js: `microPaint()`, `microPlot()`, `microTip()`; src/explorer.css `.ol-micro-*` | none | `+` for bid/buy, `-` for ask/sell, `CHR` for price and labels; missing data is hatched; source clocks, sampled depth and exact pin identities stay explicit | STRIP | #259 | B70 | done |
 
 
 ## 4. The retired-role ratchet
@@ -806,6 +809,7 @@ Unit tests run with `npm test`; browser specs with `npm run test:browser`. `U46`
 | U103 | `tests/unit/strip-model.test.js` | The Strip's model: each evidence formula against the same formula written in the test, first-seen and retrospective known-at, calendar revisions and withdrawals, weights and labels, each series' moves given once an answer, and a build after new rows, in order or not, equal to a build from nothing | #193 |
 | U102 | `tests/unit/fake-strip.test.js` | The fake's synthetic strip: the contract's check on every step, closes from the profile's trades, parts that sum to their force, known-at, moves and cancellations, refusals and its slot | #193 |
 | B69 | `tests/browser/strip.spec.js` | The Strip control and address, the band's pixels against the documented formulas, known-at replay, the unconfigured state and the cards' figures | #193 |
+| B70 | `tests/browser/micro.spec.js` | Genuine Micro flow/book arithmetic, lazy loading, address state, Market ribbon and Response map, exclusive replay clocks | #259 |
 
 ## 10. Migration status per slice
 
@@ -818,8 +822,8 @@ Rendered from the Status column at S2's convergence: `done` is the work of S1 an
 | D | 22 | 8 | 0 | 0 | 0 | 14 |
 | F | 17 | 0 | 0 | 0 | 0 | 17 |
 | R | 15 | 0 | 0 | 0 | 0 | 15 |
-| N | 47 | 0 | 0 | 0 | 0 | 47 |
-| all | 189 | 32 | 0 | 0 | 0 | 157 |
+| N | 50 | 0 | 0 | 0 | 0 | 50 |
+| all | 192 | 32 | 0 | 0 | 0 | 160 |
 
 ## 11. Contributor checklist
 

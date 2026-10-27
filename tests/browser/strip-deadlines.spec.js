@@ -36,8 +36,11 @@ test("healthy view and history grids retain their five- and thirty-minute refres
   const fake=await fakeFor("mini");await start(page,fake,probe);await expect.poll(()=>reads(fake).filter(r=>r.status===200).length).toBe(2);await freeze(page);
   await page.clock.fastForward(299000);expect(reads(fake)).toHaveLength(2);
   await page.clock.fastForward(2000);await expect.poll(()=>reads(fake).filter(r=>!history(r)&&r.status===200).length).toBe(2);
+  // Server receipt precedes browser body consumption; settle that boundary before advancing the paused clock.
+  await expect.poll(async()=>(await probe.readiness()).async).toEqual([]);
   await page.clock.runFor(250);await page.clock.fastForward(1500000);
   await expect.poll(()=>reads(fake).filter(r=>!history(r)&&r.status===200).length).toBe(3);
+  await expect.poll(async()=>(await probe.readiness()).async).toEqual([]);
   await page.clock.runFor(250);await expect.poll(()=>reads(fake).filter(r=>history(r)&&r.status===200).length).toBe(2);
   const count=reads(fake).length;await page.clock.fastForward(1000);expect(reads(fake)).toHaveLength(count);
 });
