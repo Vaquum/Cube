@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, "../fixtures/micro"),
   detail = JSON.parse(fs.readFileSync(path.join(root, "detail.json")));
 test.use({ reducedMotion: "reduce" });
 
-function excerpt(want) {
+function excerpt(want, omitAnchor = false) {
   const captured = want.step === 1000 ? detail : overview;
   if (![1000,60000].includes(want.step)) throw new Error("The recorded proof covers only its original one-second and one-minute grids");
   const bins = [];
@@ -19,18 +19,25 @@ function excerpt(want) {
       {at,until:at+want.step,book:null,flow:null,groups:null,coveredMs:{trades:0,groups:0,book:0}});
   }
   return {...captured,from:want.from,to:want.to,step:want.step,asOf:want.as_of,bins,
-    anchor:want.from===detail.from&&want.step===1000 ? detail.anchor : null};
+    anchor:!omitAnchor&&want.from===detail.from&&want.step===1000 ? detail.anchor : null};
+}
+
+async function hoverAt(page, time) {
+  const canvas=page.locator("#ol-canvas"), box=await canvas.boundingBox(), layout=await canvas.evaluate(n=>n.dataset.layout.split(",").map(Number)),
+    times=await page.evaluate(()=>new URLSearchParams(location.hash.slice(1)).get("t").split("~").map(Date.parse));
+  await page.mouse.move(box.x+layout[0]+(time-times[0])/(times[1]-times[0])*layout[2],box.y+layout[14]+23);
 }
 
 test("Micro is lazy, restores its address and paints genuine flow/response in hover and Inspect", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor(profile,{strip:"off"}), calls=[];
+  let omitAnchor=false;
   await page.route(fake.url+"/", async route=>{
     const response=await route.fetch(), text=await response.text();
     await route.fulfill({response,body:text.replace("<head>",'<head><meta name="explorer-micro" content="/cube/micro">')});
   });
   await page.route("**/cube/micro?**",async route=>{
     const want=route.request().postDataJSON();calls.push(want);
-    await route.fulfill({json:excerpt(want)});
+    await route.fulfill({json:excerpt(want,omitAnchor)});
   });
   const hash="#mode=candles&t=2026-10-24T14:24:00Z~2026-10-24T14:32:00Z&p=79900~80400&vis=2&rc=1";
   await page.goto(fake.url+"/"+hash);await probe.waitForReady();
@@ -40,10 +47,7 @@ test("Micro is lazy, restores its address and paints genuine flow/response in ho
   await expect(page.locator("#ol-strip")).toHaveAttribute("data-state","ready");
   await expect.poll(()=>calls.filter(c=>c.step===60000).length).toBeGreaterThan(0);
   expect(new URLSearchParams(new URL(page.url()).hash.slice(1)).get("strip")).toBe("micro");
-  const canvas=page.locator("#ol-canvas"), box=await canvas.boundingBox(), layout=await canvas.evaluate(n=>n.dataset.layout.split(",").map(Number)),
-    times=await page.evaluate(()=>new URLSearchParams(location.hash.slice(1)).get("t").split("~").map(Date.parse)),
-    x=box.x+layout[0]+(detail.to+500-times[0])/(times[1]-times[0])*layout[2], y=box.y+layout[14]+23;
-  await page.mouse.move(x,y);
+  await hoverAt(page,detail.to+500);
   const card=page.locator('#ol-tip[data-presentation="strip-micro"]');
   await expect(card.locator(".ol-micro-plot")).toBeVisible();
   const net=detail.bins.reduce((s,b)=>s+b.flow.buy-b.flow.sell,0), latest=detail.bins.filter(b=>b.book).at(-1).book,
@@ -74,6 +78,13 @@ test("Micro is lazy, restores its address and paints genuine flow/response in ho
   await expect(inspector).toContainText(detail.sources.book.partitions[0][1]);
   await expect(inspector.locator("svg")).toHaveCount(0);
   expect(calls.every(c=>c.to<=c.as_of)).toBe(true);
+  // Deliberate protocol omission: withhold only the genuine pre-window anchor.
+  // The response must start at its first observed quote, never an invented origin.
+  omitAnchor=true;
   await page.reload(); await probe.waitForReady();
   await expect(page.locator("#ol-strip")).toHaveAttribute("aria-label","Strip: Micro");
+  await hoverAt(page,detail.to+500);
+  await expect(card).toContainText("Price baseline: first captured quote");
+  await page.keyboard.press("e");
+  await expect(inspector.locator("svg")).toContainText("First quote");
 });

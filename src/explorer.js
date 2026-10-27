@@ -16506,7 +16506,7 @@
     if (!baseline) { label("No captured book for price response", left, 105); return svg; }
     let net = 0, known = true;
     for (const row of rows) { known = known && row.flow !== null; if (known) net += row.flow.buy - row.flow.sell; row.net = known ? net : null; }
-    const values = [0, ...rows.flatMap(b => [b.bp, ...[b.flow?.buyVwap,b.flow?.sellVwap].map(v => Number.isFinite(v) ? (v / baseline.mid - 1) * 10000 : null)])].filter(Number.isFinite),
+    const values = [0, ...rows.flatMap(b => [b.bp, ...(map ? [] : [b.flow?.buyVwap,b.flow?.sellVwap].map(v => Number.isFinite(v) ? (v / baseline.mid - 1) * 10000 : null))])].filter(Number.isFinite),
       lo = Math.min(...values) - 1, hi = Math.max(...values) + 1,
       flows = [0,...rows.map(b => b.net).filter(Number.isFinite)], xmin = Math.min(...flows), xmax = Math.max(...flows), pad = Math.max(1, (xmax - xmin) * .12),
       X = v => left + (map ? (v - xmin + pad) / (xmax - xmin + 2 * pad) : v / 30) * (right - left),
@@ -16516,10 +16516,13 @@
     label("Δ mid · bp",left,16);
     if (map) {
       line([X(0),top],[X(0),bottom],"var(--ol-line)");
-      add("circle",{cx:X(0),cy:Y(0),r:3,fill:"var(--ol-surface)",stroke:"var(--ol-muted)"});
-      label("Start",Math.min(right-28,X(0)+6),Y(0)-7);
+      const firstKnown=rows.find(row=>row.bp!==null&&row.net!==null), start=body.anchor?[X(0),Y(0)]:firstKnown?[X(firstKnown.net),Y(firstKnown.bp)]:null;
+      if(start) {
+        add("circle",{cx:start[0],cy:start[1],r:3,fill:"var(--ol-surface)",stroke:"var(--ol-muted)"});
+        label(body.anchor?"Start":"First quote",Math.min(right-56,start[0]+6),start[1]-7);
+      }
       const lastKnown=rows.findLastIndex(row=>row.bp!==null&&row.net!==null);
-      let previous = [X(0),Y(0)];
+      let previous = body.anchor ? start : null;
       for (let i=0;i<rows.length;i++) { const row=rows[i]; if (row.bp===null || row.net===null) { previous=null; continue; }
         const next=[X(row.net),Y(row.bp)], tone=row.flow.buy===row.flow.sell?"var(--ol-ink)":row.flow.buy>row.flow.sell?"var(--ol-positive)":"var(--ol-negative)";
         if(previous)line(previous,next,tone,1.8); previous=next;
