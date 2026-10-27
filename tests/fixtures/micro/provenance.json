@@ -1,0 +1,9 @@
+{
+  "kind": "recorded",
+  "generator": null,
+  "seed": null,
+  "source": "Accepted Origo BTCUSDT spot source excerpts, Oct24 2026; exact native pins in each Micro response. capture.json retains interval, file hashes and precision notes.",
+  "extractedOn": "2026-10-27",
+  "expectationSource": "reference-calculator",
+  "notes": "Native response arithmetic was checked independently against genuine book, raw and aggregate rows in Origo test_market_state_micro.py. The main-chart harness encodes the same original executions in its supported units; no trades are generated."
+}

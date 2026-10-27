@@ -112,6 +112,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+from micro_bridge import MicroStore
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from market_state_reader import MarketStateError, query, read_table  # noqa: E402
 from rally_bridge import RallyStore  # noqa: E402
@@ -585,6 +587,7 @@ class Explorer:
         # older than the server it asks, and offers a reload.
         self.version = hashlib.sha256(page.read_bytes()).hexdigest()[:12]
         self.rallies = RallyStore(self, CUBE_URL, (CUBE_SLOT, MOTION_SLOT))
+        self.micro = MicroStore(self, CUBE_URL, MOTION_SLOT)
         self.investigations = InvestigationStore()
 
     def current_pack(self) -> tuple[dict, float]:
@@ -1024,7 +1027,7 @@ class Explorer:
         )
         if hits != 1:
             raise RuntimeError("index.html has no origo-lens-data block; run tools/build.py first.")
-        return replaced.encode()
+        return replaced.replace('</head>', '<meta name="explorer-micro" content="/cube/micro"></head>', 1).encode()
 
     def vendor_file(self, path: str) -> Path | None:
         """A file under vendor/ named by a flat file name; anything else is not served."""
@@ -1102,7 +1105,7 @@ class Handler(BaseHTTPRequestHandler):
         if url.path.startswith("/mill/"):
             self.mill(url.path)
             return
-        if url.path not in ("/cube/rallies", "/cube/rallies/view", "/cube/investigations"):
+        if url.path not in ("/cube/rallies", "/cube/rallies/view", "/cube/investigations", "/cube/micro"):
             self.json({"error": "not_found"}, 404)
             return
         try:
@@ -1133,10 +1136,10 @@ class Handler(BaseHTTPRequestHandler):
                 identity = self.explorer.investigations.put(raw)
                 self.json({"id": identity, "reference": "ref:" + identity}, 201)
                 return
-            operation = self.explorer.rallies.view if url.path.endswith("/view") else self.explorer.rallies.discover
+            operation = self.explorer.micro.query if url.path == "/cube/micro" else self.explorer.rallies.view if url.path.endswith("/view") else self.explorer.rallies.discover
             self.json(operation(body))
         except (ValueError, TypeError, KeyError) as error:
-            self.json({"error": "invalid_rally_request", "detail": str(error)}, 400)
+            self.json({"error": "invalid_micro_request" if url.path == "/cube/micro" else "invalid_rally_request", "detail": str(error)}, 400)
         except CubeChanged as error:
             self.json({"error": "cube_changed", "detail": str(error)}, 409)
         except FileNotFoundError:

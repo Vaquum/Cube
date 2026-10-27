@@ -3859,3 +3859,21 @@
 
 /* Retiring copies hold presentation without starting descendant feedback. */
 #origo-lens [data-flow-retiring], #origo-lens [data-flow-retiring] * { transition: none !important; animation: none !important; }
+
+/* Micro reuses the Strip's buy/bid and sell/ask roles. */
+#origo-lens [data-presentation="strip-micro"] { width: 354px; max-width: min(100%, calc(100vw - 32px)); box-sizing: border-box; }
+#origo-lens .ol-micro-hero { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 16px 0 12px; }
+#origo-lens .ol-micro-hero strong { font-size: 29px; font-weight: 500; letter-spacing: -.5px; }
+#origo-lens .ol-micro-hero b { font-size: 17px; font-weight: 500; }
+#origo-lens .ol-micro-hero > div:last-child { text-align: right; }
+#origo-lens .ol-micro-hero > div { min-width: 0; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-micro"] { width: 100%; min-width: 0; }
+#origo-lens .ol-micro-flow { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+#origo-lens .ol-micro-flow span::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; background: var(--ol-positive); }
+#origo-lens .ol-micro-flow [data-side="sell"]::before { background: var(--ol-negative); }
+#origo-lens .ol-micro-plot { display: block; width: 100%; }
+#origo-lens .ol-micro-plot text { font: inherit; font-size: 11px; }
+#origo-lens .ol-micro-book { display: flex; flex-direction: column; gap: 5px; margin: 12px 0; padding-top: 10px; border-top: 1px solid var(--ol-line); }
+#origo-lens .ol-micro-book span { color: var(--ol-muted); }
+#origo-lens .ol-micro-book b { font-weight: 500; }
+#origo-lens [data-presentation="strip-micro"] :is(.ol-tip-note,.ol-tip-sub) { font-size: var(--fs-s); line-height: 1.4; overflow-wrap: anywhere; }

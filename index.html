@@ -3880,6 +3880,24 @@
 /* Retiring copies hold presentation without starting descendant feedback. */
 #origo-lens [data-flow-retiring], #origo-lens [data-flow-retiring] * { transition: none !important; animation: none !important; }
 
+/* Micro reuses the Strip's buy/bid and sell/ask roles. */
+#origo-lens [data-presentation="strip-micro"] { width: 354px; max-width: min(100%, calc(100vw - 32px)); box-sizing: border-box; }
+#origo-lens .ol-micro-hero { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 16px 0 12px; }
+#origo-lens .ol-micro-hero strong { font-size: 29px; font-weight: 500; letter-spacing: -.5px; }
+#origo-lens .ol-micro-hero b { font-size: 17px; font-weight: 500; }
+#origo-lens .ol-micro-hero > div:last-child { text-align: right; }
+#origo-lens .ol-micro-hero > div { min-width: 0; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-micro"] { width: 100%; min-width: 0; }
+#origo-lens .ol-micro-flow { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+#origo-lens .ol-micro-flow span::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; background: var(--ol-positive); }
+#origo-lens .ol-micro-flow [data-side="sell"]::before { background: var(--ol-negative); }
+#origo-lens .ol-micro-plot { display: block; width: 100%; }
+#origo-lens .ol-micro-plot text { font: inherit; font-size: 11px; }
+#origo-lens .ol-micro-book { display: flex; flex-direction: column; gap: 5px; margin: 12px 0; padding-top: 10px; border-top: 1px solid var(--ol-line); }
+#origo-lens .ol-micro-book span { color: var(--ol-muted); }
+#origo-lens .ol-micro-book b { font-weight: 500; }
+#origo-lens [data-presentation="strip-micro"] :is(.ol-tip-note,.ol-tip-sub) { font-size: var(--fs-s); line-height: 1.4; overflow-wrap: anywhere; }
+
     </style>
   </head>
   <body>
@@ -16954,7 +16972,7 @@
   const cdcPanes = Object.freeze(["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"]);
   const cdcRowChoices = Object.freeze(["off", "volume", "delta", "relvol", "time"]);
   // The Strip's choices (#193): off, the forces summed, or one force alone.
-  const cdcStrips = Object.freeze(["off", "forces", "forces.macro", "forces.positioning", "forces.news", "forces.social"]);
+  const cdcStrips = Object.freeze(["off", "forces", "forces.macro", "forces.positioning", "forces.news", "forces.social", "micro"]);
   const cdcPeriodKeys = Object.freeze(["visible", "1d", "7d", "30d", "90d", "1y", "3y", "wk", "mo", "yr", "all"]);
   const cdcFollows = Object.freeze(["free", "refit", "coupled", "diagonal"]);
   // The navigation keys: a visual setting may never use one (place() is a regexp over them).
@@ -29603,7 +29621,8 @@
     const tip = el("tip"),
       waitingCell = hover?.emptyCell && !inspect.on && !lensShown() && !drag && canvas.matches(":hover");
     if (hover && last?.sc && (waitingCell || (!tip.hidden && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision
-      || tip.dataset.stripDetail === "compact" && stripRt.tipStamp !== stripReadoutStamp())))) tooltip(hover, { redraw: false });
+      || tip.dataset.stripDetail === "compact" && stripRt.tipStamp !== stripReadoutStamp()
+      || tip.dataset.presentation === "strip-micro" && tip.dataset.microRevision !== String(microRt.revision))))) tooltip(hover, { redraw: false });
     // The readout key is named on the tip only while the tip shows (the pointer leaving, a pan or a tool hides
     // it without going through tooltip()); the attribute stays, empty, so a reader can always find it.
     if (tip.hidden && tip.dataset.readout) tip.dataset.readout = "";
@@ -30091,7 +30110,13 @@
       b.tabIndex = id === s ? 0 : -1;
     }
     nav2.dataset.surface = s;
-    el("inspect-strip-view").value = inspect.stripPart;
+    const stripView = el("inspect-strip-view"), isMicro = S.strip === "micro";
+    for (const option of stripView.options) {
+      if (option.value === "forces") option.textContent = isMicro ? "Response map" : "Forces";
+      if (option.value === "ahead") option.disabled = option.hidden = isMicro;
+    }
+    if (isMicro && inspect.stripPart === "ahead") inspect.stripPart = "forces";
+    stripView.value = inspect.stripPart;
     // where the cursor stands, as numbers a reader of the page (and a test) can compare: the cell, row or column and whether it is in the view
     nav2.dataset.c = String(w.c);
     nav2.dataset.r = String(w.r);
@@ -30139,7 +30164,8 @@
         tipRows(tip, entry.name, "Calendar lines", [["Kind", entry.name], ["Drawn", occlusion.off.has("clock|" + entry.key) ? "no: held back by the 20% budget" : spaced(CLOCK[entry.key].gap) ? "yes" : "too close together at this zoom"]], "A calendar definition, not a measured trade event");
         if (event) calendarReferencePresentation(tip, { events: [event] });
         tip.hidden = false;
-      } else if (s === "strip" && (!stripRt.view || inspect.stripPart === "sources")) stripSourceCard(tip, stripFieldEdge(last.cut));
+      } else if (s === "strip" && S.strip === "micro") microTip(tip, Math.round(msAt(inspect.t)), stripEdge(last.cut), true);
+      else if (s === "strip" && (!stripRt.view || inspect.stripPart === "sources")) stripSourceCard(tip, stripFieldEdge(last.cut));
       else if (s === "strip" && inspect.stripPart === "ahead") stripAheadCard(tip, stripAheadEvents(stripFieldEdge(last.cut)).map((hit) => hit.e), stripFieldEdge(last.cut));
       else tooltip(hover, { redraw: false });
       inspect.forced = was;
@@ -33010,7 +33036,7 @@
       mode: "What the cells show.", pane: "What each column shows below the prices.",
     }[id] ?? rowSelectorSpecs[id]?.description };
     if (id === "mode") return [dataset, ...scaleSteps("cells")];
-    if (id === "strip") return [{ ...dataset, desc: "What the band under the prices shows." }, ...(S.strip === "off" ? [] : [{
+    if (id === "strip") return [{ ...dataset, desc: "What the band under the prices shows." }, ...(S.strip === "off" || S.strip === "micro" ? [] : [{
       id: "force", name: "Force", title: "Choose a force", desc: "All four summed, or one alone with only its own events.", group: stripForceChoices(),
     }])];
     if (id === "pane") return [dataset, ...(S.pane.startsWith("rsi") ? [{
@@ -39431,6 +39457,215 @@
   // on BTC lean (the hue), how much attention it gets (the intensity), each scheduled event's potential (light that builds toward it) and
   // each measured reaction (a seam). The data is /cube/strip, relayed by the bridge from Origo. Nothing is drawn that was not known by the
   // edge, the data's cutoff or the replay's, and no model reads text anywhere in it.
+  const MICRO_START = Date.UTC(2026, 9, 24, 13), MICRO_PAGE = 31 * 86400000;
+  const microRt = { status: "idle", error: "", key: "", pages: [], controller: null, timer: 0,
+    details: new Map(), wanted: null, detailController: null, detailTimer: 0, detailError: "", revision: 0 };
+  function microSchedule(wait = 200) {
+    if (microRt.timer || microRt.controller) return;
+    if (S.strip !== "micro" || !PACK.live || !ready || activeAnalysis?.mode === "captured" || !Number.isFinite(wait)) return;
+    microRt.timer = setTimeout(() => { microRt.timer = 0; microPump(); }, Math.max(200, wait));
+  }
+  async function microRead(want, controller) {
+    const response = await fetch(`/cube/micro?proto=${PROTOCOL}`, { method: "POST", cache: "no-store",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(want),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]) });
+    const body = await response.json();
+    offerReload(body);
+    if (!response.ok) throw new Error(body.detail ?? body.error ?? `HTTP ${response.status}`);
+    if (body.schema !== "origo-micro@1" || body.from !== want.from || body.to !== want.to || body.step !== want.step || body.asOf !== want.as_of
+        || !Array.isArray(body.bins) || body.bins.length !== (want.to - want.from) / want.step
+        || body.bins.some((b, i) => b.at !== want.from + i * want.step || b.until !== b.at + want.step
+          || !b.coveredMs || Object.values(b.coveredMs).some(v => !Number.isInteger(v) || v < 0 || v > want.step)
+          || b.book && (!Number.isFinite(b.book.mid) || b.book.mid <= 0 || b.book.exchangeTimeUs < b.at * 1000
+            || b.book.exchangeTimeUs >= b.until * 1000 || b.book.observedAtUs >= want.as_of * 1000)
+          || b.flow && [b.flow.buy, b.flow.sell, b.flow.count].some(v => !Number.isFinite(v) || v < 0))) throw new Error("Invalid Micro response");
+    return body;
+  }
+  async function microPump() {
+    if (S.strip !== "micro" || !ready || !PACK.live || activeAnalysis?.mode === "captured") return;
+    const edge = stripEdge(activeCutoff()), start = Math.max(MICRO_START, msAt(S.tA)), end = Math.min(edge, msAt(S.tB)),
+      span = Math.max(60000, end - start), steps = [60000, 300000, 900000, 3600000, 21600000, 86400000],
+      step = steps.find(s => span / s <= Math.max(300, 2 * G.w)) ?? Math.ceil(span / Math.max(300, 2 * G.w) / 86400000) * 86400000,
+      from = Math.floor(start / step) * step, to = Math.min(Math.ceil(end / step) * step, Math.floor(edge / step) * step),
+      key = [PACK.state_token, from, to, step, edge].join("|");
+    if (microRt.key === key) return;
+    microRt.controller?.abort();
+    const controller = new AbortController();
+    microRt.controller = controller; microRt.key = key; microRt.pages = []; microRt.error = ""; microRt.status = "loading";
+    try {
+      const pageWidth = Math.floor(MICRO_PAGE / step) * step;
+      if (!pageWidth) throw new Error("Choose a closer time view for Micro");
+      for (let at = from; at < to; at += pageWidth) {
+        const body = await microRead({ pack: PACK.state_token, from: at, to: Math.min(to, at + pageWidth), step, as_of: edge }, controller);
+        if (controller.signal.aborted || microRt.key !== key || S.strip !== "micro" || activeAnalysis?.mode === "captured") return;
+        microRt.pages.push(body); microRt.status = "ready"; microRt.revision++; requestDraw();
+      }
+      microRt.status = "ready";
+    } catch (error) {
+      if (!controller.signal.aborted && microRt.key === key) { microRt.status = "failed"; microRt.error = error.message; }
+    } finally {
+      if (microRt.controller === controller) { microRt.controller = null; renderStrip(); requestDraw(); }
+    }
+  }
+  function microAt(ms, edge) {
+    if (!microRt.key.startsWith(PACK.state_token + "|")) return null;
+    for (const page of microRt.pages) if (ms >= page.from && ms < page.to) {
+      const bin = page.bins[Math.floor((ms - page.from) / page.step)];
+      return bin.until <= edge && (!bin.book || bin.book.observedAtUs < edge * 1000) ? bin : null;
+    }
+    return null;
+  }
+  function microPaint(cut) {
+    stripRt.hits = []; stripRt.horizon = null; stripRt.coverage = ""; stripRt.coverageStats = null;
+    if (!G.bh) return;
+    const top = G.by + STRIP_LABELS, edge = stripEdge(cut), right = Math.min(G.x + G.w, G.X(cut));
+    ctx.save(); ctx.fillStyle = colors.surface; ctx.fillRect(G.x, top, G.w, STRIP_BAND);
+    text("Micro", G.x - 2, top + STRIP_BAND / 2, colors.muted, "right");
+    if (activeAnalysis?.mode === "captured") { text("Micro data was not captured in this investigation", G.x + 6, top + STRIP_BAND / 2, colors.muted); ctx.restore(); return; }
+    ctx.beginPath(); ctx.rect(G.x, top, G.w, STRIP_BAND); ctx.clip();
+    let observed = 0;
+    const missing = [], partial = [], flowMissing = [], half = (STRIP_BAND - 4) / 2,
+      mark = (runs,x) => { const last=runs.at(-1); if(last&&last[1]===x)last[1]=x+1;else runs.push([x,x+1]); };
+    for (let x = Math.ceil(G.x); x < right; x++) {
+      const ms = Math.min(msAt(G.X.invert(x + .5)), edge - 1), b = microAt(ms, edge), book = b?.book;
+      if (!book || book.bid === null || book.ask === null) mark(missing,x);
+      else {
+        observed++;
+        const total = book.bid + book.ask;
+        ctx.globalAlpha = total ? book.ask / total : 0; ctx.fillStyle = colors.negative; ctx.fillRect(x, top + 1, 1, half);
+        ctx.globalAlpha = total ? book.bid / total : 0; ctx.fillStyle = colors.positive; ctx.fillRect(x, top + half + 3, 1, half);
+      }
+      if (b?.flow && b.flow.buy + b.flow.sell > 0) {
+        const lean = (b.flow.buy - b.flow.sell) / (b.flow.buy + b.flow.sell);
+        ctx.globalAlpha = Math.abs(lean); ctx.fillStyle = lean >= 0 ? colors.positive : colors.negative; ctx.fillRect(x, top + half + 1, 1, 2);
+      }
+      ctx.globalAlpha = 1;
+      if (!b?.flow) mark(flowMissing,x);
+      if (book && book.seconds * 1000 < b.until - b.at) mark(partial,x);
+    }
+    ctx.globalAlpha = 1;
+    for(const [a,b] of missing) { hatchRect(a,top,b-a,half,colors.state,7,.3); hatchRect(a,top+half+3,b-a,half,colors.state,7,.3); }
+    for(const [a,b] of flowMissing)hatchRect(a,top+half+1,b-a,2,colors.state,7,.55);
+    for(const [a,b] of partial)hatchRect(a,top+STRIP_BAND-3,b-a,3,colors.state,7,.55);
+    if (!observed) text(microRt.status === "failed" ? `Micro unavailable: ${microRt.error}` : ["idle","loading"].includes(microRt.status) ? "Reading Micro…" : "No captured book in view", G.x + 6, top + STRIP_BAND / 2, colors.muted);
+    if (S.replay) hatchRect(right, top, G.x + G.w - right, STRIP_BAND, colors.state, 11, .3);
+    ctx.restore(); renderStrip(); microSchedule();
+  }
+  function microWantDetail(end, edge) {
+    const want = { pack: PACK.state_token, from: end - 30000, to: end, step: 1000, as_of: Math.min(end, edge) }, key = JSON.stringify(want);
+    if (microRt.details.has(key) || microRt.wanted?.key === key) return key;
+    microRt.wanted = { key, want }; microRt.detailError = "";
+    clearTimeout(microRt.detailTimer); microRt.detailController?.abort();
+    microRt.detailTimer = setTimeout(async () => {
+      if (S.strip !== "micro" || activeAnalysis?.mode === "captured") return;
+      const controller = new AbortController(); microRt.detailController = controller;
+      try {
+        const body = await microRead(want, controller);
+        if (!controller.signal.aborted && microRt.wanted?.key === key && S.strip === "micro") {
+          microRt.details.set(key, body);
+          while (microRt.details.size > 4) microRt.details.delete(microRt.details.keys().next().value);
+        }
+      } catch (error) { if (!controller.signal.aborted && microRt.wanted?.key === key) microRt.detailError = error.message; }
+      finally { if (microRt.detailController === controller) { microRt.detailController = null; microRt.revision++; requestDraw(); } }
+    }, 250);
+    return key;
+  }
+  function microTip(tip, ms, edge, detailed = false) {
+    scaleRt.tipReadout = null; delete tip.dataset.observation; delete tip.dataset.compactHistories;
+    tip.dataset.presentation = "strip-micro"; tip.dataset.microRevision = String(microRt.revision); delete tip.dataset.stripDetail;
+    tip.replaceChildren(uiEl("div", "ol-tip-head", "Micro · flow & response"));
+    const note = value => tip.append(uiEl("div", "ol-tip-note", value));
+    if (activeAnalysis?.mode === "captured") { note("Micro data was not captured in this investigation"); return; }
+    if (ms === null) { note("Upper lane: resting offers. Lower lane: resting bids. Their shade shows share of captured depth within 0.1 bp. Middle line: net aggressive flow. Hatching: unavailable or incomplete book."); return; }
+    if (ms >= edge) { note("Micro is unavailable at or beyond the data or replay edge"); return; }
+    const end = Math.floor(Math.min(ms, edge) / 1000) * 1000;
+    if (end - 30000 < MICRO_START) { note("No complete Micro window before the book capture began"); return; }
+    const key = microWantDetail(end, edge), body = microRt.details.get(key);
+    tip.append(uiEl("div", "ol-tip-sub", `BTCUSDT · Spot · ${new Date(end).toISOString().slice(11,19)} UTC · preceding 30s`));
+    if (!body) { note(microRt.detailError ? `Micro unavailable: ${microRt.detailError}` : "Reading pinned book and executions…"); return; }
+    if (detailed && inspect.stripPart === "sources") {
+      for (const [name, source] of Object.entries(body.sources)) {
+        note(`${name}: ${source.source}`);
+        for (const [partition,revision,build] of source.partitions) note(`${partition} · revision ${revision} · build ${build}`);
+      }
+      for (const method of Object.values(body.method)) note(method);
+      note("Accepted-source historical reconstruction; trade corrections do not claim historical first-publication knowledge.");
+      return;
+    }
+    const complete = body.bins.every(b => b.flow !== null), grouped = body.bins.every(b => b.groups !== null),
+      samples = body.bins.filter(b => b.book).map(b => b.book), baseline = body.anchor ?? samples[0], latest = samples.at(-1),
+      buys = complete ? d3.sum(body.bins, b => b.flow.buy) : null, sells = complete ? d3.sum(body.bins, b => b.flow.sell) : null,
+      move = baseline && latest ? (latest.mid / baseline.mid - 1) * 10000 : null,
+      fmt = v => v === null || !Number.isFinite(v) ? "—" : `${v < 0 ? "−" : v > 0 ? "+" : ""}${Math.abs(v).toFixed(2)}`,
+      money = v => v === null || !Number.isFinite(v) ? "—" : `${v < 0 ? "−" : ""}$${compact(Math.abs(v))}`;
+    const hero = uiEl("div", "ol-micro-hero"), response = uiEl("div"), aggression = uiEl("div");
+    response.append(uiEl("div", "ol-tip-sub", "Observed Δ mid"), uiEl("strong", "", `${fmt(move)} bp`));
+    aggression.append(uiEl("div", "ol-tip-sub", "Net aggression"), uiEl("b", "", complete ? money(buys - sells) : "Incomplete flow")); hero.append(response, aggression); tip.append(hero);
+    const flow = uiEl("div", "ol-micro-flow");
+    for (const [side,label,value] of [["buy","Buys",buys],["sell","Sells",sells]]) { const item = uiEl("span", "", `${label} ${money(value)}`); item.dataset.side = side; flow.append(item); }
+    tip.append(flow);
+    tip.append(microPlot(body, detailed, baseline, (detailed ? el("inspect-readout").clientWidth : tip.clientWidth) - 24));
+    note(detailed ? "Net aggressive USDT → · observed Δ mid ↑ · line follows time" : "Buys / sells: bubble area is USDT at execution VWAP · line: mid");
+    const book = uiEl("div", "ol-micro-book"); book.append(uiEl("span", "", "At last quote · within 0.1 bp"), uiEl("b", "", `Bid ${money(latest?.bid ?? null)} · Ask ${money(latest?.ask ?? null)}`)); tip.append(book);
+    const groupCount = grouped ? d3.sum(body.bins, b => b.groups.count) : null,
+      gross = grouped ? d3.sum(body.bins, b => b.groups.buy + b.groups.sell) : null;
+    note(grouped ? `${compact(groupCount)} exchange groups · mean ${groupCount ? money(gross / groupCount) : "—"} · ${complete ? compact(d3.sum(body.bins, b => b.flow.count)) : "Incomplete"} executions` : "Aggregate grouping unavailable");
+    note(`${samples.length}/30 book seconds · 20 levels/side · 1 Hz`);
+    if (latest && (latest.bid === null || latest.ask === null)) note("The 0.1 bp radius extends beyond captured depth");
+    if (latest) note(`Quote ${new Date(latest.exchangeTimeUs / 1000).toISOString().slice(11,23)} · received ${new Date(latest.observedAtUs / 1000).toISOString().slice(11,23)} UTC`);
+    if (!body.anchor) note("Price baseline: first captured quote in this window");
+    if (!detailed) note("Inspect → Strip: response map and source evidence");
+    else note("Source evidence: select Sources above. This is observed response, not a causal impact estimate.");
+  }
+  function microPlot(body, map, baseline, available) {
+    const w = Math.max(220, Math.min(320, available > 0 ? available : window.innerWidth - 64)), h = 224, left = 39, right = w - 12, top = 34, bottom = 174,
+      svg = stripSvg("svg", { viewBox: `0 0 ${w} ${h}`, class: "ol-micro-plot", role: "img", "aria-label": map ? "Cumulative net aggressive volume against observed mid-price change" : "Thirty-second trade VWAPs, mid-price and resting liquidity" }),
+      add = (tag, attrs, text) => { const e = stripSvg(tag, attrs); if (text !== undefined) e.textContent = text; svg.append(e); return e; },
+      label = (text, x, y, anchor = "start") => add("text", { x, y, "text-anchor": anchor, fill: "var(--ol-muted)" }, text),
+      rows = body.bins.map(b => ({ ...b, bp: baseline && b.book ? (b.book.mid / baseline.mid - 1) * 10000 : null }));
+    if (!baseline) { label("No captured book for price response", left, 105); return svg; }
+    let net = 0, known = true;
+    for (const row of rows) { known = known && row.flow !== null; if (known) net += row.flow.buy - row.flow.sell; row.net = known ? net : null; }
+    const values = [0, ...rows.flatMap(b => [b.bp, ...[b.flow?.buyVwap,b.flow?.sellVwap].map(v => Number.isFinite(v) ? (v / baseline.mid - 1) * 10000 : null)])].filter(Number.isFinite),
+      lo = Math.min(...values) - 1, hi = Math.max(...values) + 1,
+      flows = [0,...rows.map(b => b.net).filter(Number.isFinite)], xmin = Math.min(...flows), xmax = Math.max(...flows), pad = Math.max(1, (xmax - xmin) * .12),
+      X = v => left + (map ? (v - xmin + pad) / (xmax - xmin + 2 * pad) : v / 30) * (right - left),
+      Y = v => bottom - (v - lo) / (hi - lo) * (bottom - top),
+      line = (a,b,tone,width=1) => add("line",{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:tone,"stroke-width":width});
+    for (const v of [lo,0,hi]) { line([left,Y(v)],[right,Y(v)],"var(--ol-line)"); label(v.toFixed(1),left-6,Y(v)+4,"end"); }
+    label("Δ mid · bp",left,16);
+    if (map) {
+      line([X(0),top],[X(0),bottom],"var(--ol-line)");
+      add("circle",{cx:X(0),cy:Y(0),r:3,fill:"var(--ol-surface)",stroke:"var(--ol-muted)"});
+      label("Start",Math.min(right-28,X(0)+6),Y(0)-7);
+      const lastKnown=rows.findLastIndex(row=>row.bp!==null&&row.net!==null);
+      let previous = [X(0),Y(0)];
+      for (let i=0;i<rows.length;i++) { const row=rows[i]; if (row.bp===null || row.net===null) { previous=null; continue; }
+        const next=[X(row.net),Y(row.bp)], tone=row.flow.buy===row.flow.sell?"var(--ol-ink)":row.flow.buy>row.flow.sell?"var(--ol-positive)":"var(--ol-negative)";
+        if(previous)line(previous,next,tone,1.8); previous=next;
+        if(i===lastKnown) {
+          const total=(row.book.bid??0)+(row.book.ask??0), radius=8, circle=2*Math.PI*radius;
+          add("circle",{cx:next[0],cy:next[1],r:radius,fill:"var(--ol-surface)",stroke:"var(--ol-ink)","stroke-width":1});
+          if(row.book.bid!==null&&row.book.ask!==null&&total>0) {
+            add("circle",{cx:next[0],cy:next[1],r:radius,fill:"none",stroke:"var(--ol-negative)","stroke-width":3});
+            add("circle",{cx:next[0],cy:next[1],r:radius,fill:"none",stroke:"var(--ol-positive)","stroke-width":3,"stroke-dasharray":`${circle*row.book.bid/total} ${circle}`,transform:`rotate(-90 ${next[0]} ${next[1]})`});
+          }
+          add("circle",{cx:next[0],cy:next[1],r:2,fill:"var(--ol-ink)"});
+        }
+      }
+      for(const v of [xmin,0,xmax].filter((v,i,a)=>a.indexOf(v)===i))label(compact(v),X(v),196,"middle");
+      label("Net aggressive volume · USDT",(left+right)/2,219,"middle");
+    } else {
+      const depth = Math.max(1,...rows.flatMap(b=>[b.book?.bid,b.book?.ask]).filter(Number.isFinite)), volume = Math.max(1,...rows.flatMap(b=>[b.flow?.buy,b.flow?.sell]).filter(Number.isFinite));
+      for(let i=0;i<rows.length;i++) { const row=rows[i],x=X(i+.5);
+        for(const [side,y,tone] of [["ask",21,"var(--ol-negative)"],["bid",186,"var(--ol-positive)"]])if(Number.isFinite(row.book?.[side]))add("rect",{x:X(i),y,width:(right-left)/30,height:9,fill:tone,opacity:Math.log1p(row.book[side])/Math.log1p(depth)});
+        for(const [side,tone] of [["buy","var(--ol-positive)"],["sell","var(--ol-negative)"]])if(row.flow?.[side]>0&&Number.isFinite(row.flow[side+"Vwap"]))add("circle",{cx:x,cy:Y((row.flow[side+"Vwap"]/baseline.mid-1)*10000),r:Math.sqrt(row.flow[side]/volume)*7,fill:tone,opacity:.55});
+        if(row.bp!==null&&i&&rows[i-1].bp!==null)line([X(i-.5),Y(rows[i-1].bp)],[x,Y(row.bp)],"var(--ol-ink)",1.7);
+      }
+      label("Offers · depth shade (log)",right,15,"end"); label("Bids",left,211); label("−30s",X(0),223); label("Edge",X(30),223,"end");
+    }
+    return svg;
+  }
   const STRIP_FORCES = ["macro", "positioning", "news", "social"],
     STRIP_NAMES = { forces: "Forces", macro: "Macro", positioning: "Positioning", news: "News", social: "Social", attention: "Attention" },
     STRIP_WHAT = {
@@ -39440,7 +39675,7 @@
       news: "The tone of coverage",
       social: "Bullish against bearish words",
     },
-    STRIP_CHOICES = ["off", "forces", ...STRIP_FORCES.map((f) => "forces." + f)],
+    STRIP_CHOICES = ["off", "forces", ...STRIP_FORCES.map((f) => "forces." + f), ...(document.querySelector('meta[name="explorer-micro"]') ? ["micro"] : [])],
     STRIP_STEPS = [900000, 3600000, 21600000, 86400000],
     STRIP_HOUR = 3600000,
     STRIP_DAY = 86400000,
@@ -39493,6 +39728,8 @@
   function setStrip(value) {
     if (!stripChoices().includes(value)) return;
     S.strip = value;
+    if (value !== "micro") { microRt.controller?.abort(); microRt.detailController?.abort(); clearTimeout(microRt.timer); clearTimeout(microRt.detailTimer); microRt.timer = 0; microRt.key = ""; microRt.wanted = null; }
+    else { stripRt.busy?.controller.abort(); clearTimeout(stripRt.timer); }
     // Off reads nothing more, and abandons a read under way.
     if (value === "off") stripRt.busy?.controller.abort();
     update();
@@ -39538,6 +39775,7 @@
   }
   const stripCovers = (held, want) => Boolean(held) && held.step === want.step && held.from <= want.need[0] && held.to > want.need[1];
   function scheduleStrip(wait = 200) {
+    if (S.strip === "micro") { microSchedule(wait); return; }
     clearTimeout(stripRt.timer); stripRt.timer = 0;
     if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured" || !Number.isFinite(wait)) return;
     stripRt.timer = setTimeout(pumpStrip, Math.max(200, wait));
@@ -39545,6 +39783,7 @@
   // One read at a time, in no slot of the cube's: the view's grid first, then the history. A grid that failed is asked for again only
   // after a minute, and a held one again once it is five minutes old (the view at the live edge) or half an hour (the history).
   async function pumpStrip() {
+    if (S.strip === "micro") return;
     // A bridge that answers that the strip is not configured is believed until the page is loaded again.
     if (S.strip === "off" || !PACK.live || !STRIP_SERVED || stripRt.busy || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured") return;
     const view = stripViewWant(), history = stripHistoryWant(), now = performance.now(),
@@ -39715,6 +39954,7 @@
   // values end, the light through its middle, the seams, and the labels of the lit events above it (docs/strip.md, What the page
   // computes).
   function paintStrip(cut) {
+    if (S.strip === "micro") { microPaint(cut); return; }
     stripRt.hits = [];
     stripRt.horizon = null;
     stripRt.coverage = "";
@@ -39931,6 +40171,7 @@
   }
   // The card under the pointer: an event near it, the events ahead in the horizon, or the forces at its time.
   function stripTip(tip, p, cut) {
+    if (S.strip === "micro") { microTip(tip, p.x < G.x ? null : Math.round(msAt(p.t)), stripEdge(cut)); return; }
     const edge = stripFieldEdge(cut);
     if (!stripRt.view || p.x < G.x) {
       stripSourceCard(tip, edge);
@@ -40422,11 +40663,11 @@
   }
   // The Strip's selector: its name and choice, written only when they change, and its state for a reader of the page.
   function renderStrip() {
-    const button = el("strip"), force = stripForce(), value = S.strip === "off" ? "Off" : force ? `Forces · ${STRIP_NAMES[force]}` : "Forces";
+    const button = el("strip"), force = stripForce(), value = S.strip === "off" ? "Off" : S.strip === "micro" ? "Micro" : force ? `Forces · ${STRIP_NAMES[force]}` : "Forces";
     if (el("strip-text").textContent !== value) el("strip-text").textContent = value;
     if (button.getAttribute("aria-label") !== `Strip: ${value}`) button.setAttribute("aria-label", `Strip: ${value}`);
     if (button.dataset.strip !== S.strip) button.dataset.strip = S.strip;
-    const state = S.strip === "off" ? "off" : stripRt.status;
+    const state = S.strip === "off" ? "off" : S.strip === "micro" ? microRt.status : stripRt.status;
     if (button.dataset.state !== state) button.dataset.state = state;
     const coverage = S.strip === "off" ? "" : stripRt.coverage;
     if (button.dataset.coverage !== coverage) button.dataset.coverage = coverage;
@@ -40444,7 +40685,9 @@
     return [
       flowDatasetItem("strip", "off", { name: "Off", desc: "No band under the prices" }, S.strip === "off", true, () => setStrip("off")),
       flowDatasetItem("strip", "forces", { name: "Forces", desc: STRIP_SERVED ? "Where the forces acting on BTC lean, and the events ahead" : "Not served here yet: the band will say so" },
-        S.strip !== "off", stripChoices().includes("forces"), () => setStrip(S.strip === "off" ? "forces" : S.strip)),
+        S.strip.startsWith("forces"), stripChoices().includes("forces"), () => setStrip(S.strip.startsWith("forces") ? S.strip : "forces")),
+      ...(stripChoices().includes("micro") ? [flowDatasetItem("strip", "micro", { name: "Micro", desc: "Resting liquidity, executed flow and observed price response" },
+        S.strip === "micro", true, () => setStrip("micro"))] : []),
     ];
   }
   function stripForceChoices() {
@@ -48963,6 +49206,7 @@
       activeAnalysis = value; analysisRevision++;
       clearTimeout(stripRt.timer); stripRt.busy?.controller.abort();
       stripRt = value.mode === "captured" ? stripRuntime("uncaptured") : stripLive;
+      if (value.mode === "captured") { microRt.controller?.abort(); microRt.detailController?.abort(); clearTimeout(microRt.timer); clearTimeout(microRt.detailTimer); microRt.timer = 0; microRt.key = ""; microRt.wanted = null; }
       clearTimeout(live.timer); clearTimeout(cube.timer); clearTimeout(motion.timer);
       cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
