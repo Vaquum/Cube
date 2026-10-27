@@ -39495,7 +39495,10 @@
       step = steps.find(s => span / s <= Math.max(300, 2 * G.w)) ?? Math.ceil(span / Math.max(300, 2 * G.w) / 86400000) * 86400000,
       from = Math.floor(start / step) * step, to = Math.min(Math.ceil(end / step) * step, Math.floor(edge / step) * step),
       key = [PACK.state_token, from, to, step, edge].join("|");
-    if (microRt.key === key && (microRt.status !== "failed" || performance.now() < microRt.retryAt)) return;
+    if (microRt.key === key) {
+      if (microRt.status !== "failed") return;
+      if (performance.now() < microRt.retryAt) { microSchedule(); return; }
+    }
     microRt.controller?.abort();
     const controller = new AbortController();
     microRt.controller = controller; microRt.key = key; microRt.pages = []; microRt.error = ""; microRt.status = "loading";
