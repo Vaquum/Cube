@@ -7,6 +7,14 @@ const root = path.resolve(__dirname, "../fixtures/micro"),
   overview = JSON.parse(fs.readFileSync(path.join(root, "overview.json"))),
   detail = JSON.parse(fs.readFileSync(path.join(root, "detail.json")));
 test.use({ reducedMotion: "reduce" });
+const hash="#mode=candles&t=2026-10-24T14:24:00Z~2026-10-24T14:32:00Z&p=79900~80400&vis=2&rc=1";
+
+async function declareMicro(page, fake) {
+  await page.route(fake.url+"/", async route=>{
+    const response=await route.fetch(), text=await response.text();
+    await route.fulfill({response,body:text.replace("<head>",'<head><meta name="explorer-micro" content="/cube/micro">')});
+  });
+}
 
 function excerpt(want, omitAnchor = false) {
   const captured = want.step === 1000 ? detail : overview;
@@ -22,24 +30,20 @@ function excerpt(want, omitAnchor = false) {
     anchor:!omitAnchor&&want.from===detail.from&&want.step===1000 ? detail.anchor : null};
 }
 
-async function hoverAt(page, time) {
+async function hoverAt(page, time, band = true) {
   const canvas=page.locator("#ol-canvas"), box=await canvas.boundingBox(), layout=await canvas.evaluate(n=>n.dataset.layout.split(",").map(Number)),
     times=await page.evaluate(()=>new URLSearchParams(location.hash.slice(1)).get("t").split("~").map(Date.parse));
-  await page.mouse.move(box.x+layout[0]+(time-times[0])/(times[1]-times[0])*layout[2],box.y+layout[14]+23);
+  await page.mouse.move(box.x+layout[0]+(time-times[0])/(times[1]-times[0])*layout[2],box.y+(band?layout[14]+23:layout[1]+layout[3]/2));
 }
 
 test("Micro is lazy, restores its address and paints genuine flow/response in hover and Inspect", async ({ page, fakeFor, probe }) => {
   const fake = await fakeFor(profile,{strip:"off"}), calls=[];
   let omitAnchor=false;
-  await page.route(fake.url+"/", async route=>{
-    const response=await route.fetch(), text=await response.text();
-    await route.fulfill({response,body:text.replace("<head>",'<head><meta name="explorer-micro" content="/cube/micro">')});
-  });
+  await declareMicro(page, fake);
   await page.route("**/cube/micro?**",async route=>{
     const want=route.request().postDataJSON();calls.push(want);
     await route.fulfill({json:excerpt(want,omitAnchor)});
   });
-  const hash="#mode=candles&t=2026-10-24T14:24:00Z~2026-10-24T14:32:00Z&p=79900~80400&vis=2&rc=1";
   await page.goto(fake.url+"/"+hash);await probe.waitForReady();
   expect(calls).toHaveLength(0);
   await page.locator("#ol-strip").click();
@@ -87,4 +91,70 @@ test("Micro is lazy, restores its address and paints genuine flow/response in ho
   await expect(card).toContainText("Price baseline: first captured quote");
   await page.keyboard.press("e");
   await expect(inspector.locator("svg")).toContainText("First quote");
+});
+
+test("Micro retries failed overview and uncached Inspect reads, then refreshes Response map and Sources without cursor movement", async ({page, fakeFor, probe, allowConsole})=>{
+  allowConsole(/503/);
+  const fake=await fakeFor(profile,{strip:"off"});
+  await declareMicro(page,fake);
+  const failNext=()=>fake.on({route:"/cube/micro",times:1}).fail({status:503,body:{error:"query_busy"}});
+  failNext();
+  let overviewCalls=0,detailCalls=0,release;
+  let gate=new Promise(resolve=>{release=resolve;});
+  await page.route("**/cube/micro?**",async route=>{
+    const want=route.request().postDataJSON();
+    // Deliberate transport faults: omit no captured market rows or values.
+    const first=want.step===1000?++detailCalls===1:++overviewCalls===1;
+    if(first){const response=await route.fetch();expect(response.status()).toBe(503);await route.fulfill({response});return;}
+    if(want.step===1000)await gate;
+    await route.fulfill({json:excerpt(want)});
+  });
+  for(const part of ["forces","sources"]){
+    if(part==="sources"){
+      detailCalls=0;gate=new Promise(resolve=>{release=resolve;});
+      await page.reload();
+    }else await page.goto(fake.url+"/"+hash+"&strip=micro");
+    await probe.waitForReady();
+    await expect(page.locator("#ol-strip")).toHaveAttribute("data-state","ready",{timeout:15000});
+    failNext();
+    await hoverAt(page,detail.to+500,false);
+    await page.keyboard.press("e");
+    await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
+    if(part==="sources")await page.locator("#ol-inspect-strip-view").selectOption(part);
+    const readout=page.locator("#ol-inspect-readout");
+    await expect(readout).toContainText("Micro unavailable");
+    await expect.poll(()=>detailCalls,{timeout:15000}).toBe(2);
+    release();
+    if(part==="sources")await expect(readout).toContainText(detail.sources.book.partitions[0][1]);
+    else await expect(readout.locator("svg")).toHaveAttribute("aria-label",/Cumulative net aggressive/);
+  }
+  expect(overviewCalls).toBeGreaterThanOrEqual(2);
+});
+
+test("Micro caps wide-view pages at 4096 bins and the Query summary and copied view name its own book receipt",async({page,fakeFor,probe})=>{
+  await page.setViewportSize({width:3000,height:950});
+  // Extend only the protocol's held cutoff to exercise a three-day viewport.
+  // The immutable captured executions are unchanged; all other market bins stay unavailable.
+  const fake=await fakeFor({...profile,cutoffIso:"2026-10-27T14:32:00Z"},{strip:"off"}),calls=[];
+  await declareMicro(page,fake);
+  await page.route("**/cube/micro?**",async route=>{
+    const want=route.request().postDataJSON();calls.push(want);
+    expect(want.step,"The wide viewport must retain one-minute book bins").toBe(60000);
+    await route.fulfill({json:excerpt(want)});
+  });
+  await page.goto(fake.url+"/#mode=candles&t=2026-10-24T14:24:00Z~2026-10-27T14:24:00Z&p=79900~80400&vis=2&rc=1&strip=micro");
+  await probe.waitForReady();
+  await expect(page.locator("#ol-strip")).toHaveAttribute("data-state","ready");
+  await expect.poll(()=>calls.length).toBeGreaterThan(1);
+  expect(calls.every(w=>(w.to-w.from)/w.step<=4096&&w.to-w.from<=31*86400000)).toBe(true);
+  await page.locator("#ol-tab-query").click();
+  const row=page.locator('#ol-summary [data-field="strip"]');
+  await expect(row).toHaveAttribute("data-value","micro");
+  await expect(row).toContainText("Micro");
+  await expect(row).not.toContainText("Forces");
+  await expect(row).not.toContainText("field data");
+  await expect(row).toContainText(new Date(Math.max(...overview.bins.filter(b=>b.book).map(b=>b.book.observedAtUs))/1000).toISOString());
+  await page.evaluate(()=>Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async text=>{window.copiedMicroSummary=text;}}}));
+  await page.locator("#ol-copy-summary").click();
+  await expect.poll(()=>page.evaluate(()=>window.copiedMicroSummary)).toContain("Strip: Micro");
 });

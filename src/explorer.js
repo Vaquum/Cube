@@ -7339,7 +7339,7 @@
   // A draw that changed what the cursor stands on (the view, the level, the data) reads it again, so a pan or a refresh never leaves a stale readout.
   function inspectSync() {
     if (!inspect.on) return;
-    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", rowReadoutStamp(), comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.strip, stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
+    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", rowReadoutStamp(), comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.strip, microRt.revision, stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
     if (sig === inspect.sig) return;
     inspect.sig = sig;
     inspectRender(false, false);
@@ -9275,7 +9275,14 @@
     ];
     if (S.background !== "off") view.push(row("backgroundMeasure", "Background", `${ROWS_INFO[S.background].name} ${periodPhrase(S.backgroundPeriod)}`, `${S.background}:${S.backgroundPeriod}`));
     if (S.rows !== "off") view.push(row("rowsMeasure", "Rows", `${ROWS_INFO[S.rows].name} ${periodPhrase(S.period)}`, `${S.rows}:${S.period}`));
-    if (S.strip !== "off")
+    if (S.strip === "micro") {
+      const observed = microRt.key.startsWith(PACK.state_token + "|") ? d3.max(microRt.pages, page => d3.max(page.bins,
+        bin => bin.until <= cutMs && bin.book?.observedAtUs < cutMs * 1000 ? bin.book.observedAtUs : undefined)) : undefined,
+        status = activeAnalysis?.mode === "captured" ? "not captured in this investigation"
+          : microRt.status === "failed" ? `unavailable: ${microRt.error}`
+          : `${microRt.status}${observed ? ` · book received ${new Date(observed / 1000).toISOString()}` : microRt.status === "ready" ? " · no captured book in view" : ""}`;
+      view.push(row("strip", "Strip", `Micro · ${status}`, S.strip));
+    } else if (S.strip !== "off")
       view.push(row("strip", "Strip", `${STRIP_NAMES[stripForce() ?? "forces"]} · ${stripRt.status === "ready" && stripRt.snapshot?.publishedAt
         ? `field data published ${when(stripBase(stripRt.snapshot.publishedAt))} UTC · ${stripRt.model}` : stripStatusText()}`, S.strip));
     view.push(row("dataCutoff", "Data through", uiUtcMs(cutMs), cutMs));
@@ -16338,12 +16345,12 @@
   // each measured reaction (a seam). The data is /cube/strip, relayed by the bridge from Origo. Nothing is drawn that was not known by the
   // edge, the data's cutoff or the replay's, and no model reads text anywhere in it.
   const MICRO_START = Date.UTC(2026, 9, 24, 13), MICRO_PAGE = 31 * 86400000;
-  const microRt = { status: "idle", error: "", key: "", pages: [], controller: null, timer: 0,
+  const microRt = { status: "idle", error: "", key: "", pages: [], controller: null, timer: 0, retryAt: 0,
     details: new Map(), wanted: null, detailController: null, detailTimer: 0, detailError: "", revision: 0 };
   function microSchedule(wait = 200) {
     if (microRt.timer || microRt.controller) return;
     if (S.strip !== "micro" || !PACK.live || !ready || activeAnalysis?.mode === "captured" || !Number.isFinite(wait)) return;
-    microRt.timer = setTimeout(() => { microRt.timer = 0; microPump(); }, Math.max(200, wait));
+    microRt.timer = setTimeout(() => { microRt.timer = 0; microPump(); }, Math.max(200, wait, microRt.retryAt - performance.now()));
   }
   async function microRead(want, controller) {
     const response = await fetch(`/cube/micro?proto=${PROTOCOL}`, { method: "POST", cache: "no-store",
@@ -16368,12 +16375,12 @@
       step = steps.find(s => span / s <= Math.max(300, 2 * G.w)) ?? Math.ceil(span / Math.max(300, 2 * G.w) / 86400000) * 86400000,
       from = Math.floor(start / step) * step, to = Math.min(Math.ceil(end / step) * step, Math.floor(edge / step) * step),
       key = [PACK.state_token, from, to, step, edge].join("|");
-    if (microRt.key === key) return;
+    if (microRt.key === key && (microRt.status !== "failed" || performance.now() < microRt.retryAt)) return;
     microRt.controller?.abort();
     const controller = new AbortController();
     microRt.controller = controller; microRt.key = key; microRt.pages = []; microRt.error = ""; microRt.status = "loading";
     try {
-      const pageWidth = Math.floor(MICRO_PAGE / step) * step;
+      const pageWidth = Math.min(4096, Math.floor(MICRO_PAGE / step)) * step;
       if (!pageWidth) throw new Error("Choose a closer time view for Micro");
       for (let at = from; at < to; at += pageWidth) {
         const body = await microRead({ pack: PACK.state_token, from: at, to: Math.min(to, at + pageWidth), step, as_of: edge }, controller);
@@ -16382,7 +16389,7 @@
       }
       microRt.status = "ready";
     } catch (error) {
-      if (!controller.signal.aborted && microRt.key === key) { microRt.status = "failed"; microRt.error = error.message; }
+      if (!controller.signal.aborted && microRt.key === key) { microRt.status = "failed"; microRt.error = error.message; microRt.retryAt = performance.now() + 5000; }
     } finally {
       if (microRt.controller === controller) { microRt.controller = null; renderStrip(); requestDraw(); }
     }
@@ -16433,11 +16440,15 @@
   }
   function microWantDetail(end, edge) {
     const want = { pack: PACK.state_token, from: end - 30000, to: end, step: 1000, as_of: Math.min(end, edge) }, key = JSON.stringify(want);
-    if (microRt.details.has(key) || microRt.wanted?.key === key) return key;
-    microRt.wanted = { key, want }; microRt.detailError = "";
+    if (microRt.details.has(key) || microRt.wanted?.key === key && (microRt.detailTimer || microRt.detailController)) return key;
+    const retryAt = microRt.wanted?.key === key ? microRt.wanted.retryAt : 0;
+    if (microRt.wanted?.key !== key) microRt.detailError = "";
+    microRt.wanted = { key, want, retryAt: 0 };
     clearTimeout(microRt.detailTimer); microRt.detailController?.abort();
     microRt.detailTimer = setTimeout(async () => {
+      microRt.detailTimer = 0;
       if (S.strip !== "micro" || activeAnalysis?.mode === "captured") return;
+      microRt.detailError = "";
       const controller = new AbortController(); microRt.detailController = controller;
       try {
         const body = await microRead(want, controller);
@@ -16445,9 +16456,9 @@
           microRt.details.set(key, body);
           while (microRt.details.size > 4) microRt.details.delete(microRt.details.keys().next().value);
         }
-      } catch (error) { if (!controller.signal.aborted && microRt.wanted?.key === key) microRt.detailError = error.message; }
+      } catch (error) { if (!controller.signal.aborted && microRt.wanted?.key === key) { microRt.detailError = error.message; microRt.wanted.retryAt = performance.now() + 5000; } }
       finally { if (microRt.detailController === controller) { microRt.detailController = null; microRt.revision++; requestDraw(); } }
-    }, 250);
+    }, Math.max(250, retryAt - performance.now()));
     return key;
   }
   function microTip(tip, ms, edge, detailed = false) {
