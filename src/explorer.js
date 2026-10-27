@@ -16456,7 +16456,7 @@
     tip.replaceChildren(uiEl("div", "ol-tip-head", "Micro · flow & response"));
     const note = value => tip.append(uiEl("div", "ol-tip-note", value));
     if (activeAnalysis?.mode === "captured") { note("Micro data was not captured in this investigation"); return; }
-    if (ms === null) { note("Upper lane: resting offers. Lower lane: resting bids. Their shade shows share of captured depth within 0.1 bp. Middle line: net aggressive flow. Hatching: unavailable or incomplete book."); return; }
+    if (ms === null) { note("Book: last observed sample per bin. Upper lane: offers; lower lane: bids. Shade shows share of captured depth within 0.1 bp. Middle line: interval net aggressive flow. Hatching: unavailable or incomplete inputs."); return; }
     if (ms >= edge) { note("Micro is unavailable at or beyond the data or replay edge"); return; }
     const end = Math.floor(Math.min(ms, edge) / 1000) * 1000;
     if (end - 30000 < MICRO_START) { note("No complete Micro window before the book capture began"); return; }
@@ -16484,8 +16484,9 @@
     const flow = uiEl("div", "ol-micro-flow");
     for (const [side,label,value] of [["buy","Buys",buys],["sell","Sells",sells]]) { const item = uiEl("span", "", `${label} ${money(value)}`); item.dataset.side = side; flow.append(item); }
     tip.append(flow);
-    tip.append(microPlot(body, detailed, baseline, (detailed ? el("inspect-readout").clientWidth : tip.clientWidth) - 24));
-    note(detailed ? "Net aggressive USDT → · observed Δ mid ↑ · line follows time" : "Buys / sells: bubble area is USDT at execution VWAP · line: mid");
+    const plotOwner = detailed ? el("inspect-readout") : tip, style = getComputedStyle(plotOwner);
+    tip.append(microPlot(body, detailed, baseline, plotOwner.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)));
+    note(detailed ? "Net aggressive USDT → · observed Δ mid ↑ · line follows time" : "Each second: bubble area is USDT at VWAP · line: mid");
     const book = uiEl("div", "ol-micro-book"); book.append(uiEl("span", "", "At last quote · within 0.1 bp"), uiEl("b", "", `Bid ${money(latest?.bid ?? null)} · Ask ${money(latest?.ask ?? null)}`)); tip.append(book);
     const groupCount = grouped ? d3.sum(body.bins, b => b.groups.count) : null,
       gross = grouped ? d3.sum(body.bins, b => b.groups.buy + b.groups.sell) : null;
@@ -16543,7 +16544,8 @@
       for(let i=0;i<rows.length;i++) { const row=rows[i],x=X(i+.5);
         for(const [side,y,tone] of [["ask",21,"var(--ol-negative)"],["bid",186,"var(--ol-positive)"]])if(Number.isFinite(row.book?.[side]))add("rect",{x:X(i),y,width:(right-left)/30,height:9,fill:tone,opacity:Math.log1p(row.book[side])/Math.log1p(depth)});
         for(const [side,tone] of [["buy","var(--ol-positive)"],["sell","var(--ol-negative)"]])if(row.flow?.[side]>0&&Number.isFinite(row.flow[side+"Vwap"]))add("circle",{cx:x,cy:Y((row.flow[side+"Vwap"]/baseline.mid-1)*10000),r:Math.sqrt(row.flow[side]/volume)*7,fill:tone,opacity:.55});
-        if(row.bp!==null&&i&&rows[i-1].bp!==null)line([X(i-.5),Y(rows[i-1].bp)],[x,Y(row.bp)],"var(--ol-ink)",1.7);
+        if(row.bp!==null&&i&&rows[i-1].bp!==null)line([X((rows[i-1].book.exchangeTimeUs/1000-body.from)/1000),Y(rows[i-1].bp)],
+          [X((row.book.exchangeTimeUs/1000-body.from)/1000),Y(row.bp)],"var(--ol-ink)",1.7);
       }
       label("Offers · depth shade (log)",right,15,"end"); label("Bids",left,211); label("−30s",X(0),223); label("Edge",X(30),223,"end");
     }
