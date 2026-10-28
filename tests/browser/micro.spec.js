@@ -227,7 +227,7 @@ test("Micro retries failed overview and uncached Inspect reads, then refreshes R
   expect(overviewCalls).toBeGreaterThanOrEqual(2);
 });
 
-test("Micro caps wide-view pages at 4096 bins and the Query summary and copied view name its own book receipt",async({page,fakeFor,probe})=>{
+test("Micro caps wide-view pages at 2048 bins and the Query summary and copied view name its own book receipt",async({page,fakeFor,probe})=>{
   await page.setViewportSize({width:3000,height:950});
   // Extend only the protocol's held cutoff to exercise a three-day viewport.
   // The immutable captured executions are unchanged; all other market bins stay unavailable.
@@ -242,7 +242,7 @@ test("Micro caps wide-view pages at 4096 bins and the Query summary and copied v
   await probe.waitForReady();
   await expect(page.locator("#ol-strip")).toHaveAttribute("data-state","ready");
   await expect.poll(()=>calls.length).toBeGreaterThan(1);
-  expect(calls.every(w=>(w.to-w.from)/w.step<=4096&&w.to-w.from<=31*86400000)).toBe(true);
+  expect(calls.every(w=>(w.to-w.from)/w.step<=2048&&w.to-w.from<=31*86400000)).toBe(true);
   await page.locator("#ol-tab-query").click();
   const row=page.locator('#ol-summary [data-field="strip"]');
   await expect(row).toHaveAttribute("data-value","micro");

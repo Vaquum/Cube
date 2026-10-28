@@ -16388,7 +16388,7 @@
     const keep = microRt.key.startsWith(PACK.state_token + "|") && microRt.pages.every(page => page.step === step);
     microRt.controller = controller; microRt.key = key; if (!keep) microRt.pages = []; microRt.error = ""; microRt.status = "loading";
     try {
-      const pageWidth = Math.min(4096, Math.floor(MICRO_PAGE / step)) * step;
+      const pageWidth = Math.min(2048, Math.floor(MICRO_PAGE / step)) * step;
       if (!pageWidth) throw new Error("Choose a closer time view for Micro");
       const incoming = [];
       for (let at = from; at < to; at += pageWidth) {

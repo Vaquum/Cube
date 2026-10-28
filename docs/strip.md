@@ -62,7 +62,8 @@ Historical data reconstructs accepted source generations, not first-publication
 knowledge of trade corrections. A cached live page cannot paint a quote after a
 rewound receipt edge. The existing immutable book cohort begins
 2026-10-24T13:00Z; earlier times have no captured book. Wide views page through
-bounded 31-day Origo reads with no more than 4096 bins per request. An eight-entry
+bounded 31-day Origo reads with no more than 2048 bins per request, leaving room
+for book statistics and accepted-source evidence within the 4 MiB limit. An eight-entry
 API cache validates all three sources' activations and anchors before reuse;
 baseline-only book identities participate. The bridge always reaches that
 validator instead of trusting a whole-pack cache. The browser retains sixteen
