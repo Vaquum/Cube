@@ -39810,7 +39810,11 @@
       X = v => left + (map ? (v - xmin + pad) / (xmax - xmin + 2 * pad) : v / duration) * (right - left),
       Y = v => bottom - (v - lo) / (hi - lo) * (bottom - top),
       line = (a,b,tone,width=1) => add("line",{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:tone,"stroke-width":width});
-    for (const v of [lo,0,hi]) { line([left,Y(v)],[right,Y(v)],"var(--ol-line)"); label(v.toFixed(1),left-6,Y(v)+4,"end"); }
+    for (const v of [lo,0,hi]) {
+      line([left,Y(v)],[right,Y(v)],"var(--ol-line)");
+      if (v !== 0 || Math.min(Math.abs(Y(0)-Y(lo)), Math.abs(Y(0)-Y(hi))) >= 16)
+        label(v.toFixed(1),left-6,Y(v)+4,"end");
+    }
     if (!compactPlot) label("Δ mid · bp",left,16);
     if (map) {
       line([X(0),top],[X(0),bottom],"var(--ol-line)");
