@@ -4,18 +4,43 @@
 
 The live bridge also declares Micro independently of Forces, through
 `<meta name="explorer-micro" content="/cube/micro">`. Micro uses the existing
-Origo market-state service and the bridge's existing secondary query slot. It
+Origo market-state service and its existing two-slot query admission. It
 adds no worker, collection, provider access or operational storage.
 
-The upper lane shows the ask share of resting near-book depth; the lower lane
-shows the bid share. The middle line shows net aggressive individual flow as a
-share of gross flow. Shade is a share, not absolute liquidity. Hatching marks
-unavailable depth/flow and incomplete one-second book samples. Near depth means
-within 0.1 bp of the sampled mid, only when all of that radius was captured.
+Micro uses the same continuous Lab color field, theme/appearance LUT, alpha and
+variable light renderer as Forces. Its independent dimensions are:
 
-Hover reads the preceding thirty seconds lazily. Market ribbon places side
-USDT bubbles at actual one-second execution VWAPs, with a mid-price path and
-resting-depth shade on the same timeline. Inspect's Response map follows
+- Hue: `(meanBid - meanAsk) / (meanBid + meanAsk)`, with grey for balance.
+  Means use actual one-Hz samples for which both 0.1 bp radii are captured.
+- Intensity: total mean near depth against its own preceding-hour mean. For
+  ratio `r`, intensity is `min(1, log2(1+r)/3)`, laid at Forces' `min(1,1.7a)`
+  alpha. The normal excludes the displayed interval, uses quotes received by
+  their minute close, and needs 1800 observed eligible seconds. Unknown normal
+  has the same middling alpha and missing-support foot as Forces; it is not
+  fitted to the view or zoom.
+- Light: gross individual executed USDT per second divided by mean near depth.
+  For pressure `p`, light is `1-exp(-p)`; Forces' beam renderer varies its height
+  and opacity independently of book hue. Aggregate USDT never enters this flow.
+- Seams: observed first-to-last mid movement in each completed bin. A one-pixel
+  seam has opacity `0.35*(1-exp(-abs(moveBps)/10))`; 10 bp is a fixed display scale.
+
+Hatching distinguishes unavailable lean, unavailable normal/flow, and partial
+book support. The upper missing-support foot is proportional to absent
+near-book seconds, as Forces' coverage foot is proportional to missing inputs.
+An empty near radius has undefined lean and pressure, not invented balance.
+
+Hover uses Forces' fixed 484 px frame, or its 280 px two-column frame at short
+heights, clamped within the viewport. The loaded interval's mean book balance,
+depth normal and observed response appear immediately. While a finer read is
+pending, Market ribbon shows up to twelve loaded bins with its grid stated.
+The optional preceding-thirty-second read enriches that ribbon without
+blanking or resizing the card. Its own exact time bounds remain separate from
+the strip interval's header. Bubbles have side USDT area at execution VWAP;
+the mid path and mean resting-depth shade share that timeline. The first
+captured quote is the disclosed baseline when a pre-window anchor is absent.
+The ribbon reports its actual book sample support. The strip labels the latest
+loaded book exchange time, independently of the cube's trade cutoff.
+Inspect retains the same interval figures. Its Response map follows
 cumulative net aggressive USDT against observed mid movement; its ending ring
 shows bid/ask near-depth shares. Sources exposes the exact accepted partition,
 revision/build identities and the method. Exchange and receipt clocks remain
@@ -23,8 +48,9 @@ separate. This is descriptive co-movement, not an estimate of causal impact or
 hidden liquidity.
 
 Micro pins individual-trade generations to the cube pack held by the page.
-Overview uses accepted minute trade/aggregate statistics and the last eligible
-book per bin. Detail reads executions and actual aggregate groups. Group counts
+Overview uses accepted minute trade/aggregate statistics, observed-second book
+means and separate first/last quote evidence. Detail reads executions and
+actual aggregate groups. Group counts
 and mean size provide grouping context about the same executions; aggregate
 notional is never added to individual flow. Groups are not assumed to identify
 complete parent orders. Missing coverage stays unavailable rather than zero.
@@ -37,9 +63,14 @@ knowledge of trade corrections. A cached live page cannot paint a quote after a
 rewound receipt edge. The existing immutable book cohort begins
 2026-10-24T13:00Z; earlier times have no captured book. Wide views page through
 bounded 31-day Origo reads with no more than 4096 bins per request. An eight-entry
-bridge cache and four-window detail cache are request data, not another source
-history. Recorded/captured investigations without these inputs disclose their
-absence.
+API cache validates all three sources' activations and anchors before reuse;
+baseline-only book identities participate. The bridge always reaches that
+validator instead of trusting a whole-pack cache. The browser retains sixteen
+detail windows, finishes one read at a time, and gives the loaded interval
+priority during a sweep. Same-pack, same-grid facts remain visible while a pan
+refreshes. Recorded/captured investigations without these inputs disclose
+their absence. Rewind checks the maximum receipt contributing to every bin,
+not just the final quote's receipt.
 
 The HTTP request is `POST /cube/micro?proto=2` with exactly `pack`, `from`, `to`,
 `step`, `as_of`. Times are integer epoch milliseconds, intervals half-open and
@@ -48,7 +79,7 @@ cutoff and relays Origo's `origo-micro@1` response. Source changes return an
 explicit conflict instead of blending generations. The native API contract is
 documented in Origo's `docs/Developer/Market-state-micro.md`.
 
-The **Strip** is a band between the price pane and the columns that shows what the cells cannot: the forces acting on BTC from outside this one market, as potential rather than as news items. Its first and only dataset so far is **Forces**. Its data comes from [field-data-api](https://github.com/Vaquum/field-data-api), the shared service of compact field-data projections and the calendar, and from the cube's own prices. This document is the Strip's contract: what the bridge reads from the service, how each projected field becomes a value the page draws, the route the page reads, and the fixed formulas both sides use. News reads the service's pinned financial FinBERT scores; Social retains its literal word counts. Financial tone describes the text, not Bitcoin price direction.
+The **Strip** is a band between the price pane and the columns. **Forces** shows the forces acting on BTC from outside this one market, as potential rather than as news items. Its data comes from [field-data-api](https://github.com/Vaquum/field-data-api), the shared service of compact field-data projections and the calendar, and from the cube's own prices. This document is the Strip's contract: what the bridge reads from the service, how each projected field becomes a value the page draws, the route the page reads, and the fixed formulas both sides use. News reads the service's pinned financial FinBERT scores; Social retains its literal word counts. Financial tone describes the text, not Bitcoin price direction.
 
 ## What Forces draws
 

@@ -1,7 +1,11 @@
 "use strict";
 // B70: genuine coeval Micro response and execution excerpt; protocol harness only.
 const fs = require("node:fs"), path = require("node:path"), zlib = require("node:zlib");
-const { test, expect } = require("./fixtures.js");
+const { test: base, expect } = require("./fixtures.js");
+const paneCanvas = require('./pane-canvas.js');
+const test = base.extend({ pane: async ({page},use)=>{
+  await paneCanvas.addRecorder(page);await use(paneCanvas.forPage(page));
+} });
 const root = path.resolve(__dirname, "../fixtures/micro"),
   profile = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(root, "trades.json.gz")))),
   overview = JSON.parse(fs.readFileSync(path.join(root, "overview.json"))),
@@ -21,7 +25,7 @@ function excerpt(want, omitAnchor = false) {
   if (![1000,60000].includes(want.step)) throw new Error("The recorded proof covers only its original one-second and one-minute grids");
   const bins = [];
   for(let at=want.from;at<want.to;at+=want.step) {
-    const original = captured.bins.find(b=>b.at===at), eligible = original?.book && original.book.observedAtUs < want.as_of*1000;
+    const original = captured.bins.find(b=>b.at===at), eligible = original?.book && original.book.maxObservedAtUs < want.as_of*1000;
     // Outside the captured excerpt is unavailable; no market rows are made up.
     bins.push(original ? {...original, book: eligible ? original.book : null} :
       {at,until:at+want.step,book:null,flow:null,groups:null,coveredMs:{trades:0,groups:0,book:0}});
@@ -54,11 +58,13 @@ test("Micro is lazy, restores its address and paints genuine flow/response in ho
   await hoverAt(page,detail.to+500);
   const card=page.locator('#ol-tip[data-presentation="strip-micro"]');
   await expect(card.locator(".ol-micro-plot")).toBeVisible();
+  await expect(card.locator('.ol-micro-ribbon-title')).toContainText('14:26:00–14:26:30');
   const net=detail.bins.reduce((s,b)=>s+b.flow.buy-b.flow.sell,0), latest=detail.bins.filter(b=>b.book).at(-1).book,
     baseline=detail.anchor??detail.bins.find(b=>b.book).book, move=(latest.mid/baseline.mid-1)*10000;
-  await expect(card.locator(".ol-micro-hero strong")).toHaveText(`${move<0?"−":"+"}${Math.abs(move).toFixed(2)} bp`);
+  await expect(card.locator('[data-field="microRibbonResponse"]')).toHaveAttribute('data-canonical',String(move));
+  expect(Number(await card.locator('[data-field="microNet"]').getAttribute('data-canonical'))).toBeCloseTo(net,6);
   expect(Math.sign(net)).toBe(-1);
-  await expect(card).toContainText("exchange groups");
+  await expect(card).toContainText("groups");
   await expect(card.locator("svg")).toHaveAttribute("aria-label",/trade VWAPs/);
   await card.screenshot({path:"reports/micro-hover.png"});
   // The same owned cursor switches to the deeper response trajectory through native Inspect.
@@ -88,9 +94,99 @@ test("Micro is lazy, restores its address and paints genuine flow/response in ho
   await page.reload(); await probe.waitForReady();
   await expect(page.locator("#ol-strip")).toHaveAttribute("aria-label","Strip: Micro");
   await hoverAt(page,detail.to+500);
-  await expect(card).toContainText("Price baseline: first captured quote");
+  await expect(card).toContainText("Δ mid · first quote");
   await page.keyboard.press("e");
   await expect(inspector.locator("svg")).toContainText("First quote");
+});
+
+for (const theme of ['light','dark']) test(`Micro uses the Forces continuous hue, independent depth intensity and variable light in ${theme}`,async({page,fakeFor,probe,pane})=>{
+  await page.emulateMedia({colorScheme:theme});
+  const fake=await fakeFor(profile,{strip:'off'});
+  await declareMicro(page,fake);
+  await page.route('**/cube/micro?**',route=>route.fulfill({json:excerpt(route.request().postDataJSON())}));
+  await page.goto(fake.url+'/'+hash+'&strip=micro');await probe.waitForReady();
+  await expect(page.locator('#ol-strip')).toHaveAttribute('data-state','ready');await probe.waitForQuiet();
+  const layout=await page.locator('#ol-canvas').evaluate(n=>n.dataset.layout.split(',').map(Number)),
+    frame=await pane.last(), top=layout[14]+12, from=overview.from, to=overview.to,
+    samples=overview.bins.filter(b=>b.book&&b.book.nearSeconds===60).map(b=>{
+      const x=Math.floor(layout[0]+((b.at+30000-from)/(to-from))*layout[2]),
+        column=frame.rects.find(r=>r.x===x&&r.w===1&&r.y===top+1&&r.h===20&&r.fill!=='pattern');
+      expect(column,'one continuous full-height book column').toBeTruthy();
+      return {column,book:b.book,flow:b.flow};
+    });
+  expect(samples.length).toBeGreaterThan(4);
+  // Independent Lab interpolation, as in the Forces acceptance owner. Inputs
+  // below are genuine interval means; ending snapshots are deliberately different.
+  const expected=await page.evaluate(samples=>{
+    const root=document.querySelector('#origo-lens'),node=document.createElement('span');root.append(node);
+    const role=name=>{node.style.color=`var(--ol-${name})`;return getComputedStyle(node).color;};
+    const mid=role('midpoint'),positive=role('positive'),negative=role('negative');node.remove();
+    return samples.map(({book,flow})=>{
+      const depth=book.meanBid+book.meanAsk,lean=(book.meanBid-book.meanAsk)/depth,
+        amount=Math.log2(1+depth/book.normalDepth)/3,light=1-Math.exp(-(flow.buy+flow.sell)/60/depth);
+      return {hue:d3.color(d3.interpolateLab(mid,lean>=0?positive:negative)(Math.abs(lean)**.6)).formatHex(),
+        alpha:Math.min(1,1.7*amount),light};
+    });
+  },samples);
+  const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+  samples.forEach(({column},i)=>{
+    rgb(column.fill).forEach((v,k)=>expect(Math.abs(v-rgb(expected[i].hue)[k])).toBeLessThanOrEqual(2));
+    expect(column.alpha).toBeCloseTo(expected[i].alpha,5);
+    if(expected[i].light>=.02){
+      const height=20*(.2+.5*expected[i].light),beam=frame.rects.find(r=>r.x===column.x&&r.w===1&&Math.abs(r.h-height)<1e-6&&Math.abs(r.y-(top+(22-height)/2))<1e-6);
+      expect(beam,'flow pressure controls the light height').toBeTruthy();
+      expect(beam.alpha).toBeCloseTo(.85*expected[i].light,6);
+    }
+  });
+  expect(new Set(samples.map(s=>s.column.fill)).size,'hue is continuous, not two fixed roles').toBeGreaterThan(4);
+  expect(new Set(samples.map(s=>s.column.alpha.toFixed(3))).size,'liquidity controls intensity independently').toBeGreaterThan(4);
+});
+
+test('Micro remains a contained fixed instrument during a short-screen sweep with detail blocked',async({page,fakeFor,probe})=>{
+  await page.setViewportSize({width:663,height:373});await page.emulateMedia({colorScheme:'dark'});
+  const fake=await fakeFor(profile,{strip:'off'});await declareMicro(page,fake);
+  let release,detailEntered=false;
+  const gate=new Promise(resolve=>{release=resolve;});
+  await page.route('**/cube/micro?**',async route=>{
+    const want=route.request().postDataJSON();
+    // Deliberate transport delay; not a replacement market state.
+    if(want.step===1000){detailEntered=true;await gate;}
+    await route.fulfill({json:excerpt(want)});
+  });
+  await page.goto(fake.url+'/'+hash+'&strip=micro');await probe.waitForReady();
+  await expect(page.locator('#ol-strip')).toHaveAttribute('data-state','ready');
+  const card=page.locator('#ol-tip[data-presentation="strip-micro"]');let geometry=null;
+  for(const bin of overview.bins.slice(0,5)){
+    await hoverAt(page,bin.at+30000);
+    await expect(card.locator('[data-field="microLean"]')).not.toHaveAttribute('data-canonical','unsupported');
+    await expect(card.locator('svg')).toBeVisible();
+    const result=await card.evaluate(node=>{
+      const r=node.getBoundingClientRect(),errors=[],inside=(a,b)=>a.left>=b.left-.75&&a.top>=b.top-.75&&a.right<=b.right+.75&&a.bottom<=b.bottom+.75;
+      if(!inside(r,{left:0,top:0,right:innerWidth,bottom:innerHeight}))errors.push('card outside viewport');
+      const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);
+      while(walker.nextNode()){
+        const text=walker.currentNode;if(!text.textContent.trim())continue;
+        const range=document.createRange();range.selectNodeContents(text);
+        for(const rect of range.getClientRects())if(rect.width){
+          if(!inside(rect,r))errors.push('text outside card: '+text.textContent);
+          for(let parent=text.parentElement;parent&&node.contains(parent);parent=parent.parentElement){
+            const style=getComputedStyle(parent),box=parent.getBoundingClientRect();
+            if(/hidden|clip/.test(style.overflowY)&&(rect.top<box.top-.75||rect.bottom>box.bottom+.75))errors.push('text clipped: '+text.textContent);
+          }
+        }
+      }
+      return {height:r.height,y:r.y,width:r.width,errors};
+    });
+    expect(result.errors,'all figures and labels remain readable').toEqual([]);
+    if(geometry)for(const key of ['height','y','width'])expect(result[key]).toBeCloseTo(geometry[key],1);
+    geometry=result;
+  }
+  await expect.poll(()=>detailEntered).toBe(true);
+  release();
+  await hoverAt(page,detail.to+500);
+  await expect(card.locator('.ol-micro-ribbon-title')).toContainText('14:26:00–14:26:30');
+  expect((await card.boundingBox()).height).toBeCloseTo(geometry.height,1);
+  await card.screenshot({path:'reports/micro-short-hover.png'});
 });
 
 test("Micro retries failed overview and uncached Inspect reads, then refreshes Response map and Sources without cursor movement", async ({page, fakeFor, probe, allowConsole})=>{

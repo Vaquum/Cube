@@ -3,10 +3,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import threading
 from datetime import UTC, datetime
 
-from market_state_reader import MarketStateError, micro
+from market_state_reader import micro
 
 
 def stamp(value: str) -> int:
@@ -27,10 +26,8 @@ def relevant_digest(pins: dict, start: int, end: int) -> str:
 
 
 class MicroStore:
-    def __init__(self, explorer, url: str, slot) -> None:
-        self.explorer, self.url, self.slot = explorer, url, slot
-        self.answers: dict[tuple, dict] = {}
-        self.lock = threading.Lock()
+    def __init__(self, explorer, url: str) -> None:
+        self.explorer, self.url = explorer, url
 
     def query(self, body: dict) -> dict:
         if not isinstance(body, dict) or set(body) != {'pack', 'from', 'to', 'step', 'as_of'}:
@@ -43,24 +40,8 @@ class MicroStore:
             raise ValueError('Micro must end no later than the held cube or replay edge.')
         request = {key: body[key] for key in ('from', 'to', 'step', 'as_of')}
         request['trade_pin_digest'] = relevant_digest(held['pins'], body['from'], body['to'])
-        key = tuple(body[k] for k in ('pack', 'from', 'to', 'step', 'as_of'))
-        with self.lock:
-            if key in self.answers:
-                return self.answers[key]
-        if not self.slot.acquire(timeout=20):
-            raise MarketStateError(503, {'error': 'busy'})
-        try:
-            with self.lock:
-                if key in self.answers:
-                    return self.answers[key]
-            answer = dict(micro(request, url=self.url))
-            if any(answer.get(name) != request[field] for name, field in
-                   (('from', 'from'), ('to', 'to'), ('step', 'step'), ('asOf', 'as_of'))):
-                raise ValueError('Micro response bounds differ from the requested cube context.')
-            with self.lock:
-                self.answers[key] = answer
-                while len(self.answers) > 8:
-                    del self.answers[next(iter(self.answers))]
-            return answer
-        finally:
-            self.slot.release()
+        answer = dict(micro(request, url=self.url))
+        if any(answer.get(name) != request[field] for name, field in
+               (('from', 'from'), ('to', 'to'), ('step', 'step'), ('asOf', 'as_of'))):
+            raise ValueError('Micro response bounds differ from the requested cube context.')
+        return answer

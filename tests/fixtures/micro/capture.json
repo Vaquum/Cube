@@ -7,8 +7,9 @@
   "trade_rows": 70413,
   "notes": "Micro JSON retains exact selected native pins and original clocks. Main chart protocol harness derives its cube from genuine executions, encoded in its existing cents/satoshis/time-ms units; it generates no trades. The eight-minute excerpt is not evidence for the remainder of a day. Main-chart timestamps floor to supported integer milliseconds, preserving all cube-cell membership; Micro retains original book microseconds.",
   "files": {
-    "detail.json": "71a5bc71679705d4c65d8c448dca3959b3da55d0fe935eeba2dab17706c6d3d2",
+    "detail.json": "166bcf5a8bfdcd147e491daed273778c31d147ff53c62723d3de7c8157ff310b",
     "trades.json.gz": "78589fe67586a9118432a320d3098f91f6668cfba125d10cf2e3227c198bfe77",
-    "overview.json": "b6f95f4295650fd2226a77c5c62e67d0af87d843079cb176ba4d23e555620754"
-  }
+    "overview.json": "cedee1ccd4ce97d98d4936346acf191c38c9ea9f1666b5c1f64a980e4325ff38"
+  },
+  "book_normal": "Preceding-hour original native book samples; exact selected baseline partitions are included in overview.sources.book. At least 1800 observed eligible seconds; quotes received after their minute close are excluded from that baseline."
 }
