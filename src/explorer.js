@@ -16395,9 +16395,11 @@
         const until = Math.min(to, at + pageWidth),
           body = await microRead({ pack: PACK.state_token, from: at, to: until, step, as_of: until }, controller);
         if (controller.signal.aborted || microRt.key !== key || S.strip !== "micro" || activeAnalysis?.mode === "captured") return;
-        incoming.push(body); microRt.pages = incoming.slice(); microRt.status = "ready"; microRt.revision++; requestDraw();
+        incoming.push(body);
+        if (!keep) { microRt.pages = incoming.slice(); microRt.status = "ready"; microRt.revision++; requestDraw(); }
       }
       microRt.status = "ready";
+      if (keep) { microRt.pages = incoming; microRt.revision++; requestDraw(); }
     } catch (error) {
       if (!controller.signal.aborted && microRt.key === key) { microRt.status = "failed"; microRt.error = error.message; microRt.retryAt = performance.now() + 5000; }
     } finally {
@@ -16698,8 +16700,11 @@
       for(let i=0;i<rows.length;i++) { const row=rows[i], start=(row.at-body.from)/1000, width=(row.until-row.at)/1000, x=X(start+width/2);
         for(const [side,y,tone] of [["meanAsk",compactPlot?3:20,"var(--ol-negative)"],["meanBid",bottom+7,"var(--ol-positive)"]])if(Number.isFinite(row.book?.[side]))add("rect",{x:X(start),y,width:X(width)-X(0),height:7,fill:tone,opacity:Math.log1p(row.book[side])/Math.log1p(depth)});
         for(const [side,tone] of [["buy","var(--ol-positive)"],["sell","var(--ol-negative)"]])if(row.flow?.[side]>0&&Number.isFinite(row.flow[side+"Vwap"]))add("circle",{cx:x,cy:Y((row.flow[side+"Vwap"]/baseline.mid-1)*10000),r:Math.sqrt(row.flow[side]/volume)*7,fill:tone,opacity:.55});
-        if (i === 0 && row.bp !== null) line([X(Math.max(0, (baseline.exchangeTimeUs / 1000 - body.from) / 1000)), Y(0)],
-          [X((row.book.exchangeTimeUs / 1000 - body.from) / 1000), Y(row.bp)], "var(--ol-ink)", 1.7);
+        if (row.bp !== null && (!i || rows[i-1].bp === null)) {
+          const first = i ? { exchangeTimeUs: row.book.firstExchangeTimeUs, mid: row.book.firstMid } : baseline;
+          line([X(Math.max(0, (first.exchangeTimeUs / 1000 - body.from) / 1000)), Y((first.mid / baseline.mid - 1) * 10000)],
+            [X((row.book.exchangeTimeUs / 1000 - body.from) / 1000), Y(row.bp)], "var(--ol-ink)", 1.7);
+        }
         if(row.bp!==null&&i&&rows[i-1].bp!==null)line([X((rows[i-1].book.exchangeTimeUs/1000-body.from)/1000),Y(rows[i-1].bp)],
           [X((row.book.exchangeTimeUs/1000-body.from)/1000),Y(row.bp)],"var(--ol-ink)",1.7);
       }

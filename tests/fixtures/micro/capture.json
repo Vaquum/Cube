@@ -9,7 +9,15 @@
   "files": {
     "detail.json": "166bcf5a8bfdcd147e491daed273778c31d147ff53c62723d3de7c8157ff310b",
     "trades.json.gz": "78589fe67586a9118432a320d3098f91f6668cfba125d10cf2e3227c198bfe77",
-    "overview.json": "cedee1ccd4ce97d98d4936346acf191c38c9ea9f1666b5c1f64a980e4325ff38"
+    "overview.json": "cedee1ccd4ce97d98d4936346acf191c38c9ea9f1666b5c1f64a980e4325ff38",
+    "overview-later.json": "3199accc3067278281cd8ad1d49c0f5cb086fa0f170c6c3db2b279e1900cb4e0"
   },
-  "book_normal": "Preceding-hour original native book samples; exact selected baseline partitions are included in overview.sources.book. At least 1800 observed eligible seconds; quotes received after their minute close are excluded from that baseline."
+  "book_normal": "Preceding-hour original native book samples; exact selected baseline partitions are included in overview.sources.book. At least 1800 observed eligible seconds; quotes received after their minute close are excluded from that baseline.",
+  "later_overview": {
+    "interval": [
+      "2026-10-26T14:24:00Z",
+      "2026-10-26T14:32:00Z"
+    ],
+    "source": "Read-only supported Origo Micro API on 5f72b2695ab0b4f8e65a5311d14f866c01f5ae4f; original accepted identities and clocks retained. Multi-page retention boundary; no main-chart executions are generated for this later interval."
+  }
 }
