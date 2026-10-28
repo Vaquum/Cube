@@ -587,7 +587,7 @@ class Explorer:
         # older than the server it asks, and offers a reload.
         self.version = hashlib.sha256(page.read_bytes()).hexdigest()[:12]
         self.rallies = RallyStore(self, CUBE_URL, (CUBE_SLOT, MOTION_SLOT))
-        self.micro = MicroStore(self, CUBE_URL, MOTION_SLOT)
+        self.micro = MicroStore(self, CUBE_URL)
         self.investigations = InvestigationStore()
 
     def current_pack(self) -> tuple[dict, float]:
