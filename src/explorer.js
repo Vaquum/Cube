@@ -16385,7 +16385,7 @@
     }
     microRt.controller?.abort();
     const controller = new AbortController();
-    const keep = microRt.key.startsWith(PACK.state_token + "|") && microRt.pages.every(page => page.step === step);
+    const keep = microRt.pages.length > 0 && microRt.key.startsWith(PACK.state_token + "|") && microRt.pages.every(page => page.step === step);
     microRt.controller = controller; microRt.key = key; if (!keep) microRt.pages = []; microRt.error = ""; microRt.status = "loading";
     try {
       const pageWidth = Math.min(2048, Math.floor(MICRO_PAGE / step)) * step;
