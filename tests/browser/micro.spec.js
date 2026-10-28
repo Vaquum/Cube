@@ -200,6 +200,12 @@ test('Micro remains a contained fixed instrument during a short-screen sweep wit
           }
         }
       }
+      const labels=[...node.querySelectorAll('svg text')].map(text=>({text:text.textContent,rect:text.getBoundingClientRect()}));
+      for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++){
+        const a=labels[i].rect,b=labels[j].rect;
+        if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.75&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.75)
+          errors.push('overlapping plot labels: '+labels[i].text+' / '+labels[j].text);
+      }
       return {height:r.height,y:r.y,width:r.width,errors};
     });
     expect(result.errors,'all figures and labels remain readable').toEqual([]);
