@@ -19342,18 +19342,40 @@
         : r.net !== null || r.magnitude !== null) throw new Error("Invalid ETF amounts");
       previous = r.knownAt;
     }
+    if (body.reports !== undefined) {
+      if (!Array.isArray(body.reports) || body.reports.length > 20000) throw new Error("Invalid ETF report history");
+      const ids = new Set();
+      for (const r of body.reports) {
+        // Reuse the fund/totals validator, with availability separate from the
+        // economic date. Several dates can first appear in the same capture.
+        parse({...body,reports:undefined,states:[r],to:want.as_of}, {...want,to:want.as_of});
+        const id = r.date + ":" + r.knownAt;
+        if (ids.has(id)) throw new Error("Duplicate ETF report revision");
+        ids.add(id);
+      }
+    }
     return body;
   }
-  function at(body, time, edge = Infinity) {
+  function series(body, edge) {
+    if (!body?.reports) return body?.states ?? [];
+    const dates = new Map();
+    for (const r of body.reports) if (r.knownAt < Math.min(edge,body.asOf) && r.reported > 0 && (!dates.has(r.date) || dates.get(r.date).knownAt < r.knownAt)) dates.set(r.date,r);
+    const rows = [...dates.values()].sort((a,b)=>a.date.localeCompare(b.date));
+    return rows.map((r,i)=>{
+      const prior=rows.slice(0,i).filter(p=>p.complete && p.universe===r.universe).slice(-20),values=prior.map(p=>p.magnitude).sort((a,b)=>a-b);
+      return {...r,at:Date.parse(r.date+"T00:00:00Z"),normalReports:values.length,normal:values.length===20?(values[9]+values[10])/2:null};
+    });
+  }
+  function at(body, time, edge = Infinity, rows = series(body,edge)) {
     if (!body || time < body.from || time >= Math.min(body.to, body.asOf, edge)) return null;
-    let lo=0,hi=body.states.length;
-    while(lo<hi){const m=(lo+hi)>>1;if(body.states[m].knownAt<=time && body.states[m].knownAt<edge)lo=m+1;else hi=m;}
-    return body.states[lo-1] ?? null;
+    let lo=0,hi=rows.length;
+    while(lo<hi){const m=(lo+hi)>>1;if((rows[m].at??rows[m].knownAt)<=time && rows[m].knownAt<edge)lo=m+1;else hi=m;}
+    return rows[lo-1] ?? null;
   }
   function spans(body, from, to, edge) {
-    const stop=Math.min(to,edge), cuts=[...(body?.states ?? []).filter(r=>r.knownAt>=body.from).map(r=>r.knownAt), ...(body ? [body.from,Math.min(body.to,body.asOf)] : [])],
+    const rows=series(body,edge),stop=Math.min(to,edge), cuts=[...rows.map(r=>r.at??r.knownAt).filter(t=>t>=body.from), ...(body ? [body.from,Math.min(body.to,body.asOf)] : [])],
       boundaries=[from,...[...new Set(cuts.filter(t=>t>from&&t<stop))].sort((a,b)=>a-b),stop];
-    return stop<=from?[]:boundaries.slice(0,-1).map((t,i)=>({from:t,to:boundaries[i+1],report:at(body,t,edge)}));
+    return stop<=from?[]:boundaries.slice(0,-1).map((t,i)=>({from:t,to:boundaries[i+1],report:at(body,t,edge,rows)}));
   }
   const covers = (body, want) => Boolean(body) && body.from <= want.from && body.to >= want.to && Math.min(body.asOf, body.to) >= Math.min(want.as_of, want.to);
   const y = (value, middle, half, limit=1e9) => middle-Math.max(-1,Math.min(1,value/limit))*half;
@@ -39549,8 +39571,8 @@
     );
   }
   // ---- The Strip ----
-  // ETF amounts share one fixed dollar scale. The daily reports change only when
-  // field-data-api first publishes them; economic dates never backdate availability.
+  // ETF amounts share one fixed dollar scale on economic flow dates. Each
+  // displayed revision must have been published before the held live/replay edge.
   const ETF_SERVED = Boolean(document.querySelector('meta[name="explorer-etf"]')),
     Etf = window.explorerEtf, ETF_BAND = 40,
     etfRt = { status: "idle", body: null, error: "", key: "", controller: null, timer: 0, revision: 0, retryAt: 0, readAt: 0 };
@@ -39631,7 +39653,7 @@
     ctx.restore();line(G.x,top+.5,G.x+G.w,top+.5,colors.line,1);line(G.x,top+h-.5,G.x+G.w,top+h-.5,colors.line,1);
     const latest=Etf.at(body,Math.min(msAt(S.tB),edge)-1,edge);
     if(!body)text(stripRt.coverage,G.x+6,middle,colors.muted);
-    text(latest?`Daily report · ${latest.date}`:"No retained ETF report before this time",G.x+4,G.by+STRIP_LABELS/2,colors.muted);
+    text(latest?`Daily flows · ${latest.date}`:"No retained ETF report before this time",G.x+4,G.by+STRIP_LABELS/2,colors.muted);
     if(body && body.source.state!=="ok")text(body.source.state,G.x+G.w-4,G.by+STRIP_LABELS/2,colors.muted,"right");
   }
   function etfTip(tip, ms, edge, sources = false) {

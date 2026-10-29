@@ -16344,8 +16344,8 @@
     );
   }
   // ---- The Strip ----
-  // ETF amounts share one fixed dollar scale. The daily reports change only when
-  // field-data-api first publishes them; economic dates never backdate availability.
+  // ETF amounts share one fixed dollar scale on economic flow dates. Each
+  // displayed revision must have been published before the held live/replay edge.
   const ETF_SERVED = Boolean(document.querySelector('meta[name="explorer-etf"]')),
     Etf = window.explorerEtf, ETF_BAND = 40,
     etfRt = { status: "idle", body: null, error: "", key: "", controller: null, timer: 0, revision: 0, retryAt: 0, readAt: 0 };
@@ -16426,7 +16426,7 @@
     ctx.restore();line(G.x,top+.5,G.x+G.w,top+.5,colors.line,1);line(G.x,top+h-.5,G.x+G.w,top+h-.5,colors.line,1);
     const latest=Etf.at(body,Math.min(msAt(S.tB),edge)-1,edge);
     if(!body)text(stripRt.coverage,G.x+6,middle,colors.muted);
-    text(latest?`Daily report · ${latest.date}`:"No retained ETF report before this time",G.x+4,G.by+STRIP_LABELS/2,colors.muted);
+    text(latest?`Daily flows · ${latest.date}`:"No retained ETF report before this time",G.x+4,G.by+STRIP_LABELS/2,colors.muted);
     if(body && body.source.state!=="ok")text(body.source.state,G.x+G.w-4,G.by+STRIP_LABELS/2,colors.muted,"right");
   }
   function etfTip(tip, ms, edge, sources = false) {

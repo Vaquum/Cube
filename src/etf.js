@@ -24,18 +24,40 @@
         : r.net !== null || r.magnitude !== null) throw new Error("Invalid ETF amounts");
       previous = r.knownAt;
     }
+    if (body.reports !== undefined) {
+      if (!Array.isArray(body.reports) || body.reports.length > 20000) throw new Error("Invalid ETF report history");
+      const ids = new Set();
+      for (const r of body.reports) {
+        // Reuse the fund/totals validator, with availability separate from the
+        // economic date. Several dates can first appear in the same capture.
+        parse({...body,reports:undefined,states:[r],to:want.as_of}, {...want,to:want.as_of});
+        const id = r.date + ":" + r.knownAt;
+        if (ids.has(id)) throw new Error("Duplicate ETF report revision");
+        ids.add(id);
+      }
+    }
     return body;
   }
-  function at(body, time, edge = Infinity) {
+  function series(body, edge) {
+    if (!body?.reports) return body?.states ?? [];
+    const dates = new Map();
+    for (const r of body.reports) if (r.knownAt < Math.min(edge,body.asOf) && r.reported > 0 && (!dates.has(r.date) || dates.get(r.date).knownAt < r.knownAt)) dates.set(r.date,r);
+    const rows = [...dates.values()].sort((a,b)=>a.date.localeCompare(b.date));
+    return rows.map((r,i)=>{
+      const prior=rows.slice(0,i).filter(p=>p.complete && p.universe===r.universe).slice(-20),values=prior.map(p=>p.magnitude).sort((a,b)=>a-b);
+      return {...r,at:Date.parse(r.date+"T00:00:00Z"),normalReports:values.length,normal:values.length===20?(values[9]+values[10])/2:null};
+    });
+  }
+  function at(body, time, edge = Infinity, rows = series(body,edge)) {
     if (!body || time < body.from || time >= Math.min(body.to, body.asOf, edge)) return null;
-    let lo=0,hi=body.states.length;
-    while(lo<hi){const m=(lo+hi)>>1;if(body.states[m].knownAt<=time && body.states[m].knownAt<edge)lo=m+1;else hi=m;}
-    return body.states[lo-1] ?? null;
+    let lo=0,hi=rows.length;
+    while(lo<hi){const m=(lo+hi)>>1;if((rows[m].at??rows[m].knownAt)<=time && rows[m].knownAt<edge)lo=m+1;else hi=m;}
+    return rows[lo-1] ?? null;
   }
   function spans(body, from, to, edge) {
-    const stop=Math.min(to,edge), cuts=[...(body?.states ?? []).filter(r=>r.knownAt>=body.from).map(r=>r.knownAt), ...(body ? [body.from,Math.min(body.to,body.asOf)] : [])],
+    const rows=series(body,edge),stop=Math.min(to,edge), cuts=[...rows.map(r=>r.at??r.knownAt).filter(t=>t>=body.from), ...(body ? [body.from,Math.min(body.to,body.asOf)] : [])],
       boundaries=[from,...[...new Set(cuts.filter(t=>t>from&&t<stop))].sort((a,b)=>a-b),stop];
-    return stop<=from?[]:boundaries.slice(0,-1).map((t,i)=>({from:t,to:boundaries[i+1],report:at(body,t,edge)}));
+    return stop<=from?[]:boundaries.slice(0,-1).map((t,i)=>({from:t,to:boundaries[i+1],report:at(body,t,edge,rows)}));
   }
   const covers = (body, want) => Boolean(body) && body.from <= want.from && body.to >= want.to && Math.min(body.asOf, body.to) >= Math.min(want.as_of, want.to);
   const y = (value, middle, half, limit=1e9) => middle-Math.max(-1,Math.min(1,value/limit))*half;

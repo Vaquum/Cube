@@ -1,10 +1,11 @@
 "use strict";
 // B71: native ETF strip, source contract, publication edge and fixed card geometry.
-const {test,expect}=require('./fixtures.js');
+const {test:base,expect}=require('./fixtures.js'),paneCanvas=require('./pane-canvas.js');
+const test=base.extend({pane:async({page},use)=>{await paneCanvas.addRecorder(page);await use(paneCanvas.forPage(page));}});
 test.use({reducedMotion:'reduce'});
 const DAY=86400000;
 async function setup(page,fakeFor,strip='etf',partial=false,options={}){
- const fake=await fakeFor('mini',{strip:'off'}),to=Math.floor(Date.parse(fake.info().cutoff)/900000)*900000+(options.offset??0),from=to-DAY,calls=[];
+ const fake=await fakeFor('mini',{strip:'off'}),to=Math.floor(Date.parse(fake.info().cutoff)/900000)*900000+(options.offset??0),from=to-(options.span??DAY),calls=[];
  await page.route(fake.url+'/',async route=>{const response=await route.fetch(),html=await response.text();await route.fulfill({response,body:html.replace('<head>','<head><meta name="explorer-micro" content="/cube/micro"><meta name="explorer-etf" content="/cube/etf">')});});
  await page.route('**/cube/etf?**',async route=>{
   const q=Object.fromEntries(new URL(route.request().url()).searchParams),want={from:Number(q.from),to:Number(q.to),asOf:Number(q.as_of)};calls.push(want);
@@ -13,7 +14,8 @@ async function setup(page,fakeFor,strip='etf',partial=false,options={}){
   const r={knownAt:to-2*3600000,date:'2026-09-23',complete:!partial,inflow:612e6,outflow:partial?0:140e6,net:partial?null:472e6,magnitude:partial?null:752e6,
    normal:null,normalReports:0,reported:partial?2:3,expected:3,universe:'selected',allCurrentFunds:true,funds:[{ticker:'A',net:612e6},{ticker:'B',net:partial?null:-140e6},{ticker:'C',net:0}]};
   const states=options.replay?[{...r,knownAt:from,inflow:10e6,outflow:0,net:10e6,magnitude:10e6,funds:[{ticker:'A',net:10e6},{ticker:'B',net:0},{ticker:'C',net:0}]},r]:[r];
-  await route.fulfill({json:{schema:'cube-etf@1',model:'etf-fund-flows@1',...want,source:{state:'ok'},snapshot:{id:'a'.repeat(64)},scaleUsd:1e9,historyReady:true,states:states.filter(r=>r.knownAt<Math.min(want.to,want.asOf))}});
+  const history=options.history?[[-1,10e6,600e6],[1,650e6,150e6],[4,137e6,0]].map(([offset,inflow,outflow])=>({...r,date:new Date(Math.floor(from/DAY)*DAY+offset*DAY).toISOString().slice(0,10),knownAt:to-3600000,inflow,outflow,net:inflow-outflow,magnitude:inflow+outflow,funds:[{ticker:'A',net:inflow},{ticker:'B',net:-outflow},{ticker:'C',net:0}]})):undefined;
+  await route.fulfill({json:{schema:'cube-etf@1',model:'etf-fund-flows@1',...want,source:{state:'ok'},snapshot:{id:'a'.repeat(64)},scaleUsd:1e9,historyReady:true,reports:history,states:states.filter(r=>r.knownAt<Math.min(want.to,want.asOf))}});
  });
  const [p0,p1]=fake.info().priceBand.usdt;
  const hash=`#t=${new Date(from).toISOString()}~${new Date(to).toISOString()}&p=${p0}~${p1}&mode=candles&strip=${strip}&vis=2&rc=1`;
@@ -75,4 +77,14 @@ test('ETF failure backoff survives unrelated UI updates and retries after the de
  await page.clock.fastForward(50000);expect(s.calls).toHaveLength(1);
  options.fail=false;await page.clock.fastForward(15000);
  await expect(page.locator('#ol-strip')).toHaveAttribute('data-state','ready');expect(s.calls).toHaveLength(2);
+});
+test('ETF renders historical inflows and outflows instead of hatching their later capture time',async({page,fakeFor,probe,pane})=>{
+ await setup(page,fakeFor,'etf',false,{history:true,span:7*DAY});await probe.waitForReady();await expect(page.locator('#ol-strip')).toHaveAttribute('data-state','ready');await probe.waitForQuiet();
+ const canvas=page.locator('#ol-canvas'),g=await canvas.evaluate(n=>n.dataset.layout.split(',').map(Number)),top=g[14]+12,middle=top+20,frame=await pane.last();
+ const bars=frame.rects.filter(r=>r.alpha===.7&&r.y>=top&&r.y+r.h<=top+40&&r.w>2&&r.fill!=='pattern');
+ expect(bars.some(r=>r.y<middle&&r.h>8),'historical inflow has a visible height').toBe(true);
+ expect(bars.some(r=>r.y===middle&&r.h>8),'historical outflow has a visible depth').toBe(true);
+ expect(frame.rects.filter(r=>r.fill==='pattern'&&r.y===top+1&&r.h===38),'known historical dates are not hatched').toEqual([]);
+ const box=await canvas.boundingBox();await page.mouse.move(box.x+g[0]+g[2]*.02,box.y+top+20);
+ await expect(page.locator('#ol-tip')).toContainText('590');await expect(page.locator('#ol-tip')).toContainText('610');
 });
