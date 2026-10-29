@@ -1,8 +1,8 @@
 """Native daily ETF fund net flows, pinned to field-data-api publications.
 
-Economic dates never establish availability. Every retained capture is replayed at
-its first actual publication; settlements and revisions replace a day's report only
-from that publication onward. No provider calls, price queries or request-time I/O.
+Economic dates locate reports on the chart; first API publication constrains which
+revisions are available at the held edge. Keep every date in each capture, including
+historical backfills. No provider calls, price queries or request-time I/O.
 """
 from __future__ import annotations
 
@@ -114,6 +114,18 @@ def timeline(captures):
     return states
 
 
+def report_history(captures):
+    """Retain every flow date and its revisions, not just the latest date per capture."""
+    held, versions = {}, []
+    for known_at, reports in captures:
+        for report in reports:
+            if held.get(report["date"]) != report:
+                held[report["date"]] = report
+                versions.append({**report, "knownAt": known_at, "reportPublishedAt": known_at,
+                                 "normal": None, "normalReports": 0})
+    return versions
+
+
 class EtfService:
     def __init__(self, reader: FieldDataReader, path=":memory:", clock=time.time):
         self.reader, self.clock = reader, clock
@@ -134,7 +146,7 @@ class EtfService:
     def publish(self):
         # Request threads take one immutable view; a new capture cannot be paired
         # with the previous publication's source status or snapshot identity.
-        self.current = (self.snapshot, self.source, self.states, self.history_ready)
+        self.current = (self.snapshot, self.source, self.states, self.history_ready, self.reports)
 
     def ingest(self, dataset, published):
         known = timestamp(published)
@@ -147,7 +159,9 @@ class EtfService:
                         (dataset.dataset_id, known, json.dumps(reports, allow_nan=False, separators=(",", ":"))))
 
     def rebuild(self):
-        self.states = timeline([(known, json.loads(body)) for known, body in self.db.execute("SELECT known_at,body FROM etf_captures ORDER BY known_at,id")])
+        captures = [(known, json.loads(body)) for known, body in self.db.execute("SELECT known_at,body FROM etf_captures ORDER BY known_at,id")]
+        self.states = timeline(captures)
+        self.reports = report_history(captures)
 
     def bootstrap(self):
         versions, before, before_id = [], None, None
@@ -218,7 +232,7 @@ class EtfService:
                 raise ValueError("ETF range must be positive and at most ten years")
         except (ValueError, TypeError, IndexError) as error:
             return 400, {"error": "invalid_etf_request", "detail": str(error)}
-        snapshot, current_source, states, history_ready = self.current
+        snapshot, current_source, states, history_ready, reports = self.current
         if snapshot is None:
             return 503, {"error": "etf_loading", "detail": self.error or "Reading retained ETF publications"}
         source = dict(current_source)
@@ -235,4 +249,6 @@ class EtfService:
         hi = bisect.bisect_left(stops, min(end, edge, snapshot["publishedAt"] + 1))
         return 200, {"schema": SCHEMA, "model": "etf-fund-flows@1", "snapshot": snapshot, "source": source,
                      "scaleUsd": SCALE_USD, "from": start, "to": end, "asOf": edge,
-                     "historyReady": history_ready, "states": states[lo:hi] if hi > lo else []}
+                     "historyReady": history_ready, "states": states[lo:hi] if hi > lo else [],
+                     "reports": [r for r in reports if r["knownAt"] < min(edge, snapshot["publishedAt"] + 1)
+                                 and timestamp(r["date"] + "T00:00:00Z") < end]}

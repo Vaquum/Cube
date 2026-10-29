@@ -19,15 +19,31 @@ test('ETF cached states never cover a different window or unrequested publicatio
  assert.equal(E.covers(b,{from:100,to:400,as_of:450}),true);
  assert.equal(E.covers(b,{from:500,to:800,as_of:900}),false);
  assert.equal(E.covers(b,{from:100,to:500,as_of:500}),false);
+ // Later publications can correct an earlier flow date even when both
+ // publication cutoffs are beyond the historical window's end.
+ assert.equal(E.covers({...b,asOf:600},{from:100,to:400,as_of:600}),true);
+ assert.equal(E.covers({...b,asOf:600},{from:100,to:400,as_of:700}),false);
  assert.deepEqual(E.spans(b,0,600,600).map(s=>[s.from,s.to,s.report?.knownAt??null]),[[0,100,null],[100,300,99],[300,450,300],[450,600,null]]);
  assert.deepEqual(E.spans(b,500,800,900).map(s=>s.report),[null]);
+});
+test('ETF plots all retained flow dates and selects revisions only known by the replay edge',()=>{
+ const day=86400000,start=Date.parse('2026-10-22T00:00:00Z'),published=start+6*day;
+ const version=(offset,knownAt,net)=>({...report(knownAt,net),date:new Date(start+offset*day).toISOString().slice(0,10),universe:'same'});
+ const b={...body(),from:start,to:start+8*day,asOf:start+8*day,reports:[version(0,published,-5),version(1,published,5),version(1,published+1000,8)],states:[]};
+ E.parse(b,{from:b.from,to:b.to,as_of:b.asOf});
+ assert.equal(E.at(b,start+day/2,published),null);
+ assert.equal(E.at(b,start+day/2,published+1).net,-5);
+ assert.equal(E.at(b,start+2*day,published+1000).net,5);
+ assert.equal(E.at(b,start+2*day,published+1001).net,8);
+ assert.deepEqual(E.spans(b,start,start+3*day,b.asOf).map(p=>p.report.net),[-5,8]);
+ const bad=structuredClone(b);bad.reports[0].net=900;assert.throws(()=>E.parse(bad,{from:b.from,to:b.to,as_of:b.asOf}));
 });
 test('ETF native projection retains settlement revisions, source publication time and persistence',()=>{
  const script=String.raw`
 import sys, json, tempfile
 from types import SimpleNamespace
 sys.path.insert(0,'tools')
-from etf_service import project, timeline, EtfService, timestamp
+from etf_service import project, timeline, report_history, EtfService, timestamp
 def rows(a,b,complete=True,day='2026-10-27',total=None):
  return [{'kind':'etf_fund_flow','observed_at':day,'values':{'ticker':t,'net_inflow':v,'flow_unit':'USD'}} for t,v in [('A',a),('B',b)]]+[{'kind':'etf_flow_aggregate','observed_at':day,'values':{'expected_funds':['A','B'],'complete_selected_funds':complete,'net_inflow_usd':a+b if total is None and a is not None and b is not None else total,'unit':'USD'}}]
 p=project(rows(10,-10))[0];assert p['net']==0 and p['magnitude']==20 and p['reported']==2
@@ -43,6 +59,8 @@ assert [s['knownAt'] for s in states]==[100,200,300] and [s['net'] for s in stat
 # An older day's late correction cannot replace the latest economic report.
 states=timeline([(100,settled),(200,project(rows(5,2,day='2026-10-28'))),(300,revised)])
 assert states[-1]['date']=='2026-10-28' and states[-1]['net']==7
+versions=report_history([(100,settled+project(rows(5,2,day='2026-10-28'))),(200,revised)])
+assert [(r['date'],r['knownAt']) for r in versions]==[('2026-10-27',100),('2026-10-28',100),('2026-10-27',200)]
 assert timestamp('2026-10-27T06:00:00') is None
 with tempfile.TemporaryDirectory() as directory:
  path=directory+'/etf.sqlite'
@@ -59,6 +77,7 @@ with tempfile.TemporaryDirectory() as directory:
  begin=timestamp('2026-10-28T07:00:00Z');end=timestamp('2026-10-28T14:00:00Z');edge=timestamp('2026-10-28T12:00:00Z')
  args={'from':[str(begin)],'to':[str(end)],'as_of':[str(edge)]}
  status,answer=service.answer(args);assert status==200 and len(answer['states'])==1 and answer['states'][0]['net'] is None
+ assert len(answer['reports'])==1 and answer['reports'][0]['date']=='2026-10-27'
  # Rebuilding a capture cannot expose it with a previous published snapshot.
  old_view=service.current
  service.ingest(SimpleNamespace(dataset_id='three',records=rows(12,-2)), '2026-10-28T13:00:00Z')
