@@ -27,15 +27,17 @@
     return body;
   }
   function at(body, time, edge = Infinity) {
-    if (!body || time >= edge) return null;
+    if (!body || time < body.from || time >= Math.min(body.to, body.asOf, edge)) return null;
     let lo=0,hi=body.states.length;
     while(lo<hi){const m=(lo+hi)>>1;if(body.states[m].knownAt<=time && body.states[m].knownAt<edge)lo=m+1;else hi=m;}
     return body.states[lo-1] ?? null;
   }
   function spans(body, from, to, edge) {
-    const stop=Math.min(to,edge),boundaries=[from,...(body?.states ?? []).filter(r=>r.knownAt>from&&r.knownAt<stop).map(r=>r.knownAt),stop];
+    const stop=Math.min(to,edge), cuts=[...(body?.states ?? []).filter(r=>r.knownAt>=body.from).map(r=>r.knownAt), ...(body ? [body.from,Math.min(body.to,body.asOf)] : [])],
+      boundaries=[from,...[...new Set(cuts.filter(t=>t>from&&t<stop))].sort((a,b)=>a-b),stop];
     return stop<=from?[]:boundaries.slice(0,-1).map((t,i)=>({from:t,to:boundaries[i+1],report:at(body,t,edge)}));
   }
+  const covers = (body, want) => Boolean(body) && body.from <= want.from && body.to >= want.to && Math.min(body.asOf, body.to) >= Math.min(want.as_of, want.to);
   const y = (value, middle, half, limit=1e9) => middle-Math.max(-1,Math.min(1,value/limit))*half;
-  return Object.freeze({parse,at,spans,y});
+  return Object.freeze({parse,at,spans,covers,y});
 });

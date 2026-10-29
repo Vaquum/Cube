@@ -13,6 +13,15 @@ test('ETF replay excludes knowledge at the edge and does not reconstruct earlier
  assert.deepEqual(E.spans(b,100,500,300).map(s=>[s.from,s.to,s.report.knownAt]),[[100,300,99]]);
  assert.equal(E.y(0,22,19),22);assert.equal(E.y(2e9,22,19),3);assert.equal(E.y(-2e9,22,19),41);
 });
+test('ETF cached states never cover a different window or unrequested publication edge',()=>{
+ const b=body();
+ for(const t of [99,450,499,500,800])assert.equal(E.at(b,t),null);
+ assert.equal(E.covers(b,{from:100,to:400,as_of:450}),true);
+ assert.equal(E.covers(b,{from:500,to:800,as_of:900}),false);
+ assert.equal(E.covers(b,{from:100,to:500,as_of:500}),false);
+ assert.deepEqual(E.spans(b,0,600,600).map(s=>[s.from,s.to,s.report?.knownAt??null]),[[0,100,null],[100,300,99],[300,450,300],[450,600,null]]);
+ assert.deepEqual(E.spans(b,500,800,900).map(s=>s.report),[null]);
+});
 test('ETF native projection retains settlement revisions, source publication time and persistence',()=>{
  const script=String.raw`
 import sys, json, tempfile
@@ -57,6 +66,33 @@ with tempfile.TemporaryDirectory() as directory:
  assert service.answer({'from':['NaN'],'to':['2'],'as_of':['3']})[0]==400
  resumed=EtfService(None,path);assert len(resumed.states)==3
  print('projection, revisions, replay and restart verified')
+class Reader:
+ def __init__(self):
+  self.base=timestamp('2026-10-28T00:00:00Z');self.latest='a';self.versions=[];self.payload={};self.reads=[]
+ def add(self,key,seconds,a,b,day='2026-10-27'):
+  known=self.base+seconds*1000
+  published=__import__('datetime').datetime.fromtimestamp(known/1000,__import__('datetime').UTC).isoformat()
+  self.versions.append({'dataset_id':key,'first_published_at':published})
+  self.payload[key]=SimpleNamespace(dataset_id=key,records=rows(a,b,day=day))
+ def snapshot(self):
+  return {'snapshot_id':'pin','published_at':'2026-10-29T16:00:00Z','datasets':{'sosovalue_etf_flows':{'dataset_id':self.latest,'status':'ok','last_checked_at':'2026-10-29T16:00:00Z'}}}
+ def history(self,*a,**kw):return {'versions':list(reversed(self.versions))}
+ def version(self,source,v):self.reads.append(v['dataset_id']);return self.payload[v['dataset_id']]
+reader=Reader();reader.add('a',1,10,-2)
+service=EtfService(reader)
+# Repair a cache created with the later shared snapshot's publication time.
+service.ingest(reader.payload['a'],'2026-10-29T16:00:00Z')
+service.cycle();assert service.states[0]['knownAt']==reader.base+1000 and reader.reads==[]
+# Intermediate captures during an outage must be replayed, not just the latest.
+reader.add('b',2,12,-2);reader.add('c',3,14,-2);reader.latest='c'
+service.cycle();assert [r['knownAt'] for r in service.states]==[reader.base+n*1000 for n in [1,2,3]]
+assert reader.reads==['b','c']
+# A later backfill behind an already stored head is discovered without restart.
+reader.add('older',0,5,-1,day='2026-10-26')
+reader.versions.sort(key=lambda v:v['first_published_at'])
+service.cycle();assert service.states[0]['knownAt']==reader.base and service.states[0]['date']=='2026-10-26'
+assert reader.reads==['b','c','older'] and service.history_ready
+print('first publication, outage recovery and late backfill verified')
 `;
  const r=spawnSync('python3',['-c',script],{cwd:require('node:path').resolve(__dirname,'../..'),encoding:'utf8'});assert.equal(r.status,0,r.stdout+r.stderr);
 });

@@ -161,21 +161,32 @@ class EtfService:
             if before is not None and (next_before, next_id or "") >= (before, before_id or ""):
                 raise ValueError("ETF history cursor did not advance")
             before, before_id = next_before, next_id
+        held = dict(self.db.execute("SELECT id,known_at FROM etf_captures"))
+        changed = False
         for version in reversed(versions):
-            if self.db.execute("SELECT 1 FROM etf_captures WHERE id=?", (version["dataset_id"],)).fetchone():
+            published = timestamp(version.get("first_published_at"))
+            if published is None:
+                raise ValueError("ETF history has no first publication time")
+            if version["dataset_id"] in held:
+                if published < held[version["dataset_id"]]:
+                    self.db.execute("UPDATE etf_captures SET known_at=? WHERE id=?", (published, version["dataset_id"]))
+                    changed = True
                 continue
             self.ingest(self.reader.version(SOURCE, version), version.get("first_published_at"))
-        self.rebuild()
+            changed = True
+        if changed:
+            self.rebuild()
         self.history_ready = True
 
     def cycle(self):
         manifest = self.reader.snapshot()
         state = manifest.get("datasets", {}).get(SOURCE) or {"status": "not_in_catalogue"}
         dataset_id = state.get("dataset_id")
+        # Reconcile metadata on every poll: this also recovers intermediate
+        # captures after an outage and newly inserted historical backfills.
+        self.bootstrap()
         if dataset_id and not self.db.execute("SELECT 1 FROM etf_captures WHERE id=?", (dataset_id,)).fetchone():
-            dataset = self.reader.pages("/v1/data/" + SOURCE, manifest["snapshot_id"], SOURCE)
-            self.ingest(dataset, manifest["published_at"])
-            self.rebuild()
+            raise ValueError("Latest ETF capture is not yet indexed in publication history")
         self.snapshot = {"id": manifest["snapshot_id"], "publishedAt": timestamp(manifest["published_at"])}
         self.source = {"state": state.get("status", "unavailable"), "checkedAt": timestamp(state.get("last_checked_at")),
                        "receivedAt": timestamp(state.get("received_at")), "intervalSeconds": state.get("collection_interval_seconds", 21600),
@@ -187,11 +198,6 @@ class EtfService:
     def start(self):
         def run():
             while True:
-                try:
-                    if not self.history_ready:
-                        self.bootstrap()
-                except (FieldDataError, ValueError, OSError, sqlite3.Error) as error:
-                    self.error = str(error)
                 try:
                     self.cycle()
                 except (FieldDataError, ValueError, OSError, sqlite3.Error) as error:
@@ -226,7 +232,7 @@ class EtfService:
             source.update(state="partial", detail="Retained ETF publication history is still loading")
         stops = [s["knownAt"] for s in states]
         lo = max(0, bisect.bisect_left(stops, start) - 1)
-        hi = bisect.bisect_left(stops, min(end, edge))
+        hi = bisect.bisect_left(stops, min(end, edge, snapshot["publishedAt"] + 1))
         return 200, {"schema": SCHEMA, "model": "etf-fund-flows@1", "snapshot": snapshot, "source": source,
                      "scaleUsd": SCALE_USD, "from": start, "to": end, "asOf": edge,
                      "historyReady": history_ready, "states": states[lo:hi] if hi > lo else []}

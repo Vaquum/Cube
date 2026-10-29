@@ -16348,10 +16348,13 @@
   // field-data-api first publishes them; economic dates never backdate availability.
   const ETF_SERVED = Boolean(document.querySelector('meta[name="explorer-etf"]')),
     Etf = window.explorerEtf, ETF_BAND = 40,
-    etfRt = { status: "idle", body: null, error: "", key: "", controller: null, timer: 0, revision: 0 };
+    etfRt = { status: "idle", body: null, error: "", key: "", controller: null, timer: 0, revision: 0, retryAt: 0, readAt: 0 };
   const stripBand = () => S.strip === "etf" ? ETF_BAND : STRIP_BAND;
   function etfWant() {
-    return { from: Math.max(0, Math.floor(msAt(S.tA))), to: Math.ceil(msAt(S.tB)), as_of: stripEdge(activeCutoff()) };
+    // Preload the visible publication history. Replay filters it at its own edge
+    // while playing; advancing the anchor must not cancel an in-flight read.
+    const day = 86400000;
+    return { from: Math.max(0, Math.floor(msAt(S.tA)/day)*day), to: Math.ceil(msAt(S.tB)/day)*day, as_of: stripEdge(CUT) };
   }
   function etfStop() {
     etfRt.controller?.abort(); clearTimeout(etfRt.timer); etfRt.timer = 0;
@@ -16359,29 +16362,30 @@
   function etfSchedule(wait = 200) {
     clearTimeout(etfRt.timer); etfRt.timer = 0;
     if (S.strip !== "etf" || !ETF_SERVED || !PACK.live || !ready || activeAnalysis?.mode === "captured") return;
-    const want = etfWant(), key = JSON.stringify(want);
-    if (etfRt.controller && etfRt.key !== key) etfRt.controller.abort();
-    etfRt.timer = setTimeout(etfRead, Math.max(200, wait));
+    if (etfRt.controller) return;
+    const want = etfWant(), now = performance.now(), freshUntil = Etf.covers(etfRt.body, want) ? etfRt.readAt + 60000 : 0;
+    etfRt.timer = setTimeout(etfRead, Math.max(200, wait, etfRt.retryAt-now, freshUntil-now));
   }
   async function etfRead() {
     etfRt.timer = 0;
     if (S.strip !== "etf" || etfRt.controller || activeAnalysis?.mode === "captured") return;
+    if (performance.now() < etfRt.retryAt) { etfSchedule(); return; }
     const want = etfWant(), key = JSON.stringify(want), controller = new AbortController();
     etfRt.controller = controller; etfRt.key = key;
-    if (!etfRt.body) etfRt.status = "loading";
+    etfRt.status = "loading";
     try {
       const response = await fetch(`/cube/etf?${new URLSearchParams({ proto: "2", ...want })}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]), cache: "no-store" });
       const body = await response.json();
       if (response.status === 409 && body.reload) { offerReload(body); throw new Error("Reload required for ETF data"); }
       if (!response.ok) throw new Error(body.detail || body.error || `ETF read failed (${response.status})`);
       const value = Etf.parse(body, want);
-      if (controller.signal.aborted || S.strip !== "etf" || JSON.stringify(etfWant()) !== key) return;
-      etfRt.body = value; etfRt.status = "ready"; etfRt.error = "";
+      if (controller.signal.aborted || S.strip !== "etf" || activeAnalysis?.mode === "captured") return;
+      etfRt.body = value; etfRt.status = "ready"; etfRt.error = ""; etfRt.retryAt = 0; etfRt.readAt = performance.now();
     } catch (error) {
-      if (!controller.signal.aborted) { etfRt.status = "failed"; etfRt.error = error.message; }
+      if (!controller.signal.aborted) { etfRt.status = "failed"; etfRt.error = error.message; etfRt.retryAt = performance.now()+60000; }
     } finally {
       if (etfRt.controller === controller) etfRt.controller = null;
-      etfRt.revision++; renderStrip(); requestDraw(); etfSchedule(JSON.stringify(etfWant()) === key ? 60000 : 200);
+      etfRt.revision++; renderStrip(); requestDraw(); etfSchedule();
     }
   }
   function etfAvailable() {
