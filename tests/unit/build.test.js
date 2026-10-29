@@ -105,11 +105,12 @@ test("the page holds state, encoding and app script text verbatim, in that order
   const bytes = fs.readFileSync(t.file("out/index.html"));
   const page = bytes.toString("utf8");
   const els = scripts(page);
-  assert.deepEqual(els.map((e) => e.attrs), ['src="vendor/d3.min.js"', 'type="application/json" id="origo-lens-data"', "", "", "", "", "", "", "", "", "", "", "", "", ""]);
-  const [d3, data, state, encoding, evidence, comparison, dashboard, agent, reference, rallies, features, motion, help, diagnostics, app] = els;
+  assert.deepEqual(els.map((e) => e.attrs), ['src="vendor/d3.min.js"', 'type="application/json" id="origo-lens-data"', "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [d3, data, state, encoding, etf, evidence, comparison, dashboard, agent, reference, rallies, features, motion, help, diagnostics, app] = els;
   assert.equal(d3.body, "");
   assert.equal(state.body, t.read("src/state.js"));
   assert.equal(encoding.body, t.read("src/encoding.js"));
+  assert.equal(etf.body, t.read("src/etf.js"));
   assert.equal(evidence.body, t.read("src/evidence.js"));
   assert.equal(comparison.body, t.read("src/comparison.js"));
   assert.equal(dashboard.body, t.read("src/comparison-ui.js"));
@@ -134,14 +135,14 @@ test("the page holds state, encoding and app script text verbatim, in that order
 
 test("src/document.html names each marker exactly once, and the encoding line sits between the state and app lines", () => {
   const doc = fs.readFileSync(path.join(ROOT, "src/document.html"), "utf8");
-  const markers = ["__EXPLORER_STYLE__", "__EXPLORER_VIEW__", "__EXPLORER_DATA__", "__EXPLORER_STATE__", "__EXPLORER_ENCODING__", "__EXPLORER_EVIDENCE__", "__EXPLORER_COMPARISON__", "__EXPLORER_COMPARISONUI__", "__EXPLORER_AGENT__", "__EXPLORER_REFERENCE__", "__EXPLORER_RALLIES__", "__EXPLORER_FEATURES__", "__EXPLORER_MOTION__", "__EXPLORER_HELP__", "__EXPLORER_DIAGNOSTICS__", "__EXPLORER_SCRIPT__"];
+  const markers = ["__EXPLORER_STYLE__", "__EXPLORER_VIEW__", "__EXPLORER_DATA__", "__EXPLORER_STATE__", "__EXPLORER_ENCODING__", "__EXPLORER_ETF__", "__EXPLORER_EVIDENCE__", "__EXPLORER_COMPARISON__", "__EXPLORER_COMPARISONUI__", "__EXPLORER_AGENT__", "__EXPLORER_REFERENCE__", "__EXPLORER_RALLIES__", "__EXPLORER_FEATURES__", "__EXPLORER_MOTION__", "__EXPLORER_HELP__", "__EXPLORER_DIAGNOSTICS__", "__EXPLORER_SCRIPT__"];
   for (const m of markers) assert.equal(doc.split(m).length - 1, 1, `${m} must occur exactly once`);
   assert.deepEqual(doc.match(/__EXPLORER_[A-Z]+__/g), markers, "the six markers, in page order, and no other");
   const lines = doc.split("\n");
   const at = (m) => lines.findIndex((l) => l.includes(m));
   assert.equal(lines[at("__EXPLORER_ENCODING__")], "    <script>__EXPLORER_ENCODING__</script>");
   assert.equal(at("__EXPLORER_ENCODING__"), at("__EXPLORER_STATE__") + 1, "directly after the state line");
-  assert.equal(at("__EXPLORER_SCRIPT__"), at("__EXPLORER_ENCODING__") + 11, "comparison, reference, rallies, features and help scripts precede the app line");
+  assert.equal(at("__EXPLORER_SCRIPT__"), at("__EXPLORER_ENCODING__") + 12, "comparison, reference, rallies, features and help scripts precede the app line");
 });
 
 // ---------------------------------------------------------------------------------------------------
