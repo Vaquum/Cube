@@ -3891,6 +3891,26 @@
 #origo-lens .ol-micro-amounts { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 20px; }
 #origo-lens .ol-micro-balance { height: 7px; margin: 4px 0; background: var(--ol-negative); }
 #origo-lens .ol-micro-balance > span { display: block; height: 100%; background: var(--ol-positive); }
+#origo-lens #ol-tip[data-presentation="strip-etf"] [data-strip-slot="track"] {
+  display: grid;
+  grid-template-rows: 18px minmax(0, 1fr) 16px 16px;
+  gap: 2px;
+}
+#origo-lens #ol-tip[data-presentation="strip-etf"] [data-strip-slot="track"] > svg { width: 100%; height: 100%; }
+#origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats dd { font-size: 22px; }
+@media (max-height: 700px) and (max-width: 600px) {
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats { grid-template-columns: 1fr; gap: 0; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats .ol-cell-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats :is(dt, dd) { height: auto; font-size: 12px; line-height: 16px; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats dd { text-align: right; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-tip-head { font-size: 12px; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-strip-status { font-size: 10px; }
+}
+#origo-lens [data-presentation="strip-etf"] .ol-tip-sub { font-size: var(--fs-s); line-height: 1.4; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-etf"] { width: 100%; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-etf"] .ol-strip-slot { margin-bottom: 12px; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-etf"] .ol-strip-slot > svg { width: 100%; height: auto; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-etf"] :is(dt, dd, .ol-tip-sub) { overflow-wrap: anywhere; white-space: normal; }
 #origo-lens .ol-micro-balance[data-unavailable] { background: var(--ol-line); }
 #origo-lens .ol-micro-net { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 #origo-lens #ol-tip[data-presentation="strip-micro"] .ol-micro-net .ol-cell-stat { display: block; }

@@ -122,6 +122,7 @@ from mill_relay import MAX_BODY as MILL_MAX_BODY, ROUTES as MILL_ROUTES, declare
 import strip_contract  # noqa: E402
 from field_data import FieldDataReader  # noqa: E402
 from strip_service import StripService  # noqa: E402
+from etf_service import EtfService, DECLARATION as ETF_DECLARATION  # noqa: E402
 
 T0 = 1609459200
 BASE_SECONDS = 56.25
@@ -172,6 +173,7 @@ FIELD_DATA_URL = os.environ.get("FIELD_DATA_URL", "")
 FIELD_DATA_API_TOKEN = os.environ.get("FIELD_DATA_API_TOKEN") or None
 STRIP_STORE = os.environ.get("STRIP_STORE", "/var/lib/cube-explorer/strip.sqlite")
 STRIP: StripService | None = None
+ETF: EtfService | None = None
 SOURCE = "Binance BTCUSDT spot · Origo market state cube"
 VENDOR_TYPES = {".js": "application/javascript", ".css": "text/css", ".txt": "text/plain", ".md": "text/markdown"}
 TIERS = (
@@ -1165,6 +1167,8 @@ class Handler(BaseHTTPRequestHandler):
             if url.path in ("/", "/index.html"):
                 page = self.explorer.html()
                 page = declare(page) if mill_relayed() else page
+                if ETF is not None:
+                    page = page.replace(b"</head>", ETF_DECLARATION + b"</head>", 1)
                 self.reply(200, "text/html; charset=utf-8", strip_contract.declare(page) if STRIP is not None else page)
             elif url.path == "/cube/pack":
                 since = args.get("since", [""])[0]
@@ -1220,6 +1224,9 @@ class Handler(BaseHTTPRequestHandler):
                 if math.ceil(b1 / step) - b0 // step > MAX_COLUMNS:
                     raise ValueError(f"more than {MAX_COLUMNS} bars")
                 self.json(self.explorer.bars(n, b0, b1, args.get("pack", [""])[0]))
+            elif url.path == "/cube/etf":
+                status, body = ETF.answer(args) if ETF is not None else (503, {"error": "etf_not_configured"})
+                self.json(body, status)
             elif url.path == "/cube/strip":
                 status, body = STRIP.answer(args) if STRIP is not None else (503, {"error": "strip_not_configured"})
                 if isinstance(body, bytes):
@@ -1373,11 +1380,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8487)
     arguments = parser.parse_args(argv)
     Handler.explorer = Explorer(arguments.page)
-    global STRIP
+    global STRIP, ETF
     if FIELD_DATA_URL:
         store = STRIP_STORE if Path(STRIP_STORE).parent.is_dir() else ":memory:"
         STRIP = StripService(FieldDataReader(FIELD_DATA_URL, token=FIELD_DATA_API_TOKEN), store, bars=strip_bars)
         STRIP.start()
+        etf_store = str(Path(store).with_name("etf.sqlite")) if store != ":memory:" else ":memory:"
+        ETF = EtfService(FieldDataReader(FIELD_DATA_URL, token=FIELD_DATA_API_TOKEN), etf_store)
+        ETF.start()
     # Loopback only, and not configurable: the server checks no credentials, so the portal-gated
     # Caddy on this host must be the only way to it.
     with ThreadingHTTPServer(("127.0.0.1", arguments.port), Handler) as httpd:

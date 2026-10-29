@@ -9865,7 +9865,7 @@
   const cdcPanes = Object.freeze(["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"]);
   const cdcRowChoices = Object.freeze(["off", "volume", "delta", "relvol", "time"]);
   // The Strip's choices (#193): off, the forces summed, or one force alone.
-  const cdcStrips = Object.freeze(["off", "forces", "forces.macro", "forces.positioning", "forces.news", "forces.social", "micro"]);
+  const cdcStrips = Object.freeze(["off", "etf", "forces", "forces.macro", "forces.positioning", "forces.news", "forces.social", "micro"]);
   const cdcPeriodKeys = Object.freeze(["visible", "1d", "7d", "30d", "90d", "1y", "3y", "wk", "mo", "yr", "all"]);
   const cdcFollows = Object.freeze(["free", "refit", "coupled", "diagonal"]);
   // The navigation keys: a visual setting may never use one (place() is a regexp over them).

@@ -3911,6 +3911,26 @@
 #origo-lens .ol-micro-amounts { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 20px; }
 #origo-lens .ol-micro-balance { height: 7px; margin: 4px 0; background: var(--ol-negative); }
 #origo-lens .ol-micro-balance > span { display: block; height: 100%; background: var(--ol-positive); }
+#origo-lens #ol-tip[data-presentation="strip-etf"] [data-strip-slot="track"] {
+  display: grid;
+  grid-template-rows: 18px minmax(0, 1fr) 16px 16px;
+  gap: 2px;
+}
+#origo-lens #ol-tip[data-presentation="strip-etf"] [data-strip-slot="track"] > svg { width: 100%; height: 100%; }
+#origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats dd { font-size: 22px; }
+@media (max-height: 700px) and (max-width: 600px) {
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats { grid-template-columns: 1fr; gap: 0; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats .ol-cell-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats :is(dt, dd) { height: auto; font-size: 12px; line-height: 16px; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-core-stats dd { text-align: right; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-tip-head { font-size: 12px; }
+  #origo-lens #ol-tip[data-presentation="strip-etf"] .ol-strip-status { font-size: 10px; }
+}
+#origo-lens [data-presentation="strip-etf"] .ol-tip-sub { font-size: var(--fs-s); line-height: 1.4; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-etf"] { width: 100%; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-etf"] .ol-strip-slot { margin-bottom: 12px; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-etf"] .ol-strip-slot > svg { width: 100%; height: auto; }
+#origo-lens #ol-inspect-readout[data-presentation="strip-etf"] :is(dt, dd, .ol-tip-sub) { overflow-wrap: anywhere; white-space: normal; }
 #origo-lens .ol-micro-balance[data-unavailable] { background: var(--ol-line); }
 #origo-lens .ol-micro-net { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 #origo-lens #ol-tip[data-presentation="strip-micro"] .ol-micro-net .ol-cell-stat { display: block; }
@@ -16993,7 +17013,7 @@
   const cdcPanes = Object.freeze(["cells", "volume", "delta", "trades", "size", "efficiency", "choppiness", "perpath", "rsi1d", "rsi4h", "macd1d"]);
   const cdcRowChoices = Object.freeze(["off", "volume", "delta", "relvol", "time"]);
   // The Strip's choices (#193): off, the forces summed, or one force alone.
-  const cdcStrips = Object.freeze(["off", "forces", "forces.macro", "forces.positioning", "forces.news", "forces.social", "micro"]);
+  const cdcStrips = Object.freeze(["off", "etf", "forces", "forces.macro", "forces.positioning", "forces.news", "forces.social", "micro"]);
   const cdcPeriodKeys = Object.freeze(["visible", "1d", "7d", "30d", "90d", "1y", "3y", "wk", "mo", "yr", "all"]);
   const cdcFollows = Object.freeze(["free", "refit", "coupled", "diagonal"]);
   // The navigation keys: a visual setting may never use one (place() is a regexp over them).
@@ -19294,6 +19314,50 @@
   // == §99 footer: the frozen export ==
   return Object.freeze(API);
 
+});
+</script>
+    <script>/* ETF report contract and timeline. Pure helpers shared by the page and tests. */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.explorerEtf = api;
+})(typeof globalThis === "undefined" ? globalThis : this, function () {
+  const finite = v => typeof v === "number" && Number.isFinite(v), nullable = v => v === null || finite(v);
+  function parse(body, want) {
+    if (!body || body.schema !== "cube-etf@1" || body.scaleUsd !== 1e9 || body.from !== want.from || body.to !== want.to || body.asOf !== want.as_of
+      || !body.source || typeof body.source.state !== "string" || !body.snapshot || !Array.isArray(body.states) || body.states.length > 20000) throw new Error("Invalid ETF response");
+    let previous = -Infinity;
+    for (const r of body.states) {
+      if (!Number.isSafeInteger(r.knownAt) || r.knownAt < 0 || r.knownAt <= previous || r.knownAt >= Math.min(want.to, want.as_of)
+        || typeof r.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(r.date) || typeof r.complete !== "boolean"
+        || !Number.isInteger(r.expected) || r.expected < 1 || r.expected > 30 || !Number.isInteger(r.reported) || r.reported < 0 || r.reported > r.expected
+        || ![r.inflow,r.outflow,r.net,r.magnitude,r.normal].every(nullable) || !Array.isArray(r.funds) || r.funds.length !== r.expected
+        || r.funds.some(f => typeof f.ticker !== "string" || f.ticker.length > 15 || !nullable(f.net))
+        || new Set(r.funds.map(f => f.ticker)).size !== r.expected || !Number.isInteger(r.normalReports) || r.normalReports < 0 || r.normalReports > 20
+        || (r.normal !== null && (r.normal < 0 || r.normalReports !== 20))) throw new Error("Invalid ETF report");
+      const known=r.funds.filter(f=>f.net!==null), positive=known.reduce((s,f)=>s+Math.max(0,f.net),0),negative=known.reduce((s,f)=>s+Math.max(0,-f.net),0);
+      if (known.length!==r.reported || (known.length ? r.inflow===null || r.outflow===null || Math.abs(r.inflow-positive)>.01 || Math.abs(r.outflow-negative)>.01 : r.inflow!==null || r.outflow!==null)) throw new Error("Invalid ETF fund coverage");
+      if (r.complete ? ![r.inflow,r.outflow,r.net,r.magnitude].every(finite) || r.inflow < 0 || r.outflow < 0 || r.reported !== r.expected
+        || Math.abs(r.net-(r.inflow-r.outflow)) > .01 || Math.abs(r.magnitude-(r.inflow+r.outflow)) > .01
+        : r.net !== null || r.magnitude !== null) throw new Error("Invalid ETF amounts");
+      previous = r.knownAt;
+    }
+    return body;
+  }
+  function at(body, time, edge = Infinity) {
+    if (!body || time < body.from || time >= Math.min(body.to, body.asOf, edge)) return null;
+    let lo=0,hi=body.states.length;
+    while(lo<hi){const m=(lo+hi)>>1;if(body.states[m].knownAt<=time && body.states[m].knownAt<edge)lo=m+1;else hi=m;}
+    return body.states[lo-1] ?? null;
+  }
+  function spans(body, from, to, edge) {
+    const stop=Math.min(to,edge), cuts=[...(body?.states ?? []).filter(r=>r.knownAt>=body.from).map(r=>r.knownAt), ...(body ? [body.from,Math.min(body.to,body.asOf)] : [])],
+      boundaries=[from,...[...new Set(cuts.filter(t=>t>from&&t<stop))].sort((a,b)=>a-b),stop];
+    return stop<=from?[]:boundaries.slice(0,-1).map((t,i)=>({from:t,to:boundaries[i+1],report:at(body,t,edge)}));
+  }
+  const covers = (body, want) => Boolean(body) && body.from <= want.from && body.to >= want.to && Math.min(body.asOf, body.to) >= Math.min(want.as_of, want.to);
+  const y = (value, middle, half, limit=1e9) => middle-Math.max(-1,Math.min(1,value/limit))*half;
+  return Object.freeze({parse,at,spans,covers,y});
 });
 </script>
     <script>/* P7-S3: seasonal-state@1 / block-bootstrap@2. Pure inputs, no transport or DOM.
@@ -24434,7 +24498,7 @@
     return S.rows !== "off" ? 2 : 1;
   }
   function layoutNow(width, height) {
-    return layout(width, height, eventKinds().length, S.background !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen, S.strip !== "off" ? STRIP_LABELS + STRIP_BAND : 0);
+    return layout(width, height, eventKinds().length, S.background !== "off" ? ROWS_STRIP : 0, profileTrackCount(), S.profileOpen, S.strip !== "off" ? STRIP_LABELS + stripBand() : 0);
   }
   function geometry(paint = true) {
     if (comparisonModel.expanded) return;
@@ -29643,6 +29707,7 @@
       waitingCell = hover?.emptyCell && !inspect.on && !lensShown() && !drag && canvas.matches(":hover");
     if (hover && last?.sc && (waitingCell || (!tip.hidden && (scaleRt.tipStamp !== last.sc.stamp || scaleRt.tipRowsStamp !== rowReadoutStamp() || drawingTipRevision !== drawingStore.revision
       || tip.dataset.stripDetail === "compact" && stripRt.tipStamp !== stripReadoutStamp()
+      || tip.dataset.presentation === "strip-etf" && tip.dataset.etfRevision !== String(etfRt.revision)
       || tip.dataset.presentation === "strip-micro" && tip.dataset.microRevision !== String(microRt.revision))))) tooltip(hover, { redraw: false });
     // The readout key is named on the tip only while the tip shows (the pointer leaving, a pan or a tool hides
     // it without going through tooltip()); the attribute stays, empty, so a reader can always find it.
@@ -30048,7 +30113,7 @@
     if (s === "background") return { x: G.x + G.w + Math.max(1, G.sw / 2), y, t, p, inspect: true, rowOwner: "background" };
     if (s === "rows") return { x: G.tx[G.tracks > 1 ? 1 : 0] + 1, y, t, p, inspect: true, rowOwner: inspect.rowTrack ?? (S.rows !== "off" ? "rows" : "current") };
     if (s === "columns") return { x: clamp(x, G.x, G.x + G.w), y: G.ay + G.ah / 2, t, p, inspect: true };
-    if (s === "strip") return { x: clamp(x, G.x, G.x + G.w), y: G.by + STRIP_LABELS + STRIP_BAND / 2, t, p, inspect: true };
+    if (s === "strip") return { x: clamp(x, G.x, G.x + G.w), y: G.by + STRIP_LABELS + stripBand() / 2, t, p, inspect: true };
     if (s === "references") return { x: G.x + G.w - 24, y: clamp(y, G.y + 8, G.y + G.h - 8), t, p, inspect: true };
     return { x: clamp(x, G.x, G.x + G.w), y: clamp(y, G.y, G.y + G.h), t, p, inspect: true };
   }
@@ -30132,12 +30197,12 @@
       b.tabIndex = id === s ? 0 : -1;
     }
     nav2.dataset.surface = s;
-    const stripView = el("inspect-strip-view"), isMicro = S.strip === "micro";
+    const stripView = el("inspect-strip-view"), isMicro = S.strip === "micro", isEtf = S.strip === "etf";
     for (const option of stripView.options) {
-      if (option.value === "forces") option.textContent = isMicro ? "Response map" : "Forces";
-      if (option.value === "ahead") option.disabled = option.hidden = isMicro;
+      if (option.value === "forces") option.textContent = isMicro ? "Response map" : isEtf ? "Daily fund flows" : "Forces";
+      if (option.value === "ahead") option.disabled = option.hidden = isMicro || isEtf;
     }
-    if (isMicro && inspect.stripPart === "ahead") inspect.stripPart = "forces";
+    if ((isMicro || isEtf) && inspect.stripPart === "ahead") inspect.stripPart = "forces";
     stripView.value = inspect.stripPart;
     // where the cursor stands, as numbers a reader of the page (and a test) can compare: the cell, row or column and whether it is in the view
     nav2.dataset.c = String(w.c);
@@ -30186,7 +30251,8 @@
         tipRows(tip, entry.name, "Calendar lines", [["Kind", entry.name], ["Drawn", occlusion.off.has("clock|" + entry.key) ? "no: held back by the 20% budget" : spaced(CLOCK[entry.key].gap) ? "yes" : "too close together at this zoom"]], "A calendar definition, not a measured trade event");
         if (event) calendarReferencePresentation(tip, { events: [event] });
         tip.hidden = false;
-      } else if (s === "strip" && S.strip === "micro") microTip(tip, Math.round(msAt(inspect.t)), stripEdge(last.cut), true);
+      } else if (s === "strip" && S.strip === "etf") etfTip(tip, Math.round(msAt(inspect.t)), stripEdge(last.cut), inspect.stripPart === "sources");
+      else if (s === "strip" && S.strip === "micro") microTip(tip, Math.round(msAt(inspect.t)), stripEdge(last.cut), true);
       else if (s === "strip" && (!stripRt.view || inspect.stripPart === "sources")) stripSourceCard(tip, stripFieldEdge(last.cut));
       else if (s === "strip" && inspect.stripPart === "ahead") stripAheadCard(tip, stripAheadEvents(stripFieldEdge(last.cut)).map((hit) => hit.e), stripFieldEdge(last.cut));
       else tooltip(hover, { redraw: false });
@@ -30461,7 +30527,7 @@
     else if (s === "rows" && G.profile) box = [G.tx[inspect.rowTrack === "current" || G.tracks < 2 ? 0 : 1] - 2, G.Y((w.r + 1) * w.sp.ps), TRACK_BARS + 4, G.Y(w.r * w.sp.ps) - G.Y((w.r + 1) * w.sp.ps)];
     else if (s === "background" && G.sw) box = [G.sx, G.Y((w.r + 1) * w.sp.ps), G.sw, G.Y(w.r * w.sp.ps) - G.Y((w.r + 1) * w.sp.ps)];
     else if (s === "columns" && G.ah > 0) box = [G.X(w.c * w.sp.ts), G.ay, G.X((w.c + 1) * w.sp.ts) - G.X(w.c * w.sp.ts), G.ah];
-    else if (s === "strip" && G.bh > 0) box = [G.X(w.c * w.sp.ts), G.by + STRIP_LABELS, G.X((w.c + 1) * w.sp.ts) - G.X(w.c * w.sp.ts), STRIP_BAND];
+    else if (s === "strip" && G.bh > 0) box = [G.X(w.c * w.sp.ts), G.by + STRIP_LABELS, G.X((w.c + 1) * w.sp.ts) - G.X(w.c * w.sp.ts), stripBand()];
     else if (s === "references") {
       const e = inspectEntry(),
         hit = e && lineHits.find((h) => h.id === e.id);
@@ -30481,7 +30547,7 @@
   // A draw that changed what the cursor stands on (the view, the level, the data) reads it again, so a pan or a refresh never leaves a stale readout.
   function inspectSync() {
     if (!inspect.on) return;
-    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", rowReadoutStamp(), comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.strip, microRt.revision, stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
+    const sig = [inspect.surface, inspect.rowTrack, inspect.t, inspect.p, inspect.ref, S.rows, S.period, S.background, S.backgroundPeriod, S.tA, S.tB, S.pA, S.pB, S.n, S.m, G.x, G.w, G.tracks, last?.sc?.stamp ?? "", rowReadoutStamp(), comparisonSourceRevision, cube.failed.size, motion.failed.size, barsVersion, rallyRevision, S.strip, microRt.revision, etfRt.revision, stripRt.status, stripRt.detail, stripRt.snapshot?.id, stripRt.view?.at, stripRt.history?.at, S.mode === "candles" ? [candleVersion, candleEdge(), PACK.state_token].join(":") : "", inspectReferences().length, drawingStore.revision, nav.shift].join("|");
     if (sig === inspect.sig) return;
     inspect.sig = sig;
     inspectRender(false, false);
@@ -32417,7 +32483,8 @@
     ];
     if (S.background !== "off") view.push(row("backgroundMeasure", "Background", `${ROWS_INFO[S.background].name} ${periodPhrase(S.backgroundPeriod)}`, `${S.background}:${S.backgroundPeriod}`));
     if (S.rows !== "off") view.push(row("rowsMeasure", "Rows", `${ROWS_INFO[S.rows].name} ${periodPhrase(S.period)}`, `${S.rows}:${S.period}`));
-    if (S.strip === "micro") {
+    if (S.strip === "etf") view.push(row("strip", "Strip", `ETF · ${etfRt.status} · ${etfRt.body?.source.state ?? "not loaded"}`, S.strip));
+    else if (S.strip === "micro") {
       const observed = microRt.key.startsWith(PACK.state_token + "|") ? d3.max(microRt.pages, page => d3.max(page.bins,
         bin => bin.until <= cutMs && bin.book?.maxObservedAtUs < cutMs * 1000 ? bin.book.maxObservedAtUs : undefined)) : undefined,
         status = activeAnalysis?.mode === "captured" ? "not captured in this investigation"
@@ -33065,7 +33132,7 @@
       mode: "What the cells show.", pane: "What each column shows below the prices.",
     }[id] ?? rowSelectorSpecs[id]?.description };
     if (id === "mode") return [dataset, ...scaleSteps("cells")];
-    if (id === "strip") return [{ ...dataset, desc: "What the band under the prices shows." }, ...(S.strip === "off" || S.strip === "micro" ? [] : [{
+    if (id === "strip") return [{ ...dataset, desc: "What the band under the prices shows." }, ...(["off", "micro", "etf"].includes(S.strip) ? [] : [{
       id: "force", name: "Force", title: "Choose a force", desc: "All four summed, or one alone with only its own events.", group: stripForceChoices(),
     }])];
     if (id === "pane") return [dataset, ...(S.pane.startsWith("rsi") ? [{
@@ -33235,7 +33302,7 @@
     const selected = steps.slice(1).flatMap(entry => [...entry.group.querySelectorAll('[aria-checked="true"]')])
       .map(b => b.querySelector(".ol-item-text > span")?.textContent).filter(Boolean),
       datasetName = id === "mode" ? MODE_NAMES[S.mode] : id === "pane" ? (S.pane.startsWith("rsi") ? "RSI 14" : PANE_INFO[S.pane].name)
-        : id === "strip" ? (S.strip === "off" ? "Off" : "Forces") : ROWS_INFO[rowSelectorSpecs[id].measure()].name;
+        : id === "strip" ? (S.strip === "etf" ? "ETF" : S.strip === "micro" ? "Micro" : S.strip === "off" ? "Off" : "Forces") : ROWS_INFO[rowSelectorSpecs[id].measure()].name;
     // A menu with one step is a plain list: no step count and no stepper.
     if (steps.length > 1) header.append(uiEl("div", "ol-flow-caption", `${name} · Step ${at + 1} of ${steps.length}`), progress,
       uiEl("div", "ol-flow-summary", [datasetName, ...selected].join(" · ")));
@@ -39482,6 +39549,129 @@
     );
   }
   // ---- The Strip ----
+  // ETF amounts share one fixed dollar scale. The daily reports change only when
+  // field-data-api first publishes them; economic dates never backdate availability.
+  const ETF_SERVED = Boolean(document.querySelector('meta[name="explorer-etf"]')),
+    Etf = window.explorerEtf, ETF_BAND = 40,
+    etfRt = { status: "idle", body: null, error: "", key: "", controller: null, timer: 0, revision: 0, retryAt: 0, readAt: 0 };
+  const stripBand = () => S.strip === "etf" ? ETF_BAND : STRIP_BAND;
+  function etfWant() {
+    // Preload the visible publication history. Replay filters it at its own edge
+    // while playing; advancing the anchor must not cancel an in-flight read.
+    const day = 86400000;
+    return { from: Math.max(0, Math.floor(msAt(S.tA)/day)*day), to: Math.ceil(msAt(S.tB)/day)*day, as_of: stripEdge(CUT) };
+  }
+  function etfStop() {
+    etfRt.controller?.abort(); clearTimeout(etfRt.timer); etfRt.timer = 0;
+  }
+  function etfSchedule(wait = 200) {
+    clearTimeout(etfRt.timer); etfRt.timer = 0;
+    if (S.strip !== "etf" || !ETF_SERVED || !PACK.live || !ready || activeAnalysis?.mode === "captured") return;
+    if (etfRt.controller) return;
+    const want = etfWant(), now = performance.now(), freshUntil = Etf.covers(etfRt.body, want) ? etfRt.readAt + 60000 : 0;
+    etfRt.timer = setTimeout(etfRead, Math.max(200, wait, etfRt.retryAt-now, freshUntil-now));
+  }
+  async function etfRead() {
+    etfRt.timer = 0;
+    if (S.strip !== "etf" || etfRt.controller || activeAnalysis?.mode === "captured") return;
+    if (performance.now() < etfRt.retryAt) { etfSchedule(); return; }
+    const want = etfWant(), key = JSON.stringify(want), controller = new AbortController();
+    etfRt.controller = controller; etfRt.key = key;
+    etfRt.status = "loading";
+    try {
+      const response = await fetch(`/cube/etf?${new URLSearchParams({ proto: "2", ...want })}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]), cache: "no-store" });
+      const body = await response.json();
+      if (response.status === 409 && body.reload) { offerReload(body); throw new Error("Reload required for ETF data"); }
+      if (!response.ok) throw new Error(body.detail || body.error || `ETF read failed (${response.status})`);
+      const value = Etf.parse(body, want);
+      if (controller.signal.aborted || S.strip !== "etf" || activeAnalysis?.mode === "captured") return;
+      etfRt.body = value; etfRt.status = "ready"; etfRt.error = ""; etfRt.retryAt = 0; etfRt.readAt = performance.now();
+    } catch (error) {
+      if (!controller.signal.aborted) { etfRt.status = "failed"; etfRt.error = error.message; etfRt.retryAt = performance.now()+60000; }
+    } finally {
+      if (etfRt.controller === controller) etfRt.controller = null;
+      etfRt.revision++; renderStrip(); requestDraw(); etfSchedule();
+    }
+  }
+  function etfAvailable() {
+    return activeAnalysis?.mode === "captured" ? null : etfRt.body;
+  }
+  function etfMoney(value, sign = false) {
+    return Number.isFinite(value) ? `${value < 0 ? "−" : sign && value > 0 ? "+" : ""}$${compact(Math.abs(value))}` : "—";
+  }
+  function etfPaint(cut) {
+    stripRt.hits = []; stripRt.horizon = null; stripRt.coverageStats = null;
+    const body = etfAvailable(), edge = stripEdge(cut), top = G.by + STRIP_LABELS, h = ETF_BAND, middle = top+h/2, half = h/2-1,
+      limit = body?.scaleUsd ?? 1e9, right = Math.min(G.x+G.w,G.X(cut)), Y = value => Etf.y(value,middle,half,limit),
+      pieces = Etf.spans(body,msAt(S.tA),msAt(S.tB),edge);
+    stripRt.coverage = activeAnalysis?.mode === "captured" ? "ETF data was not captured in this investigation"
+      : etfRt.status === "failed" ? etfRt.error : body ? `ETF · ${body.source.state}` : ETF_SERVED ? "Reading ETF reports…" : "ETF is not served here";
+    ctx.save();ctx.fillStyle=colors.surface;ctx.fillRect(G.x,top,G.w,h);
+    text("ETF",G.x-2,middle,colors.muted,"right");
+    ctx.beginPath();ctx.rect(G.x,top,G.w,h);ctx.clip();
+    for(const piece of pieces){const r=piece.report,x=Math.max(G.x,G.X(stripBase(piece.from))),end=Math.min(right,G.X(stripBase(piece.to)));
+      if(end<=x)continue;
+      if(!r?.complete){ctx.fillStyle=patternFor("undefined");ctx.fillRect(x,top+1,end-x,h-2);continue;}
+      ctx.globalAlpha=.7;
+      if(r.inflow>0){ctx.fillStyle=colors.positive;ctx.fillRect(x,Y(r.inflow),end-x,middle-Y(r.inflow));}
+      if(r.outflow>0){ctx.fillStyle=colors.negative;ctx.fillRect(x,middle,end-x,Y(-r.outflow)-middle);}
+      ctx.globalAlpha=1;
+      for(const [value,y,dir] of [[r.inflow,top+1,1],[r.outflow,top+h-1,-1]])if(value>limit){const cx=(x+end)/2;ctx.fillStyle=colors.ink;ctx.beginPath();ctx.moveTo(cx,y);ctx.lineTo(cx-3,y+dir*4);ctx.lineTo(cx+3,y+dir*4);ctx.fill();}
+    }
+    line(G.x,middle,right,middle,colors.line,1,.7);
+    for(const [colour,width] of [[colors.surface,2],[colors.ink,1.2]]){
+      ctx.strokeStyle=colour;ctx.lineWidth=width;ctx.beginPath();let previous=null;
+      for(const piece of pieces){const r=piece.report,x=G.X(stripBase(piece.from)),end=Math.min(right,G.X(stripBase(piece.to)));
+        if(!r?.complete||end<=x){previous=null;continue;}
+        const y=Y(r.net);if(previous===x)ctx.lineTo(x,y);else ctx.moveTo(x,y);ctx.lineTo(end,y);previous=end;
+      }ctx.stroke();
+    }
+    if(body && (body.source.state!=="ok" || etfRt.status==="failed")){ctx.fillStyle=patternFor("undefined");ctx.fillRect(G.x,top+h-4,G.w,3);}
+    if(S.replay)hatchRect(right,top,G.x+G.w-right,h,colors.state,11,.3);
+    ctx.restore();line(G.x,top+.5,G.x+G.w,top+.5,colors.line,1);line(G.x,top+h-.5,G.x+G.w,top+h-.5,colors.line,1);
+    const latest=Etf.at(body,Math.min(msAt(S.tB),edge)-1,edge);
+    if(!body)text(stripRt.coverage,G.x+6,middle,colors.muted);
+    text(latest?`Daily report · ${latest.date}`:"No retained ETF report before this time",G.x+4,G.by+STRIP_LABELS/2,colors.muted);
+    if(body && body.source.state!=="ok")text(body.source.state,G.x+G.w-4,G.by+STRIP_LABELS/2,colors.muted,"right");
+  }
+  function etfTip(tip, ms, edge, sources = false) {
+    const body=etfAvailable(), r=ms===null?null:Etf.at(body,ms,edge), detailed=inspect.on && inspect.surface==="strip",
+      status=activeAnalysis?.mode==="captured"?"Not captured":ms!==null&&ms>=edge?"Beyond edge":etfRt.status==="failed"?"Read failed":!r?"No retained report":r.complete?"Complete":"Unsettled",
+      slot=name=>{const n=uiEl("div","ol-strip-slot");n.dataset.stripSlot=name;return n;},
+      header=slot("header"),summary=slot("summary"),amounts=slot("forces"),track=slot("track"),head=uiEl("div","ol-tip-head","ETF · US Bitcoin");
+    scaleRt.tipReadout=null;delete tip.dataset.observation;delete tip.dataset.microRevision;
+    tip.dataset.presentation="strip-etf";tip.dataset.etfRevision=String(etfRt.revision);tip.dataset.stripDetail=detailed?"full":"compact";
+    stripRt.tipStamp=stripReadoutStamp();head.append(uiEl("span","ol-strip-status",status));
+    header.append(head,uiEl("div","ol-tip-sub",r?`${r.date} · flow date · USD`:etfRt.error||stripRt.coverage));
+    const stats=uiEl("dl","ol-cell-stats ol-core-stats"),stat=(label,value)=>{const row=uiEl("div","ol-cell-stat");row.append(uiEl("dt","",label),uiEl("dd","",value));return row;};
+    stats.append(stat("Net flow",etfMoney(r?.net,true)),stat("Magnitude",etfMoney(r?.magnitude)),stat("Funds",r?`${r.reported}/${r.expected}`:"—"));summary.append(stats);
+    const labels=uiEl("div","ol-micro-amounts"),balance=uiEl("div","ol-micro-balance"),gross=(r?.inflow??0)+(r?.outflow??0);
+    labels.append(uiEl("span","",`In ${etfMoney(r?.inflow)}`),uiEl("span","",`Out ${etfMoney(r?.outflow)}`));
+    if(gross>0){const fill=uiEl("span");fill.style.width=`${100*r.inflow/gross}%`;balance.append(fill);}else balance.dataset.unavailable="true";
+    amounts.append(uiEl("div","ol-tip-sub",r?.complete?"Net flows into / out of individual funds":"Reported funds only · combined totals withheld"),labels,balance,
+      uiEl("div","ol-tip-sub",`Magnitude / normal: ${r?.normal>0&&r.complete?((r.magnitude/r.normal).toFixed(2)+"×"):"—"}`),
+      uiEl("div","ol-tip-sub",`Normal: ${r?.normalReports??0}/20 prior complete reports`));
+    track.classList.add("ol-etf-track");
+    track.append(uiEl("div","ol-tip-sub",sources?"Source evidence":"Fund contribution · one shared dollar scale"));
+    if(sources){
+      const evidence=uiEl("dl");
+      for(const [name,value] of [["Source","field-data-api · SoSoValue"],["Source state",body?.source.state??etfRt.status],["First publication",r?new Date(r.knownAt).toISOString():"—"],["Snapshot",body?.snapshot.id??"—"],["Universe",r?.allCurrentFunds?"All current catalogue funds":"Selected funds"],["Display",`±${etfMoney(body?.scaleUsd??1e9)} per daily report; clipped amounts marked`],["Method","Σ |fund net flow|; not gross subscriptions"],["Detail",body?.source.detail||etfRt.error||"—"]])evidence.append(stat(name,value));
+      track.append(evidence);
+    }else{
+      let rows=r?.funds??[];
+      if(!detailed && rows.length>12){const ordered=[...rows].sort((a,b)=>Math.abs(b.net??0)-Math.abs(a.net??0)),other=ordered.slice(11);rows=[...ordered.slice(0,11),{ticker:`Other ${other.length}`,net:other.every(f=>f.net!==null)?other.reduce((sum,f)=>sum+f.net,0):null}];}
+      const w=310,step=15.3,height=Math.max(16,rows.length*step+4),cx=164,half=80,max=Math.max(1,...rows.map(f=>Math.abs(f.net??0))),
+        svg=stripSvg("svg",{viewBox:`0 0 ${w} ${height}`,width:w,height,role:"img","aria-label":"Individual fund net flows, with arrows from zero"});
+      svg.append(stripSvg("line",{x1:cx,y1:0,x2:cx,y2:height,stroke:colors.line}));
+      rows.forEach((f,i)=>{const y=i*step+8;svg.append(stripLabel(f.ticker,{x:0,y:y+4,fill:colors.muted}));
+        if(Number.isFinite(f.net)&&f.net!==0){const len=Math.abs(f.net)/max*half,dir=f.net>0?1:-1,end=cx+dir*len,colour=f.net>0?colors.positive:colors.negative;
+          svg.append(stripSvg("rect",{x:Math.min(cx,end),y:y-3,width:len,height:6,fill:colour}),stripSvg("path",{d:`M${end},${y-5}L${end+dir*4},${y}L${end},${y+5}Z`,fill:colour}));}
+        svg.append(stripLabel(f.net===null?"Pending":etfMoney(f.net,true),{x:w,y:y+4,fill:colors.ink,"text-anchor":"end"}));});
+      track.append(svg);
+    }
+    track.append(uiEl("div","ol-tip-sub",r?`Report published ${new Date(r.reportPublishedAt??r.knownAt).toISOString().slice(5,16).replace("T"," ")} UTC`:"Economic dates do not backdate availability"),uiEl("div","ol-tip-sub",`Fixed display ±${etfMoney(body?.scaleUsd??1e9)} · net fund flows`));
+    tip.replaceChildren(header,summary,amounts,track,uiEl("div","ol-strip-inspect-hint",`ETF · ${body?.source.state??etfRt.status} · Inspect → Strip for source evidence`));
+  }
   // The band between the price pane and the event strip (docs/strip.md, #193). Forces: where the forces acting
   // on BTC lean (the hue), how much attention it gets (the intensity), each scheduled event's potential (light that builds toward it) and
   // each measured reaction (a seam). The data is /cube/strip, relayed by the bridge from Origo. Nothing is drawn that was not known by the
@@ -39868,7 +40058,7 @@
       news: "The tone of coverage",
       social: "Bullish against bearish words",
     },
-    STRIP_CHOICES = ["off", "forces", ...STRIP_FORCES.map((f) => "forces." + f), ...(document.querySelector('meta[name="explorer-micro"]') ? ["micro"] : [])],
+    STRIP_CHOICES = ["off", ...(ETF_SERVED ? ["etf"] : []), "forces", ...STRIP_FORCES.map((f) => "forces." + f), ...(document.querySelector('meta[name="explorer-micro"]') ? ["micro"] : [])],
     STRIP_STEPS = [900000, 3600000, 21600000, 86400000],
     STRIP_HOUR = 3600000,
     STRIP_DAY = 86400000,
@@ -39921,6 +40111,8 @@
   function setStrip(value) {
     if (!stripChoices().includes(value)) return;
     S.strip = value;
+    if (value !== "etf") etfStop();
+    else { stripRt.busy?.controller.abort(); clearTimeout(stripRt.timer); }
     if (value !== "micro") { microRt.controller?.abort(); microRt.detailController?.abort(); clearTimeout(microRt.timer); clearTimeout(microRt.detailTimer); microRt.timer = 0; microRt.key = ""; microRt.wanted = null; }
     else { stripRt.busy?.controller.abort(); clearTimeout(stripRt.timer); }
     // Off reads nothing more, and abandons a read under way.
@@ -39968,6 +40160,7 @@
   }
   const stripCovers = (held, want) => Boolean(held) && held.step === want.step && held.from <= want.need[0] && held.to > want.need[1];
   function scheduleStrip(wait = 200) {
+    if (S.strip === "etf") { etfSchedule(wait); return; }
     if (S.strip === "micro") { microSchedule(wait); return; }
     clearTimeout(stripRt.timer); stripRt.timer = 0;
     if (S.strip === "off" || !PACK.live || !ready || !STRIP_SERVED || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured" || !Number.isFinite(wait)) return;
@@ -39976,6 +40169,7 @@
   // One read at a time, in no slot of the cube's: the view's grid first, then the history. A grid that failed is asked for again only
   // after a minute, and a held one again once it is five minutes old (the view at the live edge) or half an hour (the history).
   async function pumpStrip() {
+    if (S.strip === "etf") return;
     if (S.strip === "micro") return;
     // A bridge that answers that the strip is not configured is believed until the page is loaded again.
     if (S.strip === "off" || !PACK.live || !STRIP_SERVED || stripRt.busy || stripRt.status === "unconfigured" || activeAnalysis?.mode === "captured") return;
@@ -40147,6 +40341,7 @@
   // values end, the light through its middle, the seams, and the labels of the lit events above it (docs/strip.md, What the page
   // computes).
   function paintStrip(cut) {
+    if (S.strip === "etf") { etfPaint(cut); return; }
     if (S.strip === "micro") { microPaint(cut); return; }
     stripRt.hits = [];
     stripRt.horizon = null;
@@ -40364,6 +40559,7 @@
   }
   // The card under the pointer: an event near it, the events ahead in the horizon, or the forces at its time.
   function stripTip(tip, p, cut) {
+    if (S.strip === "etf") { etfTip(tip, p.x < G.x ? null : Math.round(msAt(p.t)), stripEdge(cut), p.x < G.x); return; }
     if (S.strip === "micro") { microTip(tip, p.x < G.x ? null : Math.round(msAt(p.t)), stripEdge(cut)); return; }
     const edge = stripFieldEdge(cut);
     if (!stripRt.view || p.x < G.x) {
@@ -40856,11 +41052,11 @@
   }
   // The Strip's selector: its name and choice, written only when they change, and its state for a reader of the page.
   function renderStrip() {
-    const button = el("strip"), force = stripForce(), value = S.strip === "off" ? "Off" : S.strip === "micro" ? "Micro" : force ? `Forces · ${STRIP_NAMES[force]}` : "Forces";
+    const button = el("strip"), force = stripForce(), value = S.strip === "off" ? "Off" : S.strip === "etf" ? "ETF" : S.strip === "micro" ? "Micro" : force ? `Forces · ${STRIP_NAMES[force]}` : "Forces";
     if (el("strip-text").textContent !== value) el("strip-text").textContent = value;
     if (button.getAttribute("aria-label") !== `Strip: ${value}`) button.setAttribute("aria-label", `Strip: ${value}`);
     if (button.dataset.strip !== S.strip) button.dataset.strip = S.strip;
-    const state = S.strip === "off" ? "off" : S.strip === "micro" ? microRt.status : stripRt.status;
+    const state = S.strip === "off" ? "off" : S.strip === "etf" ? etfRt.status : S.strip === "micro" ? microRt.status : stripRt.status;
     if (button.dataset.state !== state) button.dataset.state = state;
     const coverage = S.strip === "off" ? "" : stripRt.coverage;
     if (button.dataset.coverage !== coverage) button.dataset.coverage = coverage;
@@ -40870,7 +41066,7 @@
         cutoff: Number.isFinite(stats?.cutoff) ? stats.cutoff : "", effectiveCutoff: stats?.effectiveCutoff ?? "" };
     for (const [name, raw] of Object.entries(fields)) if (button.dataset[name] !== String(raw)) button.dataset[name] = String(raw);
     // bindHints keeps this hint in the existing aria-describedby target, which takes precedence over aria-description.
-    const hint = [S.strip === "micro" ? "Book balance is hue; resting depth against its preceding normal is intensity; executed pressure is light; seams are observed mid response" : STRIP_HINT, coverage].filter(Boolean).join(". ");
+    const hint = [S.strip === "etf" ? "Daily fund inflows are blue height; outflows are orange depth; the ink line is net, on one fixed dollar scale. Reports change when first published" : S.strip === "micro" ? "Book balance is hue; resting depth against its preceding normal is intensity; executed pressure is light; seams are observed mid response" : STRIP_HINT, coverage].filter(Boolean).join(". ");
     if (button.dataset.hint !== hint) button.dataset.hint = hint;
   }
   // The Strip's menu: its dataset (Off, or Forces), then which force.
@@ -40881,6 +41077,7 @@
         S.strip.startsWith("forces"), stripChoices().includes("forces"), () => setStrip(S.strip.startsWith("forces") ? S.strip : "forces")),
       ...(stripChoices().includes("micro") ? [flowDatasetItem("strip", "micro", { name: "Micro", desc: "Resting liquidity, executed flow and observed price response" },
         S.strip === "micro", true, () => setStrip("micro"))] : []),
+      ...(ETF_SERVED ? [flowDatasetItem("strip", "etf", { name: "ETF", desc: "Daily US Bitcoin fund inflows, outflows, net and magnitude" }, S.strip === "etf", true, () => setStrip("etf"))] : []),
     ];
   }
   function stripForceChoices() {
@@ -49399,7 +49596,7 @@
       activeAnalysis = value; analysisRevision++;
       clearTimeout(stripRt.timer); stripRt.busy?.controller.abort();
       stripRt = value.mode === "captured" ? stripRuntime("uncaptured") : stripLive;
-      if (value.mode === "captured") { microRt.controller?.abort(); microRt.detailController?.abort(); clearTimeout(microRt.timer); clearTimeout(microRt.detailTimer); microRt.timer = 0; microRt.key = ""; microRt.wanted = null; }
+      if (value.mode === "captured") { etfStop(); microRt.controller?.abort(); microRt.detailController?.abort(); clearTimeout(microRt.timer); clearTimeout(microRt.detailTimer); microRt.timer = 0; microRt.key = ""; microRt.wanted = null; }
       clearTimeout(live.timer); clearTimeout(cube.timer); clearTimeout(motion.timer);
       cube.busy?.controller?.abort(); motion.busy?.controller?.abort();
       if (value.mode === "captured" && value.snapshot) agentInstallSnapshot(value.snapshot);
