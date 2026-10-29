@@ -59,7 +59,7 @@
       boundaries=[from,...[...new Set(cuts.filter(t=>t>from&&t<stop))].sort((a,b)=>a-b),stop];
     return stop<=from?[]:boundaries.slice(0,-1).map((t,i)=>({from:t,to:boundaries[i+1],report:at(body,t,edge,rows)}));
   }
-  const covers = (body, want) => Boolean(body) && body.from <= want.from && body.to >= want.to && Math.min(body.asOf, body.to) >= Math.min(want.as_of, want.to);
+  const covers = (body, want) => Boolean(body) && body.from <= want.from && body.to >= want.to && body.asOf >= want.as_of;
   const y = (value, middle, half, limit=1e9) => middle-Math.max(-1,Math.min(1,value/limit))*half;
   return Object.freeze({parse,at,spans,covers,y});
 });

@@ -19,6 +19,10 @@ test('ETF cached states never cover a different window or unrequested publicatio
  assert.equal(E.covers(b,{from:100,to:400,as_of:450}),true);
  assert.equal(E.covers(b,{from:500,to:800,as_of:900}),false);
  assert.equal(E.covers(b,{from:100,to:500,as_of:500}),false);
+ // Later publications can correct an earlier flow date even when both
+ // publication cutoffs are beyond the historical window's end.
+ assert.equal(E.covers({...b,asOf:600},{from:100,to:400,as_of:600}),true);
+ assert.equal(E.covers({...b,asOf:600},{from:100,to:400,as_of:700}),false);
  assert.deepEqual(E.spans(b,0,600,600).map(s=>[s.from,s.to,s.report?.knownAt??null]),[[0,100,null],[100,300,99],[300,450,300],[450,600,null]]);
  assert.deepEqual(E.spans(b,500,800,900).map(s=>s.report),[null]);
 });
