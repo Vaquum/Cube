@@ -1,6 +1,7 @@
 {
   "name": "market-state-cube-explorer",
   "version": "0.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Development tooling only. The explorer runs from index.html and has no runtime npm dependencies.",
   "engines": { "node": ">=22" },
