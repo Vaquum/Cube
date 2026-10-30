@@ -212,3 +212,7 @@ python3 tools/explorer_dev.py --page reports/page/index.html --store reports/etf
 ```
 
 Open [local ETF](http://127.0.0.1:8796/#w=7d&strip=etf&mode=candles&vis=2). The preview binds only loopback and changes no remote files. ETF first-publication history persists in the local store.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Third-party licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
