@@ -479,8 +479,10 @@ test("Jobs hover and Inspect reveal the first-reported payroll change strictly a
   const early = await eventHover(knownAt);
   await expect(early.locator('[data-field="eventPayroll"]')).toHaveAttribute("data-canonical", "unsupported");
   const ready = await eventHover(knownAt + 15 * 60000);
-  await expect(ready.locator('[data-field="eventPayroll"]')).toBeVisible();
-  await expect(ready.locator('[data-field="eventPayroll"]')).toContainText("+165,000");
+  const reading = ready.locator('[data-field="eventPayroll"]');
+  await expect(reading).toBeVisible();
+  await expect(reading).toContainText("+165,000");
+  expect(await reading.evaluate(node => node.scrollWidth)).toBeLessThanOrEqual(await reading.evaluate(node => node.clientWidth));
   await expect(ready.locator('[data-field="eventMove"]')).toHaveAttribute("data-canonical", String(payrollEvent.measured.move));
   await page.keyboard.press("e");
   await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();

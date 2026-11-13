@@ -17803,7 +17803,7 @@
         stripFact("Date changed", k.moved ? "Yes" : "No", "eventMoved"), stripNumber("Calendar weight", k.weight, "eventWeight"),
         ...(!e.jump ? [stripTime("Known at", k.knownAt, "eventKnownAt")] : [])] }];
     const payroll = e.series === "us-bls-payrolls" ? stripNumber("Nonfarm payrolls", k.payroll?.jobs, "eventPayroll", "jobs",
-      (value) => ({ text: signed(value, (v) => v.toLocaleString("en-US")), unit: "jobs" })) : null;
+      (value) => ({ text: signed(value, integer), unit: "jobs" })) : null;
     if (k.payroll) groups.push({ name: "Nonfarm payroll release", metrics: [stripFact("Reference month", k.payroll.referenceMonth, "eventPayrollMonth"),
       stripTime("Known at", k.payroll.knownAt, "eventPayrollKnownAt"),
       stripFact("Vintage", k.payroll.retrospective ? "Retrospective · first report" : "First report", "eventPayrollVintage"),
@@ -17830,7 +17830,7 @@
         stripNumber("Price p95", z === null || close === null ? null : close * Math.exp(z), "optionsP95", "price")] });
     }
     if (e.link) groups.push({ name: "Provenance", metrics: [stripFact("Source", e.link, "eventSource")] });
-    const move = stripNumber("Measured move", measured?.move, "eventMove", "%");
+    const move = stripNumber(payroll ? "BTC reaction" : "Measured move", measured?.move, "eventMove", "%");
     stripCard(tip, { presentation: "strip-event", title: e.jump ? "Unscheduled move" : e.name, ms: Math.min(k.at, edge - 1), edge,
       primary: payroll ?? move,
       companions: [payroll ? move : stripNumber("Reaction window", e.window, "eventWindow", "min"), stripNumber("Surprise", measured?.bits, "eventBits", "bits")], groups,
