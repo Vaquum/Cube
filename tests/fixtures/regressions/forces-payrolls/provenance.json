@@ -1,0 +1,9 @@
+{
+  "kind": "recorded",
+  "expectationSource": "published-table",
+  "generator": null,
+  "seed": null,
+  "source": "https://www.bls.gov/news.release/archives/empsit_11062026.htm",
+  "extractedOn": "2026-11-13",
+  "notes": "BLS reports +165,000 seasonally adjusted jobs in October. The PAYEMS row and calendar entry came from Field Data snapshot d9117bd08289692dce5bac114c79f1420a49995127536354855cff0d1657b7cd. The event retains the schedule and −0.1973% BTC reaction from the live Strip answer under field snapshot 2583071883b13a310589705d48c63cb32cc2f77d9362ab343645a26cbaca3ec0. Its payrolls field came from running the updated bridge against the new Field Data publication. The browser drives the replay clock without retiming the recorded release. Fixture SHA-256 198943b9a41965f25388e03ef87f3033087eed392d940aa7d7bccbd1ba0caad2."
+}
