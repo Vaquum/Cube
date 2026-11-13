@@ -1,0 +1,102 @@
+{
+  "payroll": {
+    "event_at": null,
+    "id": "PAYEMS:2026-10",
+    "kind": "nonfarm_payroll_release",
+    "metadata": {
+      "source_url": "https://alfred.stlouisfed.org/series?seid=PAYEMS",
+      "vintage_end_at": "2026-11-07T05:00:00.000Z"
+    },
+    "observed_at": "2026-10-01",
+    "published_at": "2026-11-06",
+    "time_basis": "alfred_vintage_date",
+    "time_precision": "day",
+    "values": {
+      "change": 165,
+      "seasonally_adjusted": true,
+      "series": "PAYEMS",
+      "unit": "thousand_persons"
+    }
+  },
+  "calendar": {
+    "event_at": "2026-11-06T13:30:00Z",
+    "id": "us-jobs-2026-11-06",
+    "kind": "calendar_event",
+    "metadata": {
+      "provenance": {
+        "url": "https://www.bls.gov/schedule/news_release/empsit.htm"
+      },
+      "revision_id": "35b93a6ba796ed122a0852b3d7269424bbeb15da5e65355eb6bc62dd0b537a32",
+      "updated_at": "2026-10-23T09:27:14Z",
+      "updated_at_basis": "explicit_import_instant_not_event_or_source_publication"
+    },
+    "observed_at": null,
+    "published_at": null,
+    "time_basis": "supplied_source_schedule",
+    "time_precision": "second",
+    "values": {
+      "category": "employment",
+      "context": {
+        "importance": "high",
+        "notes": "Published BLS release date; recheck for later schedule changes.",
+        "reference_period": "October 2026",
+        "region": "United States",
+        "source_checked": "2026-10-23",
+        "source_date": "2026-11-06",
+        "source_id": "us-bls-payrolls",
+        "source_time_basis": "Source-stated schedule time",
+        "source_time_local": "08:30",
+        "source_timezone": "America/New_York"
+      },
+      "origin": "source",
+      "schedule": {
+        "at": "2026-11-06T13:30:00Z",
+        "kind": "instant"
+      },
+      "schedule_certainty": "confirmed",
+      "status": "scheduled",
+      "title": "US jobs report: payrolls, unemployment and wages"
+    }
+  },
+  "event": {
+    "id": "us-jobs-2026-11-06",
+    "kind": "employment",
+    "family": "macro",
+    "name": "US jobs report: payrolls, unemployment and wages",
+    "short": "Jobs",
+    "region": "United States",
+    "origin": "source",
+    "series": "us-bls-payrolls",
+    "link": "https://www.bls.gov/schedule/news_release/empsit.htm",
+    "window": 30,
+    "schedule": [
+      {
+        "knownAt": 1792750325926,
+        "at": 1793971800000,
+        "precision": "instant",
+        "end": null,
+        "status": "scheduled",
+        "certainty": "confirmed",
+        "importance": "high",
+        "weight": 1.0
+      }
+    ],
+    "measured": {
+      "from": 1793971800000,
+      "at": 1793973600000,
+      "move": -0.1973,
+      "series": "us-bls-payrolls",
+      "ordinary": 0.312,
+      "bits": 1.5
+    },
+    "payrolls": [
+      {
+        "jobs": 165000,
+        "referenceMonth": "2026-10",
+        "knownAt": 1794027600000,
+        "retrospective": true,
+        "at": 1793971800000
+      }
+    ]
+  }
+}

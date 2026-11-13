@@ -122,6 +122,7 @@ What the Strip takes from each projection ([projection contracts](https://github
 | Source | Fields read | Becomes | Known at |
 |---|---|---|---|
 | `fred_macro_daily` | `values.series` (DTWEXBGS, DGS2, DGS10, BAMLH0A0HYM2), `values.value`, `observed_at` (a date) | Macro: one part a series | The publication that first carried it; for the first window, 22:00 UTC the next day, and the broad dollar index the Monday after its week, 16:15 in New York |
+| `alfred_payrolls` | Seasonally adjusted first-reported change in thousands of persons, reference month, vintage date and end of vintage day | Signed jobs on the existing US Jobs event, matched by series and exact release date | The first publication carrying the report. Retrospective reports use the end of the vintage day in New York. |
 | `deribit_funding` | `values.interest_1h`, `observed_at` | Positioning's funding: annualised percent, averaged with Hyperliquid's by the hour | That publication; for the first window, its observation time |
 | `hyperliquid_funding` | `values.funding_rate`, `values.funding_period_seconds`, `observed_at` | The same, its rate taken to an hour | The same |
 | `defillama_stablecoins` | `values.total_usd`, `observed_at` (a date) | Positioning's stablecoin supply: its 7-day log growth; daily supply is never summed | That publication; for the first window, 06:00 UTC the next day |
@@ -189,6 +190,7 @@ Each force is a sum of parts, each part a fixed formula over its source's stored
 | `events[]` | Every event any entry of whose schedule falls in `[from − 1 day, to + 90 days)`: `id`, `kind` (the calendar's category), `family` (its force), `name`, `short` (at most 8 characters), `region`, `origin`, `series` (the calendar's source id, which releases share), `link`, `window` (minutes, or null), `schedule` and `measured`. |
 | `.schedule[]` | Each revision, in the order they became known: `knownAt`; `at`, its start, or null once `cancelled` or `withdrawn` (then `lastAt` is the date it last had); `precision`, `instant`, `day` or `range`; `end`, a date's or range's exclusive end; `status`; `certainty`; `importance`; and `weight`. |
 | `.measured` | Once measured: `from` and `at`, its window's bounds; `move` in percent; `bits`, or null without DVOL; `ordinary`, the spread it was measured against. |
+| `.payrolls[]` | Optional first-reported figures for US Jobs schedules. Each has the matching scheduled `at`, a `knownAt`, `referenceMonth` (`YYYY-MM`), signed `jobs` and a `retrospective` flag. |
 | `moves.<series>` | Each answered event's series' measured moves as `[known at, percent]`, in time order, the latest 500: given once a series, not with each of its events, so that an answer grows with the events it holds and not with their product. |
 | `jumps[]` | `id`, `at`, `window`, `move` and `bits`, each known at `at + window`. |
 | `options[]` | Hourly samples: `at`, `atm` (at-the-money IV by expiry bucket), `skew` and `putCall`. |
@@ -199,6 +201,7 @@ The page draws only what was known strictly before the **edge**: the data's cuto
 
 - A grid value at time `t` is the latest value known at or before `t`. Its formula uses only observations known by then: normalisations and trailing windows end at it.
 - An event is known from its first schedule entry's `knownAt`, at the time its latest entry known by then gives. An entry with no time cancels it, or withdraws it where the calendar stopped listing it, from its `knownAt`. Its measured reaction is known at `measured.at`, a series' move at the time it carries, a jump at `at + window`.
+- The Jobs card shows the payroll figure for its held schedule strictly after the figure's `knownAt`. An unmatched schedule or a pending report is unavailable. The figure is event context alongside the BTC reaction. The four Macro inputs still determine the lean.
 - **Retrospective.** A part's values before `retroUntil` may include a native window or backfill collected later, rather than observations recorded as they became known. The boundary is conservative: a reconstructed gap after collection started extends the marked prefix until the next live observation; intervening recorded values can share that label. With no subsequent live observation, all available values retain the retrospective marker. Funding uses the latest boundary of its contributing venues, and keeps the marker while any venue has no subsequent live observation. The band draws a dashed line where the prefix ends and the cards say so. This replay does not recover a provider's superseded historical vintages.
 
 ## What the page computes

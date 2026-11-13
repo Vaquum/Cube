@@ -5,6 +5,7 @@
 const {test} = require("node:test"), assert = require("node:assert/strict"), {spawnSync} = require("node:child_process"), path = require("node:path");
 
 const HOUR = 3600000, DAY = 86400000, T = 1792713600000; // 2026-10-23T00:00:00Z
+const payrollFixture = require("../fixtures/regressions/forces-payrolls/october-2026.json");
 
 function python(script, input) {
   const run = spawnSync("python3", ["-c", "import json, sys\nsys.path.insert(0, 'tools')\nimport strip_model as m\nI = json.load(sys.stdin)\n" + script],
@@ -66,6 +67,51 @@ test("macro: a FRED series' 5-observation change against its single-observation 
   assert.deepEqual(out.known, expected.map((e) => e[0]));
   out.value.forEach((v, k) => assert.ok(close(v, expected[k][1], 1e-6), `${v} for ${expected[k][1]}`));
   assert.equal(out.stale, 6 * DAY);
+});
+
+test("payroll reports retain first-publication timing and match only their Jobs release date", () => {
+  const out = python(String.raw`
+import copy
+import strip_contract as contract
+
+st = m.Store()
+model = m.Model(st)
+source = m.PAYROLL_SOURCE
+calendar = I['calendar']
+at = I['event']['schedule'][0]['at']
+scheduled = I['event']['schedule'][0]['knownAt']
+known = at + 5 * m.MINUTE
+later = m.ms('2026-11-13T12:57:00Z')
+model.ingest_calendar('calendar', [calendar], scheduled)
+model.ingest(source, 'release', [I['payroll']], {}, m.iso(known), known, m.HOUR)
+model.ingest(source, 'repeat', [I['payroll']], {}, m.iso(later), later, m.HOUR)
+rescheduled = copy.deepcopy(calendar)
+rescheduled['metadata']['revision_id'] += '-deliberate-date-change'
+rescheduled['values']['schedule']['at'] = m.iso(at + m.DAY)
+model.ingest_calendar('later-calendar', [rescheduled], later)
+start = at // m.DAY * m.DAY
+end = start + 2 * m.DAY
+snapshot = {'id': None, 'publishedAt': later}
+answer = json.loads(m.build_state(st, m.Prices([], None), snapshot, {}, later).answer(start, end, m.HOUR))
+contract.check(answer, start, end, m.HOUR)
+baseline = json.loads(m.build_state(m.Store(), m.Prices([], None), snapshot, {}, later).answer(start, end, m.HOUR))
+event, = answer['events']
+report, = event['payrolls']
+bad = copy.deepcopy(answer)
+bad['events'][0]['payrolls'][0]['knownAt'] = at - 1
+try:
+    contract.check(bad, start, end, m.HOUR)
+except ValueError:
+    early_rejected = True
+else:
+    early_rejected = False
+print(json.dumps({'report': report, 'earlyRejected': early_rejected,
+                  'sameForceGrid': answer['grid']['forces'] == baseline['grid']['forces']}))
+`, payrollFixture);
+  const at = Date.parse("2026-11-06T13:30:00Z");
+  assert.deepEqual(out.report, { at, knownAt: at + 300000, jobs: 165000, referenceMonth: "2026-10", retrospective: false });
+  assert.equal(out.earlyRejected, true);
+  assert.equal(out.sameForceGrid, true);
 });
 
 test("long history carries exact contributing-input masks, including measured zero and stale components", () => {

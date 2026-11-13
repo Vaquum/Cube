@@ -30,10 +30,12 @@ MODEL = "field-strip@2"
 MINUTE, HOUR, DAY = 60_000, 3_600_000, 86_400_000
 FORCES = ("macro", "positioning", "news", "social")
 # What the Strip reads from field-data-api; the calendar has its own route.
+PAYROLL_SOURCE = "alfred_payrolls"
+PAYROLL_SERIES = "us-bls-payrolls"
 SOURCES = (
     "fred_macro_daily", "deribit_funding", "hyperliquid_funding", "defillama_stablecoins", "deribit_futures_basis",
     "deribit_options", "deribit_dvol", "gdelt_gkg", "financial_news_tone", "bluesky_live", "wikimedia_daily", "wikimedia_hourly", "mempool_retarget",
-    "sosovalue_etf_flows", "coinalyze_current", "coinalyze_history",
+    "sosovalue_etf_flows", "coinalyze_current", "coinalyze_history", PAYROLL_SOURCE,
 )
 # Which sources each part of the Strip stands on: the page shows their freshness beside it.
 FEEDS = {
@@ -42,7 +44,7 @@ FEEDS = {
     "news": ("financial_news_tone",),
     "social": ("bluesky_live",),
     "attention": ("gdelt_gkg", "wikimedia_daily", "wikimedia_hourly", "bluesky_live"),
-    "events": ("calendar", "mempool_retarget"),
+    "events": ("calendar", "mempool_retarget", PAYROLL_SOURCE),
     "options": ("deribit_options", "deribit_dvol"),
 }
 # Which store series each source fills, so that a source's freshness can name its newest observation.
@@ -52,6 +54,7 @@ SERIES_OF = {
     "deribit_futures_basis": ("basis",), "deribit_options": ("options",), "deribit_dvol": ("dvol",), "gdelt_gkg": ("gdelt",),
     "financial_news_tone": ("financial_news",), "bluesky_live": ("bluesky",), "wikimedia_daily": ("wiki_day",), "wikimedia_hourly": ("wiki_hour",), "mempool_retarget": ("retarget",),
     "sosovalue_etf_flows": ("context.etf",), "coinalyze_current": ("context.oi",), "coinalyze_history": ("context.liquidations",),
+    PAYROLL_SOURCE: (PAYROLL_SERIES,),
 }
 # Raw positioning readings are separate from the force formulas.
 CONTEXT = {
@@ -222,6 +225,18 @@ def observations(source: str, records: list, meta: dict, received_ms: int) -> li
                 {"liqLong": long, "liqShort": short, "liqStart": start, "liqEnd": end,
                  "liqReported": len({r["values"]["symbol"] for r in rows}),
                  "liqExpected": _num(meta.get("requested_market_count"))}, received_ms))
+    elif source == PAYROLL_SOURCE:
+        for r in records:
+            v = r["values"]
+            change, month = v["change"], r["observed_at"]
+            vintage, vintage_end = r["published_at"], ms(r["metadata"]["vintage_end_at"])
+            at = ms(vintage)
+            if (r["kind"] != "nonfarm_payroll_release" or v["series"] != "PAYEMS"
+                    or v["unit"] != "thousand_persons" or v["seasonally_adjusted"] is not True
+                    or type(change) is not int or not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])-01", month)
+                    or len(vintage) != 10 or at is None or vintage_end is None or not at < vintage_end):
+                raise ValueError("Invalid PAYEMS release")
+            out.append(Obs(PAYROLL_SERIES, r["id"], at, change * 1000, {"referenceMonth": month[:7]}, vintage_end))
     elif source == "fred_macro_daily":
         for r in records:
             v = r.get("values") or {}
@@ -1064,6 +1079,9 @@ def build_events(store: Store, retarget_rows: list[tuple], reactions: dict) -> l
     for event_id, _, known, entry in store.calendar_rows():
         by_id.setdefault(event_id, []).append((known, json.loads(entry)))
     events = []
+    payrolls = {at: {"jobs": int(value), "referenceMonth": json.loads(extra)["referenceMonth"],
+                     "knownAt": known, "retrospective": bool(retro)}
+                for at, known, retro, value, extra in store.rows(PAYROLL_SERIES)}
     for event_id, revisions in by_id.items():
         revisions.sort(key=lambda r: r[0])
         latest = revisions[-1][1]
@@ -1076,12 +1094,20 @@ def build_events(store: Store, retarget_rows: list[tuple], reactions: dict) -> l
             if last is None or any(item[k] != last[k] for k in ("at", "precision", "end", "status", "certainty", "importance")):
                 schedule.append(item)
                 last = item
-        events.append({
+        event = {
             "id": event_id, "kind": latest["category"], "family": FAMILY.get(latest["category"], "macro"), "name": latest["title"],
             "short": short_label(latest["title"], latest["region"], latest["category"]), "region": latest["region"], "origin": latest["origin"],
             "series": latest["series"], "link": latest["link"], "window": latest["window"], "schedule": schedule,
             "measured": reactions.get(event_id),
-        })
+        }
+        if latest["series"] == PAYROLL_SERIES:
+            # Only an exact release date match. A later schedule revision must not reveal a value for an earlier date.
+            reports = {s["at"]: payrolls[s["at"] // DAY * DAY] for s in schedule
+                       if s["precision"] == "instant" and s["at"] is not None and s["at"] // DAY * DAY in payrolls}
+            if reports:
+                event["payrolls"] = [{**report, "at": at, "knownAt": max(at, report["knownAt"])}
+                                     for at, report in sorted(reports.items())]
+        events.append(event)
     # The difficulty retarget: an estimate that moves as blocks come; a new entry once it moves by an hour.
     by_height: dict = {}
     for _, known, _, at, extra in retarget_rows:
