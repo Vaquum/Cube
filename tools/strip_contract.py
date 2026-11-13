@@ -219,6 +219,22 @@ def check(answer: object, start: int, end: int, step: int) -> None:
                 fail(f"{where}.measured.from", "must be the event's last scheduled instant")
             if ms(m["at"], f"{where}.measured.at") != start_at + window * 60_000:
                 fail(f"{where}.measured.at", "must be from + window")
+        if "payrolls" in e:
+            releases = e["payrolls"]
+            dates = {entry["at"] for entry in schedule if entry["precision"] == "instant" and entry["at"] is not None}
+            if e["series"] != "us-bls-payrolls" or not isinstance(releases, list) or not 0 < len(releases) <= len(dates):
+                fail(f"{where}.payrolls", "must contain reports for this Jobs event's timed schedules")
+            for item in releases:
+                w = f"{where}.payrolls[]"
+                report = mapping(item, w, {"at", "knownAt", "referenceMonth", "jobs", "retrospective"})
+                at, known = ms(report["at"], f"{w}.at"), ms(report["knownAt"], f"{w}.knownAt")
+                if at not in dates or known is None or known < at:
+                    fail(w, "must match a scheduled instant and be known at or after it")
+                dates.remove(at)
+                month = report["referenceMonth"]
+                if (not isinstance(month, str) or not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month)
+                        or type(report["jobs"]) is not int or type(report["retrospective"]) is not bool):
+                    fail(w, "must include a reference month, signed whole jobs and a retrospective flag")
 
     if not isinstance(top["moves"], dict):
         fail("moves", "must be an object")

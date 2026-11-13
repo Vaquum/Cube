@@ -16882,6 +16882,7 @@
       deribit_dvol: "Deribit DVOL", gdelt_gkg: "GDELT coverage", financial_news_tone: "Financial article sentiment", bluesky_live: "Bluesky sample", wikimedia_daily: "Wikipedia, daily",
       wikimedia_hourly: "Wikipedia, hourly", mempool_retarget: "Difficulty retarget", calendar: "Calendar",
       sosovalue_etf_flows: "US spot BTC ETFs", coinalyze_current: "BTC perpetual open interest", coinalyze_history: "BTC perpetual liquidations",
+      alfred_payrolls: "US nonfarm payrolls",
     },
     STRIP_CERTAINTY = { confirmed: "confirmed", tentative: "tentative", rule_derived: "set by rule", unspecified: "certainty not given", estimate: "an estimate" };
   const stripFeeds = (force) => force === "news" && stripRt.components?.["news.tone"] ? ["gdelt_gkg"] : STRIP_FEEDS[force];
@@ -17081,7 +17082,8 @@
     const entry = stripEntry(e, ms);
     if (!entry || entry.at === null) return null;
     const moved = e.schedule.some((s) => s.knownAt < ms && s.at !== null && s.at !== entry.at);
-    return { ...entry, moved, measured: e.measured && e.measured.at < ms ? e.measured : null };
+    const payroll = e.payrolls?.find((report) => report.at === entry.at && report.knownAt < ms);
+    return { ...entry, moved, payroll, measured: e.measured && e.measured.at < ms ? e.measured : null };
   }
   const stripEvents = (force = stripForce()) => [...stripRt.events.values()].filter((e) => !force || e.family === force);
   const stripJumps = (force = stripForce()) => (!force || force === "news" ? [...stripRt.jumps.values()] : []);
@@ -17673,6 +17675,7 @@
   }
   function stripSourceCard(tip, edge) {
     const force = stripForce(), feeds = [...(force ? stripFeeds(force) : STRIP_FORCES.flatMap(stripFeeds)), ...STRIP_FEEDS.attention, "deribit_dvol", "calendar"];
+    if (!force || force === "macro") feeds.push("alfred_payrolls");
     if (!force || force === "positioning") feeds.push(...STRIP_FEEDS.context);
     stripCard(tip, { presentation: "strip-sources", title: `Strip · ${STRIP_NAMES[force ?? "forces"]}`, ms: edge - 1, edge,
       primary: stripTime("Field publication", stripRt.snapshot?.publishedAt, "publishedAt"),
@@ -17799,6 +17802,12 @@
         stripFact("Status", e.jump ? "Measured" : k.status, "eventStatus"), stripFact("Region", e.region, "eventRegion"),
         stripFact("Date changed", k.moved ? "Yes" : "No", "eventMoved"), stripNumber("Calendar weight", k.weight, "eventWeight"),
         ...(!e.jump ? [stripTime("Known at", k.knownAt, "eventKnownAt")] : [])] }];
+    const payroll = e.series === "us-bls-payrolls" ? stripNumber("Nonfarm payrolls", k.payroll?.jobs, "eventPayroll", "jobs",
+      (value) => ({ text: signed(value, integer), unit: "jobs" })) : null;
+    if (k.payroll) groups.push({ name: "Nonfarm payroll release", metrics: [stripFact("Reference month", k.payroll.referenceMonth, "eventPayrollMonth"),
+      stripTime("Known at", k.payroll.knownAt, "eventPayrollKnownAt"),
+      stripFact("Vintage", k.payroll.retrospective ? "Retrospective · first report" : "First report", "eventPayrollVintage"),
+      stripFact("Payroll source", "ALFRED PAYEMS · seasonally adjusted", "eventPayrollSource")] });
     if (measured) groups.push({ name: "Reaction", metrics: [stripTime("Measured at", measured.at, "eventMeasuredAt"),
       stripNumber("Ordinary spread", measured.ordinary, "eventOrdinary", "%")] });
     else if (!ahead && e.window && k.precision === "instant") groups.push({ name: "Reaction", metrics: [stripFact("Window status", edge < k.at + e.window * 60000 ? "Open" : "Unmeasured", "eventReactionStatus")] });
@@ -17821,9 +17830,10 @@
         stripNumber("Price p95", z === null || close === null ? null : close * Math.exp(z), "optionsP95", "price")] });
     }
     if (e.link) groups.push({ name: "Provenance", metrics: [stripFact("Source", e.link, "eventSource")] });
+    const move = stripNumber(payroll ? "BTC reaction" : "Measured move", measured?.move, "eventMove", "%");
     stripCard(tip, { presentation: "strip-event", title: e.jump ? "Unscheduled move" : e.name, ms: Math.min(k.at, edge - 1), edge,
-      primary: stripNumber("Measured move", measured?.move, "eventMove", "%"),
-      companions: [stripNumber("Reaction window", e.window, "eventWindow", "min"), stripNumber("Surprise", measured?.bits, "eventBits", "bits")], groups,
+      primary: payroll ?? move,
+      companions: [payroll ? move : stripNumber("Reaction window", e.window, "eventWindow", "min"), stripNumber("Surprise", measured?.bits, "eventBits", "bits")], groups,
       status: ahead ? "Scheduled" : measured ? "Measured" : "Unmeasured" });
   }
   function stripAheadCard(tip, events, edge) {

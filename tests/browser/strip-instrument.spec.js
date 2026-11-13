@@ -5,6 +5,7 @@
 const { test: base, expect } = require("./fixtures.js");
 const paneCanvas = require("./pane-canvas.js");
 const { T0, BASE_SECONDS } = require("../support/wire.js");
+const { event: payrollEvent } = require("../fixtures/regressions/forces-payrolls/october-2026.json");
 const test = base.extend({ pane: async ({ page }, use) => {
   await paneCanvas.addRecorder(page);
   await use(paneCanvas.forPage(page));
@@ -453,6 +454,42 @@ for (const precision of ["day", "range", "instant"]) test(`${precision} event ca
   await checkSchedule(card.locator(`[data-field="ahead.${event.id}.at"]`));
   await expect(card.locator(`[data-field="ahead.${event.id}.precision"]`)).toBeVisible();
   await expect(card.locator(`[data-field="ahead.${event.id}.precision"]`)).toHaveAttribute("data-fact", precision);
+});
+
+test("Jobs hover and Inspect reveal the first-reported payroll change strictly after its known-at time", async ({ page, fakeFor, probe }) => {
+  const fake = await fakeFor("mini", { cutoff: "2026-11-07T08:00:00Z" }),
+    at = payrollEvent.schedule[0].at, knownAt = payrollEvent.payrolls[0].knownAt, [p0, p1] = fake.info().priceBand.usdt,
+    from = at - 2 * HOUR, to = at + 22 * HOUR,
+    hash = `#t=${iso(from)}~${iso(to)}&p=${p0}~${p1}&vis=2&rc=1&strip=forces&mode=candles`;
+  await page.route("**/cube/strip?*", async (route) => {
+    const response = await route.fetch(), body = await response.json();
+    body.events = [payrollEvent];
+    body.jumps = [];
+    await route.fulfill({ response, json: body });
+  });
+  async function eventHover(replayEdge) {
+    await open(page, fake, probe, `${hash}&replay=1&at=${iso(replayEdge)}`);
+    await expect(page.locator("#ol-strip")).toHaveAttribute("data-effective-cutoff", String(replayEdge));
+    const g = gOf(await layoutOf(page)), box = await page.locator("#ol-canvas").boundingBox();
+    await page.mouse.move(box.x + g.x + g.w * (at - from) / (to - from), box.y + g.by + LABELS + BAND / 2);
+    const tip = page.locator("#ol-tip");
+    await expect(tip).toHaveAttribute("data-presentation", "strip-event");
+    return tip;
+  }
+  const early = await eventHover(knownAt);
+  await expect(early.locator('[data-field="eventPayroll"]')).toHaveAttribute("data-canonical", "unsupported");
+  const ready = await eventHover(knownAt + 15 * 60000);
+  const reading = ready.locator('[data-field="eventPayroll"]');
+  await expect(reading).toBeVisible();
+  await expect(reading).toContainText("+165,000");
+  await expect(ready.locator('[data-field="eventMove"]')).toHaveAttribute("data-canonical", String(payrollEvent.measured.move));
+  const clipped = await ready.locator(".ol-core-stats dd").evaluateAll(nodes => nodes.filter(node => node.scrollWidth > node.clientWidth).map(node => node.dataset.field));
+  expect(clipped).toEqual([]);
+  await page.keyboard.press("e");
+  await page.locator('#ol-inspect-surfaces [data-surface="strip"]').click();
+  const inspect = page.locator("#ol-inspect-readout");
+  await expect(inspect.locator('[data-field="eventPayrollMonth"]')).toHaveText("2026-10");
+  await expect(inspect.locator('[data-field="eventPayrollVintage"]')).toHaveText("Retrospective · first report");
 });
 
 test("the field cutoff stops held values and identifies the missing tail separately from the cube cutoff", async ({ page, fakeFor, probe, pane }) => {
