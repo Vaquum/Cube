@@ -14,7 +14,7 @@ const view = (page) => page.evaluate(() => {
 
 for (const [mode, expected] of [["volume", [24968.75, 25656.25]], ["candles", [25037.5, 25587.5]]]) {
  for (const [name, prices] of [["expanded", "20000~30000"], ["clipped", "25125~25250"]]) {
-  test(`price-axis double-click fits vertically ${name} ${mode} and preserves time`, async ({ page, fakeFor, probe }) => {
+  test(`price-axis double-click fits ${name} ${mode} when trades fill the time window`, async ({ page, fakeFor, probe }) => {
     const fake = await fakeFor("uniform");
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(`${fake.url}/#t=${TIME}&p=${prices}&r=4,0&mode=${mode}`);
@@ -26,7 +26,7 @@ for (const [mode, expected] of [["volume", [24968.75, 25656.25]], ["candles", [2
     await page.mouse.dblclick(box.x + 20, box.y + 100);
     await expect.poll(async () => (await view(page)).price).toEqual(expected);
     await probe.waitForReady();
-    expect((await view(page)).time, "fitting prices preserves the time window").toBe(before.time);
+    expect((await view(page)).time, "occupied edges stay in view").toBe(before.time);
 
     // The fit is one reversible navigation action.
     await page.goBack();
@@ -34,6 +34,63 @@ for (const [mode, expected] of [["volume", [24968.75, 25656.25]], ["candles", [2
     expect(await view(page)).toEqual(before);
   });
  }
+}
+
+for (const [mode, price] of [["volume", [24981.25, 25393.75]], ["candles", [24987.5, 25262.5]]]) {
+  test(`price-axis double-click trims empty time at both ends in ${mode}`, async ({ page, fakeFor, probe }) => {
+    const fake = await fakeFor({
+      name: "sparse-chart-fit", cutoffIso: "2026-09-24T12:30Z",
+      trades: [["2026-09-23T23:45Z", 10000], ["2026-09-24T02:07Z", 25000],
+        ["2026-09-24T08:16Z", 25250], ["2026-09-24T12:15Z", 40000]].map(([time, price]) => ({
+        t_ms: Date.parse(time) - EPOCH_MS, price: price * 100, qty: 100000000, takerBuy: true,
+      })),
+    });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const bars = mode === "candles" ? fake.on({ route: "/cube/bars" }).gate() : null;
+    try {
+      await page.goto(`${fake.url}/#t=${TIME}&p=20000~30000&r=4,0&mode=${mode}`);
+      if (bars) await bars.arrived();
+      else await probe.waitForReady();
+      const before = await view(page), box = await page.locator("#ol-canvas").boundingBox();
+      const fitted = { time: "2026-09-24T02:00Z~2026-09-24T08:30Z", price };
+      await page.mouse.dblclick(box.x + 20, box.y + 100);
+      if (bars) {
+        expect(await view(page)).toEqual(before);
+        bars.open();
+      }
+      await expect.poll(() => view(page)).toEqual(fitted);
+      await probe.waitForReady();
+      await page.mouse.dblclick(box.x + 20, box.y + 100);
+      expect(await view(page)).toEqual(fitted);
+      await page.goBack();
+      await probe.waitForReady();
+      expect(await view(page)).toEqual(before);
+    } finally { bars?.open(); }
+  });
+}
+
+for (const [mode, price] of [["candles", [24987.5, 25262.5]], ["volume", [24981.25, 25393.75]]]) {
+  test(`chart fit refines the time bounds at Auto resolution in ${mode}`, async ({ page, fakeFor, probe }) => {
+    const fake = await fakeFor({
+      name: "auto-chart-fit", cutoffIso: "2026-09-24T12:30Z",
+      trades: [["2026-09-24T02:07Z", 25000], ["2026-09-24T02:08Z", 25250]].map(([time, price]) => ({
+        t_ms: Date.parse(time) - EPOCH_MS, price: price * 100, qty: 100000000, takerBuy: true,
+      })),
+    });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(`${fake.url}/#t=${TIME}&p=20000~30000&mode=${mode}`);
+    await probe.waitForReady();
+    const before = await view(page), box = await page.locator("#ol-canvas").boundingBox();
+    expect(await page.locator("#ol-n").textContent()).not.toBe("n 0");
+    await page.mouse.dblclick(box.x + 20, box.y + 100);
+    await expect.poll(() => view(page)).toEqual({
+      time: "2026-09-24T02:06:33.750Z~2026-09-24T02:08:26.250Z", price,
+    });
+    await probe.waitForReady();
+    await page.goBack();
+    await probe.waitForReady();
+    expect(await view(page)).toEqual(before);
+  });
 }
 
 // Hand-authored candles: a 1 USDT range needs 0.05 USDT padding; a flat price
@@ -50,6 +107,6 @@ for (const [name, high, expected] of [["narrow", 2500100, [24999.95, 25001.05]],
     await probe.waitForReady();
     const box = await page.locator("#ol-canvas").boundingBox();
     await page.mouse.dblclick(box.x + 20, box.y + 100);
-    await expect.poll(async () => (await view(page)).price).toEqual(expected);
+    await expect.poll(() => view(page)).toEqual({ time: "2026-09-24T00:00Z~2026-09-24T00:15Z", price: expected });
   });
 }
