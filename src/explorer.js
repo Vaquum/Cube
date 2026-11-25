@@ -3399,36 +3399,52 @@
     const spec = measureSpec(r, n, m);
     return measured.has(spec.key) ? null : spec;
   }
-  function fit(padding = null) {
+  function fit(padding = null, fitTime = false) {
+    let low = Infinity, high = -Infinity, first = Infinity, last = -Infinity, pad;
     if (S.mode === "candles") {
       const r = candleRange(renderN(), S.tA, S.tB);
       if (r.state !== "ready" || !r.bars.length) return;
-      let low = Infinity, high = -Infinity;
       for (const b of r.bars) { low = Math.min(low, b.low / PR); high = Math.max(high, b.high / PR); }
-      const pad = padding !== null && high > low
+      first = r.bars[0].start;
+      last = r.bars.at(-1).stop;
+      pad = padding !== null && high > low
         ? (high - low) * padding
         : Math.max((high - low) * 0.1, low * 0.0001);
-      S.pA = Math.max(0, low - pad); S.pB = high + pad;
-      return;
+    } else {
+      const src = displaySource();
+      if (!src) return;
+      const ts = 2 ** src.n, ps = 2 ** src.m, end = Math.min(S.tB, activeCutoff());
+      for (const c of src.cells) {
+        const start = c.c * ts, stop = start + ts;
+        if (start >= end || stop <= S.tA) continue;
+        low = Math.min(low, c.r * ps);
+        high = Math.max(high, (c.r + 1) * ps);
+        if (fitTime) {
+          first = Math.min(first, start);
+          last = Math.max(last, stop);
+        }
+      }
+      if (!Number.isFinite(low)) return;
+      if (fitTime) {
+        const step = stepT();
+        first = Math.floor(first / step) * step;
+        last = Math.min(end, Math.ceil(last / step) * step);
+      }
+      pad = padding === null
+        ? Math.max(2 * ps, Math.ceil(((high - low) * 0.1) / ps) * ps)
+        : (high - low) * padding;
     }
-    const src = displaySource();
-    if (!src) return;
-    const ts = 2 ** src.n,
-      ps = 2 ** src.m;
-    let low = Infinity,
-      high = -Infinity;
-    for (const c of src.cells) {
-      if (c.c * ts >= Math.min(S.tB, activeCutoff()) || (c.c + 1) * ts <= S.tA)
-        continue;
-      low = Math.min(low, c.r * ps);
-      high = Math.max(high, (c.r + 1) * ps);
+    const bottom = Math.max(0, low - pad), top = high + pad;
+    if (fitTime) {
+      // Keep the two-base-interval navigation minimum within the original view.
+      const start = Math.max(S.tA, Math.min(first, S.tB - 2)),
+        end = Math.min(S.tB, Math.max(last, start + 2));
+      if (start !== S.tA || end !== S.tB || bottom !== S.pA || top !== S.pB) S.window = "";
+      S.tA = start;
+      S.tB = end;
     }
-    if (!Number.isFinite(low)) return;
-    const pad = padding === null
-      ? Math.max(2 * ps, Math.ceil(((high - low) * 0.1) / ps) * ps)
-      : (high - low) * padding;
-    S.pA = Math.max(0, low - pad);
-    S.pB = high + pad;
+    S.pA = bottom;
+    S.pB = top;
   }
   // A window ends at the cutoff, with a tenth of its length to spare after it;
   // this year starts on its first day, and last year is the whole calendar
@@ -23994,7 +24010,7 @@
       }
       const p = at(e);
       if (onPriceAxis(p)) {
-        fitPrice("Fit price", 0.05);
+        fitPrice("Fit chart", 0.05, { fitTime: true });
         return;
       }
       if (!inPlot(p)) return;
@@ -24122,7 +24138,7 @@
         S.pB += y;
         S.window = "";
         settleNavigation(windowStep ? null : "Pan", false, !windowStep);
-        if (windowStep) fitPrice("Window step", 0.05, true);
+        if (windowStep) fitPrice("Window step", 0.05, { waitForData: true });
       } else if (k === "End") jumpLatest();
       else if (k === "Escape") escapeKey();
       else if (k === "Enter") {
@@ -24304,7 +24320,7 @@
     drawingCancelOperation(); drawingKeyContext = false;
     if (pop.open?.panel === el("window-menu")) closePop(true);
     setWindow(w);
-    fitPrice("Window", null, true);
+    fitPrice("Window", null, { waitForData: true });
     subdivisionStart(before, true);
     // A discrete choice already names its destination; the gesture debounce
     // only adds idle time before its required read.
@@ -24383,10 +24399,15 @@
   const windowPriceFitPending = () => S.mode === "candles"
     ? candleRange(renderN(), S.tA, S.tB).state === "pending"
     : PACK.live && Boolean(viewTileSpec());
-  function fitPrice(label, padding, waitForData = false) {
+  function fitPrice(label, padding, { fitTime = false, waitForData = fitTime } = {}) {
     pendingWindowPriceFit = null;
     chooseSource();
-    fit(padding);
+    // A partial source can omit occupied columns at either end of the view.
+    if (fitTime && windowPriceFitPending()) {
+      pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding, chartLabel: label };
+      return;
+    }
+    fit(padding, fitTime);
     if (S.auto) autoLevel(!waitForData);
     recordView(label);
     update();
@@ -24395,8 +24416,8 @@
       pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding };
     }
   }
-  // View data can arrive after the step. Complete its fit only while its camera
-  // and history entry still apply; replace that entry so Back undoes the step.
+  // Complete the fit only while its camera and history entry still apply.
+  // A chart fit records its move here if it had to wait for data.
   function finishWindowPriceFit() {
     const pending = pendingWindowPriceFit;
     if (!pending) return;
@@ -24407,20 +24428,21 @@
     if (windowPriceFitPending()) return;
     const camera = subdivisionCamera(), animate = subdivision.actor?.animateCamera;
     pendingWindowPriceFit = null;
-    fit(pending.padding);
+    fit(pending.padding, Boolean(pending.chartLabel));
     // Compare the requested camera, not its current interpolated frame. Do not
     // copy into an active actor's retained surface when the fit is unchanged.
     const cameraChanged = camera.some((value, i) => value !== subdivisionCamera()[i]),
       before = animate && cameraChanged ? subdivisionCapture() : null;
     if (S.auto) autoLevel(false, Boolean(animate && !cameraChanged));
     if (before) subdivisionStart(before, true);
+    if (pending.chartLabel) recordView(pending.chartLabel);
     update();
     syncURL(true);
     save();
     // Fitting can make auto resolution request a finer tile. Keep the same
     // operation through that read, using the camera this fit just produced.
     if (windowPriceFitPending()) {
-      pendingWindowPriceFit = { ...pending, context: windowPriceFitContext() };
+      pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding: pending.padding };
     }
   }
   // Replay only hides the trades after its anchor: the price range, the

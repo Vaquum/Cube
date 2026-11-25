@@ -20,9 +20,6 @@ for (const [mode, expected] of [["volume", [24968.75, 25656.25]], ["candles", [2
       await page.keyboard.press("Shift+ArrowRight");
       await expect.poll(() => camera(page)).toEqual({ time: [start + span, start + 2 * span], price: expected });
       await probe.waitForReady();
-      const box = await page.locator("#ol-canvas").boundingBox();
-      await page.mouse.dblclick(box.x + 20, box.y + 100);
-      expect(await camera(page), "the axis double-click has nothing further to fit").toEqual({ time: [start + span, start + 2 * span], price: expected });
       await page.goBack();
       await probe.waitForReady();
       expect(await camera(page), "one Back restores both axes").toEqual(before);
@@ -54,11 +51,8 @@ for (const mode of ["volume", "candles"]) {
     await page.locator("#ol-canvas").focus();
     await page.keyboard.press("Shift+ArrowLeft");
     await probe.waitForReady();
-    await expect.poll(async () => (await camera(page)).time).toEqual([first, first + week]);
-    if (mode === "candles") await expect.poll(async () => (await camera(page)).price).toEqual([23995, 24105]);
-    const fitted = await camera(page), box = await page.locator("#ol-canvas").boundingBox();
-    await page.mouse.dblclick(box.x + 20, box.y + 100);
-    expect(await camera(page)).toEqual(fitted);
+    const price = mode === "candles" ? [23995, 24105] : [23993.75, 24131.25];
+    await expect.poll(() => camera(page)).toEqual({ time: [first, first + week], price });
     await page.goBack();
     await probe.waitForReady();
     expect(await camera(page)).toEqual(before);
@@ -153,9 +147,6 @@ for (const mode of ["volume", "candles"]) {
         const expected = mode === "candles" ? [24992.5, 25157.5] : [24987.5, 25262.5];
         await expect.poll(() => camera(page), { timeout: 15000 }).toEqual({ time: destination, price: expected });
         await probe.waitForReady();
-        const box = await page.locator("#ol-canvas").boundingBox();
-        await page.mouse.dblclick(box.x + 20, box.y + 100);
-        expect(await camera(page)).toEqual({ time: destination, price: expected });
         await page.goBack();
         await probe.waitForReady();
         expect(await camera(page)).toEqual(before);
@@ -178,9 +169,6 @@ test("auto resolution refits every finer destination tile in one history entry",
   const levels = fake.log().filter(r => r.path === "/cube/tile").map(r => Number(r.query.m));
   expect(levels.length, "the scenario fetched multiple progressively finer tiles").toBeGreaterThan(1);
   expect(levels[levels.length - 1]).toBeLessThan(levels[0]);
-  const fitted = await camera(page), box = await page.locator("#ol-canvas").boundingBox();
-  await page.mouse.dblclick(box.x + 20, box.y + 100);
-  expect(await camera(page)).toEqual(fitted);
   await page.goBack();
   await probe.waitForReady();
   expect(await camera(page)).toEqual(before);
