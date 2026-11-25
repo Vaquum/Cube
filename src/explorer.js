@@ -24402,18 +24402,22 @@
   function fitPrice(label, padding, { fitTime = false, waitForData = fitTime } = {}) {
     pendingWindowPriceFit = null;
     chooseSource();
+    const previousEntry = hist.entries[hist.index]?.id;
     // A partial source can omit occupied columns at either end of the view.
-    if (fitTime && windowPriceFitPending()) {
-      pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding, chartLabel: label };
-      return;
+    const deferChartFit = fitTime && windowPriceFitPending();
+    if (!deferChartFit) {
+      fit(padding, fitTime);
+      if (S.auto) autoLevel(!waitForData);
+      recordView(label);
+      update();
+      save();
     }
-    fit(padding, fitTime);
-    if (S.auto) autoLevel(!waitForData);
-    recordView(label);
-    update();
-    save();
-    if (waitForData && windowPriceFitPending()) {
-      pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding };
+    if (deferChartFit || (waitForData && windowPriceFitPending())) {
+      const entry = hist.entries[hist.index]?.id;
+      pendingWindowPriceFit = {
+        context: windowPriceFitContext(), entry, padding, fitTime,
+        label: fitTime && entry === previousEntry ? label : null,
+      };
     }
   }
   // Complete the fit only while its camera and history entry still apply.
@@ -24428,21 +24432,22 @@
     if (windowPriceFitPending()) return;
     const camera = subdivisionCamera(), animate = subdivision.actor?.animateCamera;
     pendingWindowPriceFit = null;
-    fit(pending.padding, Boolean(pending.chartLabel));
+    fit(pending.padding, pending.fitTime);
     // Compare the requested camera, not its current interpolated frame. Do not
     // copy into an active actor's retained surface when the fit is unchanged.
     const cameraChanged = camera.some((value, i) => value !== subdivisionCamera()[i]),
       before = animate && cameraChanged ? subdivisionCapture() : null;
     if (S.auto) autoLevel(false, Boolean(animate && !cameraChanged));
     if (before) subdivisionStart(before, true);
-    if (pending.chartLabel) recordView(pending.chartLabel);
+    if (pending.label) recordView(pending.label);
     update();
     syncURL(true);
     save();
     // Fitting can make auto resolution request a finer tile. Keep the same
     // operation through that read, using the camera this fit just produced.
     if (windowPriceFitPending()) {
-      pendingWindowPriceFit = { context: windowPriceFitContext(), entry: hist.entries[hist.index]?.id, padding: pending.padding };
+      const entry = hist.entries[hist.index]?.id;
+      pendingWindowPriceFit = { ...pending, context: windowPriceFitContext(), entry, label: entry === pending.entry ? pending.label : null };
     }
   }
   // Replay only hides the trades after its anchor: the price range, the
