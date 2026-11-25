@@ -47634,6 +47634,16 @@
   const windowPriceFitPending = () => S.mode === "candles"
     ? candleRange(renderN(), S.tA, S.tB).state === "pending"
     : PACK.live && Boolean(viewTileSpec());
+  function fitChart(padding) {
+    // A tighter view can use a finer grid already covered by loaded data.
+    let n;
+    do {
+      n = renderN();
+      fit(padding, true);
+      if (!S.auto || !autoLevel(false)) return;
+      chooseSource();
+    } while (renderN() < n && !windowPriceFitPending());
+  }
   function fitPrice(label, padding, { fitTime = false, waitForData = fitTime } = {}) {
     pendingWindowPriceFit = null;
     chooseSource();
@@ -47641,8 +47651,11 @@
     // A partial source can omit occupied columns at either end of the view.
     const deferChartFit = fitTime && windowPriceFitPending();
     if (!deferChartFit) {
-      fit(padding, fitTime);
-      if (S.auto) autoLevel(!waitForData);
+      if (fitTime) fitChart(padding);
+      else {
+        fit(padding);
+        if (S.auto) autoLevel(!waitForData);
+      }
       recordView(label);
       update();
       save();
@@ -47665,14 +47678,15 @@
       return;
     }
     if (windowPriceFitPending()) return;
-    const camera = subdivisionCamera(), animate = subdivision.actor?.animateCamera;
+    const camera = subdivisionCamera(), animate = !pending.fitTime && subdivision.actor?.animateCamera;
     pendingWindowPriceFit = null;
-    fit(pending.padding, pending.fitTime);
+    if (pending.fitTime) fitChart(pending.padding);
+    else fit(pending.padding);
     // Compare the requested camera, not its current interpolated frame. Do not
     // copy into an active actor's retained surface when the fit is unchanged.
     const cameraChanged = camera.some((value, i) => value !== subdivisionCamera()[i]),
       before = animate && cameraChanged ? subdivisionCapture() : null;
-    if (S.auto) autoLevel(false, Boolean(animate && !cameraChanged));
+    if (S.auto && !pending.fitTime) autoLevel(false, Boolean(animate && !cameraChanged));
     if (before) subdivisionStart(before, true);
     if (pending.label) recordView(pending.label);
     update();

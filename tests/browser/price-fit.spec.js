@@ -69,27 +69,29 @@ for (const [mode, price] of [["volume", [24981.25, 25393.75]], ["candles", [2498
   });
 }
 
-test("chart fit refines the time bounds as Auto loads finer candles", async ({ page, fakeFor, probe }) => {
-  const fake = await fakeFor({
-    name: "auto-chart-fit", cutoffIso: "2026-09-24T12:30Z",
-    trades: [["2026-09-24T02:07Z", 25000], ["2026-09-24T02:08Z", 25250]].map(([time, price]) => ({
-      t_ms: Date.parse(time) - EPOCH_MS, price: price * 100, qty: 100000000, takerBuy: true,
-    })),
+for (const [mode, price] of [["candles", [24987.5, 25262.5]], ["volume", [24981.25, 25393.75]]]) {
+  test(`chart fit refines the time bounds at Auto resolution in ${mode}`, async ({ page, fakeFor, probe }) => {
+    const fake = await fakeFor({
+      name: "auto-chart-fit", cutoffIso: "2026-09-24T12:30Z",
+      trades: [["2026-09-24T02:07Z", 25000], ["2026-09-24T02:08Z", 25250]].map(([time, price]) => ({
+        t_ms: Date.parse(time) - EPOCH_MS, price: price * 100, qty: 100000000, takerBuy: true,
+      })),
+    });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(`${fake.url}/#t=${TIME}&p=20000~30000&mode=${mode}`);
+    await probe.waitForReady();
+    const before = await view(page), box = await page.locator("#ol-canvas").boundingBox();
+    expect(await page.locator("#ol-n").textContent()).not.toBe("n 0");
+    await page.mouse.dblclick(box.x + 20, box.y + 100);
+    await expect.poll(() => view(page)).toEqual({
+      time: "2026-09-24T02:06:33.750Z~2026-09-24T02:08:26.250Z", price,
+    });
+    await probe.waitForReady();
+    await page.goBack();
+    await probe.waitForReady();
+    expect(await view(page)).toEqual(before);
   });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(`${fake.url}/#t=${TIME}&p=20000~30000&mode=candles`);
-  await probe.waitForReady();
-  const before = await view(page), box = await page.locator("#ol-canvas").boundingBox();
-  expect(await page.locator("#ol-n").textContent()).not.toBe("n 0");
-  await page.mouse.dblclick(box.x + 20, box.y + 100);
-  await expect.poll(() => view(page)).toEqual({
-    time: "2026-09-24T02:06:33.750Z~2026-09-24T02:08:26.250Z", price: [24987.5, 25262.5],
-  });
-  await probe.waitForReady();
-  await page.goBack();
-  await probe.waitForReady();
-  expect(await view(page)).toEqual(before);
-});
+}
 
 // Hand-authored candles: a 1 USDT range needs 0.05 USDT padding; a flat price
 // needs the existing 0.01% fallback (2.5 USDT) to keep its viewport nonzero.
