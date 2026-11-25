@@ -3,9 +3,10 @@
 // Oracles (none is the code under test): tests/reference/contrast.js, a WCAG 2.x contrast written from the
 // definition with its own linearisation table and validated below on published anchors (black on white
 // 21:1; #767676 on white 4.54:1 and #949494 on white 3.03:1, the examples of the WCAG 2 documentation);
-// the colour tokens PARSED from src/explorer.css (both themes, light-dark()); the numbers hand-computed in
-// API.md B.9 and Appendix A.1 (--ol-border 3.57/3.88, --ol-muted 5.20/7.78, the bar 3.10/4.04 composited
-// and 7.10/7.65 solid, the retired entry 153 at 2.94, --ol-line 1.32/1.76, --ol-midpoint 1.83/3.03); and
+// the colour tokens PARSED from src/explorer.css (both themes, light-dark()); the numbers of API.md B.9 and
+// Appendix A.1 measured again on the Vaquum surfaces, sheet #fbfaf6 and navy #142038 (--ol-border 3.40/3.73,
+// --ol-muted 5.34/7.65, the bar 3.05/3.92 composited and 6.80/7.36 solid, the retired entry 153 at 2.87,
+// --ol-line 1.33/1.73, --ol-midpoint 1.75/2.93; docs/visual-contract.md section 13); and
 // fixtures/contrast/new-controls.json (hand-authored thresholds: 4.5 for small text, 3 for an essential
 // boundary, from WCAG 2.x and D11).
 // What is checked, and over what, is exactly what the code draws (API.md B.9, FA-13): a state or occupancy
@@ -64,7 +65,8 @@ test("E.lut.contrast and E.lut.over equal the reference on 3,000 seeded colours 
 });
 
 test("the CSS token parser resolves light-dark(), var() and 3-digit hex from the real file", () => {
-  assert.deepEqual(TOKENS["--ol-surface"], { light: [255, 255, 255], dark: [22, 31, 25] }, "#fff shorthand and light-dark()");
+  assert.deepEqual(TOKENS["--ol-surface"], { light: [251, 250, 246], dark: [20, 32, 56] }, "light-dark(): sheet, then navy");
+  assert.deepEqual(ref.tokensFromCss("#x {\n  --a: light-dark(#fff, #000);\n  --b: #abc;\n}\n"), { "--a": { light: [255, 255, 255], dark: [0, 0, 0] }, "--b": { light: [170, 187, 204], dark: [170, 187, 204] } }, "3-digit hex shorthand");
   assert.deepEqual(TOKENS["--ol-occupancy"], TOKENS["--ol-border"], "var() resolves");
   assert.deepEqual(TOKENS["--ol-state"], TOKENS["--ol-muted"]);
   assert.equal(TOKENS["--sp-1"], undefined, "a size is not a colour");
@@ -74,7 +76,7 @@ test("the CSS token parser resolves light-dark(), var() and 3-digit hex from the
 // ---- the tokens the non-value marks are made of ----
 
 test("--ol-border (occupancy) and --ol-muted (stateInk) over the empty surface, the values of API.md B.9", () => {
-  const want = { "--ol-border": [3.57, 3.88], "--ol-muted": [5.2, 7.78] };
+  const want = { "--ol-border": [3.4, 3.73], "--ol-muted": [5.34, 7.65] };
   for (const [name, [light, dark]] of Object.entries(want)) {
     assert.equal(r2(ref.contrast(TOKENS[name].light, TOKENS["--ol-surface"].light)), light, name + " light");
     assert.equal(r2(ref.contrast(TOKENS[name].dark, TOKENS["--ol-surface"].dark)), dark, name + " dark");
@@ -87,12 +89,12 @@ test("--ol-border (occupancy) and --ol-muted (stateInk) over the empty surface, 
 });
 
 test("--ol-line and --ol-midpoint FAIL 3:1 on the surface and so must not colour a non-value mark", () => {
-  const want = { "--ol-line": [1.32, 1.76], "--ol-midpoint": [1.83, 3.03] };
+  const want = { "--ol-line": [1.33, 1.73], "--ol-midpoint": [1.75, 2.93] };
   for (const [name, [light, dark]] of Object.entries(want)) {
     assert.equal(r2(ref.contrast(TOKENS[name].light, TOKENS["--ol-surface"].light)), light, name + " light");
     assert.equal(r2(ref.contrast(TOKENS[name].dark, TOKENS["--ol-surface"].dark)), dark, name + " dark");
   }
-  // Light theme: both fail outright. Dark theme: --ol-line fails; --ol-midpoint reaches 3.03 there but fails in light, so the role is unusable as a whole.
+  // Both fail outright in both themes (on navy the midpoint reaches 2.93); the role is a fill, unusable as an ink.
   assert.ok(ref.contrast(TOKENS["--ol-line"].light, TOKENS["--ol-surface"].light) < 3);
   assert.ok(ref.contrast(TOKENS["--ol-line"].dark, TOKENS["--ol-surface"].dark) < 3);
   assert.ok(ref.contrast(TOKENS["--ol-midpoint"].light, TOKENS["--ol-surface"].light) < 3);
@@ -116,8 +118,8 @@ test("a state or occupancy ink over a LUT entry is NOT what is checked: --ol-bor
 
 // ---- the unsigned constant bar ----
 
-test("Lut.bar (unsigned index 160) composited at the painted opacity 0.65: 3.10 light and 4.04 dark; solid 7.10 and 7.65", () => {
-  const want = { light: [3.1, 7.1], dark: [4.04, 7.65] };
+test("Lut.bar (unsigned index 160) composited at the painted opacity 0.65: 3.05 light and 3.92 dark; solid 6.80 and 7.36", () => {
+  const want = { light: [3.05, 6.8], dark: [3.92, 7.36] };
   for (const theme of THEMES) {
     const lut = E.lut.build("slate2", theme);
     const surface = TOKENS["--ol-surface"][theme];
@@ -128,11 +130,11 @@ test("Lut.bar (unsigned index 160) composited at the painted opacity 0.65: 3.10 
   }
 });
 
-test("the retired bar entry 153 composited at 0.65 FAILS 3:1 in the light theme (2.94), so nobody reverts to it", () => {
+test("the retired bar entry 153 composited at 0.65 FAILS 3:1 in the light theme (2.87 on sheet), so nobody reverts to it", () => {
   const surface = TOKENS["--ol-surface"].light;
   const lut = E.lut.build("slate2", "light");
   const old = ref.over(entry(lut.unsigned, 153), 0.65, surface);
-  assert.equal(r2(ref.contrast(old, surface)), 2.94);
+  assert.equal(r2(ref.contrast(old, surface)), 2.87);
   assert.ok(ref.contrast(old, surface) < 3);
   // And 160 is the FIRST entry that passes when composited (the reason it was chosen).
   let first = -1;

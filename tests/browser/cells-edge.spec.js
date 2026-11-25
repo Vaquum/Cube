@@ -20,7 +20,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "fixtures", "trades", `${name}.json`), "utf8"));
-const A = "&vis=2&ap=slate2-8f7890f7";
+const A = "&vis=2&ap=vaquum3-429b9a62";
 const hex = (px) => `#${px.slice(0, 3).map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 const pixel = (page, x, y) =>
   page.evaluate(([px, py]) => [...document.getElementById("ol-canvas").getContext("2d").getImageData(px, py, 1, 1).data], [Math.round(x), Math.round(y)]).then(hex);

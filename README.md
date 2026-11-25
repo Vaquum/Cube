@@ -8,7 +8,7 @@ Explore Binance BTCUSDT spot trading on independent dyadic time and price grids.
 python3 -m http.server 8080 --bind 127.0.0.1
 ```
 
-Open [localhost:8080](http://localhost:8080). The app ships with its snapshot and D3; it makes no external requests and requires no backend, account, or JavaScript build tool. The view lives in the page's address; the workspace, the last view and named views persist in browser local storage.
+Open [localhost:8080](http://localhost:8080). The app ships with its snapshot, D3 and its fonts; it makes no external requests and requires no backend, account, or JavaScript build tool. The view lives in the page's address; the workspace, the last view and named views persist in browser local storage.
 
 ## Explore
 
@@ -159,6 +159,8 @@ Edit `src/` and build into `reports/page/` during development. Regenerate the co
 - `src/rallies.js`: native rally discovery controls, retained-result filtering and member inspection.
 - `src/features.js`: Find features: marked windows, the request to Mill's `/discover`, the ranked answer, and a leader's preview in the Columns pane and the event strip.
 - `src/document.html`: standalone page shell.
+- `src/shared/surface.css`, `src/shared/surface.js`: the Vaquum surfaces, navy and warm stock, and the Auto, Navy and Stock switch in the top bar, shared verbatim with Query and Composer; a change to them is made in all three.
+- `src/fonts/`: Archivo and IBM Plex Mono (SIL Open Font License, see `THIRD_PARTY_NOTICES.md`), inlined into the page by the build.
 - `data/snapshot.json`: real recorded measures, compressed in three embedded blocks.
 - `vendor/`: pinned D3 7.9.0 and its license.
 - `tools/build.py`: assembles the portable page.

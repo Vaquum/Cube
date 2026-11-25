@@ -28,11 +28,12 @@ const ROOT = path.resolve(__dirname, "../..");
 const TOKENS = refContrast.tokensFromCss(fs.readFileSync(path.join(ROOT, "src/explorer.css"), "utf8"));
 const SURFACE = { light: TOKENS["--ol-surface"].light, dark: TOKENS["--ol-surface"].dark };
 const THEMES = ["light", "dark"];
-const NAMES = ["slate2", "ramp1"];
+const NAMES = ["vaquum3", "slate2", "ramp1"];
 
 // Pinned by the design owner and reproduced independently (API.md A.1, DD-86, DR-29). The first 4626 bytes
 // are the three ramps and three single colours of both themes; the rest are the two rows ramps.
 const PIN = {
+  vaquum3: { hash: "429b9a62598418d1c0a83a817c9fd299851ae38ee445e32d0dd10634d44f3229", id: "vaquum3-429b9a62", head: "471124a2d123c87eb7d6f359fe266ea684bf4ac8bbea6f9866e975d35e08ba0f" },
   slate2: { hash: "8f7890f7e400724c7191f42f31b9d2e9e0bf060ca619b003915fb6fbb418b672", id: "slate2-8f7890f7", head: "75cc078445e35360a696140843a8a12648200c173d18050f4624ba582a8959eb" },
   ramp1: { hash: "a53783c520ba0d228804ae64e898e110256e73d6b705268e2b58bf0cbb550289", id: "ramp1-a53783c5", head: "90c3f71e138ee07a8df0e29eec7aa6cfdd1d29cd55d0c911a39a5232caa7edb2" },
 };
@@ -79,11 +80,16 @@ for (const name of NAMES) {
 }
 
 test("the appearance names, default and rows alpha", () => {
-  assert.deepEqual(Object.keys(E.lut.APPEARANCES).sort(), ["ramp1", "slate2"]);
-  assert.equal(E.lut.DEFAULT_APPEARANCE, "slate2");
+  assert.deepEqual(Object.keys(E.lut.APPEARANCES).sort(), ["ramp1", "slate2", "vaquum3"]);
+  assert.equal(E.lut.DEFAULT_APPEARANCE, "vaquum3");
   assert.equal(E.lut.ROWS_ALPHA, 0.16);
   assert.ok(Object.isFrozen(E.lut.APPEARANCES) && Object.isFrozen(E.lut.APPEARANCES.slate2) && Object.isFrozen(E.lut.APPEARANCES.slate2.unsigned.light));
-  assert.equal(E.lut.APPEARANCES.slate2.version, 2, "the new palette is appearance version 2");
+  assert.ok(Object.isFrozen(E.lut.APPEARANCES.vaquum3) && Object.isFrozen(E.lut.APPEARANCES.vaquum3.roles.dark));
+  assert.equal(E.lut.APPEARANCES.slate2.version, 2, "slate2 stays appearance version 2");
+  assert.equal(E.lut.APPEARANCES.vaquum3.version, 3, "the Vaquum surfaces are appearance version 3, the default");
+  // vaquum3 is slate2's stops on the new surfaces: the ramps are the same stops; only the single roles moved.
+  assert.deepEqual(E.lut.APPEARANCES.vaquum3.unsigned, E.lut.APPEARANCES.slate2.unsigned);
+  assert.deepEqual(E.lut.APPEARANCES.vaquum3.rows, E.lut.APPEARANCES.slate2.rows);
 });
 
 test("the appearance id changes if and only if a LUT byte changes (one stop, one role constant, and a no-op)", () => {
@@ -155,24 +161,26 @@ for (const name of NAMES)
 
 test("the single roles are the token hexes (CSS parsed from src/explorer.css), in both themes", () => {
   for (const theme of THEMES) {
-    const lut = E.lut.build("slate2", theme);
+    const lut = E.lut.build(E.lut.DEFAULT_APPEARANCE, theme);
     const tok = (n) => hexOf(TOKENS[n][theme]);
     assert.equal(lut.midpoint.css, tok("--ol-midpoint"), "midpoint = --ol-midpoint");
     assert.equal(lut.occupancy.css, tok("--ol-occupancy"), "occupancy = --ol-occupancy = --ol-border");
     assert.equal(lut.stateInk.css, tok("--ol-state"), "stateInk = --ol-state = --ol-muted");
     assert.equal(lut.positive.css[255], tok("--ol-positive"), "the positive arm ends at --ol-positive");
     assert.equal(lut.negative.css[255], tok("--ol-negative"), "the negative arm ends at --ol-negative");
-    // The roles carry the hexes of the retired buy, sell and neutral tokens (DR-20: renamed by role, hex unchanged); the
-    // interim legacy names that carried them for the unsigned and reference marks are gone (PRD-0002 S3).
-    const retired = { light: ["#2d769c", "#b3624b", "#b9c2bc"], dark: ["#73b8d4", "#d89777", "#5f6b64"] }[theme];
+    // The signed ends carry the hexes of the retired buy and sell tokens (DR-20: renamed by role, hex unchanged); the
+    // interim legacy names that carried them for the unsigned and reference marks are gone (PRD-0002 S3). The midpoint
+    // is the data guide's (vaquum.fi/style/data): the retired neutral's lightness in the Vaquum cool grey.
+    const retired = { light: ["#2d769c", "#b3624b"], dark: ["#73b8d4", "#d89777"] }[theme];
     assert.equal(tok("--ol-positive"), retired[0]);
     assert.equal(tok("--ol-negative"), retired[1]);
-    assert.equal(tok("--ol-midpoint"), retired[2]);
+    assert.equal(tok("--ol-midpoint"), theme === "light" ? "#bbc0c7" : "#64696f");
     assert.equal(TOKENS["--ol-legacy-buy"], undefined, "the interim legacy names are retired with their last consumers");
     assert.equal(TOKENS["--ol-legacy-sell"], undefined);
     assert.equal(tok("--ol-occupancy"), tok("--ol-border"));
     assert.equal(tok("--ol-state"), tok("--ol-muted"));
-    assert.equal(hexOf(SURFACE[theme]), theme === "light" ? "#ffffff" : "#161f19");
+    assert.equal(hexOf(SURFACE[theme]), theme === "light" ? "#fbfaf6" : "#142038", "the plot stands on sheet, or on navy");
+    assert.equal(hexOf(SURFACE[theme]), E.lut.APPEARANCES[E.lut.DEFAULT_APPEARANCE].roles[theme].surface, "the default is screened on the page's surface");
   }
 });
 
@@ -290,13 +298,18 @@ test("deltaE2000: identity is 0, symmetric, and equal to the reference on 5,000 
 
 // ---- the D11 screens ----
 
-// API.md A.1 measurements (8-bit output, both themes), to the precision the document prints.
+// API.md A.1 measurements (8-bit output, both themes), to the precision the document prints, on the surface the
+// page draws on now (sheet #fbfaf6 and navy #142038; docs/visual-contract.md section 13).
 const MEASURED = {
-  slate2: {
-    light: { first: 6.22, adj: 0.878, rev: 0, pos: [31.2, 0.715], neg: [26.7, 1.093, 0.079], mid: 15.26, rows: [5.42, 0.795, 0] },
-    dark: { first: 11.18, adj: 0.873, rev: 0, pos: [27.0, 0.73], neg: [24.4, 0.865, 0], mid: 25.01, rows: [5.67, 0.853, 0] },
+  vaquum3: {
+    light: { first: 6.84, adj: 0.878, rev: 0, pos: [31.0, 0.791], neg: [26.5, 1.273, 0.086], mid: 14.56, rows: [5.30, 0.805, 0] },
+    dark: { first: 9.57, adj: 0.873, rev: 0, pos: [26.9, 0.882], neg: [24.3, 0.929, 0], mid: 25.96, rows: [5.14, 0.823, 0] },
   },
-  ramp1: { light: { first: 17.22, adj: 0.927, rev: 0 }, dark: { first: 9.25, adj: 1.013, rev: 0 } },
+  slate2: {
+    light: { first: 6.84, adj: 0.878, rev: 0, pos: [31.2, 0.715], neg: [26.7, 1.093, 0.079], mid: 14.17, rows: [5.30, 0.805, 0] },
+    dark: { first: 9.57, adj: 0.873, rev: 0, pos: [27.0, 0.73], neg: [24.4, 0.865, 0], mid: 29.50, rows: [5.14, 0.823, 0] },
+  },
+  ramp1: { light: { first: 15.56, adj: 0.927, rev: 0 }, dark: { first: 11.04, adj: 1.013, rev: 0 } },
 };
 
 for (const name of NAMES)
@@ -327,7 +340,7 @@ for (const name of NAMES)
       assert.ok(Math.abs(adj - m.adj) < 0.001, `adjacent ${adj} vs ${m.adj}`);
       assert.ok(Math.abs(reversal - m.rev) < 0.001);
       assert.ok(Math.abs(s.unsigned.first - first) < 1e-6 && Math.abs(s.unsigned.maxAdjacent - adj) < 1e-6 && Math.abs(s.unsigned.reversal - reversal) < 1e-9, "the module reports what the oracle computes");
-      if (name === "slate2") {
+      if (name !== "ramp1") {
         assert.ok(Math.abs(s.positive.departure - m.pos[0]) < 0.05 && Math.abs(s.positive.maxAdjacent - m.pos[1]) < 0.001, "positive arm");
         assert.ok(Math.abs(s.negative.departure - m.neg[0]) < 0.05 && Math.abs(s.negative.maxAdjacent - m.neg[1]) < 0.001 && Math.abs(s.negative.reversal - m.neg[2]) < 0.001, "negative arm");
         assert.ok(s.negative.reversal < 0.2 && s.positive.reversal <= 0.2);
@@ -381,14 +394,14 @@ test("the rows role is screened on its 16% composite over the real surface, not 
 
 test("composite: roles, sources and refusals", () => {
   const s = SURFACE.light;
-  const lut = E.lut.build("slate2", "light");
+  const lut = E.lut.build(E.lut.DEFAULT_APPEARANCE, "light");
   // Given a Lut it is used as is; given a name or nothing the theme comes from the surface.
   assert.deepEqual(Array.from(E.lut.composite("positive", 0.5, s, lut).rgb), Array.from(E.lut.composite("positive", 0.5, s).rgb));
-  assert.deepEqual(Array.from(E.lut.composite("negative", 0.5, s, "slate2").rgb), Array.from(E.lut.composite("negative", 0.5, s).rgb));
+  assert.deepEqual(Array.from(E.lut.composite("negative", 0.5, s, E.lut.DEFAULT_APPEARANCE).rgb), Array.from(E.lut.composite("negative", 0.5, s).rgb));
   const dark = E.lut.composite("rows", 0.16, SURFACE.dark);
   assert.notDeepEqual(Array.from(dark.rgb), Array.from(E.lut.composite("rows", 0.16, s).rgb), "the surface selects the theme");
   assert.deepEqual(entry(E.lut.composite("unsigned", 1, s), 77), entry(lut.unsigned, 77), "alpha 1 is the raw ramp");
-  assert.deepEqual(entry(E.lut.composite("unsigned", 0, s), 77), [255, 255, 255], "alpha 0 is the surface");
+  assert.deepEqual(entry(E.lut.composite("unsigned", 0, s), 77), Array.from(s), "alpha 0 is the surface");
   assert.throws(() => E.lut.composite("midpoint", 0.16, s), /role/);
 });
 

@@ -181,7 +181,7 @@ for (const colorScheme of ["light", "dark"]) test.describe(`label geometry ${col
       expect(text.angle).toBeGreaterThanOrEqual(-Math.PI / 2 - 1e-9); expect(text.angle).toBeLessThan(Math.PI / 2);
       expect(Math.abs(Math.cos(text.angle) * dy - Math.sin(text.angle) * dx) / length, "text baseline is parallel to source ink").toBeLessThan(1e-6);
       expect(text.fill).toBe(color); expect(text.alpha).toBe(1);
-      expect(text.font).toMatch(/^11px /); expect(text.font).toContain("sans-serif");
+      expect(text.font).toMatch(/^11px /); expect(text.font).toContain("\"IBM Plex Mono\"");
       const midpoint = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], gap = Math.sin(text.angle) * (text.at[0] - midpoint[0]) - Math.cos(text.angle) * (text.at[1] - midpoint[1]);
       expect(gap - text.descent, "ink bottom sits six CSS pixels above the line").toBeCloseTo(6, 3); expect(text.width).toBeLessThanOrEqual(length - 16);
       const along = (point) => Math.cos(text.angle) * point[0] + Math.sin(text.angle) * point[1];

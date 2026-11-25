@@ -29,35 +29,35 @@ Testing it: `tests/unit/color-matrix.test.js` (U60) fails when this file is not 
 | fill.unsigned.high | Unsigned fill, high entry | area | #1c2d42 | #d0e0ec | position, legend, number | the plot, the legend ramp and the readout of the cell (B23, B44) |
 | fill.positive | Signed fill, positive arm | area | #2d769c | #73b8d4 | sign, legend, number | the plus mark, the legend's signed ramp, the signed readout (B23, B44, B50) |
 | fill.negative | Signed fill, negative arm | area | #b3624b | #d89777 | sign, legend, number | the minus mark, the legend's signed ramp, the signed readout (B23, B44, B50) |
-| fill.midpoint | Signed fill, midpoint | area | #b9c2bc | #5f6b64 | sign, legend, number | the ring mark, the legend's midpoint, the signed readout (B23, B44, B50) |
-| fill.rows | Rows band (16% composite) | area | #d9dde2 | #363f3b | position, legend, number | the strip at the right edge, its legend and its Rows readout (B28, B44) |
-| fill.bar | Profile bar (the appearance's bar colour at 70% over the surface) | area | #7b8c9e | #708694 | position, number | the profile track's row and its readout (B25, B44) |
+| fill.midpoint | Signed fill, midpoint | area | #bbc0c7 | #64696f | sign, legend, number | the ring mark, the legend's midpoint, the signed readout (B23, B44, B50) |
+| fill.rows | Rows band (16% composite) | area | #d6d8db | #344055 | position, legend, number | the strip at the right edge, its legend and its Rows readout (B28, B44) |
+| fill.bar | Profile bar (the appearance's bar colour at 70% over the surface) | area | #7a8a9c | #70869d | position, number | the profile track's row and its readout (B25, B44) |
 | ref.profile | Volume-profile references | stroke | #a87823 | #dfb967 | label, pattern, glyph | the tag at the line's end, its Lines menu row and the Inspect References detail (B40, B44) |
 | ref.level | Price levels | stroke | #9471f5 | #bb6bd9 | label, pattern | the tag at the line's end, its Lines menu row and the Inspect References detail (B40, B44) |
 | ref.average | Averages and Bollinger | stroke | #6c661f | #8a9650 | label, pattern | the tag at the line's end, its Lines menu row and the Inspect References detail (B40, B44) |
 | ref.vwap | VWAP | stroke | #7c3514 | #e2621a | label, pattern | the tag at the line's end, its Lines menu row and the Inspect References detail (B40, B44) |
-| ref.clock | Clock | stroke | #8c948f | #7d8a82 | label, pattern | the event label, its keyed pattern and its Lines menu row (B40, B44) |
-| ref.user | User Level | stroke | #20392b | #e0eee4 | label, pattern, glyph | the Level label, the endpoint diamond and the Lines menu row (B40, B44) |
-| ref.compare | Historical comparison | stroke | #5c7263 | #a1b5a7 | label, pattern, glyph | the interval track's label, the median marker's shape and the Evidence tab (B41, B44) |
-| mark.focus | Selection, hover and Inspect focus (two-tone) | outline | #20392b | #e0eee4 | glyph, position | the footer's keyed brackets and the readout of the cell (B37, B44) |
-| mark.state | State ink: patterns, ticks, open cap | outline | #5c7263 | #a1b5a7 | pattern, glyph | the footer's key for each pattern and the readout's tag (B30, B38) |
-| mark.occupancy | Occupancy outline (Geometry, unsigned zero) | outline | #768d7e | #667f6f | glyph, number | the footer's Occupied and Zero keys and the readout's tag (B16, B38) |
+| ref.clock | Clock | stroke | #7d8894 | #7d8895 | label, pattern | the event label, its keyed pattern and its Lines menu row (B40, B44) |
+| ref.user | User Level | stroke | #0e1a2b | #f7f6f2 | label, pattern, glyph | the Level label, the endpoint diamond and the Lines menu row (B40, B44) |
+| ref.compare | Historical comparison | stroke | #5e6977 | #aab3bd | label, pattern, glyph | the interval track's label, the median marker's shape and the Evidence tab (B41, B44) |
+| mark.focus | Selection, hover and Inspect focus (two-tone) | outline | #0e1a2b | #f7f6f2 | glyph, position | the footer's keyed brackets and the readout of the cell (B37, B44) |
+| mark.state | State ink: patterns, ticks, open cap | outline | #5e6977 | #aab3bd | pattern, glyph | the footer's key for each pattern and the readout's tag (B30, B38) |
+| mark.occupancy | Occupancy outline (Geometry, unsigned zero) | outline | #7e8996 | #707a87 | glyph, number | the footer's Occupied and Zero keys and the readout's tag (B16, B38) |
 | mark.movement | Moved-through outline (movement) | outline | #435a75 | #97b2c8 | glyph, legend, number | the footer's Moved through key and the readout of the cell (B26, B36) |
-| mark.inset | Taker-buy inset of a profile row (the ink at 85% over the bar) | outline | #2e453c | #cfded8 | position, label | the footer's Taker-buy volume key and the profile row's readout (B25, B40) |
-| plane.panel | Resolution plane, unavailable or resting tile | plate | #eff4f0 | #1b2720 | glyph, position, label | the tile's glyph and name, and the stepper routes (B29, B31) |
-| plane.on | Resolution plane, selected tile | plate | #d6e0d9 | #2e4035 | glyph, position, label | the tile's glyph and name, and the stepper routes (B29, B31) |
-| plane.hover | Menu row, hover and focus | plate | #dde6e0 | #2a3a30 | label, position | the row's name and the focus ring (B23, B29) |
-| plane.border | Control and plane border | plate | #768d7e | #667f6f | glyph, position | the control's own boundary and its label (B29, B31) |
+| mark.inset | Taker-buy inset of a profile row (the ink at 85% over the bar) | outline | #1e2b3c | #e3e5e5 | position, label | the footer's Taker-buy volume key and the profile row's readout (B25, B40) |
+| plane.panel | Resolution plane, unavailable or resting tile | plate | #efeee8 | #1b2a49 | glyph, position, label | the tile's glyph and name, and the stepper routes (B29, B31) |
+| plane.on | Resolution plane, selected tile | plate | #d8d8d5 | #343e52 | glyph, position, label | the tile's glyph and name, and the stepper routes (B29, B31) |
+| plane.hover | Menu row, hover and focus | plate | #e4e3de | #263147 | label, position | the row's name and the focus ring (B23, B29) |
+| plane.border | Control and plane border | plate | #7e8996 | #707a87 | glyph, position | the control's own boundary and its label (B29, B31) |
 | candle.up | Candle up: hollow body | outline | #2d769c | #73b8d4 | glyph, legend, number | hollow / filled / cased doji; labelled key and exact directional OHLC readout (U90, B90) |
 | candle.down | Candle down: filled body | area | #b3624b | #d89777 | glyph, legend, number | hollow / filled / cased doji; labelled key and exact directional OHLC readout (U90, B90) |
-| candle.doji | Candle unchanged: neutral cased stroke | outline | #b9c2bc | #5f6b64 | glyph, legend, number | hollow / filled / cased doji; labelled key and exact directional OHLC readout (U90, B90) |
-| comparison.unsigned | Comparison magnitude bar | area | #5c7263 | #a1b5a7 | label, number, position | metric label, numeric value/difference/rank, and shared eligible-set domain (U95, B63) |
+| candle.doji | Candle unchanged: neutral cased stroke | outline | #bbc0c7 | #64696f | glyph, legend, number | hollow / filled / cased doji; labelled key and exact directional OHLC readout (U90, B90) |
+| comparison.unsigned | Comparison magnitude bar | area | #5e6977 | #aab3bd | label, number, position | metric label, numeric value/difference/rank, and shared eligible-set domain (U95, B63) |
 | comparison.positive | Comparison positive bar | area | #2d769c | #73b8d4 | label, number, position | signed net-volume number or labeled share above midpoint, shared domain (U95, B63) |
 | comparison.negative | Comparison negative bar | area | #b3624b | #d89777 | label, number, position | signed net-volume number or labeled share below midpoint, shared domain (U95, B63) |
-| comparison.midpoint | Comparison midpoint bar | area | #b9c2bc | #5f6b64 | label, number, position | explicit zero or 50-percent number, shared domain (U95, B63) |
-| comparison.reference | Comparison reference tick | stroke | #20392b | #e0eee4 | label, position | Against control names Set median or pinned cell; unit difference alongside the bar (U95, B63) |
-| card.history | Core card history stroke | stroke | #20392b | #e0eee4 | label, number, position | Named metric, accessible interval values and typed gap reasons on an opaque card; frozen comparison histories and pointwise estimation context (B66, B68) |
-| card.profile | Core card volume profile bins | area | #84928a | #859189 | label, number, position | Declared price/amount domains and accessible bin values; named POC/value boundaries (B66) |
+| comparison.midpoint | Comparison midpoint bar | area | #bbc0c7 | #64696f | label, number, position | explicit zero or 50-percent number, shared domain (U95, B63) |
+| comparison.reference | Comparison reference tick | stroke | #0e1a2b | #f7f6f2 | label, position | Against control names Set median or pinned cell; unit difference alongside the bar (U95, B63) |
+| card.history | Core card history stroke | stroke | #0e1a2b | #f7f6f2 | label, number, position | Named metric, accessible interval values and typed gap reasons on an opaque card; frozen comparison histories and pointwise estimation context (B66, B68) |
+| card.profile | Core card volume profile bins | area | #797f86 | #91969e | label, number, position | Declared price/amount domains and accessible bin values; named POC/value boundaries (B66) |
 
 ## Contexts
 
@@ -81,31 +81,31 @@ Testing it: `tests/unit/color-matrix.test.js` (U60) fails when this file is not 
 
 | Theme | Pairs | Separated (>= 8 under every condition) | Form | Redundant | FAIL |
 |---|---|---|---|---|---|
-| light | 147 | 104 | 26 | 17 | 0 |
-| dark | 147 | 108 | 23 | 16 | 0 |
+| light | 147 | 107 | 25 | 15 | 0 |
+| dark | 147 | 109 | 22 | 16 | 0 |
 
 ## The PRD's named pairs
 
 | Pair | Light: normal / least (condition) | Dark: normal / least (condition) | Status light, dark |
 |---|---|---|---|
-| scalar fills versus references: Unsigned fill, high entry and User Level | 20.0 / 2.6 (gray) | 10.5 / 2.6 (gray) | form, form |
+| scalar fills versus references: Unsigned fill, high entry and User Level | 6.1 / 5.7 (gray) | 11.0 / 5.1 (gray) | form, form |
 | scalar fills versus references: Signed fill, positive arm and Volume-profile references | 46.0 / 7.1 (gray) | 40.9 / 4.1 (gray) | form, form |
 | scalar fills versus references: Signed fill, negative arm and Price levels | 39.7 / 6.1 (gray) | 37.9 / 8.3 (gray) | form, separated |
-| historical comparison versus positive and negative: Signed fill, positive arm and Historical comparison | 22.6 / 0.8 (gray) | 18.7 / 0.3 (gray) | form, form |
-| historical comparison versus positive and negative: Signed fill, negative arm and Historical comparison | 35.0 / 4.4 (gray) | 30.6 / 2.9 (gray) | form, form |
+| historical comparison versus positive and negative: Signed fill, positive arm and Historical comparison | 13.1 / 2.7 (gray) | 14.4 / 0.8 (gray) | form, form |
+| historical comparison versus positive and negative: Signed fill, negative arm and Historical comparison | 31.4 / 6.3 (gray) | 27.5 / 3.4 (gray) | form, form |
 | gold and clay: Signed fill, negative arm and Volume-profile references | 19.5 / 3.5 (gray) | 17.8 / 6.7 (gray) | form, form |
 | olive and rust: Averages and Bollinger and VWAP | 26.6 / 7.9 (deutan-1) | 36.9 / 2.4 (gray) | redundant, redundant |
 | olive and clay: Signed fill, negative arm and Averages and Bollinger | 29.0 / 7.8 (gray) | 28.7 / 6.9 (gray) | form, form |
-| focus, state, Geometry and movement: Selection, hover and Inspect focus (two-tone) and State ink: patterns, ticks, open cap | 19.8 / 19.5 (tritan-0.5) | 14.5 / 14.0 (protan-1) | separated, separated |
-| focus, state, Geometry and movement: Selection, hover and Inspect focus (two-tone) and Occupancy outline (Geometry, unsigned zero) | 30.3 / 30.0 (deutan-1) | 32.3 / 31.3 (protan-1) | separated, separated |
-| focus, state, Geometry and movement: State ink: patterns, ticks, open cap and Moved-through outline (movement) | 21.5 / 7.8 (gray) | 15.9 / 0.6 (gray) | redundant, redundant |
-| focus, state, Geometry and movement: Occupancy outline (Geometry, unsigned zero) and Moved-through outline (movement) | 27.2 / 18.4 (gray) | 24.6 / 17.6 (gray) | separated, separated |
-| menus and tags: Menu row, hover and focus and Control and plane border | 26.3 / 25.1 (protan-1) | 23.8 / 23.4 (deutan-1) | separated, separated |
-| menus and tags: Resolution plane, unavailable or resting tile and Menu row, hover and focus | 3.8 / 3.2 (gray) | 6.1 / 5.7 (deutan-1) | redundant, redundant |
-| profiles: Profile bar (the appearance's bar colour at 70% over the surface) and Taker-buy inset of a profile row (the ink at 85% over the bar) | 30.9 / 27.6 (gray) | 26.7 / 24.7 (gray) | separated, separated |
-| profiles: Profile bar (the appearance's bar colour at 70% over the surface) and Volume-profile references | 36.2 / 3.3 (gray) | 38.3 / 18.1 (gray) | form, separated |
-| the resolution plane: Resolution plane, unavailable or resting tile and Resolution plane, selected tile | 5.3 / 4.6 (protan-1) | 8.0 / 7.4 (deutan-1) | redundant, redundant |
-| the resolution plane: Resolution plane, selected tile and Control and plane border | 24.8 / 23.7 (protan-1) | 22.0 / 21.7 (deutan-0.5) | separated, separated |
+| focus, state, Geometry and movement: Selection, hover and Inspect focus (two-tone) and State ink: patterns, ticks, open cap | 26.1 / 25.8 (gray) | 17.9 / 16.0 (gray) | separated, separated |
+| focus, state, Geometry and movement: Selection, hover and Inspect focus (two-tone) and Occupancy outline (Geometry, unsigned zero) | 38.3 / 38.0 (gray) | 35.4 / 34.1 (gray) | separated, separated |
+| focus, state, Geometry and movement: State ink: patterns, ticks, open cap and Moved-through outline (movement) | 8.1 / 5.9 (gray) | 6.8 / 1.1 (gray) | redundant, redundant |
+| focus, state, Geometry and movement: Occupancy outline (Geometry, unsigned zero) and Moved-through outline (movement) | 19.8 / 18.8 (gray) | 18.6 / 17.6 (gray) | separated, separated |
+| menus and tags: Menu row, hover and focus and Control and plane border | 27.0 / 24.9 (gray) | 25.8 / 25.3 (gray) | separated, separated |
+| menus and tags: Resolution plane, unavailable or resting tile and Menu row, hover and focus | 2.4 / 2.4 (gray) | 4.0 / 1.9 (gray) | redundant, redundant |
+| profiles: Profile bar (the appearance's bar colour at 70% over the surface) and Taker-buy inset of a profile row (the ink at 85% over the bar) | 33.5 / 33.3 (deutan-0.5) | 29.3 / 26.7 (gray) | separated, separated |
+| profiles: Profile bar (the appearance's bar colour at 70% over the surface) and Volume-profile references | 34.1 / 2.6 (gray) | 41.8 / 17.7 (gray) | form, separated |
+| the resolution plane: Resolution plane, unavailable or resting tile and Resolution plane, selected tile | 5.1 / 4.8 (tritan-1) | 7.7 / 6.1 (gray) | redundant, redundant |
+| the resolution plane: Resolution plane, selected tile and Control and plane border | 24.3 / 22.5 (gray) | 21.7 / 21.2 (gray) | separated, separated |
 
 ## Every pair
 
@@ -113,150 +113,150 @@ Each cell is the least CIEDE2000 over the eight conditions, with the condition t
 
 | Pair | Meets in | Light: normal | Light: least (condition) | Light | Dark: normal | Dark: least (condition) | Dark |
 |---|---|---|---|---|---|---|---|
-| fill.unsigned.low and fill.rows | cells-rows | 5.8 | 4.2 (gray) | redundant | 10.6 | 4.0 (gray) | redundant |
+| fill.unsigned.low and fill.rows | cells-rows | 6.0 | 3.1 (gray) | redundant | 5.6 | 3.0 (gray) | redundant |
 | fill.unsigned.low and ref.profile | cells-refs | 38.8 | 22.0 (gray) | separated | 55.9 | 44.2 (gray) | separated |
 | fill.unsigned.low and ref.level | cells-refs | 24.1 | 19.5 (gray) | separated | 29.3 | 25.6 (gray) | separated |
 | fill.unsigned.low and ref.average | cells-refs | 44.2 | 33.6 (gray) | separated | 41.5 | 27.4 (gray) | separated |
 | fill.unsigned.low and ref.vwap | cells-refs | 54.8 | 46.4 (gray) | separated | 45.8 | 24.3 (gray) | separated |
-| fill.unsigned.low and ref.clock | cells-refs | 18.0 | 16.1 (gray) | separated | 26.1 | 23.5 (gray) | separated |
-| fill.unsigned.low and ref.user | cells-refs | 61.4 | 59.4 (gray) | separated | 54.4 | 52.9 (gray) | separated |
-| fill.unsigned.low and ref.compare | cells-refs | 33.1 | 29.8 (gray) | separated | 43.1 | 40.5 (tritan-1) | separated |
-| fill.unsigned.low and mark.focus | marks-cells | 61.4 | 59.4 (gray) | separated | 54.4 | 52.9 (gray) | separated |
-| fill.unsigned.low and mark.state | marks-cells | 33.1 | 29.8 (gray) | separated | 43.1 | 40.5 (tritan-1) | separated |
-| fill.unsigned.low and mark.occupancy | marks-cells | 24.2 | 19.9 (gray) | separated | 23.8 | 17.6 (gray) | separated |
+| fill.unsigned.low and ref.clock | cells-refs | 19.9 | 19.8 (protan-1) | separated | 23.4 | 23.3 (protan-1) | separated |
+| fill.unsigned.low and ref.user | cells-refs | 69.1 | 69.0 (deutan-1) | separated | 56.2 | 54.9 (gray) | separated |
+| fill.unsigned.low and ref.compare | cells-refs | 31.9 | 31.7 (protan-1) | separated | 41.3 | 40.6 (protan-1) | separated |
+| fill.unsigned.low and mark.focus | marks-cells | 69.1 | 69.0 (deutan-1) | separated | 56.2 | 54.9 (gray) | separated |
+| fill.unsigned.low and mark.state | marks-cells | 31.9 | 31.7 (protan-1) | separated | 41.3 | 40.6 (protan-1) | separated |
+| fill.unsigned.low and mark.occupancy | marks-cells | 19.6 | 19.5 (protan-0.5) | separated | 17.8 | 17.5 (protan-1) | separated |
 | fill.unsigned.low and mark.movement | marks-cells | 39.9 | 38.7 (protan-1) | separated | 40.1 | 39.9 (deutan-1) | separated |
-| fill.unsigned.high and fill.rows | cells-rows | 69.1 | 67.6 (protan-1) | separated | 58.0 | 57.5 (gray) | separated |
+| fill.unsigned.high and fill.rows | cells-rows | 68.4 | 66.9 (protan-1) | separated | 56.5 | 55.6 (protan-1) | separated |
 | fill.unsigned.high and ref.profile | cells-refs | 47.3 | 30.0 (gray) | separated | 32.3 | 7.7 (gray) | form |
 | fill.unsigned.high and ref.level | cells-refs | 34.1 | 32.8 (gray) | separated | 26.3 | 22.5 (gray) | separated |
 | fill.unsigned.high and ref.average | cells-refs | 41.5 | 18.9 (gray) | separated | 35.1 | 21.2 (gray) | separated |
 | fill.unsigned.high and ref.vwap | cells-refs | 35.6 | 9.8 (gray) | separated | 43.5 | 23.5 (gray) | separated |
-| fill.unsigned.high and ref.clock | cells-refs | 39.6 | 37.1 (gray) | separated | 26.0 | 24.2 (gray) | separated |
-| fill.unsigned.high and ref.user | cells-refs | 20.0 | 2.6 (gray) | form | 10.5 | 2.6 (gray) | form |
-| fill.unsigned.high and ref.compare | cells-refs | 29.4 | 22.2 (tritan-1) | separated | 16.8 | 11.5 (gray) | separated |
-| fill.unsigned.high and mark.focus | marks-cells | 20.0 | 2.6 (gray) | form | 10.5 | 2.6 (gray) | form |
-| fill.unsigned.high and mark.state | marks-cells | 29.4 | 22.2 (tritan-1) | separated | 16.8 | 11.5 (gray) | separated |
-| fill.unsigned.high and mark.occupancy | marks-cells | 37.8 | 32.4 (gray) | separated | 32.3 | 29.2 (gray) | separated |
+| fill.unsigned.high and ref.clock | cells-refs | 32.7 | 32.4 (gray) | separated | 24.3 | 24.1 (protan-0.5) | separated |
+| fill.unsigned.high and ref.user | cells-refs | 6.1 | 5.7 (gray) | form | 11.0 | 5.1 (gray) | form |
+| fill.unsigned.high and ref.compare | cells-refs | 20.8 | 20.4 (gray) | separated | 11.2 | 10.9 (deutan-1) | separated |
+| fill.unsigned.high and mark.focus | marks-cells | 6.1 | 5.7 (gray) | form | 11.0 | 5.1 (gray) | form |
+| fill.unsigned.high and mark.state | marks-cells | 20.8 | 20.4 (gray) | separated | 11.2 | 10.9 (deutan-1) | separated |
+| fill.unsigned.high and mark.occupancy | marks-cells | 33.1 | 32.8 (gray) | separated | 29.3 | 29.1 (protan-1) | separated |
 | fill.unsigned.high and mark.movement | marks-cells | 14.8 | 14.5 (deutan-1) | separated | 12.8 | 11.9 (protan-1) | separated |
 | fill.positive and fill.negative | signed | 45.2 | 3.6 (gray) | redundant | 42.9 | 2.6 (gray) | redundant |
-| fill.positive and fill.midpoint | signed | 33.1 | 26.3 (gray) | separated | 30.1 | 25.0 (gray) | separated |
-| fill.positive and fill.rows | cells-rows | 37.2 | 32.9 (gray) | separated | 47.9 | 45.4 (gray) | separated |
+| fill.positive and fill.midpoint | signed | 31.1 | 26.1 (gray) | separated | 29.2 | 25.0 (gray) | separated |
+| fill.positive and fill.rows | cells-rows | 36.9 | 31.8 (gray) | separated | 46.2 | 42.9 (deutan-1) | separated |
 | fill.positive and ref.profile | cells-refs | 46.0 | 7.1 (gray) | form | 40.9 | 4.1 (gray) | form |
 | fill.positive and ref.level | cells-refs | 22.2 | 9.8 (gray) | separated | 32.3 | 10.9 (gray) | separated |
 | fill.positive and ref.average | cells-refs | 42.5 | 4.2 (gray) | form | 37.6 | 9.5 (gray) | separated |
 | fill.positive and ref.vwap | cells-refs | 46.6 | 13.4 (gray) | separated | 47.9 | 11.9 (gray) | separated |
-| fill.positive and ref.clock | cells-refs | 23.7 | 13.2 (gray) | separated | 21.5 | 12.6 (gray) | separated |
-| fill.positive and ref.user | cells-refs | 30.3 | 20.5 (gray) | separated | 23.4 | 14.4 (gray) | separated |
-| fill.positive and ref.compare | cells-refs | 22.6 | 0.8 (gray) | form | 18.7 | 0.3 (gray) | form |
-| fill.positive and mark.focus | marks-cells | 30.3 | 20.5 (gray) | separated | 23.4 | 14.4 (gray) | separated |
-| fill.positive and mark.state | marks-cells | 22.6 | 0.8 (gray) | form | 18.7 | 0.3 (gray) | form |
-| fill.positive and mark.occupancy | marks-cells | 24.3 | 9.4 (gray) | separated | 25.9 | 17.9 (gray) | separated |
+| fill.positive and ref.clock | cells-refs | 16.3 | 9.4 (gray) | separated | 18.3 | 12.6 (gray) | separated |
+| fill.positive and ref.user | cells-refs | 31.2 | 28.2 (deutan-1) | separated | 26.6 | 16.9 (gray) | separated |
+| fill.positive and ref.compare | cells-refs | 13.1 | 2.7 (gray) | form | 14.4 | 0.8 (gray) | form |
+| fill.positive and mark.focus | marks-cells | 31.2 | 28.2 (deutan-1) | separated | 26.6 | 16.9 (gray) | separated |
+| fill.positive and mark.state | marks-cells | 13.1 | 2.7 (gray) | form | 14.4 | 0.8 (gray) | form |
+| fill.positive and mark.occupancy | marks-cells | 16.5 | 9.8 (gray) | separated | 22.4 | 17.9 (gray) | separated |
 | fill.positive and mark.movement | marks-cells | 12.2 | 8.6 (gray) | separated | 8.3 | 0.3 (gray) | form |
-| fill.negative and fill.midpoint | signed | 36.4 | 22.7 (gray) | separated | 36.2 | 22.5 (gray) | separated |
-| fill.negative and fill.rows | cells-rows | 38.8 | 29.4 (gray) | separated | 49.8 | 39.6 (protan-1) | separated |
+| fill.negative and fill.midpoint | signed | 34.7 | 22.5 (gray) | separated | 33.9 | 22.5 (gray) | separated |
+| fill.negative and fill.rows | cells-rows | 37.2 | 28.3 (gray) | separated | 50.9 | 40.3 (gray) | separated |
 | fill.negative and ref.profile | cells-refs | 19.5 | 3.5 (gray) | form | 17.8 | 6.7 (gray) | form |
 | fill.negative and ref.level | cells-refs | 39.7 | 6.1 (gray) | form | 37.9 | 8.3 (gray) | separated |
 | fill.negative and ref.average | cells-refs | 29.0 | 7.8 (gray) | form | 28.7 | 6.9 (gray) | form |
 | fill.negative and ref.vwap | cells-refs | 17.6 | 16.6 (protan-1) | separated | 15.1 | 9.4 (gray) | separated |
-| fill.negative and ref.clock | cells-refs | 29.9 | 9.5 (gray) | separated | 30.3 | 10.1 (gray) | separated |
-| fill.negative and ref.user | cells-refs | 43.7 | 21.5 (protan-1) | separated | 32.9 | 16.9 (gray) | separated |
-| fill.negative and ref.compare | cells-refs | 35.0 | 4.4 (gray) | form | 30.6 | 2.9 (gray) | form |
-| fill.negative and mark.focus | marks-cells | 43.7 | 21.5 (protan-1) | separated | 32.9 | 16.9 (gray) | separated |
-| fill.negative and mark.state | marks-cells | 35.0 | 4.4 (gray) | form | 30.6 | 2.9 (gray) | form |
-| fill.negative and mark.occupancy | marks-cells | 35.1 | 5.7 (gray) | form | 35.7 | 15.1 (protan-1) | separated |
+| fill.negative and ref.clock | cells-refs | 30.7 | 5.7 (gray) | form | 30.5 | 10.1 (gray) | separated |
+| fill.negative and ref.user | cells-refs | 45.1 | 31.8 (gray) | separated | 28.3 | 19.4 (gray) | separated |
+| fill.negative and ref.compare | cells-refs | 31.4 | 6.3 (gray) | form | 27.5 | 3.4 (gray) | form |
+| fill.negative and mark.focus | marks-cells | 45.1 | 31.8 (gray) | separated | 28.3 | 19.4 (gray) | separated |
+| fill.negative and mark.state | marks-cells | 31.4 | 6.3 (gray) | form | 27.5 | 3.4 (gray) | form |
+| fill.negative and mark.occupancy | marks-cells | 30.8 | 6.1 (gray) | form | 32.3 | 15.3 (gray) | separated |
 | fill.negative and mark.movement | marks-cells | 37.5 | 12.1 (gray) | separated | 34.1 | 2.3 (gray) | form |
-| fill.midpoint and fill.rows | cells-rows | 9.4 | 7.0 (gray) | redundant | 15.1 | 14.9 (deutan-1) | separated |
-| fill.midpoint and ref.profile | cells-refs | 31.9 | 19.3 (gray) | separated | 37.8 | 28.8 (gray) | separated |
-| fill.midpoint and ref.level | cells-refs | 35.1 | 16.8 (gray) | separated | 32.5 | 14.2 (gray) | separated |
-| fill.midpoint and ref.average | cells-refs | 36.6 | 31.1 (gray) | separated | 23.8 | 15.6 (gray) | separated |
-| fill.midpoint and ref.vwap | cells-refs | 51.7 | 44.1 (gray) | separated | 37.0 | 13.1 (gray) | separated |
-| fill.midpoint and ref.clock | cells-refs | 13.3 | 13.1 (protan-1) | separated | 12.2 | 11.9 (protan-0.5) | separated |
-| fill.midpoint and ref.user | cells-refs | 56.6 | 55.6 (protan-1) | separated | 38.5 | 38.2 (protan-0.5) | separated |
-| fill.midpoint and ref.compare | cells-refs | 28.1 | 27.0 (protan-1) | separated | 25.4 | 25.0 (protan-0.5) | separated |
-| fill.midpoint and mark.focus | marks-cells | 56.6 | 55.6 (protan-1) | separated | 38.5 | 38.2 (protan-0.5) | separated |
-| fill.midpoint and mark.state | marks-cells | 28.1 | 27.0 (protan-1) | separated | 25.4 | 25.0 (protan-0.5) | separated |
-| fill.midpoint and mark.occupancy | marks-cells | 18.3 | 16.9 (protan-1) | separated | 9.0 | 6.7 (gray) | form |
-| fill.midpoint and mark.movement | marks-cells | 39.9 | 36.7 (gray) | separated | 28.0 | 24.7 (gray) | separated |
-| fill.bar and ref.profile | profiles | 36.2 | 3.3 (gray) | form | 38.3 | 18.1 (gray) | separated |
-| fill.bar and ref.compare | profiles | 19.9 | 11.3 (gray) | separated | 19.6 | 14.4 (gray) | separated |
-| fill.bar and mark.state | profiles | 19.9 | 11.3 (gray) | separated | 19.6 | 14.4 (gray) | separated |
-| fill.bar and mark.inset | profiles | 30.9 | 27.6 (gray) | separated | 26.7 | 24.7 (gray) | separated |
+| fill.midpoint and fill.rows | cells-rows | 6.4 | 6.1 (gray) | redundant | 16.2 | 14.0 (gray) | separated |
+| fill.midpoint and ref.profile | cells-refs | 33.9 | 19.1 (gray) | separated | 40.2 | 28.8 (gray) | separated |
+| fill.midpoint and ref.level | cells-refs | 24.8 | 16.5 (gray) | separated | 21.7 | 14.2 (gray) | separated |
+| fill.midpoint and ref.average | cells-refs | 40.2 | 30.8 (gray) | separated | 29.8 | 15.6 (gray) | separated |
+| fill.midpoint and ref.vwap | cells-refs | 51.1 | 43.9 (gray) | separated | 35.1 | 13.1 (gray) | separated |
+| fill.midpoint and ref.clock | cells-refs | 17.5 | 16.9 (gray) | separated | 12.5 | 12.3 (gray) | separated |
+| fill.midpoint and ref.user | cells-refs | 63.5 | 62.8 (gray) | separated | 41.0 | 40.7 (protan-1) | separated |
+| fill.midpoint and ref.compare | cells-refs | 29.6 | 29.0 (gray) | separated | 25.6 | 25.5 (deutan-1) | separated |
+| fill.midpoint and mark.focus | marks-cells | 63.5 | 62.8 (gray) | separated | 41.0 | 40.7 (protan-1) | separated |
+| fill.midpoint and mark.state | marks-cells | 29.6 | 29.0 (gray) | separated | 25.6 | 25.5 (deutan-1) | separated |
+| fill.midpoint and mark.occupancy | marks-cells | 17.2 | 16.5 (gray) | separated | 7.3 | 6.7 (gray) | form |
+| fill.midpoint and mark.movement | marks-cells | 38.0 | 36.5 (gray) | separated | 26.0 | 24.7 (gray) | separated |
+| fill.bar and ref.profile | profiles | 34.1 | 2.6 (gray) | form | 41.8 | 17.7 (gray) | separated |
+| fill.bar and ref.compare | profiles | 12.9 | 12.7 (gray) | separated | 16.0 | 14.5 (gray) | separated |
+| fill.bar and mark.state | profiles | 12.9 | 12.7 (gray) | separated | 16.0 | 14.5 (gray) | separated |
+| fill.bar and mark.inset | profiles | 33.5 | 33.3 (deutan-0.5) | separated | 29.3 | 26.7 (gray) | separated |
 | ref.profile and ref.level | refs | 54.3 | 2.6 (gray) | redundant | 56.0 | 14.9 (gray) | separated |
 | ref.profile and ref.average | refs | 17.3 | 9.9 (protan-1) | separated | 20.2 | 12.4 (protan-1) | separated |
 | ref.profile and ref.vwap | refs | 25.6 | 20.6 (gray) | separated | 26.7 | 14.0 (deutan-1) | separated |
-| ref.profile and ref.clock | refs | 26.2 | 6.0 (gray) | redundant | 29.5 | 16.6 (gray) | separated |
-| ref.profile and ref.user | refs | 40.1 | 27.6 (gray) | separated | 25.9 | 10.4 (gray) | separated |
-| ref.profile and ref.compare | refs, profiles | 28.9 | 7.9 (gray) | redundant | 24.8 | 3.8 (gray) | redundant |
-| ref.profile and mark.focus | marks | 40.1 | 27.6 (gray) | separated | 25.9 | 10.4 (gray) | separated |
-| ref.profile and mark.state | marks, profiles | 28.9 | 7.9 (gray) | form | 24.8 | 3.8 (gray) | form |
-| ref.profile and mark.occupancy | marks | 27.9 | 2.2 (gray) | form | 33.5 | 21.8 (gray) | separated |
+| ref.profile and ref.clock | refs | 32.9 | 2.2 (gray) | redundant | 36.5 | 16.6 (gray) | separated |
+| ref.profile and ref.user | refs | 49.9 | 35.3 (gray) | separated | 24.9 | 12.8 (gray) | separated |
+| ref.profile and ref.compare | refs, profiles | 34.0 | 9.9 (gray) | separated | 30.3 | 3.2 (gray) | redundant |
+| ref.profile and mark.focus | marks | 49.9 | 35.3 (gray) | separated | 24.9 | 12.8 (gray) | separated |
+| ref.profile and mark.state | marks, profiles | 34.0 | 9.9 (gray) | separated | 30.3 | 3.2 (gray) | form |
+| ref.profile and mark.occupancy | marks | 31.8 | 2.6 (gray) | form | 39.2 | 21.8 (gray) | separated |
 | ref.profile and mark.movement | marks | 41.1 | 15.9 (gray) | separated | 37.1 | 4.3 (gray) | form |
-| ref.profile and mark.inset | profiles | 37.7 | 23.8 (gray) | separated | 25.8 | 6.8 (gray) | form |
-| ref.profile and card.history | core-cards | 40.1 | 27.6 (gray) | separated | 25.9 | 10.4 (gray) | separated |
-| ref.profile and card.profile | core-cards | 27.1 | 5.0 (gray) | form | 27.9 | 14.2 (gray) | separated |
+| ref.profile and mark.inset | profiles | 46.3 | 30.6 (gray) | separated | 25.1 | 9.3 (gray) | separated |
+| ref.profile and card.history | core-cards | 49.9 | 35.3 (gray) | separated | 24.9 | 12.8 (gray) | separated |
+| ref.profile and card.profile | core-cards | 28.8 | 1.1 (gray) | form | 30.1 | 11.6 (gray) | separated |
 | ref.level and ref.average | refs | 59.5 | 14.3 (gray) | separated | 60.4 | 1.4 (gray) | redundant |
 | ref.level and ref.vwap | refs | 48.2 | 23.6 (gray) | separated | 44.7 | 1.1 (gray) | redundant |
-| ref.level and ref.clock | refs | 30.3 | 3.5 (gray) | redundant | 29.9 | 1.8 (gray) | redundant |
-| ref.level and ref.user | refs | 46.5 | 30.4 (gray) | separated | 39.7 | 25.0 (gray) | separated |
-| ref.level and ref.compare | refs | 36.7 | 10.6 (gray) | separated | 34.5 | 11.2 (gray) | separated |
-| ref.level and mark.focus | marks | 46.5 | 30.4 (gray) | separated | 39.7 | 25.0 (gray) | separated |
-| ref.level and mark.state | marks | 36.7 | 10.6 (gray) | separated | 34.5 | 11.2 (gray) | separated |
-| ref.level and mark.occupancy | marks | 35.0 | 0.4 (gray) | form | 34.6 | 7.1 (gray) | form |
+| ref.level and ref.clock | refs | 13.1 | 0.4 (gray) | redundant | 15.3 | 1.8 (gray) | redundant |
+| ref.level and ref.user | refs | 39.7 | 38.0 (gray) | separated | 40.3 | 27.4 (gray) | separated |
+| ref.level and ref.compare | refs | 17.7 | 12.7 (gray) | separated | 19.3 | 11.7 (gray) | separated |
+| ref.level and mark.focus | marks | 39.7 | 38.0 (gray) | separated | 40.3 | 27.4 (gray) | separated |
+| ref.level and mark.state | marks | 17.7 | 12.7 (gray) | separated | 19.3 | 11.7 (gray) | separated |
+| ref.level and mark.occupancy | marks | 13.0 | 0.0 (gray) | form | 17.1 | 7.1 (gray) | form |
 | ref.level and mark.movement | marks | 21.2 | 18.8 (gray) | separated | 20.9 | 10.6 (gray) | separated |
 | ref.average and ref.vwap | refs | 26.6 | 7.9 (deutan-1) | redundant | 36.9 | 2.4 (gray) | redundant |
-| ref.average and ref.clock | refs | 26.8 | 18.1 (gray) | separated | 18.0 | 3.1 (gray) | redundant |
-| ref.average and ref.user | refs | 26.0 | 16.4 (gray) | separated | 29.3 | 23.7 (gray) | separated |
-| ref.average and ref.compare | refs | 19.5 | 3.4 (gray) | redundant | 18.9 | 9.8 (gray) | separated |
-| ref.average and mark.focus | marks | 26.0 | 16.4 (gray) | separated | 29.3 | 23.7 (gray) | separated |
-| ref.average and mark.state | marks | 19.5 | 3.4 (gray) | form | 18.9 | 9.8 (gray) | separated |
-| ref.average and mark.occupancy | marks | 23.9 | 13.9 (gray) | separated | 18.1 | 8.4 (gray) | separated |
+| ref.average and ref.clock | refs | 32.6 | 13.9 (gray) | separated | 29.7 | 3.1 (gray) | redundant |
+| ref.average and ref.user | refs | 43.1 | 24.4 (gray) | separated | 32.4 | 26.1 (gray) | separated |
+| ref.average and ref.compare | refs | 31.3 | 1.5 (gray) | redundant | 29.3 | 10.4 (gray) | separated |
+| ref.average and mark.focus | marks | 43.1 | 24.4 (gray) | separated | 32.4 | 26.1 (gray) | separated |
+| ref.average and mark.state | marks | 31.3 | 1.5 (gray) | form | 29.3 | 10.4 (gray) | separated |
+| ref.average and mark.occupancy | marks | 33.3 | 14.3 (gray) | separated | 30.9 | 8.4 (gray) | separated |
 | ref.average and mark.movement | marks | 38.7 | 4.4 (gray) | form | 35.0 | 9.2 (gray) | separated |
-| ref.vwap and ref.clock | refs | 39.2 | 28.0 (gray) | separated | 34.6 | 0.7 (gray) | redundant |
-| ref.vwap and ref.user | refs | 35.6 | 7.3 (gray) | redundant | 43.0 | 26.0 (gray) | separated |
-| ref.vwap and ref.compare | refs | 35.4 | 12.6 (gray) | separated | 38.9 | 12.2 (gray) | separated |
-| ref.vwap and mark.focus | marks | 35.6 | 7.3 (gray) | form | 43.0 | 26.0 (gray) | separated |
-| ref.vwap and mark.state | marks | 35.4 | 12.6 (gray) | separated | 38.9 | 12.2 (gray) | separated |
-| ref.vwap and mark.occupancy | marks | 40.5 | 23.1 (gray) | separated | 39.9 | 6.0 (gray) | form |
+| ref.vwap and ref.clock | refs | 38.1 | 23.1 (gray) | separated | 35.9 | 0.7 (gray) | redundant |
+| ref.vwap and ref.user | refs | 36.0 | 15.4 (gray) | separated | 39.5 | 28.4 (gray) | separated |
+| ref.vwap and ref.compare | refs | 32.7 | 10.7 (gray) | separated | 36.4 | 12.8 (gray) | separated |
+| ref.vwap and mark.focus | marks | 36.0 | 15.4 (gray) | separated | 39.5 | 28.4 (gray) | separated |
+| ref.vwap and mark.state | marks | 32.7 | 10.7 (gray) | separated | 36.4 | 12.8 (gray) | separated |
+| ref.vwap and mark.occupancy | marks | 38.4 | 23.6 (gray) | separated | 36.2 | 6.0 (gray) | form |
 | ref.vwap and mark.movement | marks | 36.3 | 4.9 (gray) | form | 43.1 | 11.7 (gray) | separated |
-| ref.clock and ref.user | refs | 35.9 | 34.7 (gray) | separated | 26.9 | 26.6 (protan-1) | separated |
-| ref.clock and ref.compare | refs | 16.1 | 14.1 (gray) | separated | 13.4 | 12.9 (gray) | separated |
-| ref.clock and mark.focus | marks | 35.9 | 34.7 (gray) | separated | 26.9 | 26.6 (protan-1) | separated |
-| ref.clock and mark.state | marks | 16.1 | 14.1 (gray) | separated | 13.4 | 12.9 (gray) | separated |
-| ref.clock and mark.occupancy | marks | 8.3 | 3.8 (gray) | form | 7.7 | 5.3 (gray) | form |
-| ref.clock and mark.movement | marks | 27.6 | 23.1 (gray) | separated | 18.4 | 12.4 (gray) | separated |
-| ref.user and ref.compare | refs | 19.8 | 19.5 (tritan-0.5) | separated | 14.5 | 14.0 (protan-1) | separated |
+| ref.clock and ref.user | refs | 37.9 | 37.6 (gray) | separated | 30.8 | 29.1 (gray) | separated |
+| ref.clock and ref.compare | refs | 12.3 | 12.3 (tritan-1) | separated | 13.7 | 13.5 (gray) | separated |
+| ref.clock and mark.focus | marks | 37.9 | 37.6 (gray) | separated | 30.8 | 29.1 (gray) | separated |
+| ref.clock and mark.state | marks | 12.3 | 12.3 (tritan-1) | separated | 13.7 | 13.5 (gray) | separated |
+| ref.clock and mark.occupancy | marks | 0.6 | 0.4 (tritan-1) | form | 5.3 | 5.2 (protan-1) | form |
+| ref.clock and mark.movement | marks | 19.5 | 18.4 (gray) | separated | 13.6 | 12.4 (gray) | separated |
+| ref.user and ref.compare | refs | 26.1 | 25.8 (gray) | separated | 17.9 | 16.0 (gray) | separated |
 | ref.user and mark.focus | marks | 0.0 | 0.0 (normal) | form | 0.0 | 0.0 (normal) | form |
-| ref.user and mark.state | marks | 19.8 | 19.5 (tritan-0.5) | separated | 14.5 | 14.0 (protan-1) | separated |
-| ref.user and mark.occupancy | marks | 30.3 | 30.0 (deutan-1) | separated | 32.3 | 31.3 (protan-1) | separated |
-| ref.user and mark.movement | marks | 23.8 | 12.1 (gray) | separated | 20.4 | 14.7 (gray) | separated |
-| ref.compare and mark.focus | marks | 19.8 | 19.5 (tritan-0.5) | separated | 14.5 | 14.0 (protan-1) | separated |
+| ref.user and mark.state | marks | 26.1 | 25.8 (gray) | separated | 17.9 | 16.0 (gray) | separated |
+| ref.user and mark.occupancy | marks | 38.3 | 38.0 (gray) | separated | 35.4 | 34.1 (gray) | separated |
+| ref.user and mark.movement | marks | 20.7 | 20.2 (gray) | separated | 22.2 | 17.1 (gray) | separated |
+| ref.compare and mark.focus | marks | 26.1 | 25.8 (gray) | separated | 17.9 | 16.0 (gray) | separated |
 | ref.compare and mark.state | marks, profiles | 0.0 | 0.0 (normal) | form | 0.0 | 0.0 (normal) | form |
-| ref.compare and mark.occupancy | marks | 10.5 | 10.2 (gray) | separated | 18.3 | 17.9 (protan-1) | separated |
-| ref.compare and mark.movement | marks | 21.5 | 7.8 (gray) | form | 15.9 | 0.6 (gray) | form |
-| ref.compare and mark.inset | profiles | 15.9 | 15.6 (tritan-0.5) | separated | 11.4 | 10.6 (gray) | separated |
-| mark.focus and mark.state | marks | 19.8 | 19.5 (tritan-0.5) | separated | 14.5 | 14.0 (protan-1) | separated |
-| mark.focus and mark.occupancy | marks | 30.3 | 30.0 (deutan-1) | separated | 32.3 | 31.3 (protan-1) | separated |
-| mark.focus and mark.movement | marks | 23.8 | 12.1 (gray) | separated | 20.4 | 14.7 (gray) | separated |
-| mark.state and mark.occupancy | marks | 10.5 | 10.2 (gray) | separated | 18.3 | 17.9 (protan-1) | separated |
-| mark.state and mark.movement | marks | 21.5 | 7.8 (gray) | redundant | 15.9 | 0.6 (gray) | redundant |
-| mark.state and mark.inset | profiles | 15.9 | 15.6 (tritan-0.5) | separated | 11.4 | 10.6 (gray) | separated |
-| mark.occupancy and mark.movement | marks | 27.2 | 18.4 (gray) | separated | 24.6 | 17.6 (gray) | separated |
-| plane.panel and plane.on | plane | 5.3 | 4.6 (protan-1) | redundant | 8.0 | 7.4 (deutan-1) | redundant |
-| plane.panel and plane.hover | plane | 3.8 | 3.2 (gray) | redundant | 6.1 | 5.7 (deutan-1) | redundant |
-| plane.panel and plane.border | plane | 29.8 | 28.2 (protan-1) | separated | 29.6 | 28.9 (deutan-1) | separated |
-| plane.on and plane.hover | plane | 1.5 | 1.4 (protan-1) | redundant | 2.0 | 1.8 (deutan-1) | redundant |
-| plane.on and plane.border | plane | 24.8 | 23.7 (protan-1) | separated | 22.0 | 21.7 (deutan-0.5) | separated |
-| plane.hover and plane.border | plane | 26.3 | 25.1 (protan-1) | separated | 23.8 | 23.4 (deutan-1) | separated |
+| ref.compare and mark.occupancy | marks | 12.7 | 12.6 (protan-1) | separated | 18.8 | 18.6 (protan-1) | separated |
+| ref.compare and mark.movement | marks | 8.1 | 5.9 (gray) | form | 6.8 | 1.1 (gray) | form |
+| ref.compare and mark.inset | profiles | 21.0 | 20.8 (protan-1) | separated | 13.6 | 12.5 (gray) | separated |
+| mark.focus and mark.state | marks | 26.1 | 25.8 (gray) | separated | 17.9 | 16.0 (gray) | separated |
+| mark.focus and mark.occupancy | marks | 38.3 | 38.0 (gray) | separated | 35.4 | 34.1 (gray) | separated |
+| mark.focus and mark.movement | marks | 20.7 | 20.2 (gray) | separated | 22.2 | 17.1 (gray) | separated |
+| mark.state and mark.occupancy | marks | 12.7 | 12.6 (protan-1) | separated | 18.8 | 18.6 (protan-1) | separated |
+| mark.state and mark.movement | marks | 8.1 | 5.9 (gray) | redundant | 6.8 | 1.1 (gray) | redundant |
+| mark.state and mark.inset | profiles | 21.0 | 20.8 (protan-1) | separated | 13.6 | 12.5 (gray) | separated |
+| mark.occupancy and mark.movement | marks | 19.8 | 18.8 (gray) | separated | 18.6 | 17.6 (gray) | separated |
+| plane.panel and plane.on | plane | 5.1 | 4.8 (tritan-1) | redundant | 7.7 | 6.1 (gray) | redundant |
+| plane.panel and plane.hover | plane | 2.4 | 2.4 (gray) | redundant | 4.0 | 1.9 (gray) | redundant |
+| plane.panel and plane.border | plane | 29.2 | 27.2 (gray) | separated | 28.6 | 27.1 (gray) | separated |
+| plane.on and plane.hover | plane | 2.7 | 2.5 (gray) | redundant | 4.3 | 4.1 (protan-1) | redundant |
+| plane.on and plane.border | plane | 24.3 | 22.5 (gray) | separated | 21.7 | 21.2 (gray) | separated |
+| plane.hover and plane.border | plane | 27.0 | 24.9 (gray) | separated | 25.8 | 25.3 (gray) | separated |
 | candle.up and candle.down | candles | 45.2 | 3.6 (gray) | form | 42.9 | 2.6 (gray) | form |
-| candle.up and candle.doji | candles | 33.1 | 26.3 (gray) | separated | 30.1 | 25.0 (gray) | separated |
-| candle.down and candle.doji | candles | 36.4 | 22.7 (gray) | separated | 36.2 | 22.5 (gray) | separated |
-| comparison.unsigned and comparison.positive | comparison | 22.6 | 0.8 (gray) | redundant | 18.7 | 0.3 (gray) | redundant |
-| comparison.unsigned and comparison.negative | comparison | 35.0 | 4.4 (gray) | redundant | 30.6 | 2.9 (gray) | redundant |
-| comparison.unsigned and comparison.midpoint | comparison | 28.1 | 27.0 (protan-1) | separated | 25.4 | 25.0 (protan-0.5) | separated |
-| comparison.unsigned and comparison.reference | comparison | 19.8 | 19.5 (tritan-0.5) | separated | 14.5 | 14.0 (protan-1) | separated |
+| candle.up and candle.doji | candles | 31.1 | 26.1 (gray) | separated | 29.2 | 25.0 (gray) | separated |
+| candle.down and candle.doji | candles | 34.7 | 22.5 (gray) | separated | 33.9 | 22.5 (gray) | separated |
+| comparison.unsigned and comparison.positive | comparison | 13.1 | 2.7 (gray) | redundant | 14.4 | 0.8 (gray) | redundant |
+| comparison.unsigned and comparison.negative | comparison | 31.4 | 6.3 (gray) | redundant | 27.5 | 3.4 (gray) | redundant |
+| comparison.unsigned and comparison.midpoint | comparison | 29.6 | 29.0 (gray) | separated | 25.6 | 25.5 (deutan-1) | separated |
+| comparison.unsigned and comparison.reference | comparison | 26.1 | 25.8 (gray) | separated | 17.9 | 16.0 (gray) | separated |
 | comparison.positive and comparison.negative | comparison | 45.2 | 3.6 (gray) | redundant | 42.9 | 2.6 (gray) | redundant |
-| comparison.positive and comparison.midpoint | comparison | 33.1 | 26.3 (gray) | separated | 30.1 | 25.0 (gray) | separated |
-| comparison.positive and comparison.reference | comparison | 30.3 | 20.5 (gray) | separated | 23.4 | 14.4 (gray) | separated |
-| comparison.negative and comparison.midpoint | comparison | 36.4 | 22.7 (gray) | separated | 36.2 | 22.5 (gray) | separated |
-| comparison.negative and comparison.reference | comparison | 43.7 | 21.5 (protan-1) | separated | 32.9 | 16.9 (gray) | separated |
-| comparison.midpoint and comparison.reference | comparison | 56.6 | 55.6 (protan-1) | separated | 38.5 | 38.2 (protan-0.5) | separated |
-| card.history and card.profile | core-cards | 33.9 | 33.3 (deutan-0.5) | separated | 24.5 | 24.3 (protan-1) | separated |
+| comparison.positive and comparison.midpoint | comparison | 31.1 | 26.1 (gray) | separated | 29.2 | 25.0 (gray) | separated |
+| comparison.positive and comparison.reference | comparison | 31.2 | 28.2 (deutan-1) | separated | 26.6 | 16.9 (gray) | separated |
+| comparison.negative and comparison.midpoint | comparison | 34.7 | 22.5 (gray) | separated | 33.9 | 22.5 (gray) | separated |
+| comparison.negative and comparison.reference | comparison | 45.1 | 31.8 (gray) | separated | 28.3 | 19.4 (gray) | separated |
+| comparison.midpoint and comparison.reference | comparison | 63.5 | 62.8 (gray) | separated | 41.0 | 40.7 (protan-1) | separated |
+| card.history and card.profile | core-cards | 35.0 | 34.1 (gray) | separated | 25.3 | 24.2 (gray) | separated |

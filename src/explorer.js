@@ -1322,12 +1322,23 @@
     const layoutText = [G.x, G.y, G.w, G.h, G.sx, G.sw, G.tracks, G.tx[0], G.tx[1], G.ey, G.eh, G.ecollapsed ? 1 : 0, G.ay, G.ah, G.by, G.bh].map((n) => Math.round(n * 100) / 100).join(",");
     if (canvas.dataset.layout !== layoutText) canvas.dataset.layout = layoutText;
   }
-  const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
-  function text(s, x, y, color = colors.muted, align = "left", size = TYPE.s) {
+  // Every canvas label is IBM Plex Mono (src/fonts, inlined by the build), the face of the page's small labels. A caption that
+  // is fitted to a fixed width (a pane's label line, a track's heading, the lens caption) is running text in the interface
+  // face, Archivo: Plex Mono's wider advance would cut it short where the system face did not.
+  const FONT = '"IBM Plex Mono",ui-monospace,Menlo,monospace';
+  const CAPTION = '"Archivo Variable","Helvetica Neue",Arial,sans-serif';
+  // The faces are in the page, but a face loads on first use: the first frame waits for both weights so a label
+  // is measured and placed in the face it is drawn in, and a face that arrives later measures and draws again.
+  function canvasFonts() {
+    if (!document.fonts?.load) return Promise.resolve();
+    const faces = Promise.all([`${TYPE.s}px ${FONT}`, `500 ${TYPE.s}px ${FONT}`, `${TYPE.s}px ${CAPTION}`].map((face) => document.fonts.load(face))).catch(() => {});
+    return Promise.race([faces, new Promise((resolve) => setTimeout(resolve, 1500))]);
+  }
+  function text(s, x, y, color = colors.muted, align = "left", size = TYPE.s, face = FONT) {
     ctx.fillStyle = color;
     ctx.textAlign = align;
     ctx.textBaseline = "middle";
-    ctx.font = `${size}px ${FONT}`;
+    ctx.font = `${size}px ${face}`;
     ctx.fillText(s, x, y);
   }
   // Chart labels: one style, 11px and sentence case, placed so none covers
@@ -1339,8 +1350,8 @@
   // area the references may cover.
   let labelsTaken = [];
   let labelPlates = [];
-  function chartLabel(s, x, y, color = colors.muted, align = "left") {
-    ctx.font = `${TYPE.s}px ${FONT}`;
+  function chartLabel(s, x, y, color = colors.muted, align = "left", face = FONT) {
+    ctx.font = `${TYPE.s}px ${face}`;
     const w = ctx.measureText(s).width,
       left = align === "left" ? x : align === "right" ? x - w : x - w / 2,
       accent = color !== colors.muted && color !== colors.ink,
@@ -1360,7 +1371,7 @@
         ctx.fillStyle = color;
         ctx.fillRect(r[0], r[1], 3, r[3] - r[1]);
       }
-      text(s, lead ? left : x, y + dy, accent ? colors.ink : color, lead ? "left" : align);
+      text(s, lead ? left : x, y + dy, accent ? colors.ink : color, lead ? "left" : align, TYPE.s, face);
       return true;
     }
     return false;
@@ -11554,13 +11565,15 @@
     gutterLabels(labels, x0 + TRACK_BARS + 1, G.y, G.y + G.h);
     ctx.restore();
     // The heading: what the track is, and while the cube measures the rectangle, that it waits.
-    ctx.font = `${TYPE.s}px ${FONT}`;
+    ctx.font = `${TYPE.s}px ${CAPTION}`;
     text(
       state === "pending" ? "Measuring…" : state === "failed" ? "Not measured" : fitText(S.selection ? "Sel. volume" : "Volume", TRACK_BARS + TRACK_GUTTER),
       x0,
       G.y - 5,
       colors.muted,
       "left",
+      TYPE.s,
+      CAPTION,
     );
   }
   // The reference track: the Rows measure over its period on its own axis (or the shared one), with the period's POC and 70% area, which stay
@@ -11657,8 +11670,8 @@
     }
     gutterLabels(labels, x0 + TRACK_BARS + 1, G.y, G.y + G.h);
     ctx.restore();
-    ctx.font = `${TYPE.s}px ${FONT}`;
-    text(fitText(`${ROWS_INFO[kind].name.replace("Relative volume", "Rel. vol.").replace("Time at price", "Time")} · ${u.period}`, TRACK_BARS + TRACK_GUTTER), x0, G.y - 5, colors.muted, "left");
+    ctx.font = `${TYPE.s}px ${CAPTION}`;
+    text(fitText(`${ROWS_INFO[kind].name.replace("Relative volume", "Rel. vol.").replace("Time at price", "Time")} · ${u.period}`, TRACK_BARS + TRACK_GUTTER), x0, G.y - 5, colors.muted, "left", TYPE.s, CAPTION);
   }
   // The domain of each track under it (one shared label across both when they share). A heading names the track; the domain is the number that
   // the length of its bars is read against.
@@ -16076,8 +16089,9 @@
     if (!value || !G.w) return;
     // TEXT(S1): the occlusion budget's count
     const words = occlusionWords(occlusion.shown, occlusion.eligible, held > 0);
-    ctx.font = `${TYPE.s}px ${FONT}`;
-    chartLabel(words, G.x + G.w - ctx.measureText(words).width - 14, G.y + G.h - 10);
+    // a sentence about the marks, not a label of one: the caption face (see CAPTION)
+    ctx.font = `${TYPE.s}px ${CAPTION}`;
+    chartLabel(words, G.x + G.w - ctx.measureText(words).width - 14, G.y + G.h - 10, undefined, "left", CAPTION);
   }
   function drawClock(cut) {
     if (clockHits.length) clockHits = [];
@@ -19554,7 +19568,7 @@
       // The axis words and the model's follow the name: the memo below is keyed on the whole string, so a
       // change of domain, "Updating" or "No data" is a new label.
       s = [measure.label, measure.unit, paneAxisNote(axis), note, model].filter(Boolean).join(" · ");
-    ctx.font = `${TYPE.s}px ${FONT}`;
+    ctx.font = `${TYPE.s}px ${CAPTION}`;
     if (paneLabel.s !== s || paneLabel.width !== G.w) {
       const fitted = fitText(s, G.w - 12);
       paneLabel = { s, width: G.w, text: fitted, w: ctx.measureText(fitted).width };
@@ -19563,7 +19577,7 @@
     ctx.globalAlpha = 1;
     ctx.fillRect(G.x + 2, top + 1, paneLabel.w + 8, 15);
     ctx.globalAlpha = 1;
-    text(paneLabel.text, G.x + 6, top + 8.5, colors.muted, "left");
+    text(paneLabel.text, G.x + 6, top + 8.5, colors.muted, "left", TYPE.s, CAPTION);
   }
   // The warning tally's feeder for the pane (DD-76): the bars as drawn now, each once, with its place on the
   // axis and whether it is beyond it. The columns come from the current state at the moment of the call;
@@ -23634,7 +23648,7 @@
   // The caption sits on a tab outside the lens, so the lens shows only data:
   // above it when there is room, otherwise below. The tab is sized to its text.
   function lensCaption(x, y, lensHeight, lines) {
-    ctx.font = `${TYPE.s}px ${FONT}`;
+    ctx.font = `${TYPE.s}px ${CAPTION}`;
     const room = G.w - 8,
       fitted = lines.map(([s, color]) => [fitText(s, room - 14), color]),
       w = Math.min(
@@ -23651,7 +23665,7 @@
     // the tab is a part of the lens and covers the heatmap as the lens does: a named temporary region, never a persistent plate
     noteTemporary("lens-caption", left, top, w, h + 1);
     fitted.forEach(([s, color], i) =>
-      text(s, left + 7, top + 11.5 + 15 * i, color, "left", 11),
+      text(s, left + 7, top + 11.5 + 15 * i, color, "left", 11, CAPTION),
     );
   }
   function fitText(s, max) {
@@ -26673,6 +26687,7 @@
     el("market").textContent = PACK.live ? "LIVE" : "RECORDED";
     el("fresh").hidden = !PACK.live;
     for (const kbd of qsa("[data-key]")) kbd.textContent = KEYS[kbd.dataset.key];
+    await canvasFonts();
     getColors();
     drawingLoad();
     const firstSource = PACK.live && PACK.startup ? "startup" : "recent";
@@ -26747,13 +26762,17 @@
         requestDraw();
       }
     }).observe(canvas);
-    matchMedia("(prefers-color-scheme: dark)").addEventListener(
-      "change",
-      () => {
-        getColors();
-        requestDraw();
-      },
-    );
+    // The surface (the shared surface.js): the reader's choice of navy or stock, or the system's light or dark
+    // setting while none is chosen. Either sets a new color-scheme, so the colours are read again.
+    window.addEventListener("vq-surface", () => {
+      getColors();
+      requestDraw();
+    });
+    document.fonts?.addEventListener("loadingdone", () => {
+      tagWidths.clear();
+      paneLabel.s = "";
+      requestDraw();
+    });
     await new Promise((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(resolve)),
     );

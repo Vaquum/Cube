@@ -19,7 +19,7 @@
 const { test, expect, probeTools } = require("./fixtures.js");
 const { addRecorder, lastDraw, openView, pageColours, rectOf, boxOf, opsOfBox } = require("./cells-support.js");
 
-const A = "&vis=2&ap=slate2-8f7890f7";
+const A = "&vis=2&ap=vaquum3-429b9a62";
 const ROW_USDT = 125;
 const T = (from, to) => `#t=2021-01-01T${from}Z~2021-01-01T${to}Z`;
 

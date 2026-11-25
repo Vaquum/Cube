@@ -4,7 +4,7 @@
 // Oracles of these specs (none is the page's own persistence code):
 //   - the literal grammar of API.md B.15 (vis=2&ap=<id> always, every other default omitted, the `sc` record layout) and the
 //     limits of D9 (8192 characters over the WHOLE url, 257 knots, 1 MiB decoded, 16 descriptors), written as numbers here;
-//   - the appearance id pinned by the LUT screens (DD-86): slate2-8f7890f7;
+//   - the appearance id pinned by the LUT screens (DD-86), the default since the Vaquum surfaces: vaquum3-429b9a62;
 //   - node:zlib for the codes the specs craft (a decompression bomb, a truncated gzip) and for reading back what the page
 //     copied;
 //   - the assembled module (tests/support/enc.js) ONLY to build inputs a person would paste or follow (an address with a
@@ -15,7 +15,7 @@ const E = require("../support/enc");
 
 // The recorded lattice: the pack the fake serves carries the same three numbers.
 const ENV = { T0: 1609459200, BASE: 56.25, PR: 125, CUT: Infinity };
-const AP = "slate2-8f7890f7";
+const AP = "vaquum3-429b9a62";
 const ADDRESS_MAX = 8192;
 
 const plain = (x) => JSON.parse(JSON.stringify(x));

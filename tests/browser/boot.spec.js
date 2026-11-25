@@ -36,6 +36,8 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const KEYS_31 = ["LATTICE", "LIMITS", "THRESHOLDS", "TIMING", "VERSION", "axis", "candles", "codec", "cohort", "context", "drawings", "hash", "indicators", "legend", "lifecycle", "lut", "measure", "model", "notice", "policy", "ratio", "readout", "relvol", "result", "role", "scale", "store", "text", "time", "util", "warn"];
 // The pinned hash of the slate2 LUT bytes (API.md A.1, U18) and the id that follows from it.
 const SLATE2 = { hash: "8f7890f7e400724c7191f42f31b9d2e9e0bf060ca619b003915fb6fbb418b672", id: "slate2-8f7890f7" };
+// The default since the Vaquum surfaces (appearance version 3, docs/visual-contract.md section 13).
+const VAQUUM3 = { hash: "429b9a62598418d1c0a83a817c9fd299851ae38ee445e32d0dd10634d44f3229", id: "vaquum3-429b9a62" };
 // The request paths a page of this build may issue (TESTPLAN B01): the page, its vendored script, and the seven cube routes.
 const ALLOWED_PATH = /^(\/|\/vendor\/[A-Za-z0-9._-]+|\/cube\/(pack|tile|query|motion|columns|touched|bars))$/;
 
@@ -99,8 +101,10 @@ test.describe("B01 the page under test", () => {
     // Node: the same file loaded as a module (tests/support/enc.js is the one loader of the unit tests).
     const inNode = require("../support/enc.js").lut.build("slate2", "light").hash;
     expect(inNode).toBe(SLATE2.hash);
-    // The page's default appearance is the one the address and the chips name.
-    expect(await page.evaluate(() => window.explorerEncoding.lut.appearanceId(window.explorerEncoding.lut.DEFAULT_APPEARANCE))).toBe(SLATE2.id);
+    // The page's default appearance is the one the address and the chips name: vaquum3, slate2's stops on the Vaquum surfaces.
+    expect(await page.evaluate(() => window.explorerEncoding.lut.appearanceId(window.explorerEncoding.lut.DEFAULT_APPEARANCE))).toBe(VAQUUM3.id);
+    expect(await page.evaluate(() => ["light", "dark"].map((theme) => window.explorerEncoding.lut.build("vaquum3", theme).hash))).toEqual([VAQUUM3.hash, VAQUUM3.hash]);
+    expect(require("../support/enc.js").lut.build("vaquum3", "dark").hash).toBe(VAQUUM3.hash);
   });
 });
 
@@ -125,7 +129,9 @@ test.describe("B01 no production test hook (DD-T04, S1-003)", () => {
         test: Object.getOwnPropertyNames(window).filter((name) => /^__|test|hook|debug|probe/i.test(name) && !blank.has(name)),
       };
     });
-    expect(seen.added).toEqual(["cubeAgent", "d3", "explorerAgent", "explorerComparison", "explorerComparisonUI", "explorerDiagnostics", "explorerEncoding", "explorerEtf", "explorerEvidence", "explorerFeatures", "explorerHelp", "explorerMotion", "explorerRallies", "explorerReference", "explorerState"]);
+    // vqSurface is the shared surface switch's own API (src/shared/surface.js: choose and now), the same in Query and Composer.
+    expect(seen.added).toEqual(["cubeAgent", "d3", "explorerAgent", "explorerComparison", "explorerComparisonUI", "explorerDiagnostics", "explorerEncoding", "explorerEtf", "explorerEvidence", "explorerFeatures", "explorerHelp", "explorerMotion", "explorerRallies", "explorerReference", "explorerState", "vqSurface"]);
+    expect(await page.evaluate(() => Object.keys(window.vqSurface).sort())).toEqual(["choose", "now"]);
     expect(seen.probe).toBe("undefined");
     expect(seen.fake).toBe("undefined");
     expect(seen.test).toEqual([]);
