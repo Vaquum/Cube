@@ -14,10 +14,12 @@ const col = require("../reference/color.js");
 
 const ROOT = path.resolve(__dirname, "../..");
 const CONTRACT = fs.readFileSync(path.join(ROOT, "docs/visual-contract.md"), "utf8");
-const START = CONTRACT.indexOf("## 13. Palette record (appearance version 2)");
+const START = CONTRACT.indexOf("## 13. Palette record (appearance version 3)");
 const RECORD = START < 0 ? "" : CONTRACT.slice(START);
-const SURFACE = { light: [255, 255, 255], dark: [22, 31, 25] };
+// The surface the page draws on: sheet on stock, navy on navy (the Vaquum surfaces).
+const SURFACE = { light: [251, 250, 246], dark: [20, 32, 56] };
 const PIN = {
+  vaquum3: { id: "vaquum3-429b9a62", hash: "429b9a62598418d1c0a83a817c9fd299851ae38ee445e32d0dd10634d44f3229", version: 3 },
   slate2: { id: "slate2-8f7890f7", hash: "8f7890f7e400724c7191f42f31b9d2e9e0bf060ca619b003915fb6fbb418b672", version: 2 },
   ramp1: { id: "ramp1-a53783c5", hash: "a53783c520ba0d228804ae64e898e110256e73d6b705268e2b58bf0cbb550289", version: 1 },
 };
@@ -43,32 +45,34 @@ test("the appearance, its id, its version and its hash in the record are the mod
     assert.equal(E.lut.APPEARANCES[name].version, pin.version);
     for (const theme of ["light", "dark"]) assert.equal(E.lut.build(name, theme).hash, pin.hash);
   }
-  assert.ok(property("Appearance").includes(`\`slate2\`, appearance version ${PIN.slate2.version}`));
-  assert.ok(property("Appearance id").includes(`\`${PIN.slate2.id}\``));
-  assert.ok(property("LUT hash").includes(`\`${PIN.slate2.hash}\``));
+  assert.equal(E.lut.DEFAULT_APPEARANCE, "vaquum3");
+  assert.ok(property("Appearance").includes(`\`vaquum3\`, appearance version ${PIN.vaquum3.version}, the default`));
+  assert.ok(property("Appearance id").includes(`\`${PIN.vaquum3.id}\``));
+  assert.ok(property("LUT hash").includes(`\`${PIN.vaquum3.hash}\``));
   assert.ok(property("LUT hash").includes("6162 bytes"));
-  assert.ok(property("Comparison appearance").includes(`\`${PIN.ramp1.id}\``) && property("Comparison appearance").includes(PIN.ramp1.hash) && property("Comparison appearance").includes(`appearance version ${PIN.ramp1.version}`));
+  for (const name of ["slate2", "ramp1"])
+    assert.ok(property("Comparison appearance").includes(`\`${PIN[name].id}\``) && property("Comparison appearance").includes(PIN[name].hash) && property("Comparison appearance").includes(`appearance version ${PIN[name].version}`), name);
   // the layout the record describes: 2 themes x (3 ramps x 256 entries x 3 bytes + 3 single colours x 3 bytes) + 2 rows ramps x 256 x 3 = 6162
   assert.equal(2 * (3 * 256 * 3 + 3 * 3) + 2 * 256 * 3, 6162);
-  const lut = { light: E.lut.build("slate2", "light"), dark: E.lut.build("slate2", "dark") };
+  const lut = { light: E.lut.build("vaquum3", "light"), dark: E.lut.build("vaquum3", "dark") };
   const bytes = Buffer.concat([
     ...["light", "dark"].flatMap((t) => [lut[t].unsigned.rgb, lut[t].positive.rgb, lut[t].negative.rgb, lut[t].midpoint.rgb, lut[t].occupancy.rgb, lut[t].stateInk.rgb].map((a) => Buffer.from(Array.from(a)))),
     ...["light", "dark"].map((t) => Buffer.from(Array.from(lut[t].rows.rgb))),
   ]);
   assert.equal(bytes.length, 6162);
-  assert.equal(nodeCrypto.createHash("sha256").update(bytes).digest("hex"), PIN.slate2.hash, "the record's byte layout is the hash's");
+  assert.equal(nodeCrypto.createHash("sha256").update(bytes).digest("hex"), PIN.vaquum3.hash, "the record's byte layout is the hash's");
 });
 
 test("the constants the record states are the module's: the Rows alpha, the constant bar's entry, the arms' end colours, nine stops, no clipped channel", () => {
   assert.ok(property("Rows band").includes("16%") && E.lut.ROWS_ALPHA === 0.16);
-  const lut = E.lut.build("slate2", "light");
+  const lut = E.lut.build("vaquum3", "light");
   assert.ok(property("Constant bar").includes("entry 160"));
   assert.deepEqual(Array.from(lut.bar.rgb), [lut.unsigned.rgb[160 * 3], lut.unsigned.rgb[160 * 3 + 1], lut.unsigned.rgb[160 * 3 + 2]], "the bar is unsigned entry 160");
   for (const [name, app] of Object.entries(E.lut.APPEARANCES)) for (const theme of ["light", "dark"]) assert.equal(app.unsigned[theme].length, 9, `${name} ${theme}: nine stops`);
   assert.ok(property("Stops").includes("nine equally spaced stops"));
   const hexOf = (rgb) => `#${Array.from(rgb).map((v) => v.toString(16).padStart(2, "0")).join("")}`;
   for (const [theme, positive, negative] of [["light", "#2d769c", "#b3624b"], ["dark", "#73b8d4", "#d89777"]]) {
-    const l = E.lut.build("slate2", theme);
+    const l = E.lut.build("vaquum3", theme);
     assert.equal(hexOf(l.positive.rgb.slice(255 * 3, 255 * 3 + 3)), positive);
     assert.equal(hexOf(l.negative.rgb.slice(255 * 3, 255 * 3 + 3)), negative);
     assert.ok(property("Stops").includes(positive), `the record names ${positive}`);

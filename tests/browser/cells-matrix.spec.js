@@ -32,7 +32,7 @@ const RECT = rectOf(VIEW);
 const CUT = MIXED.expected.rect.cutMs / 56250; // the cutoff in base columns: 5.333
 const COLUMN_SECONDS = 56.25;
 const ROW_USDT = 125;
-const APPEARANCE = "slate2-8f7890f7"; // the pinned default appearance (API.md A.1)
+const APPEARANCE = "vaquum3-429b9a62"; // the pinned default appearance (API.md A.1; docs/visual-contract.md section 13)
 
 // ---- the hand rules of the encoding (API.md C.1.4, C.3, C.4, C.5), written out ----------------------------------------------
 
@@ -273,7 +273,7 @@ for (const theme of ["light", "dark"]) {
         if (["volume", "trades", "size"].includes(combo.mode) && combo.transform === "rank") expect(chip.transform).toBe("rank");
         if (combo.mode === "volume" || combo.mode === "trades") expect(chip.basis).toBe(combo.basis);
         // The surface under the plot is the page's own, in this theme.
-        if (theme === "light") expect(colours.surface, "the light surface").toBe("#ffffff");
+        if (theme === "light") expect(colours.surface, "the light surface (sheet)").toBe("#fbfaf6");
         else expect(Number.parseInt(colours.surface.slice(1, 3), 16), "the dark surface is dark").toBeLessThan(0x40);
         if (combo.mode === "geometry") {
           const cells = MIXED.expected.cells["0:0"];

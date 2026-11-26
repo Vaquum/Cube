@@ -105,8 +105,12 @@ test("the page holds state, encoding and app script text verbatim, in that order
   const bytes = fs.readFileSync(t.file("out/index.html"));
   const page = bytes.toString("utf8");
   const els = scripts(page);
-  assert.deepEqual(els.map((e) => e.attrs), ['src="vendor/d3.min.js"', 'type="application/json" id="origo-lens-data"', "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
-  const [d3, data, state, encoding, etf, evidence, comparison, dashboard, agent, reference, rallies, features, motion, help, diagnostics, app] = els;
+  assert.deepEqual(els.map((e) => e.attrs), ["data-surface", 'src="vendor/d3.min.js"', 'type="application/json" id="origo-lens-data"', "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [surface, d3, data, state, encoding, etf, evidence, comparison, dashboard, agent, reference, rallies, features, motion, help, diagnostics, app] = els;
+  // The shared surface.js, verbatim, in <head> before any style: the surface is set before the first paint.
+  assert.equal(surface.body, t.read("src/shared/surface.js"));
+  assert.ok(page.indexOf("<script data-surface>") < page.indexOf("<style>") && page.indexOf("<style>") < page.indexOf("</head>"));
+  assert.ok(page.includes(t.read("src/shared/surface.css")), "the shared surface.css, verbatim");
   assert.equal(d3.body, "");
   assert.equal(state.body, t.read("src/state.js"));
   assert.equal(encoding.body, t.read("src/encoding.js"));
@@ -135,7 +139,7 @@ test("the page holds state, encoding and app script text verbatim, in that order
 
 test("src/document.html names each marker exactly once, and the encoding line sits between the state and app lines", () => {
   const doc = fs.readFileSync(path.join(ROOT, "src/document.html"), "utf8");
-  const markers = ["__EXPLORER_STYLE__", "__EXPLORER_VIEW__", "__EXPLORER_DATA__", "__EXPLORER_STATE__", "__EXPLORER_ENCODING__", "__EXPLORER_ETF__", "__EXPLORER_EVIDENCE__", "__EXPLORER_COMPARISON__", "__EXPLORER_COMPARISONUI__", "__EXPLORER_AGENT__", "__EXPLORER_REFERENCE__", "__EXPLORER_RALLIES__", "__EXPLORER_FEATURES__", "__EXPLORER_MOTION__", "__EXPLORER_HELP__", "__EXPLORER_DIAGNOSTICS__", "__EXPLORER_SCRIPT__"];
+  const markers = ["__EXPLORER_SURFACESCRIPT__", "__EXPLORER_FONTS__", "__EXPLORER_SURFACESTYLE__", "__EXPLORER_STYLE__", "__EXPLORER_VIEW__", "__EXPLORER_DATA__", "__EXPLORER_STATE__", "__EXPLORER_ENCODING__", "__EXPLORER_ETF__", "__EXPLORER_EVIDENCE__", "__EXPLORER_COMPARISON__", "__EXPLORER_COMPARISONUI__", "__EXPLORER_AGENT__", "__EXPLORER_REFERENCE__", "__EXPLORER_RALLIES__", "__EXPLORER_FEATURES__", "__EXPLORER_MOTION__", "__EXPLORER_HELP__", "__EXPLORER_DIAGNOSTICS__", "__EXPLORER_SCRIPT__"];
   for (const m of markers) assert.equal(doc.split(m).length - 1, 1, `${m} must occur exactly once`);
   assert.deepEqual(doc.match(/__EXPLORER_[A-Z]+__/g), markers, "the six markers, in page order, and no other");
   const lines = doc.split("\n");
@@ -143,6 +147,20 @@ test("src/document.html names each marker exactly once, and the encoding line si
   assert.equal(lines[at("__EXPLORER_ENCODING__")], "    <script>__EXPLORER_ENCODING__</script>");
   assert.equal(at("__EXPLORER_ENCODING__"), at("__EXPLORER_STATE__") + 1, "directly after the state line");
   assert.equal(at("__EXPLORER_SCRIPT__"), at("__EXPLORER_ENCODING__") + 12, "comparison, reference, rallies, features and help scripts precede the app line");
+});
+
+test("the page inlines the three self-hosted faces byte for byte, so it still makes no request of its own", () => {
+  const t = tree();
+  assert.equal(build(t, "--out", t.file("out/index.html")).status, 0);
+  const page = t.read("out/index.html");
+  const faces = [...page.matchAll(/@font-face \{ font-family: '([^']+)';[^}]*?font-weight: ([\d ]+);[^}]*?url\(data:font\/woff2;base64,([A-Za-z0-9+/=]+)\)/g)]
+    .map((m) => [m[1], m[2], m[3]]);
+  const want = [["Archivo Variable", "100 900", "archivo-latin-wdth-normal.woff2"], ["IBM Plex Mono", "400", "ibm-plex-mono-latin-400-normal.woff2"],
+    ["IBM Plex Mono", "500", "ibm-plex-mono-latin-500-normal.woff2"]];
+  assert.deepEqual(faces.map(([family, weight]) => [family, weight]), want.map(([family, weight]) => [family, weight]));
+  for (const [i, [, , file]] of want.entries())
+    assert.equal(faces[i][2], fs.readFileSync(path.join(ROOT, "src/fonts", file)).toString("base64"), file);
+  assert.ok(page.indexOf("@font-face") < page.indexOf("#origo-lens {"), "the faces come before the stylesheet that names them");
 });
 
 // ---------------------------------------------------------------------------------------------------
@@ -294,7 +312,7 @@ test("the module inlined in the built page and require() of src/encoding.js are 
   if (!HAS_ENCODING) return;
   const t = tree();
   assert.equal(build(t, "--out", t.file("out/index.html")).status, 0);
-  const inlineText = scripts(t.read("out/index.html"))[3].body;
+  const inlineText = scripts(t.read("out/index.html"))[4].body;
   const page = vm.createContext({});
   page.window = page;
   vm.runInContext(fs.readFileSync(path.join(ROOT, "vendor/d3.min.js"), "utf8"), page, { filename: "vendor/d3.min.js" });
@@ -305,6 +323,6 @@ test("the module inlined in the built page and require() of src/encoding.js are 
   assert.equal(JSON.stringify(Object.keys(inlined).sort()), JSON.stringify(Object.keys(required).sort()));
   assert.equal(inlined.scale.id(inlined.scale.fixed("log2-ratio")), required.scale.id(required.scale.fixed("log2-ratio")));
   for (const theme of ["light", "dark"]) {
-    for (const name of ["slate2", "ramp1"]) assert.equal(inlined.lut.build(name, theme).hash, required.lut.build(name, theme).hash, `${name} ${theme}`);
+    for (const name of ["vaquum3", "slate2", "ramp1"]) assert.equal(inlined.lut.build(name, theme).hash, required.lut.build(name, theme).hash, `${name} ${theme}`);
   }
 });

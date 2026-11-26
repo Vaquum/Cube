@@ -21,7 +21,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "fixtures", "trades", `${name}.json`), "utf8"));
-const A = "&vis=2&ap=slate2-8f7890f7";
+const A = "&vis=2&ap=vaquum3-429b9a62";
 const VIEW = "#t=2021-01-01T00:00Z~2021-01-01T00:06Z&p=24750~25500";
 
 async function open({ freshContext, fakeFor }, profile, hash) {

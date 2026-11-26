@@ -208,7 +208,7 @@ test.describe("B23 controls of the scale display: keys, names, contrast, size", 
     // Written by the draw that painted: the channel, a state, the appearance id, the workspace and the effective level.
     expect(report.data.channel).toBe("cells");
     expect(["ready", "no-calibration", "updating"]).toContain(report.data.state);
-    expect(report.data.appearance).toMatch(/^slate2-[0-9a-f]{8}$/);
+    expect(report.data.appearance).toMatch(/^vaquum3-[0-9a-f]{8}$/);
     expect(report.data.workspace).toBe("live");
     expect(report.data.effectiveN).toMatch(/^\d+$/);
     expect(report.data.effectiveM).toMatch(/^\d+$/);

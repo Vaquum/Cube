@@ -36,6 +36,8 @@ async function open(page, fake, probe) {
 }
 const layoutOf = (page) => page.locator("#ol-canvas").evaluate((el) => el.dataset.layout.split(",").map(Number));
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+// The light surface the plot stands on: sheet, on the Vaquum stock surface.
+const SURFACE = "#fbfaf6";
 async function pixels(page, points) {
   return page.evaluate((pts) => {
     const ctx = document.getElementById("ol-canvas").getContext("2d", { willReadFrequently: true });
@@ -45,7 +47,7 @@ async function pixels(page, points) {
 // The movement marks of a frame: a surface casing of 3.5 px and an ink-free core of 1.5 px on one rectangle (stroke rectangles drawn together).
 function marksOf(frame) {
   const key = (r) => [r.x, r.y, r.w, r.h].join(":");
-  const casings = new Map(frame.strokeRects.filter((r) => r.width === 3.5 && r.stroke === "#ffffff").map((r) => [key(r), r]));
+  const casings = new Map(frame.strokeRects.filter((r) => r.width === 3.5 && r.stroke === SURFACE).map((r) => [key(r), r]));
   return frame.strokeRects.filter((r) => r.width === 1.5 && casings.has(key(r))).map((core) => ({ core, casing: casings.get(key(core)) }));
 }
 // The coverage of the pixel [j, j + 1] by a stroke of width w centred at c, along the normal: the overlap of the pixel with the interval between the two sides of
@@ -67,7 +69,7 @@ test.describe("B36 the movement stroke is the only carrier of its value, and its
     expect(marks.length, "a mark for each").toBe(MOVEMENT_ONLY.length);
     for (const m of marks) {
       expect(m.core.alpha).toBe(1);
-      expect(m.core.stroke, "the core is a colour of the pinned ramp, not the surface").not.toBe("#ffffff");
+      expect(m.core.stroke, "the core is a colour of the pinned ramp, not the surface").not.toBe(SURFACE);
     }
   });
 
@@ -77,13 +79,13 @@ test.describe("B36 the movement stroke is the only carrier of its value, and its
     const frame = await pane.last(),
       marks = marksOf(frame),
       ops = masks.opsOf(frame);
-    const interior = rgb("#ffffff"); // the neutral interior is the surface
+    const interior = rgb(SURFACE); // the neutral interior is the surface
     let skipped = 0;
     let compared = 0;
     for (const { core, casing } of marks) {
       const style = { interior, casing: rgb(casing.stroke), core: rgb(core.stroke), coreWidth: core.width, casingWidth: casing.width };
       // the neutral interior: the surface-coloured fill that holds the stroke (pixels outside it are the plot's, not part of this mark)
-      const inner = frame.rects.find((r) => r.alpha === 1 && r.fill === "#ffffff" && r.x <= casing.x - 1 && r.y <= casing.y - 1 && r.x + r.w >= casing.x + casing.w + 1 && r.y + r.h >= casing.y + casing.h + 1 && r.w < 400);
+      const inner = frame.rects.find((r) => r.alpha === 1 && r.fill === SURFACE && r.x <= casing.x - 1 && r.y <= casing.y - 1 && r.x + r.w >= casing.x + casing.w + 1 && r.y + r.h >= casing.y + casing.h + 1 && r.w < 400);
       expect(inner, "the mark's interior").toBeTruthy();
       // the four edges of the stroked rectangle, sampled at a quarter, a half and three quarters of the way along, five pixels across each
       const sides = [

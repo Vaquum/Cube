@@ -12,7 +12,7 @@ const { test: base, expect, probeTools } = require("./fixtures.js");
 const { addRecorder, lastDraw, openView, pageColours, rectOf, boxOf, opsOfBox } = require("./cells-support.js");
 const paneCanvas = require("./pane-canvas.js");
 
-const A = "&vis=2&ap=slate2-8f7890f7";
+const A = "&vis=2&ap=vaquum3-429b9a62";
 const VIEW = { from: "2021-01-01T00:00Z", to: "2021-01-01T00:06Z", low: 24750, high: 25500 };
 const test = base.extend({
   pane: async ({ page }, use) => {

@@ -52,7 +52,7 @@ const SPEC = {
   },
   cohort: { cells: F(1), motionCells: F(1), rows: F(1), columns: F(1) },
   lut: {
-    APPEARANCES: "object", DEFAULT_APPEARANCE: V("slate2"), build: F(2), appearanceId: F(1), ROWS_ALPHA: V(0.16), composite: F(3), themeOf: F(1),
+    APPEARANCES: "object", DEFAULT_APPEARANCE: V("vaquum3"), build: F(2), appearanceId: F(1), ROWS_ALPHA: V(0.16), composite: F(3), themeOf: F(1),
     screens: F(2), deltaE2000: F(2), rgbToLab: F(3), labToRgb: F(3), contrast: F(2), over: F(3), parseColor: F(1),
   },
   role: { ROLES: "object", GLYPHS: "object", paint: F(6, 7), tile: F(2), glyphFor: F(1), keyEntries: F(2), occlusion: F(2, 3), unionSpans: F(1), REFERENCE: "object", referenceFamily: F(1), REASONS: "array", inventory: F(1), SIGN: "object", signShape: F(1), signCoverage: F(1), signInk: F(3) },

@@ -405,7 +405,7 @@ test.describe("B15 persistence: limits, malformed input and failing storage", ()
     await S.openViews(page);
     await page.locator("#ol-copy-link").click();
     await expect(page.locator("#ol-copy-status")).toContainText("Selected for copy");
-    await expect(page.locator("#ol-query-text")).toHaveValue(/#w=24h&vis=2&ap=slate2-8f7890f7&rc=1(&sc=[^&]*)?$/);
+    await expect(page.locator("#ol-query-text")).toHaveValue(/#w=24h&vis=2&ap=vaquum3-429b9a62&rc=1(&sc=[^&]*)?$/);
     expect(await S.noticeCodes(page)).toContain("clipboard");
   });
 

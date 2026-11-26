@@ -3866,35 +3866,52 @@
   const lutT2 = 3 * lutT1 * lutT1;
   const lutT3 = lutT1 * lutT1 * lutT1;
   // The unsigned constant-bar colour is entry 160 (t = 0.627): the first entry whose 0.65-opacity composite
-  // reaches the 3:1 boundary rule in the light theme (DD-87; the earlier entry 153 composited to 2.94).
+  // reaches the 3:1 boundary rule in the light theme (DD-87; the earlier entry 153 composited to 2.94). On
+  // vaquum3's sheet (#fbfaf6) it composites to 3.05, still over the rule.
   const lutBarIndex = 160;
   const lutRowsAlpha = 0.16;
-  const lutDefault = "slate2";
+  const lutDefault = "vaquum3";
   const lutEntries = 256;
 
-  // The source constants of the two appearances (API.md Appendix A.1). Nine equally spaced stops per theme,
+  // The source constants of the appearances (API.md Appendix A.1). Nine equally spaced stops per theme,
   // interpolated linearly in Lab. `rows` are the pre-composite stops of the Rows-band role (DD-86): the
   // bands are painted at a fixed 16% alpha, so their raw colours must be much stronger than the unsigned
   // ramp for the COMPOSITE to pass the same screens. `ramp1` has no rows stops of its own (its rows ramp is
   // its unsigned ramp and it makes no band claim): it is the baseline yellow-green-blue ramp, kept only as
   // the named comparison appearance for #48. The role hexes are the baseline buy/sell/neutral/border/muted
-  // colours renamed by role (DR-02, DR-20); a unit test asserts they equal the CSS tokens.
+  // colours renamed by role (DR-02, DR-20). `vaquum3`, the default, is slate2's stops on the Vaquum surfaces
+  // (the data guide, vaquum.fi/style/data): light is stock, the plot on sheet; dark is navy. Its signed ends
+  // are unchanged; the midpoint, occupancy and state ink keep the lightness Cube validated in the guide's
+  // cool grey. A unit test asserts the default's role hexes equal the CSS tokens.
   const lutRoleColours = {
     light: { midpoint: "#b9c2bc", positive: "#2d769c", negative: "#b3624b", occupancy: "#768d7e", stateInk: "#5c7263", surface: "#ffffff" },
     dark: { midpoint: "#5f6b64", positive: "#73b8d4", negative: "#d89777", occupancy: "#667f6f", stateInk: "#a1b5a7", surface: "#161f19" },
   };
+  const lutVaquumRoleColours = {
+    light: { midpoint: "#bbc0c7", positive: "#2d769c", negative: "#b3624b", occupancy: "#7e8996", stateInk: "#5e6977", surface: "#fbfaf6" },
+    dark: { midpoint: "#64696f", positive: "#73b8d4", negative: "#d89777", occupancy: "#707a87", stateInk: "#aab3bd", surface: "#142038" },
+  };
+  const lutSlateUnsigned = {
+    light: ["#e2e8ee", "#c9d3dd", "#a8b8c8", "#8299b0", "#5f7a95", "#435b76", "#2c4059", "#1a2b40", "#0e1a2b"],
+    dark: ["#26313a", "#364552", "#495d70", "#5f7a90", "#7897af", "#96b2c8", "#b4cadb", "#d3e2ee", "#f1f6fa"],
+  };
+  const lutSlateRows = {
+    light: ["#56636f", "#465868", "#384d63", "#2c4360", "#22395a", "#1a3053", "#13284b", "#0c2042", "#071739"],
+    dark: ["#6f8394", "#8397a8", "#98abbc", "#adbfce", "#c0d0dd", "#d0dde8", "#dfe8f0", "#ecf2f7", "#f7fafc"],
+  };
   const lutAppearances = {
+    vaquum3: {
+      name: "vaquum3",
+      version: 3,
+      unsigned: lutSlateUnsigned,
+      rows: lutSlateRows,
+      roles: lutVaquumRoleColours,
+    },
     slate2: {
       name: "slate2",
       version: 2,
-      unsigned: {
-        light: ["#e2e8ee", "#c9d3dd", "#a8b8c8", "#8299b0", "#5f7a95", "#435b76", "#2c4059", "#1a2b40", "#0e1a2b"],
-        dark: ["#26313a", "#364552", "#495d70", "#5f7a90", "#7897af", "#96b2c8", "#b4cadb", "#d3e2ee", "#f1f6fa"],
-      },
-      rows: {
-        light: ["#56636f", "#465868", "#384d63", "#2c4360", "#22395a", "#1a3053", "#13284b", "#0c2042", "#071739"],
-        dark: ["#6f8394", "#8397a8", "#98abbc", "#adbfce", "#c0d0dd", "#d0dde8", "#dfe8f0", "#ecf2f7", "#f7fafc"],
-      },
+      unsigned: lutSlateUnsigned,
+      rows: lutSlateRows,
       roles: lutRoleColours,
     },
     ramp1: {

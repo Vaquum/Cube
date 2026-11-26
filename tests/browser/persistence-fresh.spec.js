@@ -81,7 +81,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await expect.poll(async () => (await S.storage(page)).local["scales:v1"], { timeout: 10000 }).toContain("contexts");
     // a setting changes the address and keeps the two fixed parameters in their place
     await page.keyboard.press("m");
-    await expect.poll(async () => (await S.where(page)).hash).toMatch(/^#w=24h&vis=2&ap=slate2-8f7890f7&rc=1&mode=/);
+    await expect.poll(async () => (await S.where(page)).hash).toMatch(/^#w=24h&vis=2&ap=vaquum3-429b9a62&rc=1&mode=/);
     // a browser with nothing stored is new: nothing changed for it, so no notice
     expect(await S.noticeCodes(page)).toEqual([]);
   });
@@ -284,7 +284,7 @@ test.describe("B14 persistence: fresh browser, round trips and migration", () =>
     await fake.idle();
     // the view is the legacy one, now written as version 2
     const hash = S.withoutSc((await S.where(page)).hash);
-    expect(hash).toMatch(/^#w=7d&vis=2&ap=slate2-8f7890f7&rc=1&mode=flow&pane=volume&rows=relvol&period=90d&background=relvol$/);
+    expect(hash).toMatch(/^#w=7d&vis=2&ap=vaquum3-429b9a62&rc=1&mode=flow&pane=volume&rows=relvol&period=90d&background=relvol$/);
     const list = await S.notices(page);
     expect(list.map((n) => n.code)).toEqual(["legacy-migrated"]);
     // the notice lists every setting whose meaning changed: mode, Rows and the pane (the words come from the module's migrate table,

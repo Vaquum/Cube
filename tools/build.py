@@ -2,11 +2,20 @@
 """Build the standalone explorer from editable source and the recorded snapshot."""
 
 import argparse
+import base64
 import json
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# The self-hosted faces (src/fonts, SIL Open Font License), inlined as data: URLs so the page still makes no
+# request of its own: Archivo for the interface, IBM Plex Mono for labels, numbers and the canvas.
+FONTS = (
+    ("Archivo Variable", "src/fonts/archivo-latin-wdth-normal.woff2", "100 900", "62% 125%", "block"),
+    ("IBM Plex Mono", "src/fonts/ibm-plex-mono-latin-400-normal.woff2", "400", None, "swap"),
+    ("IBM Plex Mono", "src/fonts/ibm-plex-mono-latin-500-normal.woff2", "500", None, "swap"),
+)
 
 
 def check_names(label: str, script: str) -> None:
@@ -33,8 +42,25 @@ def read_source(relative: str) -> str:
     return path.read_text(encoding='utf-8')
 
 
+def font_faces() -> str:
+    """The @font-face rules of FONTS, each face's woff2 bytes inlined."""
+    rules = []
+    for family, relative, weight, stretch, display in FONTS:
+        path = ROOT / relative
+        if not path.is_file():
+            raise SystemExit(f"{relative} is missing; the page cannot be built without it.")
+        data = base64.b64encode(path.read_bytes()).decode('ascii')
+        stretch_rule = f" font-stretch: {stretch};" if stretch else ""
+        rules.append(f"@font-face {{ font-family: '{family}'; font-style: normal; font-display: {display}; font-weight: {weight};{stretch_rule}"
+                     f" src: url(data:font/woff2;base64,{data}) format('woff2'); }}")
+    return "\n".join(rules)
+
+
 def build() -> str:
     view = read_source('src/view.html')
+    surface_style = read_source('src/shared/surface.css')
+    surface_script = read_source('src/shared/surface.js')
+    fonts = font_faces()
     style = read_source('src/explorer.css')
     runtime = read_source('src/state.js')
     encoding = read_source('src/encoding.js')
@@ -52,7 +78,7 @@ def build() -> str:
     app = read_source('src/explorer.js')
     # The scripts are inlined verbatim, so each is checked for what would break the
     # page before it is checked for what would break the script.
-    for label, script in (('src/state.js', runtime), ('src/encoding.js', encoding), ('src/etf.js', etf), ('src/evidence.js', evidence), ('src/comparison.js', comparison), ('src/comparison-ui.js', comparison_ui), ('src/agent.js', agent), ('src/reference.js', reference), ('src/rallies.js', rallies), ('src/features.js', features), ('src/motion.js', motion), ('src/help.js', help_ui), ('src/diagnostics.js', diagnostics), ('src/explorer.js', app)):
+    for label, script in (('src/shared/surface.js', surface_script), ('src/state.js', runtime), ('src/encoding.js', encoding), ('src/etf.js', etf), ('src/evidence.js', evidence), ('src/comparison.js', comparison), ('src/comparison-ui.js', comparison_ui), ('src/agent.js', agent), ('src/reference.js', reference), ('src/rallies.js', rallies), ('src/features.js', features), ('src/motion.js', motion), ('src/help.js', help_ui), ('src/diagnostics.js', diagnostics), ('src/explorer.js', app)):
         check_inline(label, script)
         check_names(label, script)
     snapshot = json.loads(read_source('data/snapshot.json'))
@@ -61,6 +87,9 @@ def build() -> str:
     # State, encoding, comparison and app stay in this order: the app reads window.explorerEncoding and
     # window.explorerState when it starts.
     values = {
+        '__EXPLORER_SURFACESCRIPT__': surface_script,
+        '__EXPLORER_FONTS__': fonts,
+        '__EXPLORER_SURFACESTYLE__': surface_style,
         '__EXPLORER_STYLE__': style,
         '__EXPLORER_VIEW__': view,
         '__EXPLORER_DATA__': data,
@@ -88,7 +117,8 @@ def build() -> str:
     # One pass, so a substituted source is never scanned for markers: a marker that appears
     # inside one of them (a comment naming __EXPLORER_SCRIPT__, say) would otherwise be
     # replaced by whatever comes after it, or be left in the page. Refuse it instead.
-    for source, value in (('src/explorer.css', style), ('src/view.html', view), ('data/snapshot.json', data),
+    for source, value in (('src/shared/surface.js', surface_script), ('src/shared/surface.css', surface_style),
+                          ('src/explorer.css', style), ('src/view.html', view), ('data/snapshot.json', data),
                           ('src/state.js', runtime), ('src/encoding.js', encoding), ('src/etf.js', etf), ('src/evidence.js', evidence), ('src/comparison.js', comparison), ('src/comparison-ui.js', comparison_ui), ('src/agent.js', agent), ('src/reference.js', reference), ('src/rallies.js', rallies), ('src/features.js', features), ('src/motion.js', motion), ('src/help.js', help_ui), ('src/diagnostics.js', diagnostics), ('src/explorer.js', app)):
         found = sorted({marker for marker in values if marker in value})
         if found:
